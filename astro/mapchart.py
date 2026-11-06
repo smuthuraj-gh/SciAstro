@@ -217,7 +217,7 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         showlegend=False, hovermode="closest", dragmode="zoom",
         xaxis=dict(range=[0, 360], showgrid=False, zeroline=False,
                    title=dict(text="<b>Longitude/Right Ascension (RA)</b>", standoff=14, font=TITLE_FONT),
-                   tickvals=list(range(0, 361, 30)), ticklabelstandoff=GAP + ROW - 1,  # RA numbers just under the longitudes
+                   tickvals=list(range(0, 361, 30)), ticklabelstandoff=GAP + ROW - 5,  # RA numbers just under the longitudes
                    mirror=True, linecolor="rgb(134,134,134)"),
         yaxis=dict(range=[-90, 90], showgrid=False, zeroline=False, ticklabelstandoff=0,   # close to the grid
                    title=dict(text="<b>Latitude/Declination</b>", standoff=10, font=TITLE_FONT),
