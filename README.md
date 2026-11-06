@@ -46,3 +46,4 @@ Check the calculations against the workbook (kept in private/, as it holds a cus
 Swiss Ephemeris (and so `pyswisseph` and the `.se1` files in `ephe/`) is under the GNU AGPL: anyone using the hosted
 app must be able to get its source, so this code is published under the AGPL too (a public GitHub repository does
 this). Customer data never goes in the repository.
+"# SciAstro" 
