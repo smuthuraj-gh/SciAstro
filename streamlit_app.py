@@ -102,15 +102,19 @@ def page_map():
         st.caption(f"Now: {now_local_text(prep.cn_tz)}" + ("" if prep.cn else " - no City-N for this customer, so no CN"))
 
 
-def period(prep: Prepared) -> tuple[float, float] | None:
-    """The Start / End inputs (UT; birth to now unless changed) as Julian days, or None (with a warning) if unusable."""
+def period(prep: Prepared, row=None) -> tuple[float, float] | None:
+    """The Start / End inputs (UT; birth to now unless changed) as Julian days, or None (with a warning) if unusable.
+    With row (a horizontal container) they go into it, each just wide enough; otherwise in four columns."""
     birth_dt = core.jd_to_datetime(prep.jd_birth)
     now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
-    c = st.columns(4)
-    d0 = c[0].date_input("Start (UT)", value=birth_dt.date(), min_value=datetime(1800, 1, 1), max_value=datetime(2399, 12, 31))
-    t0 = c[1].time_input("Start time (UT)", value=time(birth_dt.hour, birth_dt.minute))
-    d1 = c[2].date_input("End (UT)", value=now_dt.date(), min_value=datetime(1800, 1, 1), max_value=datetime(2399, 12, 31))
-    t1 = c[3].time_input("End time (UT)", value=time(now_dt.hour, now_dt.minute))
+    c = [row] * 4 if row is not None else st.columns(4)
+    dw, tw = (125, 95) if row is not None else ("stretch", "stretch")
+    d0 = c[0].date_input("Start (UT)", value=birth_dt.date(), min_value=datetime(1800, 1, 1),
+                         max_value=datetime(2399, 12, 31), width=dw)
+    t0 = c[1].time_input("Start time (UT)", value=time(birth_dt.hour, birth_dt.minute), width=tw)
+    d1 = c[2].date_input("End (UT)", value=now_dt.date(), min_value=datetime(1800, 1, 1),
+                         max_value=datetime(2399, 12, 31), width=dw)
+    t1 = c[3].time_input("End time (UT)", value=time(now_dt.hour, now_dt.minute), width=tw)
     start, end = datetime.combine(d0, t0), datetime.combine(d1, t1)
     if end <= start:
         st.warning("The end must be after the start.")
@@ -148,11 +152,13 @@ def _range_cached(dec_on, ea, jd_from, jd_to, orb_csv):
 
 def page_distance():
     row, prep = pick_customer()
-    st.subheader("Distance")
+    head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")    # the title, then the inputs
+    head.subheader("Distance", width="content", wrap=False)
     if not need_chart(prep):
         return
-    jds = period(prep)
-    dist_on = st.multiselect("Distance lines (-D)", core.BUTTON_ORDER, default=["Sa", "Ju", "Ma", "Ve", "Su"])
+    jds = period(prep, head)
+    dist_on = head.multiselect("Distance lines (-D)", core.BUTTON_ORDER, default=["Sa", "Ju", "Ma", "Ve", "Su"],
+                               width=330)
     if jds is None:
         return
     with st.spinner("Drawing..."):
