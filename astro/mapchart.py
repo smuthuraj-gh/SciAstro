@@ -156,7 +156,7 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
 
     if birth or now:                                          # names the RA numbers printed above the 90N line
         fig.add_annotation(xref="paper", x=0.5, xanchor="center", y=90, yanchor="bottom", yshift=16,
-                           text="<b>Planets RA</b>", showarrow=False, font=dict(size=11))
+                           text="<b>Planets-RA</b>", showarrow=False, font=dict(size=11))
         # names the Dec numbers printed right of the 360 line: a side title past them, like the left axis title
         fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=44, yref="paper", y=0.5, yanchor="middle",
                            textangle=90, text="<b>Planets Declination</b>", showarrow=False, font=dict(size=11))
