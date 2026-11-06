@@ -33,9 +33,8 @@ Check the calculations against the workbook (kept in private/, as it holds a cus
 1. **Database**: create a free Postgres database (Neon or Supabase) and copy its connection URL.
 2. **Google sign-in**: in Google Cloud console create an OAuth client ID (Web application) with the redirect URI
    `https://YOUR-APP.streamlit.app/oauth2callback`.
-3. **GitHub**: create a repository and upload this folder **without** `.venv`, `private` and
-   `.streamlit/secrets.toml` (`.gitignore` leaves them out). Add a `LICENSE` file with GitHub's
-   "Add file > Create new file > LICENSE > Choose a license template > GNU AGPLv3".
+3. **GitHub**: the code is at `smuthuraj-gh/SciAstro` (public, AGPLv3 `LICENSE`). `.venv`, `private` and
+   `.streamlit/secrets.toml` are never pushed (`.gitignore` leaves them out).
 4. **Deploy**: on share.streamlit.io choose New app, the repository, `streamlit_app.py`; under Advanced settings
    pick Python 3.12 and paste `secrets.example.toml` filled in. Do not add `dev_user`.
 5. Sign in with your admin Google account, open **Customers**, import the workbook's Customers CSV, and type each
@@ -45,5 +44,6 @@ Check the calculations against the workbook (kept in private/, as it holds a cus
 
 Swiss Ephemeris (and so `pyswisseph` and the `.se1` files in `ephe/`) is under the GNU AGPL: anyone using the hosted
 app must be able to get its source, so this code is published under the AGPL too (a public GitHub repository does
-this). Customer data never goes in the repository.
-"# SciAstro" 
+this; see `LICENSE`). Customer data never goes in the repository.
+
+Source: https://github.com/smuthuraj-gh/SciAstro
