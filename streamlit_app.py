@@ -9,6 +9,7 @@ from datetime import datetime, time, timezone
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from app import auth, db
 from app.chartdata import Prepared, now_local_text, now_values, prepare
@@ -93,7 +94,11 @@ def page_map():
     key = mapchart.key_html(m)
     if key:                                                   # the planets, CB, CN key, next to Minor Aspects
         head.markdown(key, unsafe_allow_html=True, width="content")
-    st.plotly_chart(mapchart.map_figure(m, orbs()), width="stretch", config={"displaylogo": False})
+    # At its own fixed size (every label is spaced for it) in a frame that scrolls sideways in a narrower window:
+    # st.plotly_chart would shrink it to the column and bring the labels back on top of each other
+    html = mapchart.map_figure(m, orbs()).to_html(include_plotlyjs="cdn", full_html=False,
+                                                  config={"displaylogo": False, "responsive": False})
+    components.html("<style>body{margin:0}</style>" + html, height=mapchart.HEIGHT + 20, scrolling=True)
     if show_now:
         st.caption(f"Now: {now_local_text(prep.cn_tz)}" + ("" if prep.cn else " - no City-N for this customer, so no CN"))
 

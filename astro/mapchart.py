@@ -4,6 +4,7 @@ birth place. Birth: filled marks, dashed house lines from CB; Now: hollow marks,
 from CN. Aspect lines: major (black) and minor (grey), dotted for now. Hovering a mark shows its RA, Dec and D."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -18,8 +19,60 @@ FONT = 12                         # the smallest text on the chart (pixels)
 TITLE_FONT = dict(size=FONT)      # the chart's titles: Planets-RA, Planets-Declination and both axis titles, in bold
 GAP = 5                           # pixels between the grid and the text beside it
 ROW = 16                          # pixels per line of text
-RA_WIDE = 13                      # the width (degrees of RA) an RA number takes beside its line above 90N
-HEIGHT, MARGIN_B = 660, 75
+TEXT_H = 15                       # the height of a line of text
+# The chart has a fixed size, so every label's place is known in pixels and can be kept clear of the others
+WIDTH, HEIGHT = 1100, 660
+MARGIN_L, MARGIN_R, MARGIN_B = 72, 85, 75
+PLOT_W = WIDTH - MARGIN_L - MARGIN_R
+
+# The widest each character is at 12 px in Verdana, Arial or Open Sans, plain or bold (measured in a browser): Plotly
+# uses the first of these the viewer has, so a label is never wider than this says
+_CHAR_PX = {**dict.fromkeys("0123456789", 8.53), ".": 4.37, "+": 10.41, "-": 5.76, " ": 4.4, "N": 10.16, "S": 8.53,
+            "E": 8.2, "W": 13.54, "H": 10.05, "C": 8.68, "O": 10.2, "Q": 10.2, "T": 8.18, "I": 6.55, "a": 8.02,
+            "e": 7.97, "o": 8.24, "u": 8.55, "J": 6.67, "M": 11.37, "V": 9.16, "B": 9.14, "D": 9.96}
+
+
+def text_px(text: str) -> float:
+    """The widest a 12-pixel label can be, in pixels (any tags such as <b> left out)."""
+    return sum(_CHAR_PX.get(ch, 10.0) for ch in re.sub(r"<[^>]+>", "", text)) + 2.0
+
+
+class _Spots:
+    """The places (pixel boxes from the grid's bottom-left corner) taken by marks and labels inside the grid, so that
+    each new label goes to the first of its candidate places that is free."""
+
+    def __init__(self, plot_h: float):
+        self.w, self.h, self.boxes = PLOT_W, plot_h, []
+
+    def px(self, x: float, y: float) -> tuple[float, float]:
+        return x / 360.0 * self.w, (y + 90.0) / 180.0 * self.h
+
+    def box(self, x, y, text, xanchor="center", yanchor="middle", dx=0.0, dy=0.0, w=None, h=TEXT_H):
+        cx, cy = self.px(x, y)
+        cx, cy, w = cx + dx, cy + dy, text_px(text) if w is None else w
+        x0 = {"left": cx, "right": cx - w}.get(xanchor, cx - w / 2)
+        y0 = {"bottom": cy, "top": cy - h}.get(yanchor, cy - h / 2)
+        return x0, y0, x0 + w, y0 + h
+
+    def free(self, b) -> bool:
+        if b[0] < 0 or b[2] > self.w or b[1] < 0 or b[3] > self.h:
+            return False
+        return all(b[2] <= o[0] or b[0] >= o[2] or b[3] <= o[1] or b[1] >= o[3] for o in self.boxes)
+
+    def place(self, fig: go.Figure, x: float, y: float, text: str, tries, font: dict, **kw) -> bool:
+        """Puts the label at (x, y) by the first free try (xanchor, yanchor, xshift, yshift); False when none is."""
+        return self.place_any(fig, text, [(x, y, *t) for t in tries], font, **kw)
+
+    def place_any(self, fig: go.Figure, text: str, tries, font: dict, **kw) -> bool:
+        """As place, each try with its own point: (x, y, xanchor, yanchor, xshift, yshift)."""
+        for x, y, xa, ya, dx, dy in tries:
+            b = self.box(x, y, text, xa, ya, dx, dy)
+            if self.free(b):
+                self.boxes.append(b)
+                fig.add_annotation(x=x, y=y, text=text, showarrow=False, xanchor=xa, yanchor=ya, xshift=dx,
+                                   yshift=dy, font=font, **kw)
+                return True
+        return False
 
 
 @lru_cache(maxsize=1)
@@ -63,18 +116,34 @@ class MapInput:
 
 
 def _house_lines(fig: go.Figure, ra10: float, is_now: bool):
-    tag_y = -87.0 if is_now else 87.0
-    sfx = "-N" if is_now else ""
     for k in range(12):
         x = core.norm360(ra10 + 30.0 * k)
-        name = f"H{(9 + k) % 12 + 1:02d}{sfx}"
         fig.add_trace(go.Scatter(x=[x, x], y=[-90, 90], mode="lines", hoverinfo="skip", showlegend=False,
                                  line=dict(color="black", width=1.5 if is_now else 1.75,
                                            dash="solid" if is_now else "dash")))
-        fig.add_annotation(x=x, y=tag_y + (5 if is_now else -5), text=f"{x:.1f}", showarrow=False, font=dict(size=FONT),
-                           xanchor="right" if x > 341 else "left", xshift=-GAP if x > 341 else GAP)
-        mid = min(max(core.norm360(x + 15.0), 4.0), 356.0)
-        fig.add_annotation(x=mid, y=tag_y, text=f"<b>{name}</b>", showarrow=False, font=dict(size=FONT))
+
+
+def _house_labels(fig: go.Figure, spots: _Spots, ra10: float, is_now: bool):
+    """Each house's name in the middle of its span and its line's RA beside the line: birth houses in rows down from
+    the top edge, houses now in rows up from the bottom edge, each in the first row where it is clear."""
+    sfx = "-N" if is_now else ""
+    y, ya, sign = (-90.0, "bottom", 1) if is_now else (90.0, "top", -1)
+    rows = [sign * (3 + ROW * i) for i in range(10)]
+    for k in range(12):
+        x = core.norm360(ra10 + 30.0 * k)
+        mid = core.norm360(x + 15.0)
+        end = core.norm360(x + 30.0)
+        # within the house's own span: its middle, or against either of its lines; a span across the 0 / 360 edge
+        # also against that edge, on whichever side has room
+        points = [(mid, "center", 0), (mid, "center", -14), (mid, "center", 14), (x, "left", 3), (end, "right", -3)]
+        if end < x:
+            points += [(0.0, "left", 3), (360.0, "right", -3)]
+        spots.place_any(fig, f"<b>H{(9 + k) % 12 + 1:02d}{sfx}</b>",
+                        [(px, y, xa, ya, dx, dy) for dy in rows for px, xa, dx in points], dict(size=FONT))
+    for k in range(12):
+        x = core.norm360(ra10 + 30.0 * k)
+        spots.place(fig, x, y, f"{x:.1f}", [(xa, ya, dx, dy) for dy in rows for xa, dx in (("left", 3), ("right", -3))],
+                    dict(size=FONT))
 
 
 def _point_lines(fig: go.Figure, name: str, ra: float | None, de: float, is_now: bool, top: list, side: list):
@@ -95,15 +164,16 @@ def _point_lines(fig: go.Figure, name: str, ra: float | None, de: float, is_now:
 def _top_numbers(fig: go.Figure, top: list) -> int:
     """The RA numbers just above 90N, each beside its line: to the right of it, or to the left when the right is
     taken (or runs past 360); when both sides are taken it goes up a row. Returns the number of rows used."""
-    rows: list[list[tuple[float, float]]] = []               # the RA spans already taken in each row
+    rows: list[list[tuple[float, float]]] = []               # the pixel spans already taken in each row
     for ra, text, c in sorted(top):
-        sides = ("left", "right") if ra > 360 - RA_WIDE else ("right", "left")
+        x, w = ra / 360.0 * PLOT_W, text_px(text)
+        spans = {"right": (x + 2, x + 2 + w), "left": (x - 2 - w, x - 2)}
+        sides = [s for s in ("right", "left") if -MARGIN_L <= spans[s][0] and spans[s][1] <= PLOT_W + MARGIN_R]
         for row in range(len(rows) + 1):
             if row == len(rows):
                 rows.append([])
-            spans = {"right": (ra, ra + RA_WIDE), "left": (ra - RA_WIDE, ra)}
             side = next((s for s in sides
-                         if all(spans[s][1] <= a or spans[s][0] >= b for a, b in rows[row])), None)
+                         if all(spans[s][1] + 2 <= a or spans[s][0] >= b + 2 for a, b in rows[row])), None)
             if side:
                 rows[row].append(spans[side])
                 break
@@ -124,7 +194,8 @@ def _side_numbers(fig: go.Figure, side: list, px_per_unit: float):
                            font=dict(size=FONT, color=c))
 
 
-def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool):
+def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool, tags: list):
+    """The aspect's line; where its tag may go (points along the visible part of the line) is added to tags."""
     ys = [H(v) for v in a.ys]
     xs = list(a.xs)
     for shift in (0.0, -360.0, 360.0):                       # drawn on both sides when it crosses the edge
@@ -134,10 +205,12 @@ def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool):
         fig.add_trace(go.Scatter(x=sx, y=ys, mode="lines", hoverinfo="text", hovertext=a.title, showlegend=False,
                                  line=dict(color="rgb(110,110,110)" if minor else "black", width=1 if minor else 1.5,
                                            dash="dot" if is_now else "solid")))
-        mx, my = sum(sx) / len(sx), sum(ys) / len(ys)
-        if 0 <= mx <= 360:
-            fig.add_annotation(x=mx, y=my, text=f"<b>{a.title}</b>", showarrow=False, font=dict(size=FONT),
-                               bgcolor="rgba(255,255,255,0.75)", xshift=0, yshift=10)
+        (x0, y0), (x1, y1) = (sx[0], ys[0]), (sx[-1], ys[-1])
+        points = [(x0 + t * (x1 - x0), y0 + t * (y1 - y0)) for t in (0.5, 0.35, 0.65, 0.2, 0.8)]
+        points = [(x, y) for x, y in points if 0 <= x <= 360]
+        if points:
+            tags.append((a.title, points))
+            break                                            # one tag per aspect
 
 
 def key_html(m: MapInput) -> str:
@@ -183,25 +256,28 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         _point_lines(fig, "CN", None, m.cn[0], True, top, side)
     rows = _top_numbers(fig, top)
     margin_t = 1 + ROW * rows + GAP + ROW + GAP               # the RA rows, then Planets-RA above them
-    _side_numbers(fig, side, (HEIGHT - margin_t - MARGIN_B) / 180.0)
+    plot_h = HEIGHT - margin_t - MARGIN_B
+    _side_numbers(fig, side, plot_h / 180.0)
 
+    tags: list = []
     if birth:
         for a in core.all_aspects(birth, orbs, False, major=m.major, minor=m.minor):
-            _aspect_line(fig, a, False, a.angle in core.MINOR)
+            _aspect_line(fig, a, False, a.angle in core.MINOR, tags)
         _house_lines(fig, birth["CB"][0], False)
     if now:
         for a in core.all_aspects(now, orbs, True, major=m.major, minor=m.minor):
-            _aspect_line(fig, a, True, a.angle in core.MINOR)
+            _aspect_line(fig, a, True, a.angle in core.MINOR, tags)
     if m.show_now and m.cn is not None:
         _house_lines(fig, core.lst(m.jd_now, m.cn[1]), True)
 
+    marks = []                                                # (name, RA, Dec), for their name labels below
     def mark(name: str, x: float, de: float, symbol: str, hollow: bool, d_txt: str):
         c = core.colour(name)
         fig.add_trace(go.Scatter(                             # their key is shown beside the buttons (key_html)
-            x=[x], y=[H(de)], mode="markers+text", name=name, text=[f"<b>{name}</b>"], textposition="top center",
-            showlegend=False,
+            x=[x], y=[H(de)], mode="markers", name=name, showlegend=False,
             marker=dict(symbol=symbol, size=11, color="white" if hollow else c, line=dict(color=c, width=2)),
             hovertemplate=f"<b>{name}</b><br>RA {x:.2f}<br>Dec {de:+.2f}{d_txt}<extra></extra>"))
+        marks.append((name, x, de))
 
     for n, (ra, de) in birth.items():
         d = m.d_birth.get(n)
@@ -212,6 +288,27 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
     if cn_x is not None:
         mark("CN", cn_x, m.cn[0], "triangle-up", False, f"<br>lat {m.cn[0]:+.2f}, lon {m.cn[1]:+.2f}")
 
+    # Labels inside the grid, each in the first free place: first the marks themselves are kept clear, then each
+    # mark's name goes beside it, then the house names and RAs along the edges, then the aspect tags
+    spots = _Spots(plot_h)
+    for _, x, de in marks:
+        spots.boxes.append(spots.box(x, H(de), "", w=15, h=15))
+    near = [("center", "bottom", 0, 8), ("center", "top", 0, -8), ("left", "middle", 9, 0), ("right", "middle", -9, 0),
+            ("left", "bottom", 6, 5), ("right", "bottom", -6, 5), ("left", "top", 6, -5), ("right", "top", -6, -5)]
+    far = [(xa, ya, dx * k, dy * k) for k in (2, 3, 4) for xa, ya, dx, dy in near]
+    for name, x, de in marks:
+        spots.place(fig, x, H(de), f"<b>{name}</b>", near + far, dict(size=FONT, color=core.colour(name)))
+    if birth:
+        _house_labels(fig, spots, birth["CB"][0], False)
+    if m.show_now and m.cn is not None:
+        _house_labels(fig, spots, core.lst(m.jd_now, m.cn[1]), True)
+    shifts = [(0, dy) for dy in (0, 12, -12, 24, -24, 36, -36)] + \
+             [(dx, dy) for dy in (0, 18, -18, 36, -36, 54, -54, 72, -72) for dx in (40, -40, 80, -80)]
+    for title, points in tags:                                # a tag with no free place is left off (it shows on hover)
+        spots.place_any(fig, f"<b>{title}</b>",
+                        [(x, y, "center", "middle", dx, dy) for dx, dy in shifts for x, y in points],
+                        dict(size=FONT), bgcolor="rgba(255,255,255,0.75)")
+
     if birth or now:                                          # names the RA numbers printed above the 90N line
         fig.add_annotation(xref="paper", x=0.5, xanchor="center", y=90, yanchor="bottom",
                            yshift=1 + ROW * rows + GAP, text="<b>Planets-RA</b>", showarrow=False, font=TITLE_FONT)
@@ -221,11 +318,12 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
 
     lat_ticks = list(range(-90, 91, 15))
     fig.update_layout(
-        height=HEIGHT, margin=dict(l=72, r=85, t=margin_t, b=MARGIN_B), plot_bgcolor="white", paper_bgcolor="white",
+        width=WIDTH, height=HEIGHT, autosize=False, plot_bgcolor="white", paper_bgcolor="white",
+        margin=dict(l=MARGIN_L, r=MARGIN_R, t=margin_t, b=MARGIN_B, autoexpand=False),
         showlegend=False, hovermode="closest", dragmode="zoom",
         xaxis=dict(range=[0, 360], showgrid=False, zeroline=False,
                    title=dict(text="<b>Longitude/Right Ascension (RA)</b>", standoff=14, font=TITLE_FONT),
-                   tickvals=list(range(0, 361, 30)), ticklabelstandoff=GAP + ROW - 5,  # RA numbers just under the longitudes
+                   tickvals=list(range(0, 361, 30)), ticklabelstandoff=GAP + ROW - 1,  # RA numbers just under the longitudes
                    mirror=True, linecolor="rgb(134,134,134)"),
         yaxis=dict(range=[-90, 90], showgrid=False, zeroline=False, ticklabelstandoff=0,   # close to the grid
                    title=dict(text="<b>Latitude/Declination</b>", standoff=10, font=TITLE_FONT),
