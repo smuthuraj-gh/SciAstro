@@ -142,7 +142,8 @@ def page_range():
         return
     with st.spinner("Drawing..."):
         fig, note = _range_cached(tuple(dec_on), tuple(ea_names[e] for e in ea), *jds, db.orb_table().to_csv(index=False))
-    st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+    # fixed size, scaled down whole to fit (its tags are placed for that size), as AstroMap
+    st.html(mapchart.fit_html(fig), unsafe_allow_javascript=True)
     if note:
         st.caption(note)
 

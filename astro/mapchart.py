@@ -19,7 +19,7 @@ FONT = 11                         # the smallest text on the chart (pixels)
 TITLE_FONT = dict(size=FONT)      # the chart's titles: Planets-RA, Planets-Declination and both axis titles, in bold
 GAP = 5                           # pixels between the grid and the text beside it
 ROW = 15                          # pixels per line of text
-TEXT_H = 14                       # the height of a line of text
+TEXT_H = 16                       # the height Plotly gives a line of 11-px text (its box, with padding)
 # The chart has a fixed size, so every label's place is known in pixels and can be kept clear of the others
 WIDTH, HEIGHT = 1100, 660
 MARGIN_L, MARGIN_R, MARGIN_B = 72, 85, 75
@@ -35,18 +35,15 @@ _CHAR_PX = {**dict.fromkeys("0123456789", 8.53), ".": 4.37, "+": 10.41, "-": 5.7
 def text_px(text: str) -> float:
     """The widest a 12-pixel label can be, in pixels (any tags such as <b> left out)."""
     widths = sum(_CHAR_PX.get(ch, 10.0) for ch in re.sub(r"<[^>]+>", "", text))
-    return widths * FONT / 12.0 + 2.0                    # the table is for 12 px: text scales with its size
+    return widths * FONT / 12.0 + 4.0                    # the table is for 12 px; + the box Plotly draws round it
 
 
-class _Spots:
+class Spots:
     """The places (pixel boxes from the grid's bottom-left corner) taken by marks and labels inside the grid, so that
-    each new label goes to the first of its candidate places that is free."""
+    each new label goes to the first of its candidate places that is free. to_px turns a chart point into pixels."""
 
-    def __init__(self, plot_h: float):
-        self.w, self.h, self.boxes = PLOT_W, plot_h, []
-
-    def px(self, x: float, y: float) -> tuple[float, float]:
-        return x / 360.0 * self.w, (y + 90.0) / 180.0 * self.h
+    def __init__(self, plot_w: float, plot_h: float, to_px):
+        self.w, self.h, self.px, self.boxes = plot_w, plot_h, to_px, []
 
     def box(self, x, y, text, xanchor="center", yanchor="middle", dx=0.0, dy=0.0, w=None, h=TEXT_H):
         cx, cy = self.px(x, y)
@@ -58,7 +55,8 @@ class _Spots:
     def free(self, b) -> bool:
         if b[0] < 0 or b[2] > self.w or b[1] < 0 or b[3] > self.h:
             return False
-        return all(b[2] <= o[0] or b[0] >= o[2] or b[3] <= o[1] or b[1] >= o[3] for o in self.boxes)
+        g = 1.0                                              # at least a pixel between any two
+        return all(b[2] + g <= o[0] or b[0] >= o[2] + g or b[3] + g <= o[1] or b[1] >= o[3] + g for o in self.boxes)
 
     def place(self, fig: go.Figure, x: float, y: float, text: str, tries, font: dict, **kw) -> bool:
         """Puts the label at (x, y) by the first free try (xanchor, yanchor, xshift, yshift); False when none is."""
@@ -125,7 +123,7 @@ def _house_lines(fig: go.Figure, ra10: float, is_now: bool):
                                            dash="12px,3px" if is_now else "solid")))
 
 
-def _house_labels(fig: go.Figure, spots: _Spots, ra10: float, is_now: bool):
+def _house_labels(fig: go.Figure, spots: Spots, ra10: float, is_now: bool):
     """Each house's name in the middle of its span and its line's RA beside the line: birth houses in rows down from
     the top edge, houses now in rows up from the bottom edge, each in the first row where it is clear."""
     sfx = "-N" if is_now else ""
@@ -217,20 +215,22 @@ def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool, 
 
 def fit_html(fig: go.Figure) -> str:
     """The chart as HTML that shows it at its full fixed size when there is room, and otherwise scales the whole chart
-    down to the width it has, exactly as laid out (so no label can come to overlap another), its height following."""
+    down to the width it has, exactly as laid out (so no label can come to overlap another), its height following.
+    Any chart with a fixed layout width and height (AstroMap, Planets Cycles)."""
     import uuid
     from plotly.offline import get_plotlyjs_version
-    uid = "astromap-" + uuid.uuid4().hex[:8]
+    w, h = int(fig.layout.width), int(fig.layout.height)
+    uid = "chart-" + uuid.uuid4().hex[:8]
     cdn = f"https://cdn.plot.ly/plotly-{get_plotlyjs_version()}.min.js"   # the version this Plotly package draws with
     return f"""<div id="{uid}" style="width:100%; overflow:hidden">
-<div id="{uid}-in" style="width:{WIDTH}px; height:{HEIGHT}px; transform-origin:0 0"></div></div>
+<div id="{uid}-in" style="width:{w}px; height:{h}px; transform-origin:0 0"></div></div>
 <script>
 (function () {{
   const outer = document.getElementById("{uid}"), inner = document.getElementById("{uid}-in");
   function fit() {{
-    const s = Math.min(1, outer.clientWidth / {WIDTH});
+    const s = Math.min(1, outer.clientWidth / {w});
     inner.style.transform = "scale(" + s + ")";
-    outer.style.height = Math.ceil({HEIGHT} * s) + "px";
+    outer.style.height = Math.ceil({h} * s) + "px";
   }}
   new ResizeObserver(fit).observe(outer);
   fit();
@@ -325,7 +325,7 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
 
     # Labels inside the grid, each in the first free place: first the marks themselves are kept clear, then each
     # mark's name goes beside it, then the house names and RAs along the edges, then the aspect tags
-    spots = _Spots(plot_h)
+    spots = Spots(PLOT_W, plot_h, lambda x, y: (x / 360.0 * PLOT_W, (y + 90.0) / 180.0 * plot_h))
     for _, x, de in marks:
         spots.boxes.append(spots.box(x, H(de), "", w=15, h=15))
     near = [("center", "bottom", 0, 8), ("center", "top", 0, -8), ("left", "middle", 9, 0), ("right", "middle", -9, 0),

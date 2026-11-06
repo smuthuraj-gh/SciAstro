@@ -6,10 +6,15 @@ from __future__ import annotations
 import plotly.graph_objects as go
 
 from . import core
+from .mapchart import FONT, Spots
 
 DOT_COLOUR = {0: "rgb(0,0,0)", 180: "rgb(128,128,128)", 90: "rgb(150,75,0)", 120: "rgb(199,21,133)", 60: "rgb(0,128,128)"}
 EA_NAME = {a: f"{a}°" for a in (0, 60, 90, 120, 180)}  # the workbook's EA-C, EA-S, EA-Q, EA-T, EA-O
-MAX_TAGS = 300                                         # more aspects of one kind than this: no tags
+MAX_PLACED = 1500                                      # more aspects than this: the later ones are not tagged
+# A fixed size (scaled down whole to fit a narrower column), so each tag's place is known in pixels and kept clear
+WIDTH, HEIGHT = 1100, 600
+MARGIN = dict(l=60, r=30, t=20, b=110)
+PLOT_W, PLOT_H = WIDTH - MARGIN["l"] - MARGIN["r"], HEIGHT - MARGIN["t"] - MARGIN["b"]
 
 
 def range_figure(dec_on: list[str], ea_on: list[int], jd_from: float, jd_to: float,
@@ -19,8 +24,9 @@ def range_figure(dec_on: list[str], ea_on: list[int], jd_from: float, jd_to: flo
     fig = go.Figure()
     note = ""
     if not labels or jd_to <= jd_from:
-        fig.update_layout(height=520, annotations=[dict(text="Choose a planet's -M to draw it.", showarrow=False,
-                                                        xref="paper", yref="paper", x=0.5, y=0.5)])
+        fig.update_layout(width=WIDTH, height=HEIGHT, autosize=False,
+                          annotations=[dict(text="Choose a planet to draw it.", showarrow=False,
+                                            xref="paper", yref="paper", x=0.5, y=0.5)])
         return fig, note
     rows = core.range_rows(labels, jd_from, jd_to)
     t = [core.jd_to_datetime(j) for j in rows["jd"]]
@@ -40,17 +46,41 @@ def range_figure(dec_on: list[str], ea_on: list[int], jd_from: float, jd_to: flo
                                  hovertemplate="%{hovertext}<br>%{x|%Y-%m-%d %H:%M}<extra></extra>",
                                  marker=dict(size=7, color=DOT_COLOUR[ang]), line=dict(color=DOT_COLOUR[ang], width=1),
                                  connectgaps=False))
-        if len(ev) <= MAX_TAGS:
-            fig.add_trace(go.Scatter(x=[core.jd_to_datetime(e.jd) for e in ev], y=[(e.de1 + e.de2) / 2 for e in ev],
-                                     mode="text", text=[f"<b>{e.title}</b>" for e in ev], textfont=dict(size=11),
-                                     textposition="middle right", hoverinfo="skip", showlegend=False))
-        else:
-            note = f"Too many {EA_NAME[ang]} aspects to tag: choose a shorter period."
+
+    # Each aspect's tag in the first free place beside its dots (none on another tag or a dot); a tag with no free
+    # place is left off and shows when the pointer is on its dot
+    span = jd_to - jd_from
+    spots = Spots(PLOT_W, PLOT_H, lambda jd, y: ((jd - jd_from) / span * PLOT_W, (y + 30.0) / 60.0 * PLOT_H))
+    events = sorted(events, key=lambda e: e.jd)
+    for e in events:
+        for y in (e.de1, e.de2):
+            spots.boxes.append(spots.box(e.jd, y, "", w=10, h=10))
+    placed = 0
+    for e in events[:MAX_PLACED]:
+        lo, hi = sorted((e.de1, e.de2))
+        ys = [(lo + hi) / 2, lo + (hi - lo) / 4, hi - (hi - lo) / 4, lo, hi]
+        tries = [(e.jd, y, xa, "middle", dx, dy) for dy in (0, 13, -13, 26, -26) for y in ys
+                 for xa, dx in (("left", 6), ("right", -6))]
+        text = f"<b>{e.title}</b>"
+        for jd, y, xa, ya, dx, dy in tries:
+            b = spots.box(jd, y, text, xa, ya, dx, dy)
+            if spots.free(b):
+                spots.boxes.append(b)
+                fig.add_annotation(x=core.jd_to_datetime(jd), y=y, text=text, showarrow=False, xanchor=xa,
+                                   yanchor=ya, xshift=dx, yshift=dy, font=dict(size=FONT))
+                placed += 1
+                break
+    if placed < len(events):
+        note = (f"{len(events) - placed} of {len(events)} aspect tags are left off where there is no room; point at "
+                "a dot to see its aspect, or choose a shorter period.")
     start, end = core.jd_to_datetime(jd_from), core.jd_to_datetime(jd_to)
     fig.update_layout(
-        height=560, margin=dict(l=60, r=30, t=30, b=40), plot_bgcolor="white", paper_bgcolor="white",
-        legend=dict(orientation="h", y=-0.18), hovermode="closest",
-        xaxis=dict(range=[start, end], title="Year/Month/Date/Time (UT)", showgrid=True, gridcolor="rgb(235,235,235)"),
+        width=WIDTH, height=HEIGHT, autosize=False, margin=dict(**MARGIN, autoexpand=False),
+        plot_bgcolor="white", paper_bgcolor="white",
+        legend=dict(orientation="h", y=-0.2), hovermode="closest",
+        xaxis=dict(range=[start, end], title="Year/Month/Date/Time (UT)", showgrid=True, gridcolor="rgb(235,235,235)",
+                   ticklabelstandoff=8),                 # the first date clear of the -30 beside the corner
         yaxis=dict(range=[-30, 30], dtick=5, title="Declination", tickformat="+d", zeroline=True,
+                   ticklabelstandoff=6,                   # clear of dots on the chart's left edge
                    zerolinecolor="rgb(200,200,200)", gridcolor="rgb(235,235,235)"))
     return fig, note
