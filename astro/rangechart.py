@@ -51,6 +51,6 @@ def range_figure(dec_on: list[str], ea_on: list[int], jd_from: float, jd_to: flo
         height=560, margin=dict(l=60, r=30, t=30, b=40), plot_bgcolor="white", paper_bgcolor="white",
         legend=dict(orientation="h", y=-0.18), hovermode="closest",
         xaxis=dict(range=[start, end], title="Year/Month/Date/Time (UT)", showgrid=True, gridcolor="rgb(235,235,235)"),
-        yaxis=dict(range=[-30, 30], dtick=5, title="Dec (degrees)", tickformat="+d", zeroline=True,
+        yaxis=dict(range=[-30, 30], dtick=5, title="Declination", tickformat="+d", zeroline=True,
                    zerolinecolor="rgb(200,200,200)", gridcolor="rgb(235,235,235)"))
     return fig, note
