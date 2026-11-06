@@ -76,11 +76,12 @@ def page_map():
     st.subheader("AstroMap")
     if not need_chart(prep):
         return
-    shown = st.pills("Show", ["Birth", "Now", "Major Aspects", "Minor Aspects"], selection_mode="multi",
-                     default=["Birth", "Major Aspects", "Minor Aspects"], key="map_show_v2",
-                     help="Major Aspects: conjunction, sextile, square, trine, opposition. "
+    shown = st.pills("Show", ["At DOB", "At Current Time", "Major Aspects", "Minor Aspects"], selection_mode="multi",
+                     default=["At DOB", "Major Aspects", "Minor Aspects"], key="map_show_v3",
+                     help="At DOB: the planets at birth. At Current Time: the planets now. "
+                          "Major Aspects: conjunction, sextile, square, trine, opposition. "
                           "Minor Aspects: 30, 45, 72, 135, 144, 150 degrees.")
-    show_birth, show_now = "Birth" in shown, "Now" in shown
+    show_birth, show_now = "At DOB" in shown, "At Current Time" in shown
     major, minor = "Major Aspects" in shown, "Minor Aspects" in shown
     jd_now = core.now_jd()
     now_pts, d_now = now_values(jd_now)
