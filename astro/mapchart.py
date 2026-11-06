@@ -115,7 +115,7 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
     fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", line=dict(color="rgb(150,150,150)", width=1),
                              hoverinfo="skip", showlegend=False, connectgaps=False))
     for lon in range(-165, 181, 15):                          # longitudes along the bottom
-        fig.add_annotation(x=core.norm360(lon + turn), y=-90, yanchor="top", yshift=-20, showarrow=False,   # below the RA ticks
+        fig.add_annotation(x=core.norm360(lon + turn), y=-90, yanchor="top", yshift=-2, showarrow=False,    # above the RA ticks
                            font=dict(size=11), text=str(lon) if lon in (0, 180) else f"{abs(lon)}{'W' if lon < 0 else 'E'}")
 
     birth = m.birth if (m.show_birth and m.birth) else {}
@@ -167,8 +167,9 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         height=680, margin=dict(l=60, r=85, t=45, b=80), plot_bgcolor="white", paper_bgcolor="white",
         legend=dict(orientation="h", y=-0.16), hovermode="closest", dragmode="zoom",
         xaxis=dict(range=[0, 360], showgrid=False, zeroline=False,
-                   title=dict(text="<b>Longitude/Right Ascension (RA)</b>", standoff=26, font=TITLE_FONT),
-                   tickvals=list(range(0, 361, 30)), mirror=True, linecolor="rgb(134,134,134)"),
+                   title=dict(text="<b>Longitude/Right Ascension (RA)</b>", standoff=12, font=TITLE_FONT),
+                   tickvals=list(range(0, 361, 30)), ticklabelstandoff=18,      # RA numbers under the longitudes
+                   mirror=True, linecolor="rgb(134,134,134)"),
         yaxis=dict(range=[-90, 90], showgrid=False, zeroline=False,
                    title=dict(text="<b>Latitude/Declination</b>", font=TITLE_FONT),
                    tickvals=[H(v) for v in lat_ticks],
