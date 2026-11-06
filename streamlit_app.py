@@ -111,10 +111,10 @@ def period(prep: Prepared, row=None) -> tuple[float, float] | None:
     dw, tw = (125, 80) if row is not None else ("stretch", "stretch")
     d0 = c[0].date_input("Start Date (UT)", value=birth_dt.date(), min_value=datetime(1800, 1, 1),
                          max_value=datetime(2399, 12, 31), width=dw)
-    t0 = c[1].time_input("Start time (UT)", value=time(birth_dt.hour, birth_dt.minute), width=tw)
+    t0 = c[1].time_input("Time (UT)", key="start_time", value=time(birth_dt.hour, birth_dt.minute), width=tw)
     d1 = c[2].date_input("End Date (UT)", value=now_dt.date(), min_value=datetime(1800, 1, 1),
                          max_value=datetime(2399, 12, 31), width=dw)
-    t1 = c[3].time_input("End time (UT)", value=time(now_dt.hour, now_dt.minute), width=tw)
+    t1 = c[3].time_input("Time (UT)", key="end_time", value=time(now_dt.hour, now_dt.minute), width=tw)
     start, end = datetime.combine(d0, t0), datetime.combine(d1, t1)
     if end <= start:
         st.warning("The end must be after the start.")
@@ -160,7 +160,7 @@ def page_distance():
         return
     jds = period(prep, head)
     # on / off buttons: all seven planets always in view (a selection box would hide some, or not fit on the line)
-    dist_on = head.pills("Distance lines (-D)", core.BUTTON_ORDER, selection_mode="multi",
+    dist_on = head.pills("Planets", core.BUTTON_ORDER, selection_mode="multi",
                          default=["Sa", "Ju", "Ma", "Ve", "Su"], key="dist_on") or []
     if jds is None:
         return
