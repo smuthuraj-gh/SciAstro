@@ -208,7 +208,7 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         fig.add_annotation(xref="paper", x=0.5, xanchor="center", y=90, yanchor="bottom",
                            yshift=GAP + ROW * rows + GAP, text="<b>Planets-RA</b>", showarrow=False, font=TITLE_FONT)
         # names the Dec numbers printed right of the 360 line: a side title past them, like the left axis title
-        fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=56, yref="paper", y=0.5, yanchor="middle",
+        fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=50, yref="paper", y=0.5, yanchor="middle",
                            textangle=90, text="<b>Planets-Declination</b>", showarrow=False, font=TITLE_FONT)
 
     lat_ticks = list(range(-90, 91, 15))
