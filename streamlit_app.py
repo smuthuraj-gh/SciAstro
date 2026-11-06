@@ -1,6 +1,6 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
-Pages: AstroMap, Range, Tables, Aspects for everyone (their own customers only); Customers for admins; My details for
+Pages: AstroMap, Range, Distance, Tables, Aspects for everyone (their own customers only); Customers for admins; My details for
 users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
@@ -12,7 +12,7 @@ import streamlit as st
 
 from app import auth, db
 from app.chartdata import Prepared, now_local_text, now_values, prepare
-from astro import core, mapchart, rangechart, se
+from astro import core, distancechart, mapchart, rangechart, se
 
 st.set_page_config(page_title="Equatorial charts", page_icon=":material/public:", layout="wide")
 
@@ -101,11 +101,8 @@ def page_map():
         st.caption(f"Now: {now_local_text(prep.cn_tz)}" + ("" if prep.cn else " - no City-N for this customer, so no CN"))
 
 
-def page_range():
-    row, prep = pick_customer()
-    st.subheader("Range")
-    if not need_chart(prep):
-        return
+def period(prep: Prepared) -> tuple[float, float] | None:
+    """The Start / End inputs (UT; birth to now unless changed) as Julian days, or None (with a warning) if unusable."""
     birth_dt = core.jd_to_datetime(prep.jd_birth)
     now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
     c = st.columns(4)
@@ -114,30 +111,59 @@ def page_range():
     d1 = c[2].date_input("End (UT)", value=now_dt.date(), min_value=datetime(1800, 1, 1), max_value=datetime(2399, 12, 31))
     t1 = c[3].time_input("End time (UT)", value=time(now_dt.hour, now_dt.minute))
     start, end = datetime.combine(d0, t0), datetime.combine(d1, t1)
-    c = st.columns(3)
-    dec_on = c[0].multiselect("Dec lines (-M)", core.BUTTON_ORDER, default=["Sa", "Ju", "Ma", "Ve", "Su"])
-    dist_on = c[1].multiselect("Distance lines (-D)", core.BUTTON_ORDER, default=[])
-    ea_names = {"EA-C": 0, "EA-S": 60, "EA-Q": 90, "EA-T": 120, "EA-O": 180}
-    ea = c[2].multiselect("Aspect dots", list(ea_names), default=list(ea_names))
     if end <= start:
         st.warning("The end must be after the start.")
-        return
+        return None
     if (end - start).days > 100 * 366:
         st.warning("That period is too long - choose about 100 years at most.")
+        return None
+    return core.jd_of_datetime(start), core.jd_of_datetime(end)
+
+
+def page_range():
+    row, prep = pick_customer()
+    st.subheader("Range")
+    if not need_chart(prep):
+        return
+    jds = period(prep)
+    c = st.columns(2)
+    dec_on = c[0].multiselect("Dec lines (-M)", core.BUTTON_ORDER, default=["Sa", "Ju", "Ma", "Ve", "Su"])
+    ea_names = {"EA-C": 0, "EA-S": 60, "EA-Q": 90, "EA-T": 120, "EA-O": 180}
+    ea = c[1].multiselect("Aspect dots", list(ea_names), default=list(ea_names))
+    if jds is None:
         return
     with st.spinner("Drawing..."):
-        fig, note = _range_cached(tuple(dec_on), tuple(dist_on), tuple(ea_names[e] for e in ea),
-                                  core.jd_of_datetime(start), core.jd_of_datetime(end), db.orb_table().to_csv(index=False))
+        fig, note = _range_cached(tuple(dec_on), tuple(ea_names[e] for e in ea), *jds, db.orb_table().to_csv(index=False))
     st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
     if note:
         st.caption(note)
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
-def _range_cached(dec_on, dist_on, ea, jd_from, jd_to, orb_csv):
+def _range_cached(dec_on, ea, jd_from, jd_to, orb_csv):
     import io
-    return rangechart.range_figure(list(dec_on), list(dist_on), list(ea), jd_from, jd_to,
-                                   core.Orbs(pd.read_csv(io.StringIO(orb_csv))))
+    return rangechart.range_figure(list(dec_on), list(ea), jd_from, jd_to, core.Orbs(pd.read_csv(io.StringIO(orb_csv))))
+
+
+def page_distance():
+    row, prep = pick_customer()
+    st.subheader("Distance")
+    if not need_chart(prep):
+        return
+    jds = period(prep)
+    dist_on = st.multiselect("Distance lines (-D)", core.BUTTON_ORDER, default=["Sa", "Ju", "Ma", "Ve", "Su"])
+    if jds is None:
+        return
+    with st.spinner("Drawing..."):
+        fig = _distance_cached(tuple(dist_on), *jds)
+    st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+    st.caption("D = % between the planet's least and greatest distance from the Earth (1800-2400): 0 nearest, "
+               "100 farthest.")
+
+
+@st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
+def _distance_cached(dist_on, jd_from, jd_to):
+    return distancechart.distance_figure(list(dist_on), jd_from, jd_to)
 
 
 def page_tables():
@@ -234,6 +260,7 @@ def page_my_details():
 
 pages = [st.Page(page_map, title="AstroMap", icon=":material/public:", url_path="astromap", default=True),
          st.Page(page_range, title="Range", icon=":material/show_chart:", url_path="range"),
+         st.Page(page_distance, title="Distance", icon=":material/straighten:", url_path="distance"),
          st.Page(page_tables, title="Tables", icon=":material/table:", url_path="tables"),
          st.Page(page_aspects, title="Aspects", icon=":material/tune:", url_path="aspects")]
 pages.append(st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers") if user.is_admin
