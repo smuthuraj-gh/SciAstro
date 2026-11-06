@@ -31,15 +31,13 @@ DIST_RANGE = {"Su": (147079476.4, 152116857.5), "Mo": (356371.3, 406720.6), "Me"
 
 MAJOR = [0, 180, 90, 120, 60]
 MINOR = [30, 45, 72, 135, 144, 150]
-TAG = {0: "C-", 180: "O-", 90: "Q-", 120: "T-", 60: "S-"}
-
-
 def colour(name: str) -> str:
     return COLOURS.get(name[:2], "rgb(0,0,0)")
 
 
 def tag(angle: int) -> str:
-    return TAG.get(angle, f"{angle}-")
+    """An aspect's name starts with its angle: 0-Su-Me, 60-Ma-Mo, 135-Sa-Ve (the workbook used C-, S-, Q-, T-, O-)."""
+    return f"{angle}-"
 
 
 def norm360(deg: float) -> float:
@@ -187,7 +185,7 @@ def hit(angle: int, p1: tuple[float, float], p2: tuple[float, float], ra_orb: fl
 class AspectLine:
     angle: int
     members: list[str]           # in title order (CB first, then nearest; else from the lowest RA)
-    title: str                   # e.g. C-CB-Sa, O-Mo-Ju, 30-Sa-Ma; now ones end in -N
+    title: str                   # e.g. 0-CB-Sa, 180-Mo-Ju, 30-Sa-Ma; now ones end in -N
     xs: list[float]              # RA of each member, unwrapped so the line goes the short way
     ys: list[float]              # Dec of each member
 
@@ -214,7 +212,7 @@ def conjunctions(pts: dict[str, tuple[float, float]], orbs: Orbs, is_now: bool) 
             mem.sort(key=lambda n: -1.0 if n == "CB" else abs(x[n] - x["CB"]))
         else:
             mem.sort(key=lambda n: x[n])
-        title = "C-" + "-".join(mem) + ("-N" if is_now else "")
+        title = tag(0) + "-".join(mem) + ("-N" if is_now else "")
         out.append(AspectLine(0, mem, title, [x[n] for n in mem], [pts[n][1] for n in mem]))
     return out
 
@@ -283,7 +281,7 @@ def range_rows(labels: list[str], jd_from: float, jd_to: float) -> pd.DataFrame:
 class AspectEvent:
     jd: float
     angle: int
-    title: str          # e.g. C-Sa-Ju (in the workbook's planet order)
+    title: str          # e.g. 0-Sa-Ju (in the workbook's planet order)
     de1: float
     de2: float
 
