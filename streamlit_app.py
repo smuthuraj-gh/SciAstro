@@ -157,8 +157,9 @@ def page_distance():
     if not need_chart(prep):
         return
     jds = period(prep, head)
-    dist_on = head.multiselect("Distance lines (-D)", core.BUTTON_ORDER, default=["Sa", "Ju", "Ma", "Ve", "Su"],
-                               width=330)
+    # on / off buttons: all seven planets always in view (a selection box would hide some, or not fit on the line)
+    dist_on = head.pills("Distance lines (-D)", core.BUTTON_ORDER, selection_mode="multi",
+                         default=["Sa", "Ju", "Ma", "Ve", "Su"], key="dist_on") or []
     if jds is None:
         return
     with st.spinner("Drawing..."):
