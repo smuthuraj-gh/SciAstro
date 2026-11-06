@@ -127,14 +127,16 @@ def period(prep: Prepared, row=None) -> tuple[float, float] | None:
 
 def page_range():
     row, prep = pick_customer()
-    st.subheader("Range")
+    head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")    # the title, then the inputs
+    head.subheader("Range", width="content", wrap=False)
     if not need_chart(prep):
         return
-    jds = period(prep)
-    c = st.columns(2)
-    dec_on = c[0].multiselect("Dec lines (-M)", core.BUTTON_ORDER, default=["Sa", "Ju", "Ma", "Ve", "Su"])
+    jds = period(prep, head)
+    # on / off buttons, as on Distance: every choice always in view
+    dec_on = head.pills("Dec lines (-M)", core.BUTTON_ORDER, selection_mode="multi",
+                        default=["Sa", "Ju", "Ma", "Ve", "Su"], key="dec_on") or []
     ea_names = {"EA-C": 0, "EA-S": 60, "EA-Q": 90, "EA-T": 120, "EA-O": 180}
-    ea = c[1].multiselect("Aspect dots", list(ea_names), default=list(ea_names))
+    ea = head.pills("Aspect dots", list(ea_names), selection_mode="multi", default=list(ea_names), key="ea_on") or []
     if jds is None:
         return
     with st.spinner("Drawing..."):
