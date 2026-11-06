@@ -158,7 +158,7 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
     fig.update_layout(
         height=660, margin=dict(l=60, r=70, t=40, b=60), plot_bgcolor="white", paper_bgcolor="white",
         legend=dict(orientation="h", y=-0.12), hovermode="closest", dragmode="zoom",
-        xaxis=dict(range=[0, 360], showgrid=False, zeroline=False, title="RA  (Longitude along the bottom)",
+        xaxis=dict(range=[0, 360], showgrid=False, zeroline=False, title="Longitude / Right Ascension (RA)",
                    tickvals=list(range(0, 361, 30)), mirror=True, linecolor="rgb(134,134,134)"),
         yaxis=dict(range=[-90, 90], showgrid=False, zeroline=False, title="Latitude / Declination",
                    tickvals=[H(v) for v in lat_ticks],
