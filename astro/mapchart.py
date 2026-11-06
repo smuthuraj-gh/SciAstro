@@ -15,6 +15,10 @@ from . import core
 
 H = core.ra_de_height
 TITLE_FONT = dict(size=11)        # the chart's titles: Planets-RA, Planets-Declination and both axis titles, in bold
+GAP = 5                           # pixels between the grid and the text beside it
+ROW = 15                          # pixels per line of 11-pixel text
+RA_APART = 16                     # RA numbers closer than this (degrees) would overlap: the next goes up a row
+HEIGHT, MARGIN_B = 700, 90
 
 
 @lru_cache(maxsize=1)
@@ -67,12 +71,13 @@ def _house_lines(fig: go.Figure, ra10: float, is_now: bool):
                                  line=dict(color="black", width=1.5 if is_now else 1.75,
                                            dash="solid" if is_now else "dash")))
         fig.add_annotation(x=x, y=tag_y + (5 if is_now else -5), text=f"{x:.1f}", showarrow=False, font=dict(size=11),
-                           xanchor="right" if x > 341 else "left", xshift=-2 if x > 341 else 2)
+                           xanchor="right" if x > 341 else "left", xshift=-GAP if x > 341 else GAP)
         mid = min(max(core.norm360(x + 15.0), 4.0), 356.0)
         fig.add_annotation(x=mid, y=tag_y, text=f"<b>{name}</b>", showarrow=False, font=dict(size=11))
 
 
-def _point_lines(fig: go.Figure, name: str, ra: float | None, de: float, is_now: bool):
+def _point_lines(fig: go.Figure, name: str, ra: float | None, de: float, is_now: bool, top: list, side: list):
+    """The point's RA and Dec lines; its RA number (for above 90N) and Dec number (for right of 360) go to top / side."""
     c = core.colour(name)
     dash = "dot" if is_now else "solid"
     if ra is not None:                                       # CB and CN have no vertical line
@@ -80,11 +85,34 @@ def _point_lines(fig: go.Figure, name: str, ra: float | None, de: float, is_now:
                                  line=dict(color=c, width=0.75, dash=dash)))
     fig.add_trace(go.Scatter(x=[0, 360], y=[H(de), H(de)], mode="lines", hoverinfo="skip", showlegend=False,
                              line=dict(color=c, width=0.75, dash=dash)))
-    fig.add_annotation(x=360, y=H(de), text=f"{'<b>' if is_now else ''}{de:+.1f}{'</b>' if is_now else ''}",
-                       showarrow=False, xanchor="left", xshift=3, font=dict(size=11, color=c))
+    b0, b1 = ("<b>", "</b>") if is_now else ("", "")
+    side.append((H(de), f"{b0}{de:+.1f}{b1}", c))
     if ra is not None:
-        fig.add_annotation(x=ra, y=90, text=f"{'<b>' if is_now else ''}{ra:.1f}{'</b>' if is_now else ''}",
-                           showarrow=False, yanchor="bottom", yshift=2, font=dict(size=11, color=c))
+        top.append((ra, f"{b0}{ra:.1f}{b1}", c))
+
+
+def _top_numbers(fig: go.Figure, top: list) -> int:
+    """The RA numbers above 90N; one too close to the one before goes up a row. Returns the number of rows used."""
+    last: list[float] = []                                   # the RA of the last number in each row
+    for ra, text, c in sorted(top):
+        row = next((r for r, x in enumerate(last) if ra - x >= RA_APART), len(last))
+        if row == len(last):
+            last.append(ra)
+        last[row] = ra
+        fig.add_annotation(x=ra, y=90, text=text, showarrow=False, yanchor="bottom", yshift=GAP + ROW * row,
+                           font=dict(size=11, color=c))
+    return max(len(last), 1)
+
+
+def _side_numbers(fig: go.Figure, side: list, px_per_unit: float):
+    """The Dec numbers right of 360, top to bottom; one too close to the one above is moved down to clear it."""
+    prev = None                                              # pixel height of the number placed above
+    for y, text, c in sorted(side, reverse=True):
+        want = y * px_per_unit
+        at = want if prev is None or prev - want >= ROW else prev - ROW
+        prev = at
+        fig.add_annotation(x=360, y=y, yshift=at - want, text=text, showarrow=False, xanchor="left", xshift=GAP + 2,
+                           font=dict(size=11, color=c))
 
 
 def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool):
@@ -115,19 +143,23 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
     fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", line=dict(color="rgb(150,150,150)", width=1),
                              hoverinfo="skip", showlegend=False, connectgaps=False))
     for lon in range(-165, 181, 15):                          # longitudes along the bottom
-        fig.add_annotation(x=core.norm360(lon + turn), y=-90, yanchor="top", yshift=-2, showarrow=False,    # above the RA ticks
+        fig.add_annotation(x=core.norm360(lon + turn), y=-90, yanchor="top", yshift=-GAP, showarrow=False,  # above the RA ticks
                            font=dict(size=11), text=str(lon) if lon in (0, 180) else f"{abs(lon)}{'W' if lon < 0 else 'E'}")
 
     birth = m.birth if (m.show_birth and m.birth) else {}
     now = m.now if (m.show_now and m.now) else {}
+    top, side = [], []                                        # the RA / Dec numbers, placed together below
     for n, (ra, de) in birth.items():
-        _point_lines(fig, n, None if n == "CB" else ra, de, False)
+        _point_lines(fig, n, None if n == "CB" else ra, de, False, top, side)
     for n, (ra, de) in now.items():
-        _point_lines(fig, n + "-N", ra, de, True)
+        _point_lines(fig, n + "-N", ra, de, True, top, side)
     cn_x = None
     if m.show_now and m.cn is not None:
         cn_x = core.norm360(m.cn[1] + turn)
-        _point_lines(fig, "CN", None, m.cn[0], True)
+        _point_lines(fig, "CN", None, m.cn[0], True, top, side)
+    rows = _top_numbers(fig, top)
+    margin_t = GAP + ROW * rows + ROW + 2 * GAP               # the RA rows, then Planets-RA above them
+    _side_numbers(fig, side, (HEIGHT - margin_t - MARGIN_B) / 180.0)
 
     if birth:
         for a in core.all_aspects(birth, orbs, False, major=m.major, minor=m.minor):
@@ -156,22 +188,22 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         mark("CN", cn_x, m.cn[0], "triangle-up", False, f"<br>lat {m.cn[0]:+.2f}, lon {m.cn[1]:+.2f}")
 
     if birth or now:                                          # names the RA numbers printed above the 90N line
-        fig.add_annotation(xref="paper", x=0.5, xanchor="center", y=90, yanchor="bottom", yshift=19,
-                           text="<b>Planets-RA</b>", showarrow=False, font=TITLE_FONT)
+        fig.add_annotation(xref="paper", x=0.5, xanchor="center", y=90, yanchor="bottom",
+                           yshift=GAP + ROW * rows + GAP, text="<b>Planets-RA</b>", showarrow=False, font=TITLE_FONT)
         # names the Dec numbers printed right of the 360 line: a side title past them, like the left axis title
-        fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=50, yref="paper", y=0.5, yanchor="middle",
+        fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=60, yref="paper", y=0.5, yanchor="middle",
                            textangle=90, text="<b>Planets-Declination</b>", showarrow=False, font=TITLE_FONT)
 
     lat_ticks = list(range(-90, 91, 15))
     fig.update_layout(
-        height=680, margin=dict(l=60, r=85, t=45, b=80), plot_bgcolor="white", paper_bgcolor="white",
-        legend=dict(orientation="h", y=-0.16), hovermode="closest", dragmode="zoom",
+        height=HEIGHT, margin=dict(l=70, r=95, t=margin_t, b=MARGIN_B), plot_bgcolor="white", paper_bgcolor="white",
+        legend=dict(orientation="h", y=-0.17), hovermode="closest", dragmode="zoom",
         xaxis=dict(range=[0, 360], showgrid=False, zeroline=False,
-                   title=dict(text="<b>Longitude/Right Ascension (RA)</b>", standoff=12, font=TITLE_FONT),
-                   tickvals=list(range(0, 361, 30)), ticklabelstandoff=18,      # RA numbers under the longitudes
+                   title=dict(text="<b>Longitude/Right Ascension (RA)</b>", standoff=14, font=TITLE_FONT),
+                   tickvals=list(range(0, 361, 30)), ticklabelstandoff=GAP + ROW + 4,  # RA numbers under the longitudes
                    mirror=True, linecolor="rgb(134,134,134)"),
-        yaxis=dict(range=[-90, 90], showgrid=False, zeroline=False,
-                   title=dict(text="<b>Latitude/Declination</b>", font=TITLE_FONT),
+        yaxis=dict(range=[-90, 90], showgrid=False, zeroline=False, ticklabelstandoff=GAP,
+                   title=dict(text="<b>Latitude/Declination</b>", standoff=10, font=TITLE_FONT),
                    tickvals=[H(v) for v in lat_ticks],
                    ticktext=["0" if v == 0 else f"{abs(v)}{'S' if v < 0 else 'N'}" for v in lat_ticks],
                    mirror=True, linecolor="rgb(134,134,134)"))
