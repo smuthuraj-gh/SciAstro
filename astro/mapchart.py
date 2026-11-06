@@ -65,10 +65,10 @@ def _house_lines(fig: go.Figure, ra10: float, is_now: bool):
         fig.add_trace(go.Scatter(x=[x, x], y=[-90, 90], mode="lines", hoverinfo="skip", showlegend=False,
                                  line=dict(color="black", width=1.5 if is_now else 1.75,
                                            dash="solid" if is_now else "dash")))
-        fig.add_annotation(x=x, y=tag_y + (5 if is_now else -5), text=f"{x:.1f}", showarrow=False, font=dict(size=9),
+        fig.add_annotation(x=x, y=tag_y + (5 if is_now else -5), text=f"{x:.1f}", showarrow=False, font=dict(size=11),
                            xanchor="right" if x > 341 else "left", xshift=-2 if x > 341 else 2)
         mid = min(max(core.norm360(x + 15.0), 4.0), 356.0)
-        fig.add_annotation(x=mid, y=tag_y, text=f"<b>{name}</b>", showarrow=False, font=dict(size=9))
+        fig.add_annotation(x=mid, y=tag_y, text=f"<b>{name}</b>", showarrow=False, font=dict(size=11))
 
 
 def _point_lines(fig: go.Figure, name: str, ra: float | None, de: float, is_now: bool):
@@ -80,10 +80,10 @@ def _point_lines(fig: go.Figure, name: str, ra: float | None, de: float, is_now:
     fig.add_trace(go.Scatter(x=[0, 360], y=[H(de), H(de)], mode="lines", hoverinfo="skip", showlegend=False,
                              line=dict(color=c, width=0.75, dash=dash)))
     fig.add_annotation(x=360, y=H(de), text=f"{'<b>' if is_now else ''}{de:+.1f}{'</b>' if is_now else ''}",
-                       showarrow=False, xanchor="left", xshift=3, font=dict(size=9, color=c))
+                       showarrow=False, xanchor="left", xshift=3, font=dict(size=11, color=c))
     if ra is not None:
         fig.add_annotation(x=ra, y=90, text=f"{'<b>' if is_now else ''}{ra:.1f}{'</b>' if is_now else ''}",
-                           showarrow=False, yanchor="bottom", yshift=2, font=dict(size=9, color=c))
+                           showarrow=False, yanchor="bottom", yshift=2, font=dict(size=11, color=c))
 
 
 def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool):
@@ -98,7 +98,7 @@ def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool):
                                            dash="dot" if is_now else "solid")))
         mx, my = sum(sx) / len(sx), sum(ys) / len(ys)
         if 0 <= mx <= 360:
-            fig.add_annotation(x=mx, y=my, text=f"<b>{a.title}</b>", showarrow=False, font=dict(size=10),
+            fig.add_annotation(x=mx, y=my, text=f"<b>{a.title}</b>", showarrow=False, font=dict(size=11),
                                bgcolor="rgba(255,255,255,0.75)", xshift=0, yshift=10)
 
 
@@ -114,8 +114,8 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
     fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", line=dict(color="rgb(150,150,150)", width=1),
                              hoverinfo="skip", showlegend=False, connectgaps=False))
     for lon in range(-165, 181, 15):                          # longitudes along the bottom
-        fig.add_annotation(x=core.norm360(lon + turn), y=-90, yanchor="top", yshift=-2, showarrow=False,
-                           font=dict(size=9), text=str(lon) if lon in (0, 180) else f"{abs(lon)}{'W' if lon < 0 else 'E'}")
+        fig.add_annotation(x=core.norm360(lon + turn), y=-90, yanchor="top", yshift=-20, showarrow=False,   # below the RA ticks
+                           font=dict(size=11), text=str(lon) if lon in (0, 180) else f"{abs(lon)}{'W' if lon < 0 else 'E'}")
 
     birth = m.birth if (m.show_birth and m.birth) else {}
     now = m.now if (m.show_now and m.now) else {}
@@ -155,17 +155,18 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         mark("CN", cn_x, m.cn[0], "triangle-up", False, f"<br>lat {m.cn[0]:+.2f}, lon {m.cn[1]:+.2f}")
 
     if birth or now:                                          # names the RA numbers printed above the 90N line
-        fig.add_annotation(xref="paper", x=0.5, xanchor="center", y=90, yanchor="bottom", yshift=16,
+        fig.add_annotation(xref="paper", x=0.5, xanchor="center", y=90, yanchor="bottom", yshift=19,
                            text="<b>Planets-RA</b>", showarrow=False, font=dict(size=11))
         # names the Dec numbers printed right of the 360 line: a side title past them, like the left axis title
-        fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=44, yref="paper", y=0.5, yanchor="middle",
+        fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=50, yref="paper", y=0.5, yanchor="middle",
                            textangle=90, text="<b>Planets-Declination</b>", showarrow=False, font=dict(size=11))
 
     lat_ticks = list(range(-90, 91, 15))
     fig.update_layout(
-        height=660, margin=dict(l=60, r=75, t=40, b=60), plot_bgcolor="white", paper_bgcolor="white",
-        legend=dict(orientation="h", y=-0.12), hovermode="closest", dragmode="zoom",
-        xaxis=dict(range=[0, 360], showgrid=False, zeroline=False, title="Longitude / Right Ascension (RA)",
+        height=680, margin=dict(l=60, r=85, t=45, b=80), plot_bgcolor="white", paper_bgcolor="white",
+        legend=dict(orientation="h", y=-0.16), hovermode="closest", dragmode="zoom",
+        xaxis=dict(range=[0, 360], showgrid=False, zeroline=False,
+                   title=dict(text="Longitude / Right Ascension (RA)", standoff=26),
                    tickvals=list(range(0, 361, 30)), mirror=True, linecolor="rgb(134,134,134)"),
         yaxis=dict(range=[-90, 90], showgrid=False, zeroline=False, title="Latitude / Declination",
                    tickvals=[H(v) for v in lat_ticks],
