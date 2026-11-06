@@ -81,8 +81,8 @@ def page_map():
     if not need_chart(prep):
         return
     shown = head.pills("Show", ["Map", "At DOB", "At Current Time", "Major Aspects", "Minor Aspects"],
-                       selection_mode="multi", default=["At DOB", "Major Aspects"],
-                       key="map_show_v6", label_visibility="collapsed")
+                       selection_mode="multi", default=["At DOB", "Major Aspects", "Minor Aspects"],
+                       key="map_show_v7", label_visibility="collapsed")
     show_birth, show_now = "At DOB" in shown, "At Current Time" in shown
     major, minor = "Major Aspects" in shown, "Minor Aspects" in shown
     jd_now = core.now_jd()
