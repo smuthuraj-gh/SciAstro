@@ -1,0 +1,11 @@
+streamlit>=1.42
+Authlib>=1.3.2
+pyswisseph>=2.10
+plotly>=5.20
+pandas>=2.0
+numpy
+SQLAlchemy>=2.0
+psycopg2-binary
+requests
+timezonefinder>=6.5
+tzdata

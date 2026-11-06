@@ -1,0 +1,231 @@
+"""Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
+
+Pages: Map, Range, Tables, Aspects for everyone (their own customers only); Customers for admins; My details for
+users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
+"""
+from __future__ import annotations
+
+from datetime import datetime, time, timezone
+
+import pandas as pd
+import streamlit as st
+
+from app import auth, db
+from app.chartdata import Prepared, now_local_text, now_values, prepare
+from astro import core, mapchart, rangechart, se
+
+st.set_page_config(page_title="Equatorial charts", page_icon=":material/public:", layout="wide")
+
+user = auth.current_user()
+
+
+# ---------------------------------------------------------------- who can see which customers
+def visible_customers() -> pd.DataFrame:
+    return db.all_customers() if user.is_admin else db.customers_for(user.email)
+
+
+def record_items(row: pd.Series) -> tuple:
+    out = []
+    for f in db.FIELDS:
+        v = row.get(f)
+        if v is not None and isinstance(v, float) and pd.isna(v):
+            v = None
+        out.append((f, v))
+    return tuple(out)
+
+
+def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
+    df = visible_customers()
+    st.sidebar.markdown(f"**{user.name}**" + ("  \n:blue-badge[admin]" if user.is_admin else ""))
+    auth.sign_out_button(user)
+    if df.empty:
+        st.sidebar.info("No customers yet." if user.is_admin else "No birth details are linked to your email yet.")
+        return None, None
+    names = df["name"].tolist()
+    prev = st.session_state.get("customer")
+    idx = names.index(prev) if prev in names else 0
+    name = st.sidebar.selectbox("Customer", names, index=idx, key="customer")
+    row = df[df["name"] == name].iloc[0]
+    prep = prepare(record_items(row))
+    if not prep.ok:
+        st.sidebar.error(prep.message)
+    else:
+        st.sidebar.caption(f"{int(row['year'])}-{int(row['mon']):02d}-{int(row['day']):02d} {prep.weekday} "
+                           f"{int(row['hr']):02d}:{int(row['mn']):02d}, UTC {prep.utc:+.2f}  \n"
+                           f"{row['city']}, {row['state'] or ''}, {row['country'] or ''} ({prep.birth_lat}, {prep.birth_lon})")
+    return row, prep
+
+
+def orbs() -> core.Orbs:
+    return core.Orbs(db.orb_table())
+
+
+def need_chart(prep: Prepared | None) -> bool:
+    if prep is None:
+        st.info("Choose a customer in the sidebar." if user.is_admin else "Ask the admin to add your birth details.")
+        return False
+    if not prep.ok:
+        st.warning(prep.message)
+        return False
+    return True
+
+
+# ---------------------------------------------------------------- pages
+def page_map():
+    row, prep = pick_customer()
+    st.subheader("Map")
+    if not need_chart(prep):
+        return
+    shown = st.pills("Show", ["Birth", "Now", "MA", "IA"], selection_mode="multi", default=["Birth", "MA", "IA"],
+                     key="map_show", help="MA: major aspects (conjunction, sextile, square, trine, opposition). "
+                                         "IA: minor aspects (30, 45, 72, 135, 144, 150 degrees).")
+    show_birth, show_now, major, minor = ("Birth" in shown, "Now" in shown, "MA" in shown, "IA" in shown)
+    jd_now = core.now_jd()
+    now_pts, d_now = now_values(jd_now)
+    fig = mapchart.map_figure(mapchart.MapInput(
+        birth=prep.birth, now=now_pts, cn=prep.cn, jd_birth=prep.jd_birth, jd_now=jd_now,
+        d_birth=prep.d_birth, d_now=d_now, show_birth=show_birth, show_now=show_now, major=major, minor=minor), orbs())
+    st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+    if show_now:
+        st.caption(f"Now: {now_local_text(prep.cn_tz)}" + ("" if prep.cn else " - no City-N for this customer, so no CN"))
+
+
+def page_range():
+    row, prep = pick_customer()
+    st.subheader("Range")
+    if not need_chart(prep):
+        return
+    birth_dt = core.jd_to_datetime(prep.jd_birth)
+    now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
+    c = st.columns(4)
+    d0 = c[0].date_input("Start (UT)", value=birth_dt.date(), min_value=datetime(1800, 1, 1), max_value=datetime(2399, 12, 31))
+    t0 = c[1].time_input("Start time (UT)", value=time(birth_dt.hour, birth_dt.minute))
+    d1 = c[2].date_input("End (UT)", value=now_dt.date(), min_value=datetime(1800, 1, 1), max_value=datetime(2399, 12, 31))
+    t1 = c[3].time_input("End time (UT)", value=time(now_dt.hour, now_dt.minute))
+    start, end = datetime.combine(d0, t0), datetime.combine(d1, t1)
+    c = st.columns(3)
+    dec_on = c[0].multiselect("Dec lines (-M)", core.BUTTON_ORDER, default=["Sa", "Ju", "Ma", "Ve", "Su"])
+    dist_on = c[1].multiselect("Distance lines (-D)", core.BUTTON_ORDER, default=[])
+    ea_names = {"EA-C": 0, "EA-S": 60, "EA-Q": 90, "EA-T": 120, "EA-O": 180}
+    ea = c[2].multiselect("Aspect dots", list(ea_names), default=list(ea_names))
+    if end <= start:
+        st.warning("The end must be after the start.")
+        return
+    if (end - start).days > 100 * 366:
+        st.warning("That period is too long - choose about 100 years at most.")
+        return
+    with st.spinner("Drawing..."):
+        fig, note = _range_cached(tuple(dec_on), tuple(dist_on), tuple(ea_names[e] for e in ea),
+                                  core.jd_of_datetime(start), core.jd_of_datetime(end), db.orb_table().to_csv(index=False))
+    st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+    if note:
+        st.caption(note)
+
+
+@st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
+def _range_cached(dec_on, dist_on, ea, jd_from, jd_to, orb_csv):
+    import io
+    return rangechart.range_figure(list(dec_on), list(dist_on), list(ea), jd_from, jd_to,
+                                   core.Orbs(pd.read_csv(io.StringIO(orb_csv))))
+
+
+def page_tables():
+    row, prep = pick_customer()
+    st.subheader("Tables")
+    if not need_chart(prep):
+        return
+    jd_now = core.now_jd()
+    rows = []
+    for p in core.PLANETS:
+        b, n = core.position(p, prep.jd_birth), core.position(p, jd_now)
+        d, dn = core.distance_pct(p, b.dist_au), core.distance_pct(p, n.dist_au)
+        rows.append({"Planets": p, "D": d, "D-N": dn, "D-A": round((d + dn) / 2, 2), "_ra": prep.birth[p][0],
+                     "_up_b": b.dist_speed >= 0, "_up_n": n.dist_speed >= 0})
+    df = pd.DataFrame(rows).sort_values("_ra").reset_index(drop=True)
+
+    def colour(col):
+        key = "_up_b" if col.name == "D" else "_up_n"
+        return [f"color: {'rgb(255,0,0)' if up else 'rgb(0,128,0)'}" for up in df[key]]
+
+    shown = df[["Planets", "D", "D-N", "D-A"]]
+    st.dataframe(shown.style.apply(colour, subset=["D", "D-N", "D-A"]).format({"D": "{:.1f}", "D-N": "{:.1f}", "D-A": "{:.1f}"}),
+                 hide_index=True, width="content")
+    st.caption("D = % between the planet's least and greatest distance (1800-2400); D at birth, D-N now, D-A their "
+               "average. Red: distance growing, green: shrinking. Click a heading to sort.")
+
+
+def page_aspects():
+    st.subheader("Aspects")
+    pick_customer()
+    table = db.orb_table()
+    st.caption("A pair is in aspect when RA is within the RA orb of the angle and Dec within the Dec orb of equal "
+               "(conjunction), mirrored (opposition) or either (the others). A pair uses the larger of its two planets' "
+               "orbs; CB and CN take the planet's.")
+    if not user.is_admin:
+        st.dataframe(table, hide_index=True, width="stretch")
+        return
+    edited = st.data_editor(table, hide_index=True, width="stretch", key="orb_editor",
+                            disabled=["Aspect", "Angle"], num_rows="fixed")
+    c = st.columns([1, 1, 6])
+    if c[0].button("Save orbs", type="primary"):
+        num = edited.drop(columns=["Aspect", "Angle"]).apply(pd.to_numeric, errors="coerce")
+        if num.isna().any().any() or (num < 0).any().any():
+            st.error("Every orb must be a number of 0 or more.")
+        else:
+            db.save_orb_table(edited)
+            st.cache_data.clear()
+            st.success("Saved.")
+    if c[1].button("Reset to defaults"):
+        db.save_orb_table(core.default_orb_table())
+        st.cache_data.clear()
+        st.rerun()
+
+
+def page_customers():
+    st.subheader("Customers")
+    pick_customer()
+    if db.is_local_sqlite() and not auth._secret("dev_user"):
+        st.warning("Saved in a local SQLite file. On Streamlit Community Cloud that file is lost on every restart: "
+                   "set the secret db_url to a hosted Postgres database (see README).")
+    df = db.all_customers()
+    show = df[["id"] + db.FIELDS].rename(columns=db.LABELS)
+    edited = st.data_editor(show, hide_index=True, width="stretch", num_rows="dynamic", key="cust_editor",
+                            column_config={"id": None, "Email (login)": st.column_config.TextColumn(
+                                help="The Google account email this customer signs in with (they see only their own)")})
+    if st.button("Save changes", type="primary"):
+        back = {v: k for k, v in db.LABELS.items()}
+        a, ch, de = db.save_customers(edited.rename(columns=back), df)
+        st.cache_data.clear()
+        st.success(f"Saved: {a} added, {ch} changed, {de} deleted.")
+        st.rerun()
+    with st.expander("Import from the workbook"):
+        st.write("Save the workbook's Customers tab as CSV (Customer, Country, State, City, Year, Mon, Date, Hr24, Min, "
+                 "Country-N, State-N, City-N) and upload it. Names already here are skipped.")
+        up = st.file_uploader("Customers CSV", type="csv")
+        if up is not None and st.button("Import"):
+            n = db.import_workbook_csv(up.getvalue())
+            st.cache_data.clear()
+            st.success(f"Imported {n} customers. Add each one's login email to let them see their charts.")
+
+
+def page_my_details():
+    row, prep = pick_customer()
+    st.subheader("My details")
+    if row is None:
+        st.info("No birth details are linked to your email yet. Ask the admin to add them.")
+        return
+    st.table(pd.DataFrame({"": [db.LABELS[f].split(" (")[0] for f in db.FIELDS if f not in ("email", "utc")],
+                           "Value": [row[f] for f in db.FIELDS if f not in ("email", "utc")]}).astype(str))
+    if prep and prep.ok:
+        st.write(f"Born on a {prep.weekday}; UTC offset {prep.utc:+.2f} ({prep.tz}); birth place "
+                 f"{prep.birth_lat}, {prep.birth_lon}.")
+
+
+pages = [st.Page(page_map, title="Map", icon=":material/public:", url_path="map", default=True),
+         st.Page(page_range, title="Range", icon=":material/show_chart:", url_path="range"),
+         st.Page(page_tables, title="Tables", icon=":material/table:", url_path="tables"),
+         st.Page(page_aspects, title="Aspects", icon=":material/tune:", url_path="aspects")]
+pages.append(st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers") if user.is_admin
+             else st.Page(page_my_details, title="My details", icon=":material/person:", url_path="me"))
+st.navigation(pages).run()
+st.sidebar.caption(f"Swiss Ephemeris via {se.BACKEND}. Equatorial (RA / Dec) only.")
