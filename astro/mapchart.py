@@ -1,7 +1,7 @@
 """The Map chart (as the workbook's Map tab): the planets at birth and now over a world map where Dec = latitude and
 RA = longitude + the sky's turn (the sidereal time at Greenwich at birth; now, with Now alone), so CB falls on the
-birth place. Birth: filled marks, dashed house lines from CB; Now: hollow marks, dotted lines, solid house lines
-from CN. Aspect lines: major (black) and minor (grey), dotted for now. Hovering a mark shows its RA, Dec and D."""
+birth place. Birth: filled marks, solid house lines from CB; Now: hollow marks, dotted lines, semi-solid (long-dash)
+house lines from CN. Aspect lines: major (black) and minor (grey), dotted for now. Hovering a mark shows its RA, Dec and D."""
 from __future__ import annotations
 
 import re
@@ -119,8 +119,8 @@ def _house_lines(fig: go.Figure, ra10: float, is_now: bool):
     for k in range(12):
         x = core.norm360(ra10 + 30.0 * k)
         fig.add_trace(go.Scatter(x=[x, x], y=[-90, 90], mode="lines", hoverinfo="skip", showlegend=False,
-                                 line=dict(color="black", width=1.5 if is_now else 1.75,
-                                           dash="solid" if is_now else "dash")))
+                                 line=dict(color="black", width=1.5 if is_now else 1.75,   # now: long dashes, small gaps
+                                           dash="12px,3px" if is_now else "solid")))
 
 
 def _house_labels(fig: go.Figure, spots: _Spots, ra10: float, is_now: bool):
