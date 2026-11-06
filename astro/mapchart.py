@@ -154,9 +154,13 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
     if cn_x is not None:
         mark("CN", cn_x, m.cn[0], "triangle-up", False, f"<br>lat {m.cn[0]:+.2f}, lon {m.cn[1]:+.2f}")
 
+    if birth or now:                                          # names the RA numbers printed above the 90N line
+        fig.add_annotation(xref="paper", x=0, xanchor="right", xshift=-4, y=90, yanchor="bottom", yshift=2,
+                           text="<b>Planets RA</b>", showarrow=False, font=dict(size=9))
+
     lat_ticks = list(range(-90, 91, 15))
     fig.update_layout(
-        height=660, margin=dict(l=60, r=70, t=40, b=60), plot_bgcolor="white", paper_bgcolor="white",
+        height=660, margin=dict(l=70, r=70, t=40, b=60), plot_bgcolor="white", paper_bgcolor="white",
         legend=dict(orientation="h", y=-0.12), hovermode="closest", dragmode="zoom",
         xaxis=dict(range=[0, 360], showgrid=False, zeroline=False, title="Longitude / Right Ascension (RA)",
                    tickvals=list(range(0, 361, 30)), mirror=True, linecolor="rgb(134,134,134)"),
