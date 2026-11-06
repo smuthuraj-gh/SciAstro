@@ -219,7 +219,7 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
                    title=dict(text="<b>Longitude/Right Ascension (RA)</b>", standoff=14, font=TITLE_FONT),
                    tickvals=list(range(0, 361, 30)), ticklabelstandoff=GAP + ROW + 4,  # RA numbers under the longitudes
                    mirror=True, linecolor="rgb(134,134,134)"),
-        yaxis=dict(range=[-90, 90], showgrid=False, zeroline=False, ticklabelstandoff=GAP,
+        yaxis=dict(range=[-90, 90], showgrid=False, zeroline=False, ticklabelstandoff=0,   # close to the grid
                    title=dict(text="<b>Latitude/Declination</b>", standoff=10, font=TITLE_FONT),
                    tickvals=[H(v) for v in lat_ticks],
                    ticktext=["0" if v == 0 else f"{abs(v)}{'S' if v < 0 else 'N'}" for v in lat_ticks],
