@@ -48,7 +48,7 @@ def range_figure(dec_on: list[str], dist_on: list[str], ea_on: list[int], jd_fro
                                  connectgaps=False))
         if len(ev) <= MAX_TAGS:
             fig.add_trace(go.Scatter(x=[core.jd_to_datetime(e.jd) for e in ev], y=[(e.de1 + e.de2) / 2 for e in ev],
-                                     mode="text", text=[f"<b>{e.title}</b>" for e in ev], textfont=dict(size=9),
+                                     mode="text", text=[f"<b>{e.title}</b>" for e in ev], textfont=dict(size=11),
                                      textposition="middle right", hoverinfo="skip", showlegend=False))
         else:
             note = f"Too many {EA_NAME[ang]} aspects to tag: choose a shorter period."
