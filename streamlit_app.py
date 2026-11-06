@@ -73,14 +73,16 @@ def need_chart(prep: Prepared | None) -> bool:
 # ---------------------------------------------------------------- pages
 def page_map():
     row, prep = pick_customer()
-    st.subheader("AstroMap")
+    head = st.container(horizontal=True, vertical_alignment="center", gap="medium")   # title, then the buttons
+    head.subheader("AstroMap", width="content", wrap=False,
+                   help="At DOB: the planets at birth. At Current Time: the planets now. "
+                        "Major Aspects: conjunction, sextile, square, trine, opposition. "
+                        "Minor Aspects: 30, 45, 72, 135, 144, 150 degrees.")
     if not need_chart(prep):
         return
-    shown = st.pills("Show", ["At DOB", "At Current Time", "Major Aspects", "Minor Aspects"], selection_mode="multi",
-                     default=["At DOB", "Major Aspects", "Minor Aspects"], key="map_show_v3",
-                     help="At DOB: the planets at birth. At Current Time: the planets now. "
-                          "Major Aspects: conjunction, sextile, square, trine, opposition. "
-                          "Minor Aspects: 30, 45, 72, 135, 144, 150 degrees.")
+    shown = head.pills("Show", ["At DOB", "At Current Time", "Major Aspects", "Minor Aspects"],
+                       selection_mode="multi", default=["At DOB", "Major Aspects", "Minor Aspects"],
+                       key="map_show_v3", label_visibility="collapsed")
     show_birth, show_now = "At DOB" in shown, "At Current Time" in shown
     major, minor = "Major Aspects" in shown, "Minor Aspects" in shown
     jd_now = core.now_jd()
