@@ -73,7 +73,7 @@ def need_chart(prep: Prepared | None) -> bool:
 # ---------------------------------------------------------------- pages
 def page_map():
     row, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="center", gap="medium")   # title, then the buttons
+    head = st.container(horizontal=True, vertical_alignment="center", gap="small")    # title, buttons, then the key
     head.subheader("AstroMap", width="content", wrap=False,
                    help="At DOB: the planets at birth. At Current Time: the planets now. "
                         "Major Aspects: conjunction, sextile, square, trine, opposition. "
@@ -87,10 +87,13 @@ def page_map():
     major, minor = "Major Aspects" in shown, "Minor Aspects" in shown
     jd_now = core.now_jd()
     now_pts, d_now = now_values(jd_now)
-    fig = mapchart.map_figure(mapchart.MapInput(
+    m = mapchart.MapInput(
         birth=prep.birth, now=now_pts, cn=prep.cn, jd_birth=prep.jd_birth, jd_now=jd_now,
-        d_birth=prep.d_birth, d_now=d_now, show_birth=show_birth, show_now=show_now, major=major, minor=minor), orbs())
-    st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+        d_birth=prep.d_birth, d_now=d_now, show_birth=show_birth, show_now=show_now, major=major, minor=minor)
+    key = mapchart.key_html(m)
+    if key:                                                   # the planets, CB, CN key, next to Minor Aspects
+        head.markdown(key, unsafe_allow_html=True, width="content")
+    st.plotly_chart(mapchart.map_figure(m, orbs()), width="stretch", config={"displaylogo": False})
     if show_now:
         st.caption(f"Now: {now_local_text(prep.cn_tz)}" + ("" if prep.cn else " - no City-N for this customer, so no CN"))
 

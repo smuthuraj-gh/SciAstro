@@ -19,7 +19,7 @@ TITLE_FONT = dict(size=FONT)      # the chart's titles: Planets-RA, Planets-Decl
 GAP = 5                           # pixels between the grid and the text beside it
 ROW = 16                          # pixels per line of text
 RA_APART = 18                     # RA numbers closer than this (degrees) would overlap: the next goes up a row
-HEIGHT, MARGIN_B = 700, 90
+HEIGHT, MARGIN_B = 660, 75
 
 
 @lru_cache(maxsize=1)
@@ -132,6 +132,21 @@ def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool):
                                bgcolor="rgba(255,255,255,0.75)", xshift=0, yshift=10)
 
 
+def key_html(m: MapInput) -> str:
+    """The key to the marks on the chart (planets, CB, CN), in the marks' colours and shapes, for beside the buttons."""
+    lines = []                                                # birth marks on one line, the marks now on the next
+    if m.show_birth and m.birth:
+        lines.append([(n, "&#9670;" if n == "CB" else "&#9679;") for n in m.birth])     # diamond / filled circle
+    if m.show_now and m.now:
+        lines.append([(n + "-N", "&#9675;") for n in m.now]                             # hollow circle
+                     + ([("CN", "&#9650;")] if m.cn is not None else []))               # triangle
+
+    def item(n: str, sym: str) -> str:
+        return f'<span style="color:{core.colour(n)}">{sym}</span>&nbsp;{n}'
+    return "<br>".join('<span style="white-space:nowrap">' + "&nbsp; ".join(item(*i) for i in line) + "</span>"
+                       for line in lines)
+
+
 def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
     fig = go.Figure()
     turn = 0.0
@@ -174,8 +189,9 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
 
     def mark(name: str, x: float, de: float, symbol: str, hollow: bool, d_txt: str):
         c = core.colour(name)
-        fig.add_trace(go.Scatter(
+        fig.add_trace(go.Scatter(                             # their key is shown beside the buttons (key_html)
             x=[x], y=[H(de)], mode="markers+text", name=name, text=[f"<b>{name}</b>"], textposition="top center",
+            showlegend=False,
             marker=dict(symbol=symbol, size=11, color="white" if hollow else c, line=dict(color=c, width=2)),
             hovertemplate=f"<b>{name}</b><br>RA {x:.2f}<br>Dec {de:+.2f}{d_txt}<extra></extra>"))
 
@@ -198,7 +214,7 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
     lat_ticks = list(range(-90, 91, 15))
     fig.update_layout(
         height=HEIGHT, margin=dict(l=72, r=100, t=margin_t, b=MARGIN_B), plot_bgcolor="white", paper_bgcolor="white",
-        legend=dict(orientation="h", y=-0.17), hovermode="closest", dragmode="zoom",
+        showlegend=False, hovermode="closest", dragmode="zoom",
         xaxis=dict(range=[0, 360], showgrid=False, zeroline=False,
                    title=dict(text="<b>Longitude/Right Ascension (RA)</b>", standoff=14, font=TITLE_FONT),
                    tickvals=list(range(0, 361, 30)), ticklabelstandoff=GAP + ROW + 4,  # RA numbers under the longitudes
