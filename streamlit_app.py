@@ -1,7 +1,7 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
-Pages: AstroMap, Planets Distance(%), Planets Cycles, Tables, Aspects for everyone (their own customers only); Customers for admins; My details for
-users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
+Pages: AstroMap, Planets Distance(%), Planets Cycles, Tables for everyone (their own customers only); Aspects and
+Customers for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
 
@@ -203,15 +203,14 @@ def page_tables():
 
 
 def page_aspects():
+    if not user.is_admin:                                     # admins only (not in a user's menu either)
+        st.stop()
     st.subheader("Aspects")
     pick_customer()
     table = db.orb_table()
     st.caption("A pair is in aspect when RA is within the RA orb of the angle and Dec within the Dec orb of equal "
                "(conjunction), mirrored (opposition) or either (the others). A pair uses the larger of its two planets' "
                "orbs; CB and CN take the planet's.")
-    if not user.is_admin:
-        st.dataframe(table, hide_index=True, width="stretch")
-        return
     edited = st.data_editor(table, hide_index=True, width="stretch", key="orb_editor",
                             disabled=["Aspect", "Angle"], num_rows="fixed")
     c = st.columns([1, 1, 6])
@@ -272,9 +271,11 @@ def page_my_details():
 pages = [st.Page(page_map, title="AstroMap", icon=":material/public:", url_path="astromap", default=True),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
-         st.Page(page_tables, title="Tables", icon=":material/table:", url_path="tables"),
-         st.Page(page_aspects, title="Aspects", icon=":material/tune:", url_path="aspects")]
-pages.append(st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers") if user.is_admin
-             else st.Page(page_my_details, title="My details", icon=":material/person:", url_path="me"))
+         st.Page(page_tables, title="Tables", icon=":material/table:", url_path="tables")]
+if user.is_admin:                                             # the Aspects and Customers pages: admins only
+    pages += [st.Page(page_aspects, title="Aspects", icon=":material/tune:", url_path="aspects"),
+              st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers")]
+else:
+    pages.append(st.Page(page_my_details, title="My details", icon=":material/person:", url_path="me"))
 st.navigation(pages).run()
 st.sidebar.caption(f"Swiss Ephemeris via {se.BACKEND}. Equatorial (RA / Dec) only.")

@@ -9,7 +9,7 @@ zodiac), with the same rules.
 | Planets Distance(%) | everyone | distance (-D) lines from birth to now: D, the % between each planet's nearest and farthest |
 | Planets Cycles | everyone | Dec (-M) lines from birth to now, with MC / MS / MQ / MT / MO aspect dots and tags |
 | Tables | everyone | Planets, D, D-N, D-A |
-| Aspects | everyone (admins edit) | the orbs per aspect and planet; a pair uses the larger of its two planets' orbs |
+| Aspects | admins | the orbs per aspect and planet; a pair uses the larger of its two planets' orbs |
 | Customers | admins | add, edit, delete customers; import the workbook's Customers tab as CSV |
 | My details | users | their own birth details |
 
