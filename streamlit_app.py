@@ -161,7 +161,7 @@ def page_distance():
     jds = period(prep, head)
     # on / off buttons: all seven planets always in view (a selection box would hide some, or not fit on the line)
     dist_on = head.pills("Planets", core.BUTTON_ORDER, selection_mode="multi",
-                         default=["Sa", "Ju", "Ma", "Ve", "Su"], key="dist_on") or []
+                         default=["Sa", "Ju"], key="dist_on_v2") or []
     if jds is None:
         return
     with st.spinner("Drawing..."):
