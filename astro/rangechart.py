@@ -1,5 +1,5 @@
 """The Planets Cycles chart (the workbook's Range tab; the page was called Range): each chosen planet's Dec (-M) from the start (birth) to the end (now),
-with dots where two -M planets come into an aspect (MC, MS, MQ, MT, MO) joined pair by pair and tagged.
+with dots where two -M planets come into an aspect (Co, Sx, Sq, Tr, Op) joined pair by pair and tagged.
 The distance lines (-D) have their own chart (distancechart.py)."""
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 from . import core
 
 DOT_COLOUR = {0: "rgb(0,0,0)", 180: "rgb(128,128,128)", 90: "rgb(150,75,0)", 120: "rgb(199,21,133)", 60: "rgb(0,128,128)"}
-EA_NAME = {0: "MC", 60: "MS", 90: "MQ", 120: "MT", 180: "MO"}     # the workbook's EA-C, EA-S, EA-Q, EA-T, EA-O
+EA_NAME = {0: "Co", 60: "Sx", 90: "Sq", 120: "Tr", 180: "Op"}     # the workbook's EA-C, EA-S, EA-Q, EA-T, EA-O
 MAX_TAGS = 300                                         # more aspects of one kind than this: no tags
 
 
