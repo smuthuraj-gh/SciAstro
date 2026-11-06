@@ -113,6 +113,7 @@ class MapInput:
     show_now: bool = False
     major: bool = True
     minor: bool = True
+    show_map: bool = True                            # the world map (coastlines)
 
 
 def _house_lines(fig: go.Figure, ra10: float, is_now: bool):
@@ -268,9 +269,10 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
     if m.show_now and not m.show_birth and m.cn is not None:
         turn = core.lst(m.jd_now, 0.0)
 
-    xs, ys = world_map_xy(turn)                               # the world map first, under everything
-    fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", line=dict(color="rgb(150,150,150)", width=1),
-                             hoverinfo="skip", showlegend=False, connectgaps=False))
+    if m.show_map:                                            # the world map first, under everything
+        xs, ys = world_map_xy(turn)
+        fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", line=dict(color="rgb(150,150,150)", width=1),
+                                 hoverinfo="skip", showlegend=False, connectgaps=False))
     for lon in range(-165, 181, 15):                          # longitudes along the bottom
         fig.add_annotation(x=core.norm360(lon + turn), y=-90, yanchor="top", yshift=-GAP, showarrow=False,  # above the RA ticks
                            font=dict(size=FONT), text=str(lon) if lon in (0, 180) else f"{abs(lon)}{'W' if lon < 0 else 'E'}")
