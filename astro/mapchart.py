@@ -14,6 +14,7 @@ import plotly.graph_objects as go
 from . import core
 
 H = core.ra_de_height
+TITLE_FONT = dict(size=11)        # the chart's titles: Planets-RA, Planets-Declination and both axis titles, in bold
 
 
 @lru_cache(maxsize=1)
@@ -156,19 +157,20 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
 
     if birth or now:                                          # names the RA numbers printed above the 90N line
         fig.add_annotation(xref="paper", x=0.5, xanchor="center", y=90, yanchor="bottom", yshift=19,
-                           text="<b>Planets-RA</b>", showarrow=False, font=dict(size=11))
+                           text="<b>Planets-RA</b>", showarrow=False, font=TITLE_FONT)
         # names the Dec numbers printed right of the 360 line: a side title past them, like the left axis title
         fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=50, yref="paper", y=0.5, yanchor="middle",
-                           textangle=90, text="<b>Planets-Declination</b>", showarrow=False, font=dict(size=11))
+                           textangle=90, text="<b>Planets-Declination</b>", showarrow=False, font=TITLE_FONT)
 
     lat_ticks = list(range(-90, 91, 15))
     fig.update_layout(
         height=680, margin=dict(l=60, r=85, t=45, b=80), plot_bgcolor="white", paper_bgcolor="white",
         legend=dict(orientation="h", y=-0.16), hovermode="closest", dragmode="zoom",
         xaxis=dict(range=[0, 360], showgrid=False, zeroline=False,
-                   title=dict(text="Longitude / Right Ascension (RA)", standoff=26),
+                   title=dict(text="<b>Longitude/Right Ascension (RA)</b>", standoff=26, font=TITLE_FONT),
                    tickvals=list(range(0, 361, 30)), mirror=True, linecolor="rgb(134,134,134)"),
-        yaxis=dict(range=[-90, 90], showgrid=False, zeroline=False, title="Latitude / Declination",
+        yaxis=dict(range=[-90, 90], showgrid=False, zeroline=False,
+                   title=dict(text="<b>Latitude/Declination</b>", font=TITLE_FONT),
                    tickvals=[H(v) for v in lat_ticks],
                    ticktext=["0" if v == 0 else f"{abs(v)}{'S' if v < 0 else 'N'}" for v in lat_ticks],
                    mirror=True, linecolor="rgb(134,134,134)"))
