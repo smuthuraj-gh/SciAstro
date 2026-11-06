@@ -238,13 +238,18 @@ def page_customers():
     show = df[["id"] + db.FIELDS].rename(columns=db.LABELS)
     edited = st.data_editor(show, hide_index=True, width="stretch", num_rows="dynamic", key="cust_editor",
                             column_config={"id": None, "Email (login)": st.column_config.TextColumn(
-                                help="The Google account email this customer signs in with (they see only their own)")})
+                                help="The Google account email this customer signs in with (they see only their own). "
+                                     "Each email can belong to one customer only.")})
     if st.button("Save changes", type="primary"):
         back = {v: k for k, v in db.LABELS.items()}
-        a, ch, de = db.save_customers(edited.rename(columns=back), df)
-        st.cache_data.clear()
-        st.success(f"Saved: {a} added, {ch} changed, {de} deleted.")
-        st.rerun()
+        try:
+            a, ch, de = db.save_customers(edited.rename(columns=back), df)
+        except ValueError as e:                               # e.g. a login email used twice: nothing saved
+            st.error(f"{e}. Nothing was saved.")
+        else:
+            st.cache_data.clear()
+            st.success(f"Saved: {a} added, {ch} changed, {de} deleted.")
+            st.rerun()
     with st.expander("Import from the workbook"):
         st.write("Save the workbook's Customers tab as CSV (Customer, Country, State, City, Year, Mon, Date, Hr24, Min, "
                  "Country-N, State-N, City-N) and upload it. Names already here are skipped.")
