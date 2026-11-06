@@ -1,6 +1,6 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
-Pages: AstroMap, Range, Distance, Tables, Aspects for everyone (their own customers only); Customers for admins; My details for
+Pages: AstroMap, Distance, Range, Tables, Aspects for everyone (their own customers only); Customers for admins; My details for
 users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
@@ -269,8 +269,8 @@ def page_my_details():
 
 
 pages = [st.Page(page_map, title="AstroMap", icon=":material/public:", url_path="astromap", default=True),
-         st.Page(page_range, title="Range", icon=":material/show_chart:", url_path="range"),
          st.Page(page_distance, title="Distance", icon=":material/straighten:", url_path="distance"),
+         st.Page(page_range, title="Range", icon=":material/show_chart:", url_path="range"),
          st.Page(page_tables, title="Tables", icon=":material/table:", url_path="tables"),
          st.Page(page_aspects, title="Aspects", icon=":material/tune:", url_path="aspects")]
 pages.append(st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers") if user.is_admin
