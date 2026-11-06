@@ -18,7 +18,7 @@ FONT = 12                         # the smallest text on the chart (pixels)
 TITLE_FONT = dict(size=FONT)      # the chart's titles: Planets-RA, Planets-Declination and both axis titles, in bold
 GAP = 5                           # pixels between the grid and the text beside it
 ROW = 16                          # pixels per line of text
-RA_APART = 18                     # RA numbers closer than this (degrees) would overlap: the next goes up a row
+RA_WIDE = 13                      # the width (degrees of RA) an RA number takes beside its line above 90N
 HEIGHT, MARGIN_B = 660, 75
 
 
@@ -93,16 +93,24 @@ def _point_lines(fig: go.Figure, name: str, ra: float | None, de: float, is_now:
 
 
 def _top_numbers(fig: go.Figure, top: list) -> int:
-    """The RA numbers above 90N; one too close to the one before goes up a row. Returns the number of rows used."""
-    last: list[float] = []                                   # the RA of the last number in each row
+    """The RA numbers just above 90N, each beside its line: to the right of it, or to the left when the right is
+    taken (or runs past 360); when both sides are taken it goes up a row. Returns the number of rows used."""
+    rows: list[list[tuple[float, float]]] = []               # the RA spans already taken in each row
     for ra, text, c in sorted(top):
-        row = next((r for r, x in enumerate(last) if ra - x >= RA_APART), len(last))
-        if row == len(last):
-            last.append(ra)
-        last[row] = ra
-        fig.add_annotation(x=ra, y=90, text=text, showarrow=False, yanchor="bottom", yshift=GAP + ROW * row,
+        sides = ("left", "right") if ra > 360 - RA_WIDE else ("right", "left")
+        for row in range(len(rows) + 1):
+            if row == len(rows):
+                rows.append([])
+            spans = {"right": (ra, ra + RA_WIDE), "left": (ra - RA_WIDE, ra)}
+            side = next((s for s in sides
+                         if all(spans[s][1] <= a or spans[s][0] >= b for a, b in rows[row])), None)
+            if side:
+                rows[row].append(spans[side])
+                break
+        fig.add_annotation(x=ra, y=90, text=text, showarrow=False, yanchor="bottom", yshift=1 + ROW * row,
+                           xanchor="left" if side == "right" else "right", xshift=2 if side == "right" else -2,
                            font=dict(size=FONT, color=c))
-    return max(len(last), 1)
+    return max(len(rows), 1)
 
 
 def _side_numbers(fig: go.Figure, side: list, px_per_unit: float):
@@ -174,7 +182,7 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         cn_x = core.norm360(m.cn[1] + turn)
         _point_lines(fig, "CN", None, m.cn[0], True, top, side)
     rows = _top_numbers(fig, top)
-    margin_t = GAP + ROW * rows + ROW + 2 * GAP               # the RA rows, then Planets-RA above them
+    margin_t = 1 + ROW * rows + GAP + ROW + GAP               # the RA rows, then Planets-RA above them
     _side_numbers(fig, side, (HEIGHT - margin_t - MARGIN_B) / 180.0)
 
     if birth:
@@ -206,7 +214,7 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
 
     if birth or now:                                          # names the RA numbers printed above the 90N line
         fig.add_annotation(xref="paper", x=0.5, xanchor="center", y=90, yanchor="bottom",
-                           yshift=GAP + ROW * rows + GAP, text="<b>Planets-RA</b>", showarrow=False, font=TITLE_FONT)
+                           yshift=1 + ROW * rows + GAP, text="<b>Planets-RA</b>", showarrow=False, font=TITLE_FONT)
         # names the Dec numbers printed right of the 360 line: a side title past them, like the left axis title
         fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=50, yref="paper", y=0.5, yanchor="middle",
                            textangle=90, text="<b>Planets-Declination</b>", showarrow=False, font=TITLE_FONT)
