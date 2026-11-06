@@ -14,10 +14,11 @@ import plotly.graph_objects as go
 from . import core
 
 H = core.ra_de_height
-TITLE_FONT = dict(size=11)        # the chart's titles: Planets-RA, Planets-Declination and both axis titles, in bold
+FONT = 12                         # the smallest text on the chart (pixels)
+TITLE_FONT = dict(size=FONT)      # the chart's titles: Planets-RA, Planets-Declination and both axis titles, in bold
 GAP = 5                           # pixels between the grid and the text beside it
-ROW = 15                          # pixels per line of 11-pixel text
-RA_APART = 16                     # RA numbers closer than this (degrees) would overlap: the next goes up a row
+ROW = 16                          # pixels per line of text
+RA_APART = 18                     # RA numbers closer than this (degrees) would overlap: the next goes up a row
 HEIGHT, MARGIN_B = 700, 90
 
 
@@ -70,10 +71,10 @@ def _house_lines(fig: go.Figure, ra10: float, is_now: bool):
         fig.add_trace(go.Scatter(x=[x, x], y=[-90, 90], mode="lines", hoverinfo="skip", showlegend=False,
                                  line=dict(color="black", width=1.5 if is_now else 1.75,
                                            dash="solid" if is_now else "dash")))
-        fig.add_annotation(x=x, y=tag_y + (5 if is_now else -5), text=f"{x:.1f}", showarrow=False, font=dict(size=11),
+        fig.add_annotation(x=x, y=tag_y + (5 if is_now else -5), text=f"{x:.1f}", showarrow=False, font=dict(size=FONT),
                            xanchor="right" if x > 341 else "left", xshift=-GAP if x > 341 else GAP)
         mid = min(max(core.norm360(x + 15.0), 4.0), 356.0)
-        fig.add_annotation(x=mid, y=tag_y, text=f"<b>{name}</b>", showarrow=False, font=dict(size=11))
+        fig.add_annotation(x=mid, y=tag_y, text=f"<b>{name}</b>", showarrow=False, font=dict(size=FONT))
 
 
 def _point_lines(fig: go.Figure, name: str, ra: float | None, de: float, is_now: bool, top: list, side: list):
@@ -100,7 +101,7 @@ def _top_numbers(fig: go.Figure, top: list) -> int:
             last.append(ra)
         last[row] = ra
         fig.add_annotation(x=ra, y=90, text=text, showarrow=False, yanchor="bottom", yshift=GAP + ROW * row,
-                           font=dict(size=11, color=c))
+                           font=dict(size=FONT, color=c))
     return max(len(last), 1)
 
 
@@ -112,7 +113,7 @@ def _side_numbers(fig: go.Figure, side: list, px_per_unit: float):
         at = want if prev is None or prev - want >= ROW else prev - ROW
         prev = at
         fig.add_annotation(x=360, y=y, yshift=at - want, text=text, showarrow=False, xanchor="left", xshift=GAP + 2,
-                           font=dict(size=11, color=c))
+                           font=dict(size=FONT, color=c))
 
 
 def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool):
@@ -127,7 +128,7 @@ def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool):
                                            dash="dot" if is_now else "solid")))
         mx, my = sum(sx) / len(sx), sum(ys) / len(ys)
         if 0 <= mx <= 360:
-            fig.add_annotation(x=mx, y=my, text=f"<b>{a.title}</b>", showarrow=False, font=dict(size=11),
+            fig.add_annotation(x=mx, y=my, text=f"<b>{a.title}</b>", showarrow=False, font=dict(size=FONT),
                                bgcolor="rgba(255,255,255,0.75)", xshift=0, yshift=10)
 
 
@@ -144,7 +145,7 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
                              hoverinfo="skip", showlegend=False, connectgaps=False))
     for lon in range(-165, 181, 15):                          # longitudes along the bottom
         fig.add_annotation(x=core.norm360(lon + turn), y=-90, yanchor="top", yshift=-GAP, showarrow=False,  # above the RA ticks
-                           font=dict(size=11), text=str(lon) if lon in (0, 180) else f"{abs(lon)}{'W' if lon < 0 else 'E'}")
+                           font=dict(size=FONT), text=str(lon) if lon in (0, 180) else f"{abs(lon)}{'W' if lon < 0 else 'E'}")
 
     birth = m.birth if (m.show_birth and m.birth) else {}
     now = m.now if (m.show_now and m.now) else {}
@@ -191,12 +192,12 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         fig.add_annotation(xref="paper", x=0.5, xanchor="center", y=90, yanchor="bottom",
                            yshift=GAP + ROW * rows + GAP, text="<b>Planets-RA</b>", showarrow=False, font=TITLE_FONT)
         # names the Dec numbers printed right of the 360 line: a side title past them, like the left axis title
-        fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=60, yref="paper", y=0.5, yanchor="middle",
+        fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=64, yref="paper", y=0.5, yanchor="middle",
                            textangle=90, text="<b>Planets-Declination</b>", showarrow=False, font=TITLE_FONT)
 
     lat_ticks = list(range(-90, 91, 15))
     fig.update_layout(
-        height=HEIGHT, margin=dict(l=70, r=95, t=margin_t, b=MARGIN_B), plot_bgcolor="white", paper_bgcolor="white",
+        height=HEIGHT, margin=dict(l=72, r=100, t=margin_t, b=MARGIN_B), plot_bgcolor="white", paper_bgcolor="white",
         legend=dict(orientation="h", y=-0.17), hovermode="closest", dragmode="zoom",
         xaxis=dict(range=[0, 360], showgrid=False, zeroline=False,
                    title=dict(text="<b>Longitude/Right Ascension (RA)</b>", standoff=14, font=TITLE_FONT),
