@@ -15,11 +15,11 @@ import plotly.graph_objects as go
 from . import core
 
 H = core.ra_de_height
-FONT = 12                         # the smallest text on the chart (pixels)
+FONT = 11                         # the smallest text on the chart (pixels)
 TITLE_FONT = dict(size=FONT)      # the chart's titles: Planets-RA, Planets-Declination and both axis titles, in bold
 GAP = 5                           # pixels between the grid and the text beside it
-ROW = 16                          # pixels per line of text
-TEXT_H = 15                       # the height of a line of text
+ROW = 15                          # pixels per line of text
+TEXT_H = 14                       # the height of a line of text
 # The chart has a fixed size, so every label's place is known in pixels and can be kept clear of the others
 WIDTH, HEIGHT = 1100, 660
 MARGIN_L, MARGIN_R, MARGIN_B = 72, 85, 75
@@ -34,7 +34,8 @@ _CHAR_PX = {**dict.fromkeys("0123456789", 8.53), ".": 4.37, "+": 10.41, "-": 5.7
 
 def text_px(text: str) -> float:
     """The widest a 12-pixel label can be, in pixels (any tags such as <b> left out)."""
-    return sum(_CHAR_PX.get(ch, 10.0) for ch in re.sub(r"<[^>]+>", "", text)) + 2.0
+    widths = sum(_CHAR_PX.get(ch, 10.0) for ch in re.sub(r"<[^>]+>", "", text))
+    return widths * FONT / 12.0 + 2.0                    # the table is for 12 px: text scales with its size
 
 
 class _Spots:
