@@ -213,6 +213,38 @@ def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool, 
             break                                            # one tag per aspect
 
 
+def fit_html(fig: go.Figure) -> str:
+    """The chart as HTML that shows it at its full fixed size when there is room, and otherwise scales the whole chart
+    down to the width it has, exactly as laid out (so no label can come to overlap another), its height following."""
+    import uuid
+    from plotly.offline import get_plotlyjs_version
+    uid = "astromap-" + uuid.uuid4().hex[:8]
+    cdn = f"https://cdn.plot.ly/plotly-{get_plotlyjs_version()}.min.js"   # the version this Plotly package draws with
+    return f"""<div id="{uid}" style="width:100%; overflow:hidden">
+<div id="{uid}-in" style="width:{WIDTH}px; height:{HEIGHT}px; transform-origin:0 0"></div></div>
+<script>
+(function () {{
+  const outer = document.getElementById("{uid}"), inner = document.getElementById("{uid}-in");
+  function fit() {{
+    const s = Math.min(1, outer.clientWidth / {WIDTH});
+    inner.style.transform = "scale(" + s + ")";
+    outer.style.height = Math.ceil({HEIGHT} * s) + "px";
+  }}
+  new ResizeObserver(fit).observe(outer);
+  fit();
+  if (!window.Plotly && !document.getElementById("plotly-js")) {{     // Plotly's script, once per page
+    const s = document.createElement("script");
+    s.id = "plotly-js"; s.src = "{cdn}"; document.head.appendChild(s);
+  }}
+  const fig = {fig.to_json()};
+  (function draw() {{
+    if (!window.Plotly) return setTimeout(draw, 50);
+    Plotly.newPlot(inner, fig.data, fig.layout, {{displaylogo: false, responsive: false}});
+  }})();
+}})();
+</script>"""
+
+
 def key_html(m: MapInput) -> str:
     """The key to the marks on the chart (planets, CB, CN), in the marks' colours and shapes, for beside the buttons."""
     lines = []                                                # birth marks on one line, the marks now on the next
