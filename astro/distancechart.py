@@ -1,4 +1,4 @@
-"""The Distance chart (moved here from the Range chart): each chosen planet's distance D (-D) from the start (birth) to
+"""The Planets Distance(%) chart (moved here from the Planets Cycles chart, then called Range): each chosen planet's distance D (-D) from the start (birth) to
 the end (now), as the percentage between its least and greatest distance over 1800-2400 (0 = nearest, 100 = farthest)."""
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
-Pages: AstroMap, Distance, Range, Tables, Aspects for everyone (their own customers only); Customers for admins; My details for
+Pages: AstroMap, Planets Distance(%), Planets Cycles, Tables, Aspects for everyone (their own customers only); Customers for admins; My details for
 users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
@@ -108,11 +108,11 @@ def period(prep: Prepared, row=None) -> tuple[float, float] | None:
     birth_dt = core.jd_to_datetime(prep.jd_birth)
     now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
     c = [row] * 4 if row is not None else st.columns(4)
-    dw, tw = (125, 95) if row is not None else ("stretch", "stretch")
-    d0 = c[0].date_input("Start (UT)", value=birth_dt.date(), min_value=datetime(1800, 1, 1),
+    dw, tw = (125, 80) if row is not None else ("stretch", "stretch")
+    d0 = c[0].date_input("Start Date (UT)", value=birth_dt.date(), min_value=datetime(1800, 1, 1),
                          max_value=datetime(2399, 12, 31), width=dw)
     t0 = c[1].time_input("Start time (UT)", value=time(birth_dt.hour, birth_dt.minute), width=tw)
-    d1 = c[2].date_input("End (UT)", value=now_dt.date(), min_value=datetime(1800, 1, 1),
+    d1 = c[2].date_input("End Date (UT)", value=now_dt.date(), min_value=datetime(1800, 1, 1),
                          max_value=datetime(2399, 12, 31), width=dw)
     t1 = c[3].time_input("End time (UT)", value=time(now_dt.hour, now_dt.minute), width=tw)
     start, end = datetime.combine(d0, t0), datetime.combine(d1, t1)
@@ -127,16 +127,16 @@ def period(prep: Prepared, row=None) -> tuple[float, float] | None:
 
 def page_range():
     row, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")    # the title, then the inputs
-    head.subheader("Range", width="content", wrap=False)
+    head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the title, then the inputs
+    head.subheader("Planets Cycles", width="content", wrap=False)
     if not need_chart(prep):
         return
     jds = period(prep, head)
     # on / off buttons, as on Distance: every choice always in view
-    dec_on = head.pills("Dec lines (-M)", core.BUTTON_ORDER, selection_mode="multi",
+    dec_on = head.pills("Planets", core.BUTTON_ORDER, selection_mode="multi",
                         default=["Sa", "Ju", "Ma", "Ve", "Su"], key="dec_on") or []
     ea_names = {"EA-C": 0, "EA-S": 60, "EA-Q": 90, "EA-T": 120, "EA-O": 180}
-    ea = head.pills("Aspect dots", list(ea_names), selection_mode="multi", default=list(ea_names), key="ea_on") or []
+    ea = head.pills("Major Aspects", list(ea_names), selection_mode="multi", default=list(ea_names), key="ea_on") or []
     if jds is None:
         return
     with st.spinner("Drawing..."):
@@ -154,8 +154,8 @@ def _range_cached(dec_on, ea, jd_from, jd_to, orb_csv):
 
 def page_distance():
     row, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")    # the title, then the inputs
-    head.subheader("Distance", width="content", wrap=False)
+    head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the title, then the inputs
+    head.subheader("Planets Distance(%)", width="content", wrap=False)
     if not need_chart(prep):
         return
     jds = period(prep, head)
@@ -269,8 +269,8 @@ def page_my_details():
 
 
 pages = [st.Page(page_map, title="AstroMap", icon=":material/public:", url_path="astromap", default=True),
-         st.Page(page_distance, title="Distance", icon=":material/straighten:", url_path="distance"),
-         st.Page(page_range, title="Range", icon=":material/show_chart:", url_path="range"),
+         st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance"),
+         st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_tables, title="Tables", icon=":material/table:", url_path="tables"),
          st.Page(page_aspects, title="Aspects", icon=":material/tune:", url_path="aspects")]
 pages.append(st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers") if user.is_admin
