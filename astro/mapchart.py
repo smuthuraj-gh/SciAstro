@@ -156,9 +156,10 @@ def _point_lines(fig: go.Figure, name: str, ra: float | None, de: float, is_now:
                                  line=dict(color=c, width=0.75, dash=dash)))
     fig.add_trace(go.Scatter(x=[0, 360], y=[H(de), H(de)], mode="lines", hoverinfo="skip", showlegend=False,
                              line=dict(color=c, width=0.75, dash=dash)))
-    side.append((H(de), f"{de:+.1f}", c))                    # plain text, at birth and now alike
+    b0, b1 = ("", "") if is_now else ("<b>", "</b>")          # bold at birth, plain now
+    side.append((H(de), f"{b0}{de:+.1f}{b1}", c))
     if ra is not None:
-        top.append((ra, f"{ra:.1f}", c))
+        top.append((ra, f"{b0}{ra:.1f}{b1}", c))
 
 
 def _top_numbers(fig: go.Figure, top: list) -> int:
