@@ -135,9 +135,9 @@ def page_range():
     # on / off buttons, as on Distance: every choice always in view
     dec_on = head.pills("Planets", core.BUTTON_ORDER, selection_mode="multi",
                         default=["Sa", "Ju"], key="dec_on_v2") or []
-    ea_names = {"EA-C": 0, "EA-S": 60, "EA-Q": 90, "EA-T": 120, "EA-O": 180}
-    ea = head.pills("Major Aspects", list(ea_names), selection_mode="multi", default=["EA-C", "EA-O"],
-                    key="ea_on_v2") or []
+    ea_names = {v: k for k, v in rangechart.EA_NAME.items()}   # MC, MS, MQ, MT, MO -> their angles
+    ea = head.pills("Major Aspects", list(ea_names), selection_mode="multi", default=["MC", "MO"],
+                    key="ea_on_v3") or []
     if jds is None:
         return
     with st.spinner("Drawing..."):
