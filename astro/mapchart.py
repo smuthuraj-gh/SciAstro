@@ -21,8 +21,8 @@ GAP = 5                           # pixels between the grid and the text beside 
 ROW = 15                          # pixels per line of text
 TEXT_H = 16                       # the height Plotly gives a line of 11-px text (its box, with padding)
 # The chart has a fixed size, so every label's place is known in pixels and can be kept clear of the others
-WIDTH, HEIGHT = 1100, 660
-MARGIN_L, MARGIN_R, MARGIN_B = 72, 85, 75
+WIDTH, HEIGHT = 1100, 685
+MARGIN_L, MARGIN_R, MARGIN_B = 72, 85, 100       # the bottom: longitudes, RA, then the titles' line and the Now rows
 PLOT_W = WIDTH - MARGIN_L - MARGIN_R
 
 # The widest each character is at 12 px in Verdana, Arial or Open Sans, plain or bold (measured in a browser): Plotly
@@ -254,22 +254,18 @@ def fit_html(fig: go.Figure) -> str:
 </script>"""
 
 
-def _key_row(items: list[tuple[str, str, float | None]], label: str = "", label_on_values: bool = False) -> str:
-    """One row of the key: each mark (in its colour and shape) and name, with a value beneath (blank for none), then
-    the row's name, on the names' line or (label_on_values) on the values' line."""
+def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str:
+    """One row of the key: the row's title above, then each mark (in its colour and shape) and name, with a value
+    beneath (blank for none)."""
     def item(n: str, sym: str, v: float | None) -> str:
         value = f"{v:.1f}" if v is not None else "&nbsp;"
         return (f'<span style="display:inline-block; text-align:center; margin-right:5px; line-height:1.2">'
                 f'<span style="white-space:nowrap"><span style="color:{core.colour(n)}">{sym}</span>&nbsp;{n}</span>'
                 f'<br><span style="font-size:12px; opacity:0.75">{value}</span></span>')
-    tail = ""
-    if label:
-        name = f"<b>{label}</b>"
-        if label_on_values:                                   # a blank names' line, then the name on the values' line
-            name = f'&nbsp;<br><span style="font-size:12px"><b>{label}</b></span>'
-        tail = (f'<span style="display:inline-block; margin-left:4px; vertical-align:top; line-height:1.2">'
-                f'{name}</span>')
-    return '<div style="white-space:nowrap; font-size:13px">' + "".join(item(*i) for i in items) + tail + "</div>"
+    head = (f'<div style="font-size:12px; line-height:1.2; margin-bottom:3px"><b>{label}</b></div>'
+            if label else "")
+    return ('<div style="white-space:nowrap; font-size:13px">' + head
+            + "".join(item(*i) for i in items) + "</div>")
 
 
 def key_html(m: MapInput) -> str:
@@ -279,10 +275,9 @@ def key_html(m: MapInput) -> str:
     da = [(n, "&#9679;", round((m.d_birth[n] + m.d_now[n]) / 2, 2)) for n in core.BUTTON_ORDER
           if m.d_birth.get(n) is not None and m.d_now.get(n) is not None]
     if da:
-        rows.append(_key_row(da, "Distance% Average", label_on_values=True))
+        rows.append(_key_row(da, "Distance% Average"))
     if m.show_birth and m.birth:
-        rows.append(_key_row([(n, "&#9679;", m.d_birth.get(n)) for n in m.birth if n != "CB"], "Distance% DOB",
-                             label_on_values=True))
+        rows.append(_key_row([(n, "&#9679;", m.d_birth.get(n)) for n in m.birth if n != "CB"], "Distance% DOB"))
     return ('<div style="display:flex; flex-wrap:wrap; column-gap:18px; row-gap:4px; align-items:flex-start">'
             + "".join(rows) + "</div>")
 
@@ -294,23 +289,22 @@ X_TITLE = "<b>Longitude / RA</b>"
 
 
 def _now_key(fig: go.Figure, m: MapInput) -> float:
-    """With Now on: the planets now (-N), each with its D-N beneath, then the row's name "Distance% Now" on the values'
-    line, on the Longitude / RA title's line to its right, ending at the grid's right edge. Returns where the row
-    starts (pixels from the grid's left edge)."""
+    """With Now on: the title "Distance% Now" on the Longitude / RA title's line, to its right, and beneath it the
+    planets now (-N), each with its D-N beneath, ending at the grid's right edge. Returns where the row starts (pixels
+    from the grid's left edge)."""
     items = [(n + "-N", "&#9675;", m.d_now.get(n)) for n in m.now]
     widths = [max(text_px(f"o {n}"), text_px(f"{d:.1f}" if d is not None else "")) + 4 for n, _, d in items]
     label = "<b>Distance% Now</b>"
-    label_w = text_px(label) + 4
-    start = x = PLOT_W - sum(widths) - label_w
-
-    def put(cx: float, text: str):
-        fig.add_annotation(xref="paper", x=cx / PLOT_W, xanchor="center", yref="paper", y=0, yanchor="middle",
-                           yshift=-TITLE_LINE, align="center", showarrow=False, text=text, font=dict(size=FONT))
-    for (n, sym, d), w in zip(items, widths):
+    start = x = PLOT_W - max(sum(widths), text_px(label) + 4)
+    fig.add_annotation(xref="paper", x=start / PLOT_W, xanchor="left", yref="paper", y=0, yanchor="middle",
+                       yshift=-TITLE_LINE, showarrow=False, text=label, font=dict(size=FONT))
+    for (n, sym, d), w in zip(items, widths):                 # names, then values, the lines under the title
         value = f"{d:.1f}" if d is not None else " "
-        put(x + w / 2, f'<span style="color:{core.colour(n)}">{sym}</span> {n}<br>{value}')
+        fig.add_annotation(xref="paper", x=(x + w / 2) / PLOT_W, xanchor="center", yref="paper", y=0,
+                           yanchor="middle", yshift=-(TITLE_LINE + ROW * 1.5 + 2), align="center", showarrow=False,
+                           text=f'<span style="color:{core.colour(n)}">{sym}</span> {n}<br>{value}',
+                           font=dict(size=FONT))
         x += w
-    put(x + label_w / 2, f" <br>{label}")                     # on the values' line
     return start
 
 
