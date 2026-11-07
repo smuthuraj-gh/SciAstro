@@ -181,30 +181,31 @@ def page_aspects_view():
         st.info("Turn on Major Aspects or Minor Aspects.")
         return
     orb_csv = db.orb_table().to_csv(index=False)
+    left, right = st.columns(2, gap="large")                  # major aspects on the left, minor on the right
     if angles:                                                # all five major angles
         with st.spinner("Finding aspects..."):
-            _aspect_tables(_events_cached(tuple(dec_on), tuple(angles), *jds, orb_csv), angles)
+            _aspect_tables(_events_cached(tuple(dec_on), tuple(angles), *jds, orb_csv), angles, left)
     if minor:                                                 # 30, 45, 72, 135, 144, 150 degrees
         with st.spinner("Finding minor aspects..."):
-            _aspect_tables(_events_cached(tuple(dec_on), tuple(core.MINOR), *jds, orb_csv), core.MINOR)
+            _aspect_tables(_events_cached(tuple(dec_on), tuple(core.MINOR), *jds, orb_csv), core.MINOR, right)
 
 
-def _aspect_tables(events: list, angles: list[int]):
-    """A table per angle (with its count), one row per aspect, newest first."""
+def _aspect_tables(events: list, angles: list[int], where):
+    """A table per angle (with its count), one row per aspect, newest first, in where (a column)."""
     for ang in angles:
         ev = sorted((e for e in events if e[1] == ang), key=lambda e: e[0], reverse=True)   # newest first
-        st.markdown(f"**{ang}°** &nbsp; {len(ev)} aspect{'' if len(ev) == 1 else 's'}")
+        where.markdown(f"**{ang}°** &nbsp; {len(ev)} aspect{'' if len(ev) == 1 else 's'}")
         if not ev:
-            st.caption("None in this period.")
+            where.caption("None in this period.")
             continue
         rows = []
         for jd, _, title, de1, de2 in ev:
             p1, p2 = title.split("-")[1:3]
             rows.append({"Date / Time (UT)": core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M"), "Aspect": title,
                          "Planet 1": p1, "Dec 1": round(de1, 2), "Planet 2": p2, "Dec 2": round(de2, 2)})
-        st.dataframe(pd.DataFrame(rows), hide_index=True, width="content",
-                     column_config={"Dec 1": st.column_config.NumberColumn(format="%+.2f"),
-                                    "Dec 2": st.column_config.NumberColumn(format="%+.2f")})
+        where.dataframe(pd.DataFrame(rows), hide_index=True, width="content",
+                        column_config={"Dec 1": st.column_config.NumberColumn(format="%+.2f"),
+                                       "Dec 2": st.column_config.NumberColumn(format="%+.2f")})
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
