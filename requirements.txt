@@ -7,6 +7,7 @@ pandas>=2.0
 numpy
 SQLAlchemy>=2.0
 psycopg2-binary
+psycopg[binary]>=3.2
 requests
 timezonefinder>=6.5
 tzdata
