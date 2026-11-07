@@ -14,7 +14,9 @@ from app import auth, db
 from app.chartdata import Prepared, now_local_text, now_values, prepare
 from astro import core, distancechart, mapchart, rangechart, se
 
-st.set_page_config(page_title="Equatorial charts", page_icon=":material/public:", layout="wide")
+# wide pages, the sidebar (menu, customer) starting closed so the charts get the whole window; » opens it
+st.set_page_config(page_title="Equatorial charts", page_icon=":material/public:", layout="wide",
+                   initial_sidebar_state="collapsed")
 
 user = auth.current_user()
 

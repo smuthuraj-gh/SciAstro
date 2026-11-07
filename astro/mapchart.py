@@ -213,9 +213,12 @@ def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool, 
             break                                            # one tag per aspect
 
 
+MAX_GROW = 1.6                    # a chart may be shown up to this many times its laid-out size in a wide window
+
+
 def fit_html(fig: go.Figure) -> str:
-    """The chart as HTML that shows it at its full fixed size when there is room, and otherwise scales the whole chart
-    down to the width it has, exactly as laid out (so no label can come to overlap another), its height following.
+    """The chart as HTML scaled as a whole to the width it has: smaller in a narrow column, larger (up to MAX_GROW)
+    in a wide one, exactly as laid out either way (so no label can come to overlap another), its height following.
     Any chart with a fixed layout width and height (AstroMap, Planets Cycles)."""
     import uuid
     from plotly.offline import get_plotlyjs_version
@@ -227,13 +230,17 @@ def fit_html(fig: go.Figure) -> str:
 <script>
 (function () {{
   const outer = document.getElementById("{uid}"), inner = document.getElementById("{uid}-in");
+  const MAX_GROW = {MAX_GROW};
   function fit() {{
-    const s = Math.min(1, outer.clientWidth / {w});
+    const s = Math.min(MAX_GROW, Math.floor(outer.clientWidth) / {w});   // fills the column: smaller or larger
     inner.style.transform = "scale(" + s + ")";
     outer.style.height = Math.ceil({h} * s) + "px";
   }}
-  new ResizeObserver(fit).observe(outer);
-  fit();
+  // again whenever the column's width changes, and once the page has settled (its scroll bar may appear late)
+  new ResizeObserver(fit).observe(outer.parentElement || outer);
+  new ResizeObserver(fit).observe(document.documentElement);
+  window.addEventListener("resize", fit);
+  fit(); setTimeout(fit, 300); setTimeout(fit, 1500);
   if (!window.Plotly && !document.getElementById("plotly-js")) {{     // Plotly's script, once per page
     const s = document.createElement("script");
     s.id = "plotly-js"; s.src = "{cdn}"; document.head.appendChild(s);
