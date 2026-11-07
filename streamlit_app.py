@@ -92,7 +92,7 @@ def page_map():
         d_birth=prep.d_birth, d_now=d_now, show_birth=show_birth, show_now=show_now, major=major, minor=minor,
         show_map="Map" in shown)
     key = mapchart.key_html(m)
-    if key:                                                   # birth marks with D, then D-A: next to Minor Aspects
+    if key:                                                   # birth marks with D, then AvDist: next to Minor Aspects
         head.markdown(key, unsafe_allow_html=True, width="content")
     # Laid out at its own fixed size (every label is spaced for it) and scaled down whole to fit a narrower column:
     # st.plotly_chart would re-lay it out narrower and bring the labels back on top of each other
@@ -191,7 +191,7 @@ def page_tables():
     for p in core.PLANETS:
         b, n = core.position(p, prep.jd_birth), core.position(p, jd_now)
         d, dn = core.distance_pct(p, b.dist_au), core.distance_pct(p, n.dist_au)
-        rows.append({"Planets": p, "D": d, "D-N": dn, "D-A": round((d + dn) / 2, 2), "_ra": prep.birth[p][0],
+        rows.append({"Planets": p, "D": d, "D-N": dn, "AvDist": round((d + dn) / 2, 2), "_ra": prep.birth[p][0],
                      "_up_b": b.dist_speed >= 0, "_up_n": n.dist_speed >= 0})
     df = pd.DataFrame(rows).sort_values("_ra").reset_index(drop=True)
 
@@ -199,10 +199,10 @@ def page_tables():
         key = "_up_b" if col.name == "D" else "_up_n"
         return [f"color: {'rgb(255,0,0)' if up else 'rgb(0,128,0)'}" for up in df[key]]
 
-    shown = df[["Planets", "D", "D-N", "D-A"]]
-    st.dataframe(shown.style.apply(colour, subset=["D", "D-N", "D-A"]).format({"D": "{:.1f}", "D-N": "{:.1f}", "D-A": "{:.1f}"}),
+    shown = df[["Planets", "D", "D-N", "AvDist"]]
+    st.dataframe(shown.style.apply(colour, subset=["D", "D-N", "AvDist"]).format({"D": "{:.1f}", "D-N": "{:.1f}", "AvDist": "{:.1f}"}),
                  hide_index=True, width="content")
-    st.caption("D = % between the planet's least and greatest distance (1800-2400); D at birth, D-N now, D-A their "
+    st.caption("D = % between the planet's least and greatest distance (1800-2400); D at birth, D-N now, AvDist their "
                "average. Red: distance growing, green: shrinking. Click a heading to sort.")
 
 
