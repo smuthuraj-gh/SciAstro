@@ -5,7 +5,7 @@ zodiac), with the same rules.
 
 | Page | Who | What |
 |---|---|---|
-| AstroMap | everyone | planets at birth and now over a world map turned by the sky; Map / DOB / Now / Major Aspects / Minor Aspects; each planet's D in the key; aspect and house lines; hover a mark for RA, Dec, D |
+| AstroMap | everyone | planets at birth and now over a world map turned by the sky; Map / DOB / Now / Major Aspects / Minor Aspects; each planet's D and D-A beside the buttons, D-N under the chart; aspect and house lines; hover a mark for RA, Dec, D |
 | Planets Distance(%) | everyone | distance (-D) lines from birth to now: D, the % between each planet's nearest and farthest |
 | Planets Cycles | everyone | Dec (-M) lines from birth to now, with 0° / 60° / 90° / 120° / 180° aspect dots and tags |
 | Tables | everyone | Planets, D, D-N, D-A |

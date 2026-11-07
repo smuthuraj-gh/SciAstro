@@ -92,15 +92,15 @@ def page_map():
         d_birth=prep.d_birth, d_now=d_now, show_birth=show_birth, show_now=show_now, major=major, minor=minor,
         show_map="Map" in shown)
     key = mapchart.key_html(m)
-    if key:                                                   # the planets, CB, CN key, next to Minor Aspects
+    if key:                                                   # birth marks with D, then D-A: next to Minor Aspects
         head.markdown(key, unsafe_allow_html=True, width="content")
     # Laid out at its own fixed size (every label is spaced for it) and scaled down whole to fit a narrower column:
     # st.plotly_chart would re-lay it out narrower and bring the labels back on top of each other
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(mapchart.map_figure(m, orbs())), unsafe_allow_javascript=True)
-    da = mapchart.da_html(m)                                  # each planet's D-A, under the chart
-    if da:
-        st.markdown(da, unsafe_allow_html=True)
+    below = mapchart.now_html(m)                              # with Now on: the marks now and their D-N, under it
+    if below:
+        st.markdown(below, unsafe_allow_html=True)
     if show_now:
         st.caption(f"Now: {now_local_text(prep.cn_tz)}" + ("" if prep.cn else " - no City-N for this customer, so no CN"))
 

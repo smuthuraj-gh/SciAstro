@@ -247,39 +247,37 @@ def fit_html(fig: go.Figure) -> str:
 </script>"""
 
 
-def key_html(m: MapInput) -> str:
-    """The key to the marks on the chart (planets, CB, CN), in the marks' colours and shapes, for beside the buttons;
-    under each planet its D (at birth) or D-N (now). CB and CN have none."""
-    lines = []                                                # birth marks on one line, the marks now on the next
-    if m.show_birth and m.birth:
-        lines.append([(n, "&#9670;" if n == "CB" else "&#9679;", m.d_birth.get(n)) for n in m.birth])
-    if m.show_now and m.now:
-        lines.append([(n + "-N", "&#9675;", m.d_now.get(n)) for n in m.now]
-                     + ([("CN", "&#9650;", None)] if m.cn is not None else []))
-
-    def item(n: str, sym: str, d: float | None) -> str:
-        value = f"{d:.1f}" if d is not None else "&nbsp;"
+def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str:
+    """One row of the key: each mark (in its colour and shape) and name, with a value beneath (blank for none)."""
+    def item(n: str, sym: str, v: float | None) -> str:
+        value = f"{v:.1f}" if v is not None else "&nbsp;"
         return (f'<span style="display:inline-block; text-align:center; margin-right:5px; line-height:1.2">'
                 f'<span style="white-space:nowrap"><span style="color:{core.colour(n)}">{sym}</span>&nbsp;{n}</span>'
                 f'<br><span style="font-size:12px; opacity:0.75">{value}</span></span>')
-    return "".join('<div style="white-space:nowrap; font-size:13px">' + "".join(item(*i) for i in line) + "</div>"
-                   for line in lines)
+    head = (f'<span style="display:inline-block; margin-right:8px; vertical-align:top; line-height:1.2">'
+            f'<b>{label}</b></span>') if label else ""
+    return '<div style="white-space:nowrap; font-size:13px">' + head + "".join(item(*i) for i in items) + "</div>"
 
 
-def da_html(m: MapInput) -> str:
-    """For under the chart: each planet with its D-A beneath, the average of D at birth and D-N now (as Tables)."""
-    items = []
-    for n in core.BUTTON_ORDER:
-        d, dn = m.d_birth.get(n), m.d_now.get(n)
-        if d is None or dn is None:
-            continue
-        items.append(f'<span style="display:inline-block; text-align:center; margin-right:10px; line-height:1.2">'
-                     f'<span style="white-space:nowrap"><span style="color:{core.colour(n)}">&#9679;</span>&nbsp;{n}'
-                     f'</span><br><span style="font-size:12px; opacity:0.75">{round((d + dn) / 2, 2):.1f}</span></span>')
-    if not items:
+def key_html(m: MapInput) -> str:
+    """For beside the buttons: the birth marks (planets, CB) with each planet's D beneath, then each planet's D-A
+    (the average of D at birth and D-N now, as Tables)."""
+    rows = []
+    if m.show_birth and m.birth:
+        rows.append(_key_row([(n, "&#9670;" if n == "CB" else "&#9679;", m.d_birth.get(n)) for n in m.birth]))
+    da = [(n, "&#9679;", round((m.d_birth[n] + m.d_now[n]) / 2, 2)) for n in core.BUTTON_ORDER
+          if m.d_birth.get(n) is not None and m.d_now.get(n) is not None]
+    if da:
+        rows.append(_key_row(da, "D-A"))
+    return "".join(rows)
+
+
+def now_html(m: MapInput) -> str:
+    """For under the chart, when Now is on: the marks now (planets -N, CN) with each planet's D-N beneath."""
+    if not (m.show_now and m.now):
         return ""
-    return ('<div style="white-space:nowrap; font-size:13px"><span style="display:inline-block; margin-right:12px; '
-            'vertical-align:top; line-height:1.2"><b>D-A</b></span>' + "".join(items) + "</div>")
+    return _key_row([(n + "-N", "&#9675;", m.d_now.get(n)) for n in m.now]
+                    + ([("CN", "&#9650;", None)] if m.cn is not None else []))
 
 
 def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
