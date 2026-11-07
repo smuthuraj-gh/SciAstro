@@ -275,13 +275,18 @@ def key_html(m: MapInput) -> str:
 TITLE_LINE = 54                   # pixels from the grid's bottom edge to the middle of the Longitude / RA title
 
 
-def _now_key(fig: go.Figure, m: MapInput):
-    """With Now on: the planets now (-N), each with its D-N beneath, then the row's name "Now" (as the rows beside the
-    buttons end in theirs), on the Longitude / RA title's line to the right of it, ending at the grid's right edge."""
+X_TITLE = "<b>Longitude / RA</b>"
+
+
+def _now_key(fig: go.Figure, m: MapInput) -> float:
+    """With Now on: the planets now (-N), each with its D-N beneath, then the row's name "Distance% Now" on the values'
+    line, on the Longitude / RA title's line to its right, ending at the grid's right edge. Returns where the row
+    starts (pixels from the grid's left edge)."""
     items = [(n + "-N", "&#9675;", m.d_now.get(n)) for n in m.now]
-    widths = [max(text_px(f"o {n}"), text_px(f"{d:.1f}" if d is not None else "")) + 6 for n, _, d in items]
-    label_w = text_px("<b>Now</b>") + 4
-    x = PLOT_W - sum(widths) - label_w                        # pixels from the grid's left edge
+    widths = [max(text_px(f"o {n}"), text_px(f"{d:.1f}" if d is not None else "")) + 4 for n, _, d in items]
+    label = "<b>Distance% Now</b>"
+    label_w = text_px(label) + 4
+    start = x = PLOT_W - sum(widths) - label_w
 
     def put(cx: float, text: str):
         fig.add_annotation(xref="paper", x=cx / PLOT_W, xanchor="center", yref="paper", y=0, yanchor="middle",
@@ -290,7 +295,18 @@ def _now_key(fig: go.Figure, m: MapInput):
         value = f"{d:.1f}" if d is not None else " "
         put(x + w / 2, f'<span style="color:{core.colour(n)}">{sym}</span> {n}<br>{value}')
         x += w
-    put(x + label_w / 2, "<b>Now</b><br> ")                  # on the names' line, as the other rows' names
+    put(x + label_w / 2, f" <br>{label}")                     # on the values' line
+    return start
+
+
+def _x_title(fig: go.Figure, row_start: float | None):
+    """The Longitude / RA title under the grid: centred, or moved left just enough to stay clear of the Now row."""
+    w = text_px(X_TITLE)
+    centre = PLOT_W / 2
+    if row_start is not None:
+        centre = min(centre, row_start - 16 - w / 2)
+    fig.add_annotation(xref="paper", x=centre / PLOT_W, xanchor="center", yref="paper", y=0, yanchor="middle",
+                       yshift=-TITLE_LINE, showarrow=False, text=X_TITLE, font=TITLE_FONT)
 
 
 def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
@@ -381,8 +397,7 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         # names the Dec numbers printed right of the 360 line: a side title past them, like the left axis title
         fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=50, yref="paper", y=0.5, yanchor="middle",
                            textangle=90, text="<b>Planets-Declination</b>", showarrow=False, font=TITLE_FONT)
-    if now:
-        _now_key(fig, m)
+    _x_title(fig, _now_key(fig, m) if now else None)          # the Now row and the Longitude / RA title on one line
 
     lat_ticks = list(range(-90, 91, 15))
     fig.update_layout(
@@ -390,7 +405,7 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         margin=dict(l=MARGIN_L, r=MARGIN_R, t=margin_t, b=MARGIN_B, autoexpand=False),
         showlegend=False, hovermode="closest", dragmode="zoom",
         xaxis=dict(range=[0, 360], showgrid=False, zeroline=False,
-                   title=dict(text="<b>Longitude / RA</b>", standoff=14, font=TITLE_FONT),
+                   # its title is drawn by _x_title, so it can move aside for the Now row
                    tickvals=list(range(0, 361, 30)), ticklabelstandoff=GAP + ROW - 1,  # RA numbers just under the longitudes
                    mirror=True, linecolor="rgb(134,134,134)"),
         yaxis=dict(range=[-90, 90], showgrid=False, zeroline=False, ticklabelstandoff=0,   # close to the grid
