@@ -46,6 +46,7 @@ st.html("""<script>
     if (Math.abs(want - z) > 0.001) {
       root.style.zoom = want;
       root.style.setProperty("--app-zoom", want);
+      window.dispatchEvent(new Event("resize"));             // the charts fit themselves again (mapchart.fit_html)
       // Plotly measures text in its own hidden element, and the editable tables (drawn on a canvas) size themselves
       // from the zoomed width: keep those unzoomed, so charts lay out as at 1:1 and the tables fit the page
       let st = document.getElementById("app-zoom-style");

@@ -204,10 +204,17 @@ def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool, 
         sx = [x + shift for x in xs]
         if max(sx) < 0 or min(sx) > 360:
             continue
-        fig.add_trace(go.Scatter(x=sx, y=ys, mode="lines", hoverinfo="text", hovertext=a.title, showlegend=False,
+        fig.add_trace(go.Scatter(x=sx, y=ys, mode="lines", hoverinfo="skip", showlegend=False,
                                  line=dict(color="rgb(110,110,110)" if minor else "black", width=1 if minor else 1.5,
                                            dash="dot" if is_now else "solid")))
         (x0, y0), (x1, y1) = (sx[0], ys[0]), (sx[-1], ys[-1])
+        # its name on hover along the middle of the line only: the line's ends are on the planets, whose own
+        # RA, Dec and D must show there
+        mid = [(x0 + t * (x1 - x0), y0 + t * (y1 - y0)) for t in (0.25, 0.375, 0.5, 0.625, 0.75)]
+        mid = [(x, y) for x, y in mid if 0 <= x <= 360]
+        if mid:
+            fig.add_trace(go.Scatter(x=[p[0] for p in mid], y=[p[1] for p in mid], mode="markers", showlegend=False,
+                                     marker=dict(size=8, opacity=0), hoverinfo="text", hovertext=a.title))
         points = [(x0 + t * (x1 - x0), y0 + t * (y1 - y0)) for t in (0.5, 0.35, 0.65, 0.2, 0.8)]
         points = [(x, y) for x, y in points if 0 <= x <= 360]
         if points:
@@ -215,7 +222,6 @@ def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool, 
             break                                            # one tag per aspect
 
 
-MAX_GROW = 1.6                    # a chart may be shown up to this many times its laid-out size in a wide window
 # Everything else on a page keeps within AstroMap's Latitude/Declination (left) and Planets-Declination (right)
 # titles: the page's text column is narrower than the charts by these (pixels of the 1100-px chart, measured in a
 # browser), and each chart reaches out past it by the same on both sides
@@ -223,9 +229,8 @@ INSET_L, INSET_R = 15, 11
 
 
 def fit_html(fig: go.Figure) -> str:
-    """The chart as HTML scaled as a whole to the width it has: smaller in a narrow column, larger (up to MAX_GROW)
-    in a wide one, exactly as laid out either way (so no label can come to overlap another), its height following.
-    Any chart with a fixed layout width and height (AstroMap, Planets Cycles)."""
+    """The chart as HTML scaled as a whole to the page's zoom, exactly as laid out (so no label can come to overlap
+    another), reaching INSET_L / INSET_R past the text column. Any chart with a fixed layout width and height."""
     import uuid
     from plotly.offline import get_plotlyjs_version
     w, h = int(fig.layout.width), int(fig.layout.height)
@@ -233,15 +238,22 @@ def fit_html(fig: go.Figure) -> str:
     cdn = f"https://cdn.plot.ly/plotly-{get_plotlyjs_version()}.min.js"   # the version this Plotly package draws with
     # (Plotly's hover toolbar moved in from the chart's right edge, inside Planets-Declination too)
     return f"""<style>#{uid} .modebar-container {{ right: {INSET_R}px !important; }}</style>
-<div id="{uid}" style="width:calc(100% + {INSET_L + INSET_R}px); margin-left:-{INSET_L}px; overflow:hidden">
+<div id="{uid}" style="overflow:hidden">
 <div id="{uid}-in" style="width:{w}px; height:{h}px; transform-origin:0 0"></div></div>
 <script>
 (function () {{
   const outer = document.getElementById("{uid}"), inner = document.getElementById("{uid}-in");
-  const MAX_GROW = {MAX_GROW};
   function fit() {{
-    let s = Math.min(MAX_GROW, outer.clientWidth / {w});   // fills the column: smaller or larger
-    if (Math.abs(s - 1) < 0.01) s = 1;     // the page zoom (APP_ZOOM_JS) makes the column 1100: text as on the page
+    // The page is zoomed (CSS zoom) to the window, but Plotly cannot follow the pointer through a CSS zoom (pointing
+    // at a planet showed nothing or another planet): so the chart undoes the page zoom and is scaled by a transform
+    // instead, which Plotly allows for. Same size on screen: the column's width plus the insets, in screen pixels.
+    const z = parseFloat(document.documentElement.style.zoom) || 1;
+    outer.style.zoom = 1 / z;
+    const col = (outer.parentElement || outer).getBoundingClientRect().width;     // on screen
+    const width = col + ({INSET_L + INSET_R}) * z;
+    outer.style.width = width + "px";
+    outer.style.marginLeft = (-{INSET_L} * z) + "px";
+    const s = width / {w};                 // the page zoom: the column is laid out so that this is it exactly
     inner.style.transform = "scale(" + s + ")";
     outer.style.height = Math.ceil({h} * s) + "px";
   }}
@@ -368,13 +380,24 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         _house_lines(fig, core.lst(m.jd_now, m.cn[1]), True)
 
     marks = []                                                # (name, RA, Dec), for their name labels below
-    def mark(name: str, x: float, de: float, symbol: str, hollow: bool, d_txt: str):
-        c = core.colour(name)
-        fig.add_trace(go.Scatter(                             # their key is shown beside the buttons (key_html)
-            x=[x], y=[H(de)], mode="markers", name=name, showlegend=False,
-            marker=dict(symbol=symbol, size=11, color="white" if hollow else c, line=dict(color=c, width=2)),
-            hovertemplate=f"<b>{name}</b><br>RA {x:.2f}<br>Dec {de:+.2f}{d_txt}<extra></extra>"))
+    pending = []                                              # (name, x, Dec, symbol, hollow, hover text)
+    def mark(name: str, x: float, de: float, symbol: str, hollow: bool, d_txt: str, ra: float | None = None):
+        """A mark at map position x; its hover shows its RA (ra, when that differs from x, as for CN), Dec and D."""
+        text = f"<b>{name}</b><br>RA {x if ra is None else ra:.2f}<br>Dec {de:+.2f}{d_txt}"
+        pending.append((name, x, de, symbol, hollow, text))
         marks.append((name, x, de))
+
+    def draw_marks():
+        """The marks, each pointed at showing its values; marks on the same spot (as CB and CN, born where one is
+        now) show all of theirs together, as only one of them can be pointed at."""
+        for i, (name, x, de, symbol, hollow, text) in enumerate(pending):
+            same = [t for j, (_, x2, de2, *_, t) in enumerate(pending) if j != i
+                    and abs(x2 - x) < 1.0 and abs(H(de2) - H(de)) < 1.0]
+            c = core.colour(name)
+            fig.add_trace(go.Scatter(                         # their key is shown beside the buttons (key_html)
+                x=[x], y=[H(de)], mode="markers", name=name, showlegend=False,
+                marker=dict(symbol=symbol, size=11, color="white" if hollow else c, line=dict(color=c, width=2)),
+                hovertemplate="<br><br>".join([text] + same) + "<extra></extra>"))
 
     for n, (ra, de) in birth.items():
         d = m.d_birth.get(n)
@@ -383,7 +406,9 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         d = m.d_now.get(n)
         mark(n + "-N", ra, de, "circle", True, f"<br>D-N {d:.2f}" if d is not None else "")
     if cn_x is not None:
-        mark("CN", cn_x, m.cn[0], "triangle-up", False, f"<br>lat {m.cn[0]:+.2f}, lon {m.cn[1]:+.2f}")
+        mark("CN", cn_x, m.cn[0], "triangle-up", False, f"<br>lat {m.cn[0]:+.2f}, lon {m.cn[1]:+.2f}",
+             ra=core.lst(m.jd_now, m.cn[1]))                 # its RA now (its place on the map is turned for birth)
+    draw_marks()
 
     # Labels inside the grid, each in the first free place: first the marks themselves are kept clear, then each
     # mark's name goes beside it, then the house names and RAs along the edges, then the aspect tags
