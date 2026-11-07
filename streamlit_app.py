@@ -342,9 +342,9 @@ def page_my_details():
 
 
 pages = [st.Page(page_map, title="AstroMap", icon=":material/public:", url_path="astromap", default=True),
+         st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
-         st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance"),
-         st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects")]
+         st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
 if user.is_admin:                                             # the Aspects Details and Customers pages: admins only
     pages += [st.Page(page_aspects, title="Aspects Details", icon=":material/tune:", url_path="aspects-details"),
               st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers")]
