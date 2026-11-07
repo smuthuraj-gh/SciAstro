@@ -247,15 +247,21 @@ def fit_html(fig: go.Figure) -> str:
 </script>"""
 
 
-def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str:
-    """One row of the key: each mark (in its colour and shape) and name, with a value beneath (blank for none)."""
+def _key_row(items: list[tuple[str, str, float | None]], label: str = "", label_on_values: bool = False) -> str:
+    """One row of the key: each mark (in its colour and shape) and name, with a value beneath (blank for none), then
+    the row's name, on the names' line or (label_on_values) on the values' line."""
     def item(n: str, sym: str, v: float | None) -> str:
         value = f"{v:.1f}" if v is not None else "&nbsp;"
         return (f'<span style="display:inline-block; text-align:center; margin-right:5px; line-height:1.2">'
                 f'<span style="white-space:nowrap"><span style="color:{core.colour(n)}">{sym}</span>&nbsp;{n}</span>'
                 f'<br><span style="font-size:12px; opacity:0.75">{value}</span></span>')
-    tail = (f'<span style="display:inline-block; margin-left:4px; vertical-align:top; line-height:1.2">'
-            f'<b>{label}</b></span>') if label else ""          # the row's name, after its planets
+    tail = ""
+    if label:
+        name = f"<b>{label}</b>"
+        if label_on_values:                                   # a blank names' line, then the name on the values' line
+            name = f'&nbsp;<br><span style="font-size:12px"><b>{label}</b></span>'
+        tail = (f'<span style="display:inline-block; margin-left:4px; vertical-align:top; line-height:1.2">'
+                f'{name}</span>')
     return '<div style="white-space:nowrap; font-size:13px">' + "".join(item(*i) for i in items) + tail + "</div>"
 
 
@@ -266,9 +272,10 @@ def key_html(m: MapInput) -> str:
     da = [(n, "&#9679;", round((m.d_birth[n] + m.d_now[n]) / 2, 2)) for n in core.BUTTON_ORDER
           if m.d_birth.get(n) is not None and m.d_now.get(n) is not None]
     if da:
-        rows.append(_key_row(da, "Distance% Average"))
+        rows.append(_key_row(da, "Distance% Average", label_on_values=True))
     if m.show_birth and m.birth:
-        rows.append(_key_row([(n, "&#9679;", m.d_birth.get(n)) for n in m.birth if n != "CB"], "Distance% DOB"))
+        rows.append(_key_row([(n, "&#9679;", m.d_birth.get(n)) for n in m.birth if n != "CB"], "Distance% DOB",
+                             label_on_values=True))
     return "".join(rows)
 
 
