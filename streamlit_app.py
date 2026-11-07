@@ -45,6 +45,7 @@ st.html("""<script>
     const want = z * main.clientWidth / (WIDTH + pad);
     if (Math.abs(want - z) > 0.001) {
       root.style.zoom = want;
+      root.style.setProperty("--app-zoom", want);
       // Plotly measures text in its own hidden element, and the editable tables (drawn on a canvas) size themselves
       // from the zoomed width: keep those unzoomed, so charts lay out as at 1:1 and the tables fit the page
       let st = document.getElementById("app-zoom-style");
@@ -52,7 +53,12 @@ st.html("""<script>
       // (the column keeps its width when only the zoom changes, so a table's width comes from CSS, not a measurement)
       st.textContent = '#js-plotly-tester, [data-testid="stDataFrame"] { zoom: ' + (1 / want) + '; }' +
                        '[data-testid="stDataFrame"], [data-testid="stDataFrameResizable"] ' +
-                       '{ width: 100% !important; max-width: 100% !important; }';
+                       '{ width: 100% !important; max-width: 100% !important; }' +
+                       // the areas as tall as the window (100vh, which the zoom does not change) would be zoomed
+                       // past the window's bottom, cutting the page off: make them the window's height once zoomed
+                       '[data-testid="stAppViewContainer"] > *, [data-testid="stMain"], [data-testid="stSidebar"] ' +
+                       '{ height: calc(100dvh / var(--app-zoom, 1)) !important; ' +
+                       'max-height: calc(100dvh / var(--app-zoom, 1)) !important; }';
     }
   }
   window.__appZoom = zoom;
