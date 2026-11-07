@@ -274,7 +274,7 @@ def _key_row(items: list[tuple[str, str, float | None]], label: str = "", label_
 
 def key_html(m: MapInput) -> str:
     """For beside the buttons: each planet's Distance% Average (the average of D at birth and D-N now), then below it
-    each planet at birth with its D (Distance% DOB) beneath."""
+    to its right each planet at birth with its D (Distance% DOB) beneath (on the next line if there is no room)."""
     rows = []
     da = [(n, "&#9679;", round((m.d_birth[n] + m.d_now[n]) / 2, 2)) for n in core.BUTTON_ORDER
           if m.d_birth.get(n) is not None and m.d_now.get(n) is not None]
@@ -283,7 +283,8 @@ def key_html(m: MapInput) -> str:
     if m.show_birth and m.birth:
         rows.append(_key_row([(n, "&#9679;", m.d_birth.get(n)) for n in m.birth if n != "CB"], "Distance% DOB",
                              label_on_values=True))
-    return "".join(rows)
+    return ('<div style="display:flex; flex-wrap:wrap; column-gap:18px; row-gap:4px; align-items:flex-start">'
+            + "".join(rows) + "</div>")
 
 
 TITLE_LINE = 54                   # pixels from the grid's bottom edge to the middle of the Longitude / RA title
