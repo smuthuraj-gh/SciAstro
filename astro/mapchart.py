@@ -260,15 +260,15 @@ def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str
 
 
 def key_html(m: MapInput) -> str:
-    """For beside the buttons: the birth marks (planets, CB) with each planet's D beneath, then each planet's AvDist
-    (the average of D at birth and D-N now, as Tables)."""
+    """For beside the buttons: each planet's AvDist (the average of D at birth and D-N now, as Tables), then below it
+    the birth marks (planets, CB) with each planet's D beneath."""
     rows = []
-    if m.show_birth and m.birth:
-        rows.append(_key_row([(n, "&#9670;" if n == "CB" else "&#9679;", m.d_birth.get(n)) for n in m.birth]))
     da = [(n, "&#9679;", round((m.d_birth[n] + m.d_now[n]) / 2, 2)) for n in core.BUTTON_ORDER
           if m.d_birth.get(n) is not None and m.d_now.get(n) is not None]
     if da:
         rows.append(_key_row(da, "AvDist"))
+    if m.show_birth and m.birth:
+        rows.append(_key_row([(n, "&#9670;" if n == "CB" else "&#9679;", m.d_birth.get(n)) for n in m.birth]))
     return "".join(rows)
 
 
