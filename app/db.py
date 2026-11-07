@@ -15,7 +15,7 @@ import streamlit as st
 from astro import core
 
 ROOT = Path(__file__).resolve().parent.parent
-FIELDS = ["name", "last_name", "email", "country", "state", "other", "city", "year", "mon", "day", "hr", "mn",
+FIELDS = ["name", "last_name", "email", "country", "state", "city", "other", "year", "mon", "day", "hr", "mn",
           "country_n", "state_n", "city_n", "other_n", "utc"]
 LABELS = {"name": "First Name", "last_name": "Last Name", "email": "Email (login)", "country": "Country", "state": "State",
           "other": "Other", "city": "City",
@@ -153,17 +153,38 @@ def _clean(rec: dict) -> dict:
     return out
 
 
+REQUIRED = {"name": "First Name", "email": "Email (login)", "state": "State"}     # and a birth date (Year, Mon, Date)
+
+
+def missing_required(df: pd.DataFrame) -> list[str]:
+    """What each customer row lacks of the required fields, as 'who: what' (rows left wholly empty are ignored)."""
+    out = []
+    for i, rec in enumerate(df.to_dict("records"), start=1):
+        data = _clean(rec)
+        if not any(v is not None for v in data.values()):     # a new row never filled in
+            continue
+        lacks = [label for f, label in REQUIRED.items() if not data.get(f)]
+        try:
+            from datetime import date
+            date(data["year"], data["mon"], data["day"])
+        except (TypeError, ValueError):
+            lacks.append("Birth date")
+        if lacks:
+            who = " ".join(x for x in (data.get("name"), data.get("last_name")) if x) or f"row {i}"
+            out.append(f"{who}: {', '.join(lacks)}")
+    return out
+
+
 def save_customers(edited: pd.DataFrame, original: pd.DataFrame) -> tuple[int, int, int]:
     """Apply an edited copy of the customers table: (added, changed, deleted). Raises ValueError, saving nothing,
     when two customers would share a login email."""
     dup = shared_emails(edited)
     if dup:
         raise ValueError("Each login email can belong to one customer only. Used more than once: " + ", ".join(dup))
-    named = edited[edited["name"].fillna("").astype(str).str.strip() != ""]
-    no_state = named[named["state"].fillna("").astype(str).str.strip() == ""]
-    if not no_state.empty:                                   # State is required for every customer
-        raise ValueError("State is required. Missing for: " + ", ".join(
-            (no_state["name"].astype(str) + " " + no_state["last_name"].fillna("").astype(str)).str.strip()))
+    problems = missing_required(edited)
+    if problems:
+        raise ValueError("Required for every customer: First Name, Birth date (Year, Mon, Date), Email (login), "
+                         "State. " + "; ".join(problems))
     added = changed = deleted = 0
     keep_ids = set(edited["id"].dropna().astype(int)) if "id" in edited else set()
     with engine().begin() as c:
@@ -211,7 +232,8 @@ def update_own_customer(rec: dict, email: str) -> bool:
 
 
 def import_workbook_csv(raw: bytes) -> int:
-    """Customers from a CSV saved from the workbook's Customers tab (Customer, Country, ... City-N); new names only."""
+    """Customers from a CSV saved from the workbook's Customers tab (Customer, Country, State, City, Other, ... City-N,
+    Others-N; any column may be missing); new names only."""
     src = pd.read_csv(io.BytesIO(raw), dtype=str)
     back = {v.split(" (")[0].lower(): k for k, v in LABELS.items()}
     back["customer"] = "name"                                # the workbook's own heading for First Name

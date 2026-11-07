@@ -34,10 +34,13 @@ def locate_cached(city: str, state: str, country: str):
 def prepare(rec_items: tuple) -> Prepared:
     rec = dict(rec_items)
     try:
-        y, m, d, h, mi = (int(rec[k]) for k in ("year", "mon", "day", "hr", "mn"))
+        y, m, d = (int(rec[k]) for k in ("year", "mon", "day"))
+        # the birth time is optional: unknown (no hour) is taken as 12:00 noon, no minutes as :00
+        h = 12 if rec.get("hr") is None else int(rec["hr"])
+        mi = 0 if rec.get("mn") is None or rec.get("hr") is None else int(rec["mn"])
         when = datetime(y, m, d, h, mi)
     except (TypeError, ValueError, KeyError):
-        return Prepared(False, "The birth date and time are incomplete.")
+        return Prepared(False, "The birth date is incomplete.")
     ll = locate_cached(rec.get("city"), rec.get("state"), rec.get("country"))
     if ll is None:
         return Prepared(False, f"The birth place '{rec.get('city')}, {rec.get('state')}, {rec.get('country')}' was not found.")

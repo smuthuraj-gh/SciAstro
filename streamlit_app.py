@@ -126,9 +126,12 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",
-    "Customers": "Add, change or delete customers, then Save changes. Email (login) is the Google account each "
-                 "customer signs in with (one customer per email; they see only their own). State is required. "
-                 "UTC blank: looked up from the birth place. Import adds customers from the workbook's Customers CSV.",
+    "Customers": "Add, change or delete customers, then Save changes. Required (*): First Name, Email (login), "
+                 "State and the birth date (Year, Mon, Date); Hr24 and Min may be left blank (12:00 is then used). "
+                 "Email (login) is the Google account each customer signs in with (one customer per email; they see "
+                 "only their own). Other and Others-N: anything else to keep about the birth place and the place now "
+                 "(not used in the charts). UTC blank: looked up from the birth place. Import adds customers from the "
+                 "workbook's Customers CSV.",
     "My details": "Your own birth details, used for all your charts. Edit my details to change them; your login "
                   "email stays the same.",
 }
@@ -172,8 +175,13 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     if not prep.ok:
         st.sidebar.error(prep.message)
     else:
+        hr, mn = row.get("hr"), row.get("mn")
+        if hr is None or pd.isna(hr):
+            at = "time unknown, 12:00 used"
+        else:
+            at = f"{int(hr):02d}:{0 if mn is None or pd.isna(mn) else int(mn):02d}"
         st.sidebar.caption(f"{int(row['year'])}-{int(row['mon']):02d}-{int(row['day']):02d} {prep.weekday} "
-                           f"{int(row['hr']):02d}:{int(row['mn']):02d}, UTC {prep.utc:+.2f}  \n"
+                           f"{at}, UTC {prep.utc:+.2f}  \n"
                            f"{row['city']}, {row['state'] or ''}, {row['country'] or ''} ({prep.birth_lat}, {prep.birth_lon})")
     return row, prep
 
@@ -206,8 +214,8 @@ def details_form(row: pd.Series | None):
             born0 = datetime(int(val("year")), int(val("mon")), int(val("day"))).date()
         except ValueError:
             pass
-    if row is not None and val("hr") is not None and val("mn") is not None:
-        at0 = f"{int(val('hr')):02d}:{int(val('mn')):02d}"
+    if row is not None and val("hr") is not None:
+        at0 = f"{int(val('hr')):02d}:{int(val('mn') or 0):02d}"
     with st.form("member_details" if row is None else "edit_details"):
         c1, c2 = st.columns(2)
         first = c1.text_input("First Name *", value=txt("name"), max_chars=120)
@@ -216,7 +224,8 @@ def details_form(row: pd.Series | None):
         born = c1.date_input("Birth date *", value=born0, min_value=datetime(1800, 1, 1).date(),
                              max_value=datetime.now().date(), format="YYYY-MM-DD")
         # a text box (Streamlit's time box shows its own "HH:mm"): hh:mm, 24 h
-        at_txt = c2.text_input("Birth time (local, 24 h) *", value=at0, placeholder="hh:mm", max_chars=5)
+        at_txt = c2.text_input("Birth time (local, 24 h)", value=at0, placeholder="hh:mm", max_chars=5,
+                               help="Leave blank if it is not known: the charts then use 12:00 noon.")
         st.markdown("**Birth place**")
         c1, c2, c3 = st.columns(3)
         city = c1.text_input("City *", value=txt("city"), max_chars=500)
@@ -237,7 +246,7 @@ def details_form(row: pd.Series | None):
     elif (at_txt or "").strip():
         st.error("Birth time: type it as hh:mm in 24 hours, e.g. 14:30 or 09:05.")
         return
-    missing = [n for n, v in (("First Name", first), ("Birth date", born), ("Birth time", at), ("City", city),
+    missing = [n for n, v in (("First Name", first), ("Birth date", born), ("City", city),
                               ("State / region", state), ("Country", country))
                if not (v.strip() if isinstance(v, str) else v)]
     if missing:
@@ -251,12 +260,15 @@ def details_form(row: pd.Series | None):
         st.error(f"The place '{city_n}, {state_n}, {country_n}' was not found. Check the spelling, or leave it blank.")
         return
     rec = {"name": first, "last_name": last, "country": country, "state": state, "city": city,
-           "year": born.year, "mon": born.month, "day": born.day, "hr": at.hour, "mn": at.minute,
+           "year": born.year, "mon": born.month, "day": born.day,
+           "hr": at.hour if at else None, "mn": at.minute if at else None,     # blank time: none kept (12:00 used)
            "country_n": country_n, "state_n": state_n, "city_n": city_n}
     if row is None:
         db.add_own_customer(rec, user.email)   # an email that already has a record keeps it (nothing is changed)
     else:
-        same_birth = (all(val(f) is not None and int(float(val(f))) == rec[f] for f in ("year", "mon", "day", "hr", "mn"))
+        def num(v):
+            return None if v is None else int(float(v))
+        same_birth = (all(num(val(f)) == rec[f] for f in ("year", "mon", "day", "hr", "mn"))
                       and all(rec[f].strip() == txt(f).strip() for f in ("city", "state", "country")))
         rec["utc"] = val("utc") if same_birth else None   # a new birth time or place: its UTC offset is looked up
         db.update_own_customer(rec, user.email)
@@ -481,9 +493,17 @@ def page_customers():
     df = db.all_customers()
     show = df[["id"] + db.FIELDS].rename(columns=db.LABELS)
     edited = st.data_editor(show, hide_index=True, width="stretch", num_rows="dynamic", key="cust_editor",
-                            column_config={"id": None, "Email (login)": st.column_config.TextColumn(
-                                help="The Google account email this customer signs in with (they see only their own). "
-                                     "Each email can belong to one customer only."),
+                            column_config={"id": None,
+                                "First Name": st.column_config.TextColumn("First Name *", help="Required."),
+                                "Year": st.column_config.NumberColumn("Year *", help="Birth date: required.",
+                                                                      format="%d", step=1),
+                                "Mon": st.column_config.NumberColumn("Mon *", help="Birth date: required.",
+                                                                     format="%d", step=1, min_value=1, max_value=12),
+                                "Date": st.column_config.NumberColumn("Date *", help="Birth date: required.",
+                                                                      format="%d", step=1, min_value=1, max_value=31),
+                                "Email (login)": st.column_config.TextColumn("Email (login) *",
+                                help="Required. The Google account email this customer signs in with (they see only "
+                                     "their own). Each email can belong to one customer only."),
                                 "State": st.column_config.TextColumn("State *", help="Required for every customer."),
                                 "Other": st.column_config.TextColumn(help="Anything else to keep with the record."),
                                 "Others-N": st.column_config.TextColumn(help="Anything else about the place now.")})
@@ -498,8 +518,9 @@ def page_customers():
             st.success(f"Saved: {a} added, {ch} changed, {de} deleted.")
             st.rerun()
     with st.expander("Import from the workbook"):
-        st.write("Save the workbook's Customers tab as CSV (Customer, Country, State, City, Year, Mon, Date, Hr24, Min, "
-                 "Country-N, State-N, City-N) and upload it. Names already here are skipped.")
+        st.write("Save the workbook's Customers tab as CSV (Customer, Country, State, City, Other, Year, Mon, Date, "
+                 "Hr24, Min, Country-N, State-N, City-N, Others-N; Other and Others-N may be left out) and upload it. "
+                 "Names already here are skipped. Then add each customer's Email (login): it is required to save.")
         up = st.file_uploader("Customers CSV", type="csv")
         if up is not None and st.button("Import"):
             n = db.import_workbook_csv(up.getvalue())
