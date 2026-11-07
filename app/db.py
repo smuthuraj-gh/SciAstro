@@ -16,11 +16,11 @@ from astro import core
 
 ROOT = Path(__file__).resolve().parent.parent
 FIELDS = ["name", "last_name", "email", "country", "state", "other", "city", "year", "mon", "day", "hr", "mn",
-          "country_n", "state_n", "city_n", "utc"]
+          "country_n", "state_n", "city_n", "other_n", "utc"]
 LABELS = {"name": "First Name", "last_name": "Last Name", "email": "Email (login)", "country": "Country", "state": "State",
           "other": "Other", "city": "City",
           "year": "Year", "mon": "Mon", "day": "Date", "hr": "Hr24", "mn": "Min", "country_n": "Country-N",
-          "state_n": "State-N", "city_n": "City-N", "utc": "UTC (blank = look up)"}
+          "state_n": "State-N", "city_n": "City-N", "other_n": "Others-N", "utc": "UTC (blank = look up)"}
 
 meta = sa.MetaData()
 customers = sa.Table(
@@ -35,6 +35,7 @@ customers = sa.Table(
     sa.Column("year", sa.Integer), sa.Column("mon", sa.Integer), sa.Column("day", sa.Integer),
     sa.Column("hr", sa.Integer), sa.Column("mn", sa.Integer),
     sa.Column("country_n", sa.String(120)), sa.Column("state_n", sa.String(120)), sa.Column("city_n", sa.String(500)),
+    sa.Column("other_n", sa.String(500)),                     # free text, like Other, for the place now
     sa.Column("utc", sa.Float),
 )
 # One customer per login email (kept in lower case); blank emails are allowed for any number of customers

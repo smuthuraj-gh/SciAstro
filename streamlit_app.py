@@ -6,6 +6,7 @@ Customers for admins; My details for users. Run locally:  .venv\\Scripts\\stream
 from __future__ import annotations
 
 import html
+import re
 from datetime import datetime, time, timezone
 
 import pandas as pd
@@ -174,14 +175,14 @@ def details_form(row: pd.Series | None):
     def txt(f):
         return str(val(f) or "")
 
-    born0 = at0 = None
+    born0, at0 = None, ""
     if row is not None and all(val(f) is not None for f in ("year", "mon", "day")):
         try:
             born0 = datetime(int(val("year")), int(val("mon")), int(val("day"))).date()
         except ValueError:
             pass
     if row is not None and val("hr") is not None and val("mn") is not None:
-        at0 = time(int(val("hr")), int(val("mn")))
+        at0 = f"{int(val('hr')):02d}:{int(val('mn')):02d}"
     with st.form("member_details" if row is None else "edit_details"):
         c1, c2 = st.columns(2)
         first = c1.text_input("First Name *", value=txt("name"), max_chars=120)
@@ -189,7 +190,8 @@ def details_form(row: pd.Series | None):
         c1, c2 = st.columns(2)
         born = c1.date_input("Birth date *", value=born0, min_value=datetime(1800, 1, 1).date(),
                              max_value=datetime.now().date(), format="YYYY-MM-DD")
-        at = c2.time_input("Birth time (local, 24 h) *", value=at0, step=60)
+        # a text box (Streamlit's time box shows its own "HH:mm"): hh:mm, 24 h
+        at_txt = c2.text_input("Birth time (local, 24 h) *", value=at0, placeholder="hh:mm", max_chars=5)
         st.markdown("**Birth place**")
         c1, c2, c3 = st.columns(3)
         city = c1.text_input("City *", value=txt("city"), max_chars=500)
@@ -202,6 +204,13 @@ def details_form(row: pd.Series | None):
         country_n = c3.text_input("Country", value=txt("country_n"), max_chars=120, key="country_n")
         sent = st.form_submit_button("Save my details" if row is None else "Save changes", type="primary")
     if not sent:
+        return
+    at = None
+    m = re.fullmatch(r"\s*(\d{1,2})\s*[:.]\s*(\d{2})\s*", at_txt or "")
+    if m and int(m[1]) < 24 and int(m[2]) < 60:
+        at = time(int(m[1]), int(m[2]))
+    elif (at_txt or "").strip():
+        st.error("Birth time: type it as hh:mm in 24 hours, e.g. 14:30 or 09:05.")
         return
     missing = [n for n, v in (("First Name", first), ("Birth date", born), ("Birth time", at), ("City", city),
                               ("State / region", state), ("Country", country))
@@ -451,7 +460,8 @@ def page_customers():
                                 help="The Google account email this customer signs in with (they see only their own). "
                                      "Each email can belong to one customer only."),
                                 "State": st.column_config.TextColumn("State *", help="Required for every customer."),
-                                "Other": st.column_config.TextColumn(help="Anything else to keep with the record.")})
+                                "Other": st.column_config.TextColumn(help="Anything else to keep with the record."),
+                                "Others-N": st.column_config.TextColumn(help="Anything else about the place now.")})
     if st.button("Save changes", type="primary"):
         back = {v: k for k, v in db.LABELS.items()}
         try:
