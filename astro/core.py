@@ -105,6 +105,29 @@ def birth_points(jd_b: float, lat: float, lon: float) -> dict[str, tuple[float, 
     return pts
 
 
+def approach_lists(jd_ut: float) -> dict[str, dict[str, list[tuple[str, float]]]]:
+    """For each planet at jd_ut, the other planets it is approaching and leaving, in RA and in Dec separately:
+    approaching = the gap between them (the shorter way round in RA) is getting smaller now, leaving = larger.
+    {planet: {"ra+": [(other, gap)], "ra-": [...], "dec+": [...], "dec-": [...]}} (+ approaching, - leaving)."""
+    pos = {p: position(p, jd_ut) for p in BUTTON_ORDER}
+    out = {}
+    for p, a in pos.items():
+        lists = {"ra+": [], "ra-": [], "dec+": [], "dec-": []}
+        for q, b in pos.items():
+            if q == p:
+                continue
+            d = (b.ra - a.ra + 180.0) % 360.0 - 180.0          # q's RA from p's, the shorter way round
+            rate = (b.ra_speed - a.ra_speed) * (1 if d >= 0 else -1)
+            if rate:
+                lists["ra+" if rate < 0 else "ra-"].append((q, abs(d)))
+            d = b.dec - a.dec
+            rate = (b.dec_speed - a.dec_speed) * (1 if d >= 0 else -1)
+            if rate:
+                lists["dec+" if rate < 0 else "dec-"].append((q, abs(d)))
+        out[p] = lists
+    return out
+
+
 def now_points(jd_now: float) -> dict[str, tuple[float, float]]:
     out = {}
     for p in BUTTON_ORDER:

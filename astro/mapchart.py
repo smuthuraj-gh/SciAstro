@@ -1,7 +1,7 @@
 """The Map chart (as the workbook's Map tab): the planets at birth and now over a world map where Dec = latitude and
 RA = longitude + the sky's turn (the sidereal time at Greenwich at birth; now, with Now alone), so CB falls on the
 birth place. Birth: filled marks, solid house lines from CB; Now: hollow marks, dotted lines, semi-solid (long-dash)
-house lines from CN. Aspect lines: major (black) and minor (grey), dotted for now. Hovering a mark shows its RA, Dec and D."""
+house lines from CN. Aspect lines: major (black) and minor (grey), dotted for now. Pointing at a planet shows the planets it is approaching and leaving, in RA and in Dec."""
 from __future__ import annotations
 
 import re
@@ -381,9 +381,9 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
 
     marks = []                                                # (name, RA, Dec), for their name labels below
     pending = []                                              # (name, x, Dec, symbol, hollow, hover text)
-    def mark(name: str, x: float, de: float, symbol: str, hollow: bool, d_txt: str, ra: float | None = None):
-        """A mark at map position x; its hover shows its RA (ra, when that differs from x, as for CN), Dec and D."""
-        text = f"<b>{name}</b><br>RA {x if ra is None else ra:.2f}<br>Dec {de:+.2f}{d_txt}"
+    def mark(name: str, x: float, de: float, symbol: str, hollow: bool, extra: str):
+        """A mark at map position x; its hover shows its name and extra (no RA, Dec or D: those are on the map)."""
+        text = f"<b>{name}</b>{extra}"
         pending.append((name, x, de, symbol, hollow, text))
         marks.append((name, x, de))
 
@@ -399,15 +399,25 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
                 marker=dict(symbol=symbol, size=11, color="white" if hollow else c, line=dict(color=c, width=2)),
                 hovertemplate="<br><br>".join([text] + same) + "<extra></extra>"))
 
+    def moving(lists: dict | None, suffix: str = "") -> str:
+        """The planets this one is approaching and leaving, in RA and Dec separately, nearest first, with the gap
+        (suffix "-N" for the planets now, as their marks are named)."""
+        if not lists:
+            return ""
+        def names(key):
+            got = sorted(lists[key], key=lambda g: g[1])
+            return ", ".join(f"{q}{suffix} {gap:.1f}°" for q, gap in got) or "none"
+        return (f"<br>RA approaching: {names('ra+')}<br>RA leaving: {names('ra-')}"
+                f"<br>Dec approaching: {names('dec+')}<br>Dec leaving: {names('dec-')}")
+
+    moves_b = core.approach_lists(m.jd_birth) if birth and m.jd_birth is not None else {}
+    moves_n = core.approach_lists(m.jd_now) if now else {}
     for n, (ra, de) in birth.items():
-        d = m.d_birth.get(n)
-        mark(n, ra, de, "diamond" if n == "CB" else "circle", False, f"<br>D {d:.2f}" if d is not None else "")
+        mark(n, ra, de, "diamond" if n == "CB" else "circle", False, moving(moves_b.get(n)))
     for n, (ra, de) in now.items():
-        d = m.d_now.get(n)
-        mark(n + "-N", ra, de, "circle", True, f"<br>D-N {d:.2f}" if d is not None else "")
+        mark(n + "-N", ra, de, "circle", True, moving(moves_n.get(n), "-N"))
     if cn_x is not None:
-        mark("CN", cn_x, m.cn[0], "triangle-up", False, f"<br>lat {m.cn[0]:+.2f}, lon {m.cn[1]:+.2f}",
-             ra=core.lst(m.jd_now, m.cn[1]))                 # its RA now (its place on the map is turned for birth)
+        mark("CN", cn_x, m.cn[0], "triangle-up", False, f"<br>lat {m.cn[0]:+.2f}, lon {m.cn[1]:+.2f}")
     draw_marks()
 
     # Labels inside the grid, each in the first free place: first the marks themselves are kept clear, then each
