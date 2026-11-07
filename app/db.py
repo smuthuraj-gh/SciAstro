@@ -15,9 +15,10 @@ import streamlit as st
 from astro import core
 
 ROOT = Path(__file__).resolve().parent.parent
-FIELDS = ["name", "last_name", "email", "country", "state", "city", "year", "mon", "day", "hr", "mn",
+FIELDS = ["name", "last_name", "email", "country", "state", "other", "city", "year", "mon", "day", "hr", "mn",
           "country_n", "state_n", "city_n", "utc"]
-LABELS = {"name": "First Name", "last_name": "Last Name", "email": "Email (login)", "country": "Country", "state": "State", "city": "City",
+LABELS = {"name": "First Name", "last_name": "Last Name", "email": "Email (login)", "country": "Country", "state": "State",
+          "other": "Other", "city": "City",
           "year": "Year", "mon": "Mon", "day": "Date", "hr": "Hr24", "mn": "Min", "country_n": "Country-N",
           "state_n": "State-N", "city_n": "City-N", "utc": "UTC (blank = look up)"}
 
@@ -28,7 +29,9 @@ customers = sa.Table(
     sa.Column("name", sa.String(120), nullable=False),       # not unique: the login email is the key
     sa.Column("last_name", sa.String(120)),
     sa.Column("email", sa.String(254)),
-    sa.Column("country", sa.String(120)), sa.Column("state", sa.String(120)), sa.Column("city", sa.String(500)),
+    sa.Column("country", sa.String(120)), sa.Column("state", sa.String(120)),
+    sa.Column("other", sa.String(500)),                       # free text kept with the record (not used in the charts)
+    sa.Column("city", sa.String(500)),
     sa.Column("year", sa.Integer), sa.Column("mon", sa.Integer), sa.Column("day", sa.Integer),
     sa.Column("hr", sa.Integer), sa.Column("mn", sa.Integer),
     sa.Column("country_n", sa.String(120)), sa.Column("state_n", sa.String(120)), sa.Column("city_n", sa.String(500)),
@@ -155,6 +158,11 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame) -> tuple[int, i
     dup = shared_emails(edited)
     if dup:
         raise ValueError("Each login email can belong to one customer only. Used more than once: " + ", ".join(dup))
+    named = edited[edited["name"].fillna("").astype(str).str.strip() != ""]
+    no_state = named[named["state"].fillna("").astype(str).str.strip() == ""]
+    if not no_state.empty:                                   # State is required for every customer
+        raise ValueError("State is required. Missing for: " + ", ".join(
+            (no_state["name"].astype(str) + " " + no_state["last_name"].fillna("").astype(str)).str.strip()))
     added = changed = deleted = 0
     keep_ids = set(edited["id"].dropna().astype(int)) if "id" in edited else set()
     with engine().begin() as c:
@@ -178,8 +186,8 @@ def add_own_customer(rec: dict, email: str) -> bool:
     """A new member's own record, linked to their login email (the key: one record per email). Returns False, saving
     nothing, when that email already has one (they simply use it)."""
     data = _clean({**rec, "email": email})
-    if not data.get("name") or not data.get("email"):
-        raise ValueError("First Name and a login email are needed.")
+    if not data.get("name") or not data.get("email") or not data.get("state"):
+        raise ValueError("First Name, State and a login email are needed.")
     with engine().begin() as c:
         if c.execute(sa.select(customers.c.id).where(sa.func.lower(customers.c.email) == data["email"])).first():
             return False
@@ -191,12 +199,13 @@ def update_own_customer(rec: dict, email: str) -> bool:
     """A member's changes to their own record, found by their login email (which stays as it is). Returns False when
     no record has that email. The UTC offset is cleared, to be looked up again for the new birth time and place."""
     data = _clean({**rec, "email": email})
-    if not data.get("name") or not data.get("email"):
-        raise ValueError("First Name and a login email are needed.")
+    if not data.get("name") or not data.get("email") or not data.get("state"):
+        raise ValueError("First Name, State and a login email are needed.")
     data["utc"] = rec.get("utc")
+    # only what the member's form has (and the UTC offset): columns it does not show, as Other, are kept as they are
     with engine().begin() as c:
         done = c.execute(sa.update(customers).where(sa.func.lower(customers.c.email) == data["email"])
-                         .values(**{k: v for k, v in data.items() if k != "email"})).rowcount
+                         .values(**{k: v for k, v in data.items() if k in rec and k != "email"})).rowcount
     return bool(done)
 
 

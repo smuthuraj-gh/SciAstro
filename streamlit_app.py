@@ -193,7 +193,7 @@ def details_form(row: pd.Series | None):
         st.markdown("**Birth place**")
         c1, c2, c3 = st.columns(3)
         city = c1.text_input("City *", value=txt("city"), max_chars=500)
-        state = c2.text_input("State / region", value=txt("state"), max_chars=120)
+        state = c2.text_input("State / region *", value=txt("state"), max_chars=120)
         country = c3.text_input("Country *", value=txt("country"), max_chars=120)
         st.markdown("**Where you live now** (for the Now charts; optional)")
         c1, c2, c3 = st.columns(3)
@@ -204,7 +204,8 @@ def details_form(row: pd.Series | None):
     if not sent:
         return
     missing = [n for n, v in (("First Name", first), ("Birth date", born), ("Birth time", at), ("City", city),
-                              ("Country", country)) if not (v.strip() if isinstance(v, str) else v)]
+                              ("State / region", state), ("Country", country))
+               if not (v.strip() if isinstance(v, str) else v)]
     if missing:
         st.error("Please fill in: " + ", ".join(missing) + ".")
         return
@@ -448,7 +449,9 @@ def page_customers():
     edited = st.data_editor(show, hide_index=True, width="stretch", num_rows="dynamic", key="cust_editor",
                             column_config={"id": None, "Email (login)": st.column_config.TextColumn(
                                 help="The Google account email this customer signs in with (they see only their own). "
-                                     "Each email can belong to one customer only.")})
+                                     "Each email can belong to one customer only."),
+                                "State": st.column_config.TextColumn("State *", help="Required for every customer."),
+                                "Other": st.column_config.TextColumn(help="Anything else to keep with the record.")})
     if st.button("Save changes", type="primary"):
         back = {v: k for k, v in db.LABELS.items()}
         try:
