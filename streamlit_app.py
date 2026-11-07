@@ -159,19 +159,33 @@ def page_range():
 
 
 def page_aspects_view():
-    """Planets Cycles' aspects as tables: one per chosen angle, one row per time two of the planets come into it."""
+    """Planets Cycles' aspects as tables: one per chosen angle, one row per time two of the planets come into it,
+    newest first; then, with the Minor Aspects switch on, one per minor angle too."""
     got = cycles_inputs("Aspects", "asp_")
     if got is None:
         return
     jds, dec_on, angles = got
-    if len(dec_on) < 2 or not angles:
-        st.info("Choose at least two planets and one aspect.")
+    if len(dec_on) < 2:
+        st.info("Choose at least two planets.")
         return
-    with st.spinner("Finding aspects..."):
-        events = _events_cached(tuple(dec_on), tuple(angles), *jds, db.orb_table().to_csv(index=False))
+    orb_csv = db.orb_table().to_csv(index=False)
+    if angles:
+        with st.spinner("Finding aspects..."):
+            _aspect_tables(_events_cached(tuple(dec_on), tuple(angles), *jds, orb_csv), angles)
+    else:
+        st.caption("No major aspect chosen.")
+    # the Minor Aspects switch, at the left; off by default
+    if st.toggle("Minor Aspects", value=False, key="asp_minor_on",
+                 help="Tables for the minor aspects: " + ", ".join(f"{a}°" for a in core.MINOR) + "."):
+        with st.spinner("Finding minor aspects..."):
+            _aspect_tables(_events_cached(tuple(dec_on), tuple(core.MINOR), *jds, orb_csv), core.MINOR)
+
+
+def _aspect_tables(events: list, angles: list[int]):
+    """A table per angle (with its count), one row per aspect, newest first."""
     for ang in angles:
         ev = sorted((e for e in events if e[1] == ang), key=lambda e: e[0], reverse=True)   # newest first
-        st.markdown(f"**{rangechart.EA_NAME[ang]}** &nbsp; {len(ev)} aspect{'' if len(ev) == 1 else 's'}")
+        st.markdown(f"**{ang}°** &nbsp; {len(ev)} aspect{'' if len(ev) == 1 else 's'}")
         if not ev:
             st.caption("None in this period.")
             continue
