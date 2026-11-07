@@ -1,6 +1,6 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
-Pages: AstroMap, Planets Distance(%), Planets Cycles, Tables for everyone (their own customers only); Aspects and
+Pages: AstroMap, Planets Distance(%), Planets Cycles, Tables for everyone (their own customers only); Aspects Details and
 Customers for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
@@ -206,7 +206,7 @@ def page_tables():
 def page_aspects():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
-    st.subheader("Aspects")
+    st.subheader("Aspects Details")
     pick_customer()
     table = db.orb_table()
     st.caption("A pair is in aspect when RA is within the RA orb of the angle and Dec within the Dec orb of equal "
@@ -278,8 +278,8 @@ pages = [st.Page(page_map, title="AstroMap", icon=":material/public:", url_path=
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_tables, title="Tables", icon=":material/table:", url_path="tables")]
-if user.is_admin:                                             # the Aspects and Customers pages: admins only
-    pages += [st.Page(page_aspects, title="Aspects", icon=":material/tune:", url_path="aspects"),
+if user.is_admin:                                             # the Aspects Details and Customers pages: admins only
+    pages += [st.Page(page_aspects, title="Aspects Details", icon=":material/tune:", url_path="aspects-details"),
               st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers")]
 else:
     pages.append(st.Page(page_my_details, title="My details", icon=":material/person:", url_path="me"))
