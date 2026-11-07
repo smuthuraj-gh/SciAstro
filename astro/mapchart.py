@@ -266,6 +266,22 @@ def key_html(m: MapInput) -> str:
                    for line in lines)
 
 
+def da_html(m: MapInput) -> str:
+    """For under the chart: each planet with its D-A beneath, the average of D at birth and D-N now (as Tables)."""
+    items = []
+    for n in core.BUTTON_ORDER:
+        d, dn = m.d_birth.get(n), m.d_now.get(n)
+        if d is None or dn is None:
+            continue
+        items.append(f'<span style="display:inline-block; text-align:center; margin-right:10px; line-height:1.2">'
+                     f'<span style="white-space:nowrap"><span style="color:{core.colour(n)}">&#9679;</span>&nbsp;{n}'
+                     f'</span><br><span style="font-size:12px; opacity:0.75">{round((d + dn) / 2, 2):.1f}</span></span>')
+    if not items:
+        return ""
+    return ('<div style="white-space:nowrap; font-size:13px"><span style="display:inline-block; margin-right:12px; '
+            'vertical-align:top; line-height:1.2"><b>D-A</b></span>' + "".join(items) + "</div>")
+
+
 def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
     fig = go.Figure()
     turn = 0.0

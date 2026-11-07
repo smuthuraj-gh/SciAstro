@@ -98,6 +98,9 @@ def page_map():
     # st.plotly_chart would re-lay it out narrower and bring the labels back on top of each other
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(mapchart.map_figure(m, orbs())), unsafe_allow_javascript=True)
+    da = mapchart.da_html(m)                                  # each planet's D-A, under the chart
+    if da:
+        st.markdown(da, unsafe_allow_html=True)
     if show_now:
         st.caption(f"Now: {now_local_text(prep.cn_tz)}" + ("" if prep.cn else " - no City-N for this customer, so no CN"))
 
