@@ -272,12 +272,22 @@ def key_html(m: MapInput) -> str:
     return "".join(rows)
 
 
-def now_html(m: MapInput) -> str:
-    """For under the chart, when Now is on: the marks now (planets -N, CN) with each planet's D-N beneath."""
-    if not (m.show_now and m.now):
-        return ""
-    return _key_row([(n + "-N", "&#9675;", m.d_now.get(n)) for n in m.now]
-                    + ([("CN", "&#9650;", None)] if m.cn is not None else []))
+TITLE_LINE = 54                   # pixels from the grid's bottom edge to the middle of the Longitude / RA title
+
+
+def _now_key(fig: go.Figure, m: MapInput):
+    """With Now on: the marks now (planets -N, CN), each with its D-N beneath, on the Longitude / RA title's line to the
+    right of it, ending at the grid's right edge."""
+    items = [(n + "-N", "&#9675;", m.d_now.get(n)) for n in m.now] + ([("CN", "&#9650;", None)] if m.cn else [])
+    widths = [max(text_px(f"o {n}"), text_px(f"{d:.1f}" if d is not None else "")) + 6 for n, _, d in items]
+    x = PLOT_W - sum(widths)                                  # pixels from the grid's left edge
+    for (n, sym, d), w in zip(items, widths):
+        value = f"{d:.1f}" if d is not None else " "
+        fig.add_annotation(xref="paper", x=(x + w / 2) / PLOT_W, xanchor="center", yref="paper", y=0,
+                           yanchor="middle", yshift=-TITLE_LINE, align="center", showarrow=False,
+                           text=f'<span style="color:{core.colour(n)}">{sym}</span> {n}<br>{value}',
+                           font=dict(size=FONT))
+        x += w
 
 
 def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
@@ -368,6 +378,8 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         # names the Dec numbers printed right of the 360 line: a side title past them, like the left axis title
         fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=50, yref="paper", y=0.5, yanchor="middle",
                            textangle=90, text="<b>Planets-Declination</b>", showarrow=False, font=TITLE_FONT)
+    if now:
+        _now_key(fig, m)
 
     lat_ticks = list(range(-90, 91, 15))
     fig.update_layout(
