@@ -1,6 +1,6 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
-Pages: AstroMap, Planets Distance(%), Planets Cycles for everyone (their own customers only); Aspects Details and
+Pages: AstroMap, Planets Distance(%), Planets Cycles, Aspects (a copy of Planets Cycles) for everyone (their own customers only); Aspects Details and
 Customers for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
@@ -125,19 +125,20 @@ def period(prep: Prepared, row=None) -> tuple[float, float] | None:
     return core.jd_of_datetime(start), core.jd_of_datetime(end)
 
 
-def page_range():
+def cycles_page(title: str, keys: str):
+    """The Planets Cycles page under a title; keys keeps each copy's buttons apart (Planets Cycles, Aspects)."""
     row, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the title, then the inputs
-    head.subheader("Planets Cycles", width="content", wrap=False)
+    head.subheader(title, width="content", wrap=False)
     if not need_chart(prep):
         return
     jds = period(prep, head)
     # on / off buttons, as on Distance: every choice always in view
     dec_on = head.pills("Planets", core.BUTTON_ORDER, selection_mode="multi",
-                        default=["Sa", "Ju"], key="dec_on_v2") or []
+                        default=["Sa", "Ju"], key=f"{keys}dec_on_v2") or []
     ea_names = {v: k for k, v in rangechart.EA_NAME.items()}   # 0°, 60°, 90°, 120°, 180° -> their angles
     ea = head.pills("Major Aspects", list(ea_names), selection_mode="multi", default=["0°", "180°"],
-                    key="ea_on_v5") or []
+                    key=f"{keys}ea_on_v5") or []
     if jds is None:
         return
     with st.spinner("Drawing..."):
@@ -146,6 +147,14 @@ def page_range():
     st.html(mapchart.fit_html(fig), unsafe_allow_javascript=True)
     if note:
         st.caption(note)
+
+
+def page_range():
+    cycles_page("Planets Cycles", "")
+
+
+def page_aspects_view():                                      # a copy of Planets Cycles, for everyone
+    cycles_page("Aspects", "asp_")
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
@@ -252,7 +261,8 @@ def page_my_details():
 
 pages = [st.Page(page_map, title="AstroMap", icon=":material/public:", url_path="astromap", default=True),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance"),
-         st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles")]
+         st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
+         st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects")]
 if user.is_admin:                                             # the Aspects Details and Customers pages: admins only
     pages += [st.Page(page_aspects, title="Aspects Details", icon=":material/tune:", url_path="aspects-details"),
               st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers")]
