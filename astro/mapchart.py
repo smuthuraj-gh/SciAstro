@@ -254,9 +254,9 @@ def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str
         return (f'<span style="display:inline-block; text-align:center; margin-right:5px; line-height:1.2">'
                 f'<span style="white-space:nowrap"><span style="color:{core.colour(n)}">{sym}</span>&nbsp;{n}</span>'
                 f'<br><span style="font-size:12px; opacity:0.75">{value}</span></span>')
-    head = (f'<span style="display:inline-block; margin-right:8px; vertical-align:top; line-height:1.2">'
-            f'<b>{label}</b></span>') if label else ""
-    return '<div style="white-space:nowrap; font-size:13px">' + head + "".join(item(*i) for i in items) + "</div>"
+    tail = (f'<span style="display:inline-block; margin-left:4px; vertical-align:top; line-height:1.2">'
+            f'<b>{label}</b></span>') if label else ""          # the row's name, after its planets
+    return '<div style="white-space:nowrap; font-size:13px">' + "".join(item(*i) for i in items) + tail + "</div>"
 
 
 def key_html(m: MapInput) -> str:
