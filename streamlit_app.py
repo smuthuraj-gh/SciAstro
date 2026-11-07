@@ -127,7 +127,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",
     "Customers": "Add, change or delete customers, then Save changes. Required (*): First Name, Email (login), "
-                 "State and the birth date (Year, Mon, Date); Hr24 and Min may be left blank (12:00 is then used). "
+                 "Country, State, City and the birth date (Year, Mon, Date); Hr24 and Min may be left blank (12:00 is "
+                 "then used). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). UTC blank: looked up from the birth place. Import adds customers from the "
@@ -504,7 +505,9 @@ def page_customers():
                                 "Email (login)": st.column_config.TextColumn("Email (login) *",
                                 help="Required. The Google account email this customer signs in with (they see only "
                                      "their own). Each email can belong to one customer only."),
-                                "State": st.column_config.TextColumn("State *", help="Required for every customer."),
+                                "Country": st.column_config.TextColumn("Country *", help="Birth place: required."),
+                                "State": st.column_config.TextColumn("State *", help="Birth place: required."),
+                                "City": st.column_config.TextColumn("City *", help="Birth place: required."),
                                 "Other": st.column_config.TextColumn(help="Anything else to keep with the record."),
                                 "Other-N": st.column_config.TextColumn(help="Anything else about the place now.")})
     if st.button("Save changes", type="primary"):
