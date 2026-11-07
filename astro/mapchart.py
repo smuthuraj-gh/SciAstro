@@ -248,18 +248,22 @@ def fit_html(fig: go.Figure) -> str:
 
 
 def key_html(m: MapInput) -> str:
-    """The key to the marks on the chart (planets, CB, CN), in the marks' colours and shapes, for beside the buttons."""
+    """The key to the marks on the chart (planets, CB, CN), in the marks' colours and shapes, for beside the buttons;
+    under each planet its D (at birth) or D-N (now). CB and CN have none."""
     lines = []                                                # birth marks on one line, the marks now on the next
     if m.show_birth and m.birth:
-        lines.append([(n, "&#9670;" if n == "CB" else "&#9679;") for n in m.birth])     # diamond / filled circle
+        lines.append([(n, "&#9670;" if n == "CB" else "&#9679;", m.d_birth.get(n)) for n in m.birth])
     if m.show_now and m.now:
-        lines.append([(n + "-N", "&#9675;") for n in m.now]                             # hollow circle
-                     + ([("CN", "&#9650;")] if m.cn is not None else []))               # triangle
+        lines.append([(n + "-N", "&#9675;", m.d_now.get(n)) for n in m.now]
+                     + ([("CN", "&#9650;", None)] if m.cn is not None else []))
 
-    def item(n: str, sym: str) -> str:
-        return f'<span style="color:{core.colour(n)}">{sym}</span>&nbsp;{n}'
-    return "<br>".join('<span style="white-space:nowrap">' + "&nbsp; ".join(item(*i) for i in line) + "</span>"
-                       for line in lines)
+    def item(n: str, sym: str, d: float | None) -> str:
+        value = f"{d:.1f}" if d is not None else "&nbsp;"
+        return (f'<span style="display:inline-block; text-align:center; margin-right:5px; line-height:1.2">'
+                f'<span style="white-space:nowrap"><span style="color:{core.colour(n)}">{sym}</span>&nbsp;{n}</span>'
+                f'<br><span style="font-size:12px; opacity:0.75">{value}</span></span>')
+    return "".join('<div style="white-space:nowrap; font-size:13px">' + "".join(item(*i) for i in line) + "</div>"
+                   for line in lines)
 
 
 def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:

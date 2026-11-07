@@ -75,15 +75,15 @@ def page_map():
     row, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="center", gap="small")    # title, buttons, then the key
     head.subheader("AstroMap", width="content", wrap=False,
-                   help="Map: the world map (coastlines). At DOB: the planets at birth. "
-                        "At Current Time: the planets now. Major Aspects: conjunction, sextile, square, trine, "
+                   help="Map: the world map (coastlines). DOB: the planets at birth. "
+                        "Now: the planets now. Major Aspects: conjunction, sextile, square, trine, "
                         "opposition. Minor Aspects: 30, 45, 72, 135, 144, 150 degrees.")
     if not need_chart(prep):
         return
-    shown = head.pills("Show", ["Map", "At DOB", "At Current Time", "Major Aspects", "Minor Aspects"],
-                       selection_mode="multi", default=["At DOB", "Major Aspects", "Minor Aspects"],
-                       key="map_show_v7", label_visibility="collapsed")
-    show_birth, show_now = "At DOB" in shown, "At Current Time" in shown
+    shown = head.pills("Show", ["Map", "DOB", "Now", "Major Aspects", "Minor Aspects"],
+                       selection_mode="multi", default=["DOB", "Major Aspects", "Minor Aspects"],
+                       key="map_show_v8", label_visibility="collapsed")
+    show_birth, show_now = "DOB" in shown, "Now" in shown
     major, minor = "Major Aspects" in shown, "Minor Aspects" in shown
     jd_now = core.now_jd()
     now_pts, d_now = now_values(jd_now)
