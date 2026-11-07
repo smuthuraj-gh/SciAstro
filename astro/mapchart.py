@@ -259,12 +259,12 @@ def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str
     beneath (blank for none)."""
     def item(n: str, sym: str, v: float | None) -> str:
         value = f"{v:.1f}" if v is not None else "&nbsp;"
-        return (f'<span style="display:inline-block; text-align:center; margin-right:5px; line-height:1.2">'
+        return (f'<span style="display:inline-block; text-align:center; margin-right:5px; line-height:1.4">'
                 f'<span style="white-space:nowrap"><span style="color:{core.colour(n)}">{sym}</span>&nbsp;{n}</span>'
                 f'<br><span style="font-size:12px; opacity:0.75">{value}</span></span>')
     head = (f'<div style="font-size:12px; line-height:1.2; margin-bottom:3px"><b>{label}</b></div>'
             if label else "")
-    return ('<div style="white-space:nowrap; font-size:13px">' + head
+    return ('<div style="white-space:nowrap; font-size:12px">' + head
             + "".join(item(*i) for i in items) + "</div>")
 
 
