@@ -125,9 +125,11 @@ def period(prep: Prepared, row=None) -> tuple[float, float] | None:
     return core.jd_of_datetime(start), core.jd_of_datetime(end)
 
 
-def cycles_inputs(title: str, keys: str):
+def cycles_inputs(title: str, keys: str, aspect_buttons: bool = True):
     """The title and inputs of Planets Cycles (and Aspects, which shares them; keys keeps each page's buttons
-    apart): (period as Julian days, planets, angles), or None when there is nothing to show yet."""
+    apart): (period as Julian days, planets, angles, minor on), or None when there is nothing to show yet.
+    Planets Cycles has a button per major angle; Aspects (aspect_buttons False) has one Major Aspects and one
+    Minor Aspects on / off button instead, and its angles are all five major ones when Major Aspects is on."""
     row, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the title, then the inputs
     head.subheader(title, width="content", wrap=False)
@@ -138,18 +140,25 @@ def cycles_inputs(title: str, keys: str):
     dec_on = head.pills("Planets", core.BUTTON_ORDER, selection_mode="multi",
                         default=["Sa", "Ju"], key=f"{keys}dec_on_v2") or []
     ea_names = {v: k for k, v in rangechart.EA_NAME.items()}   # 0°, 60°, 90°, 120°, 180° -> their angles
-    ea = head.pills("Major Aspects", list(ea_names), selection_mode="multi", default=["0°", "180°"],
-                    key=f"{keys}ea_on_v5") or []
+    minor = False
+    if aspect_buttons:
+        ea = head.pills("Major Aspects", list(ea_names), selection_mode="multi", default=["0°", "180°"],
+                        key=f"{keys}ea_on_v5") or []
+    else:                                                     # one on / off button for each group
+        groups = head.pills("Aspects", ["Major Aspects", "Minor Aspects"], selection_mode="multi",
+                            default=["Major Aspects"], key=f"{keys}groups") or []
+        ea = list(ea_names) if "Major Aspects" in groups else []
+        minor = "Minor Aspects" in groups
     if jds is None:
         return None
-    return jds, dec_on, [ea_names[e] for e in ea]
+    return jds, dec_on, [ea_names[e] for e in ea], minor
 
 
 def page_range():
     got = cycles_inputs("Planets Cycles", "")
     if got is None:
         return
-    jds, dec_on, angles = got
+    jds, dec_on, angles, _ = got
     with st.spinner("Drawing..."):
         fig, note = _range_cached(tuple(dec_on), tuple(angles), *jds, db.orb_table().to_csv(index=False))
     # fixed size, scaled down whole to fit (its tags are placed for that size), as AstroMap
@@ -161,22 +170,21 @@ def page_range():
 def page_aspects_view():
     """Planets Cycles' aspects as tables: one per chosen angle, one row per time two of the planets come into it,
     newest first; then, with the Minor Aspects switch on, one per minor angle too."""
-    got = cycles_inputs("Aspects", "asp_")
+    got = cycles_inputs("Aspects", "asp_", aspect_buttons=False)   # Major / Minor Aspects on / off buttons
     if got is None:
         return
-    jds, dec_on, angles = got
+    jds, dec_on, angles, minor = got
     if len(dec_on) < 2:
         st.info("Choose at least two planets.")
         return
+    if not angles and not minor:
+        st.info("Turn on Major Aspects or Minor Aspects.")
+        return
     orb_csv = db.orb_table().to_csv(index=False)
-    if angles:
+    if angles:                                                # all five major angles
         with st.spinner("Finding aspects..."):
             _aspect_tables(_events_cached(tuple(dec_on), tuple(angles), *jds, orb_csv), angles)
-    else:
-        st.caption("No major aspect chosen.")
-    # the Minor Aspects switch, at the left; off by default
-    if st.toggle("Minor Aspects", value=False, key="asp_minor_on",
-                 help="Tables for the minor aspects: " + ", ".join(f"{a}°" for a in core.MINOR) + "."):
+    if minor:                                                 # 30, 45, 72, 135, 144, 150 degrees
         with st.spinner("Finding minor aspects..."):
             _aspect_tables(_events_cached(tuple(dec_on), tuple(core.MINOR), *jds, orb_csv), core.MINOR)
 
