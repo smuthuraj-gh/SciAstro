@@ -15,14 +15,16 @@ import plotly.graph_objects as go
 from . import core
 
 H = core.ra_de_height
-FONT = 12                         # all text on the charts (pixels)
+FONT = 13                         # all text on all pages, charts too (pixels)
 TITLE_FONT = dict(size=FONT)      # the chart's titles: Planets-RA, Planets-Declination and both axis titles, in bold
 GAP = 5                           # pixels between the grid and the text beside it
-ROW = 15                          # pixels per line of text
-TEXT_H = 16                       # the height Plotly gives a line of 11-px text (its box, with padding)
+ROW = round(FONT * 1.3)           # pixels per line of text (Plotly's line height)
+TEXT_H = ROW + 1                  # the height Plotly gives a line of text (its box, with padding)
+TITLE_LINE = GAP + 2 * ROW + 15   # pixels from the grid's bottom edge to the middle of the Longitude / RA title
 # The chart has a fixed size, so every label's place is known in pixels and can be kept clear of the others
-WIDTH, HEIGHT = 1100, 685
-MARGIN_L, MARGIN_R, MARGIN_B = 72, 85, 100       # the bottom: longitudes, RA, then the titles' line and the Now rows
+MARGIN_L, MARGIN_R = 72, 85
+MARGIN_B = TITLE_LINE + 3 * ROW + 4               # the bottom: longitudes, RA, then the titles' line and the Now rows
+WIDTH, HEIGHT = 1100, 585 + MARGIN_B
 PLOT_W = WIDTH - MARGIN_L - MARGIN_R
 
 # The widest each character is at 12 px in Verdana, Arial or Open Sans, plain or bold (measured in a browser): Plotly
@@ -261,10 +263,10 @@ def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str
         value = f"{v:.1f}" if v is not None else "&nbsp;"
         return (f'<span style="display:inline-block; text-align:center; margin-right:5px; line-height:1.4">'
                 f'<span style="white-space:nowrap"><span style="color:{core.colour(n)}">{sym}</span>&nbsp;{n}</span>'
-                f'<br><span style="font-size:12px; opacity:0.75">{value}</span></span>')
-    head = (f'<div style="font-size:12px; line-height:1.2; margin-bottom:3px"><b>{label}</b></div>'
+                f'<br><span style="font-size:{FONT}px; opacity:0.75">{value}</span></span>')
+    head = (f'<div style="font-size:{FONT}px; line-height:1.2; margin-bottom:3px"><b>{label}</b></div>'
             if label else "")
-    return ('<div style="white-space:nowrap; font-size:12px">' + head
+    return (f'<div style="white-space:nowrap; font-size:{FONT}px">' + head
             + "".join(item(*i) for i in items) + "</div>")
 
 
@@ -280,9 +282,6 @@ def key_html(m: MapInput) -> str:
         rows.append(_key_row([(n, "&#9679;", m.d_birth.get(n)) for n in m.birth if n != "CB"], "Distance% DOB"))
     return ('<div style="display:flex; flex-wrap:wrap; column-gap:18px; row-gap:4px; align-items:flex-start">'
             + "".join(rows) + "</div>")
-
-
-TITLE_LINE = 54                   # pixels from the grid's bottom edge to the middle of the Longitude / RA title
 
 
 X_TITLE = "<b>Longitude / RA</b>"
@@ -404,7 +403,9 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         fig.add_annotation(xref="paper", x=0.5, xanchor="center", y=90, yanchor="bottom",
                            yshift=1 + ROW * rows + GAP, text="<b>Planets-RA</b>", showarrow=False, font=TITLE_FONT)
         # names the Dec numbers printed right of the 360 line: a side title past them, like the left axis title
-        fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=50, yref="paper", y=0.5, yanchor="middle",
+        # just past the widest Dec number (they start GAP + 2 right of the grid)
+        fig.add_annotation(xref="paper", x=1, xanchor="left", xshift=GAP + 2 + text_px("+88.8") + 3,
+                           yref="paper", y=0.5, yanchor="middle",
                            textangle=90, text="<b>Planets-Declination</b>", showarrow=False, font=TITLE_FONT)
     _x_title(fig, _now_key(fig, m) if now else None)          # the Now row and the Longitude / RA title on one line
 

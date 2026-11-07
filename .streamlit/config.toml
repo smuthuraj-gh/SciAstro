@@ -4,6 +4,6 @@ headless = true
 gatherUsageStats = false
 [theme]
 base = "light"
-baseFontSize = 12          # all text on all pages is 12 px
-headingFontSizes = "12px"
-codeFontSize = "12px"
+baseFontSize = 13          # all text on all pages is 13 px
+headingFontSizes = "13px"
+codeFontSize = "13px"
