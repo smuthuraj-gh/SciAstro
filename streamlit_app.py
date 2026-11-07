@@ -343,7 +343,9 @@ def page_aspects_view():
         st.info("Turn on Major Aspects or Minor Aspects.")
         return
     orb_csv = db.orb_table().to_csv(index=False)
-    left, right = st.columns(2, gap="large")                  # major aspects on the left, minor on the right
+    # major aspects on the left, minor right next to them (each as wide as its tables, not half the page)
+    both = st.container(horizontal=True, gap="large", vertical_alignment="top")
+    left, right = both.container(width="content"), both.container(width="content")
     if angles:                                                # all five major angles
         with st.spinner("Finding aspects..."):
             _aspect_tables(_events_cached(tuple(dec_on), tuple(angles), *jds, orb_csv), angles, left)
