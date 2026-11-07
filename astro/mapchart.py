@@ -276,18 +276,21 @@ TITLE_LINE = 54                   # pixels from the grid's bottom edge to the mi
 
 
 def _now_key(fig: go.Figure, m: MapInput):
-    """With Now on: the marks now (planets -N, CN), each with its D-N beneath, on the Longitude / RA title's line to the
-    right of it, ending at the grid's right edge."""
-    items = [(n + "-N", "&#9675;", m.d_now.get(n)) for n in m.now] + ([("CN", "&#9650;", None)] if m.cn else [])
+    """With Now on: the planets now (-N), each with its D-N beneath, then the row's name "Now" (as the rows beside the
+    buttons end in theirs), on the Longitude / RA title's line to the right of it, ending at the grid's right edge."""
+    items = [(n + "-N", "&#9675;", m.d_now.get(n)) for n in m.now]
     widths = [max(text_px(f"o {n}"), text_px(f"{d:.1f}" if d is not None else "")) + 6 for n, _, d in items]
-    x = PLOT_W - sum(widths)                                  # pixels from the grid's left edge
+    label_w = text_px("<b>Now</b>") + 4
+    x = PLOT_W - sum(widths) - label_w                        # pixels from the grid's left edge
+
+    def put(cx: float, text: str):
+        fig.add_annotation(xref="paper", x=cx / PLOT_W, xanchor="center", yref="paper", y=0, yanchor="middle",
+                           yshift=-TITLE_LINE, align="center", showarrow=False, text=text, font=dict(size=FONT))
     for (n, sym, d), w in zip(items, widths):
         value = f"{d:.1f}" if d is not None else " "
-        fig.add_annotation(xref="paper", x=(x + w / 2) / PLOT_W, xanchor="center", yref="paper", y=0,
-                           yanchor="middle", yshift=-TITLE_LINE, align="center", showarrow=False,
-                           text=f'<span style="color:{core.colour(n)}">{sym}</span> {n}<br>{value}',
-                           font=dict(size=FONT))
+        put(x + w / 2, f'<span style="color:{core.colour(n)}">{sym}</span> {n}<br>{value}')
         x += w
+    put(x + label_w / 2, "<b>Now</b><br> ")                  # on the names' line, as the other rows' names
 
 
 def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
