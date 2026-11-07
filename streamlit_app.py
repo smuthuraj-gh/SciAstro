@@ -17,6 +17,14 @@ from astro import core, distancechart, mapchart, rangechart, se
 # wide pages, the sidebar (menu, customer) starting closed so the charts get the whole window; » opens it
 st.set_page_config(page_title="Equatorial charts", page_icon=":material/public:", layout="wide",
                    initial_sidebar_state="collapsed")
+# all text on all pages is 12 px: the theme (.streamlit/config.toml) sets body text and headings; this also brings
+# Streamlit's smaller text (captions, buttons, labels, menus, tooltips) up to 12 px. Icons keep their own size.
+st.html("""<style>
+.stApp :is(p, span, div, label, small, a, li, input, textarea, button, td, th, code, h1, h2, h3, h4, h5, h6):not([data-testid="stIconMaterial"]),
+[data-baseweb="popover"] :is(p, span, div, li):not([data-testid="stIconMaterial"]),
+[role="dialog"] :is(p, span, div, li, h1, h2, h3, button):not([data-testid="stIconMaterial"]),
+[data-testid="stTooltipContent"] * { font-size: 12px !important; }
+</style>""")
 
 user = auth.current_user()
 
@@ -204,10 +212,9 @@ def _aspect_tables(events: list, angles: list[int], where):
         for jd, _, title, de1, de2 in ev:
             p1, p2 = title.split("-")[1:3]
             rows.append({"Date / Time (UT)": core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M"), "Aspect": title,
-                         "Planet 1": p1, "Dec 1": round(de1, 2), "Planet 2": p2, "Dec 2": round(de2, 2)})
-        where.dataframe(pd.DataFrame(rows), hide_index=True, width="content",
-                        column_config={"Dec 1": st.column_config.NumberColumn(format="%+.2f"),
-                                       "Dec 2": st.column_config.NumberColumn(format="%+.2f")})
+                         "Planet 1": p1, "Dec 1": f"{de1:+.2f}", "Planet 2": p2, "Dec 2": f"{de2:+.2f}"})
+        # a plain table (not st.dataframe, whose canvas draws its text at 10.5 px): all text on the pages is 12 px
+        where.table(pd.DataFrame(rows).style.hide(axis="index"), width="content")
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)

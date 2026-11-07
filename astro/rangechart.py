@@ -24,7 +24,7 @@ def range_figure(dec_on: list[str], ea_on: list[int], jd_from: float, jd_to: flo
     fig = go.Figure()
     note = ""
     if not labels or jd_to <= jd_from:
-        fig.update_layout(width=WIDTH, height=HEIGHT, autosize=False,
+        fig.update_layout(width=WIDTH, height=HEIGHT, autosize=False, font=dict(size=FONT),
                           annotations=[dict(text="Choose a planet to draw it.", showarrow=False,
                                             xref="paper", yref="paper", x=0.5, y=0.5)])
         return fig, note
@@ -77,10 +77,16 @@ def range_figure(dec_on: list[str], ea_on: list[int], jd_from: float, jd_to: flo
     fig.update_layout(
         width=WIDTH, height=HEIGHT, autosize=False, margin=dict(**MARGIN, autoexpand=False),
         plot_bgcolor="white", paper_bgcolor="white",
-        legend=dict(orientation="h", y=-0.2), hovermode="closest",
-        xaxis=dict(range=[start, end], title="Year/Month/Date/Time (UT)", showgrid=True, gridcolor="rgb(235,235,235)",
+        # the legend's top 80 px under the grid: below the dates and the axis title, inside the chart
+        legend=dict(orientation="h", yanchor="top", y=-80 / PLOT_H, font=dict(size=FONT)), hovermode="closest",
+        font=dict(size=FONT), hoverlabel=dict(font_size=FONT),
+        xaxis=dict(range=[start, end], title=dict(text="Year/Month/Date/Time (UT)", font=dict(size=FONT)),
+                   tickfont=dict(size=FONT),
+                   showgrid=True, gridcolor="rgb(235,235,235)",
                    ticklabelstandoff=8),                 # the first date clear of the -30 beside the corner
-        yaxis=dict(range=[-30, 30], dtick=5, title="Declination", tickformat="+d", zeroline=True,
+        yaxis=dict(range=[-30, 30], dtick=5, title=dict(text="Declination", font=dict(size=FONT)), tickformat="+d",
+                   tickfont=dict(size=FONT),
+                   zeroline=True,
                    ticklabelstandoff=6,                   # clear of dots on the chart's left edge
                    zerolinecolor="rgb(200,200,200)", gridcolor="rgb(235,235,235)"))
     return fig, note

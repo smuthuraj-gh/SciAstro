@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 from . import core
 
 H = core.ra_de_height
-FONT = 11                         # the smallest text on the chart (pixels)
+FONT = 12                         # all text on the charts (pixels)
 TITLE_FONT = dict(size=FONT)      # the chart's titles: Planets-RA, Planets-Declination and both axis titles, in bold
 GAP = 5                           # pixels between the grid and the text beside it
 ROW = 15                          # pixels per line of text
@@ -412,12 +412,14 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
     fig.update_layout(
         width=WIDTH, height=HEIGHT, autosize=False, plot_bgcolor="white", paper_bgcolor="white",
         margin=dict(l=MARGIN_L, r=MARGIN_R, t=margin_t, b=MARGIN_B, autoexpand=False),
-        showlegend=False, hovermode="closest", dragmode="zoom",
+        showlegend=False, hovermode="closest", dragmode="zoom", font=dict(size=FONT), hoverlabel=dict(font_size=FONT),
         xaxis=dict(range=[0, 360], showgrid=False, zeroline=False,
                    # its title is drawn by _x_title, so it can move aside for the Now row
                    tickvals=list(range(0, 361, 30)), ticklabelstandoff=GAP + ROW - 1,  # RA numbers just under the longitudes
+                   tickfont=dict(size=FONT),
                    mirror=True, linecolor="rgb(134,134,134)"),
         yaxis=dict(range=[-90, 90], showgrid=False, zeroline=False, ticklabelstandoff=0,   # close to the grid
+                   tickfont=dict(size=FONT),
                    title=dict(text="<b>Latitude/Declination</b>", standoff=10, font=TITLE_FONT),
                    tickvals=[H(v) for v in lat_ticks],
                    ticktext=["0" if v == 0 else f"{abs(v)}{'S' if v < 0 else 'N'}" for v in lat_ticks],
