@@ -156,25 +156,46 @@ def new_member_form():
     record is saved with their login email, so they see their charts at once. One record per email."""
     st.write("Welcome! Enter your birth details to see your charts. They are kept private: only you (and the admin) "
              "can see them.")
-    with st.form("new_member"):
+    details_form(None)
+
+
+def details_form(row: pd.Series | None):
+    """A member's own birth details: empty for a new member, or their record to change (row). Saved with their
+    login email, which stays the same (it is the key)."""
+    def val(f):
+        v = row.get(f) if row is not None else None
+        return None if v is None or (isinstance(v, float) and pd.isna(v)) else v
+
+    def txt(f):
+        return str(val(f) or "")
+
+    born0 = at0 = None
+    if row is not None and all(val(f) is not None for f in ("year", "mon", "day")):
+        try:
+            born0 = datetime(int(val("year")), int(val("mon")), int(val("day"))).date()
+        except ValueError:
+            pass
+    if row is not None and val("hr") is not None and val("mn") is not None:
+        at0 = time(int(val("hr")), int(val("mn")))
+    with st.form("member_details" if row is None else "edit_details"):
         c1, c2 = st.columns(2)
-        first = c1.text_input("First Name *", max_chars=120)
-        last = c2.text_input("Last Name", max_chars=120)
+        first = c1.text_input("First Name *", value=txt("name"), max_chars=120)
+        last = c2.text_input("Last Name", value=txt("last_name"), max_chars=120)
         c1, c2 = st.columns(2)
-        born = c1.date_input("Birth date *", value=None, min_value=datetime(1800, 1, 1).date(),
+        born = c1.date_input("Birth date *", value=born0, min_value=datetime(1800, 1, 1).date(),
                              max_value=datetime.now().date(), format="YYYY-MM-DD")
-        at = c2.time_input("Birth time (local, 24 h) *", value=None, step=60)
+        at = c2.time_input("Birth time (local, 24 h) *", value=at0, step=60)
         st.markdown("**Birth place**")
         c1, c2, c3 = st.columns(3)
-        city = c1.text_input("City *", max_chars=500)
-        state = c2.text_input("State / region", max_chars=120)
-        country = c3.text_input("Country *", max_chars=120)
+        city = c1.text_input("City *", value=txt("city"), max_chars=500)
+        state = c2.text_input("State / region", value=txt("state"), max_chars=120)
+        country = c3.text_input("Country *", value=txt("country"), max_chars=120)
         st.markdown("**Where you live now** (for the Now charts; optional)")
         c1, c2, c3 = st.columns(3)
-        city_n = c1.text_input("City", max_chars=500, key="city_n")
-        state_n = c2.text_input("State / region", max_chars=120, key="state_n")
-        country_n = c3.text_input("Country", max_chars=120, key="country_n")
-        sent = st.form_submit_button("Save my details", type="primary")
+        city_n = c1.text_input("City", value=txt("city_n"), max_chars=500, key="city_n")
+        state_n = c2.text_input("State / region", value=txt("state_n"), max_chars=120, key="state_n")
+        country_n = c3.text_input("Country", value=txt("country_n"), max_chars=120, key="country_n")
+        sent = st.form_submit_button("Save my details" if row is None else "Save changes", type="primary")
     if not sent:
         return
     missing = [n for n, v in (("First Name", first), ("Birth date", born), ("Birth time", at), ("City", city),
@@ -192,7 +213,14 @@ def new_member_form():
     rec = {"name": first, "last_name": last, "country": country, "state": state, "city": city,
            "year": born.year, "mon": born.month, "day": born.day, "hr": at.hour, "mn": at.minute,
            "country_n": country_n, "state_n": state_n, "city_n": city_n}
-    db.add_own_customer(rec, user.email)       # an email that already has a record keeps it (nothing is changed)
+    if row is None:
+        db.add_own_customer(rec, user.email)   # an email that already has a record keeps it (nothing is changed)
+    else:
+        same_birth = (all(val(f) is not None and int(float(val(f))) == rec[f] for f in ("year", "mon", "day", "hr", "mn"))
+                      and all(rec[f].strip() == txt(f).strip() for f in ("city", "state", "country")))
+        rec["utc"] = val("utc") if same_birth else None   # a new birth time or place: its UTC offset is looked up
+        db.update_own_customer(rec, user.email)
+        st.session_state["details_saved"] = True
     st.rerun()
 
 
@@ -444,6 +472,10 @@ def page_my_details():
     if prep and prep.ok:
         st.write(f"Born on a {prep.weekday}; UTC offset {prep.utc:+.2f} ({prep.tz}); birth place "
                  f"{prep.birth_lat}, {prep.birth_lon}.")
+    if st.session_state.pop("details_saved", False):
+        st.success("Your details are saved.")
+    with st.expander("Edit my details"):
+        details_form(row)
 
 
 pages = [st.Page(page_map, title="AstroMap", icon=":material/public:", url_path="astromap", default=True),

@@ -187,6 +187,19 @@ def add_own_customer(rec: dict, email: str) -> bool:
     return True
 
 
+def update_own_customer(rec: dict, email: str) -> bool:
+    """A member's changes to their own record, found by their login email (which stays as it is). Returns False when
+    no record has that email. The UTC offset is cleared, to be looked up again for the new birth time and place."""
+    data = _clean({**rec, "email": email})
+    if not data.get("name") or not data.get("email"):
+        raise ValueError("First Name and a login email are needed.")
+    data["utc"] = rec.get("utc")
+    with engine().begin() as c:
+        done = c.execute(sa.update(customers).where(sa.func.lower(customers.c.email) == data["email"])
+                         .values(**{k: v for k, v in data.items() if k != "email"})).rowcount
+    return bool(done)
+
+
 def import_workbook_csv(raw: bytes) -> int:
     """Customers from a CSV saved from the workbook's Customers tab (Customer, Country, ... City-N); new names only."""
     src = pd.read_csv(io.BytesIO(raw), dtype=str)
