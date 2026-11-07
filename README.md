@@ -6,8 +6,8 @@ zodiac), with the same rules.
 | Page | Who | What |
 |---|---|---|
 | AstroMap | everyone | planets at birth and now over a world map turned by the sky; Map / DOB / Now / Major Aspects / Minor Aspects; each planet's D and Distance% Average beside the buttons, D-N beside the Longitude / RA title; aspect and house lines; hover a mark for RA, Dec, D |
-| Planets Distance(%) | everyone | distance (-D) lines from birth to now: D, the % between each planet's nearest and farthest |
 | Planets Cycles | everyone | Dec (-M) lines from birth to now, with 0° / 60° / 90° / 120° / 180° aspect dots and tags |
+| Planets Distance(%) | everyone | distance (-D) lines from birth to now: D, the % between each planet's nearest and farthest |
 | Aspects | everyone | Planets Cycles' aspects as tables: one per angle, one row per aspect (date, planets, their Dec), newest first; a Major Aspects button (all five major angles) and a Minor Aspects button (30° / 45° / 72° / 135° / 144° / 150°) |
 | Aspects Details | admins | the orbs per aspect and planet; a pair uses the larger of its two planets' orbs |
 | Customers | admins | add, edit, delete customers; import the workbook's Customers tab as CSV |

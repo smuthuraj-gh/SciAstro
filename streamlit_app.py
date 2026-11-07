@@ -53,12 +53,19 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     return _chosen
 
 
-def show_first_name(row: pd.Series | None):
-    """The chosen customer's First Name at the top right of every page."""
-    if row is None or not str(row.get("name") or "").strip():
-        return
-    st.html(f'<div style="text-align:right; font-weight:600; white-space:nowrap; overflow:hidden; '
-            f'text-overflow:ellipsis">{html.escape(str(row["name"]).strip())}</div>')
+PAGE_HELP = {"AstroMap": "Map: the world map (coastlines). DOB: the planets at birth. "
+                         "Now: the planets now. Major Aspects: conjunction, sextile, square, trine, "
+                         "opposition. Minor Aspects: 30, 45, 72, 135, 144, 150 degrees."}
+
+
+def top_line(title: str, row: pd.Series | None):
+    """Every page's top line: its title at the left, the chosen customer's First Name at the right."""
+    line = st.container(horizontal=True, vertical_alignment="center", gap="small")
+    line.subheader(title, width="content", wrap=False, help=PAGE_HELP.get(title))
+    name = str(row.get("name") or "").strip() if row is not None else ""
+    if name:
+        line.html(f'<div style="text-align:right; font-weight:600; white-space:nowrap; overflow:hidden; '
+                  f'text-overflow:ellipsis">{html.escape(name)}</div>')
 
 
 def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
@@ -100,11 +107,7 @@ def need_chart(prep: Prepared | None) -> bool:
 # ---------------------------------------------------------------- pages
 def page_map():
     row, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="center", gap="small")    # title, buttons, then the key
-    head.subheader("AstroMap", width="content", wrap=False,
-                   help="Map: the world map (coastlines). DOB: the planets at birth. "
-                        "Now: the planets now. Major Aspects: conjunction, sextile, square, trine, "
-                        "opposition. Minor Aspects: 30, 45, 72, 135, 144, 150 degrees.")
+    head = st.container(horizontal=True, vertical_alignment="center", gap="small")    # buttons, then the key
     if not need_chart(prep):
         return
     shown = head.pills("Show", ["Map", "DOB", "Now", "Major Aspects", "Minor Aspects"],
@@ -158,8 +161,7 @@ def cycles_inputs(title: str, keys: str, aspect_buttons: bool = True):
     Planets Cycles has a button per major angle; Aspects (aspect_buttons False) has one Major Aspects and one
     Minor Aspects on / off button instead, and its angles are all five major ones when Major Aspects is on."""
     row, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the title, then the inputs
-    head.subheader(title, width="content", wrap=False)
+    head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return None
     jds = period(prep, head)
@@ -249,8 +251,7 @@ def _range_cached(dec_on, ea, jd_from, jd_to, orb_csv):
 
 def page_distance():
     row, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the title, then the inputs
-    head.subheader("Planets Distance(%)", width="content", wrap=False)
+    head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return
     jds = period(prep, head)
@@ -275,7 +276,6 @@ def _distance_cached(dist_on, jd_from, jd_to):
 def page_aspects():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
-    st.subheader("Aspects Details")
     pick_customer()
     table = db.orb_table()
     st.caption("A pair is in aspect when RA is within the RA orb of the angle and Dec within the Dec orb of equal "
@@ -299,7 +299,6 @@ def page_aspects():
 
 
 def page_customers():
-    st.subheader("Customers")
     pick_customer()
     if db.is_local_sqlite() and not auth._secret("dev_user"):
         st.warning("Saved in a local SQLite file. On Streamlit Community Cloud that file is lost on every restart: "
@@ -332,7 +331,6 @@ def page_customers():
 
 def page_my_details():
     row, prep = pick_customer()
-    st.subheader("My details")
     if row is None:
         st.info("No birth details are linked to your email yet. Ask the admin to add them.")
         return
@@ -344,8 +342,8 @@ def page_my_details():
 
 
 pages = [st.Page(page_map, title="AstroMap", icon=":material/public:", url_path="astromap", default=True),
-         st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
+         st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance"),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects")]
 if user.is_admin:                                             # the Aspects Details and Customers pages: admins only
     pages += [st.Page(page_aspects, title="Aspects Details", icon=":material/tune:", url_path="aspects-details"),
@@ -354,6 +352,6 @@ else:
     pages.append(st.Page(page_my_details, title="My details", icon=":material/person:", url_path="me"))
 nav = st.navigation(pages)
 _chosen = _pick_customer()                                    # the sidebar's customer, for every page
-show_first_name(_chosen[0])
+top_line(nav.title, _chosen[0])
 nav.run()
 st.sidebar.caption(f"Swiss Ephemeris via {se.BACKEND}. Equatorial (RA / Dec) only.")
