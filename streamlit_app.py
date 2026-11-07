@@ -228,15 +228,19 @@ def details_form(row: pd.Series | None):
         at_txt = c2.text_input("Birth time (local, 24 h)", value=at0, placeholder="hh:mm", max_chars=5,
                                help="Leave blank if it is not known: the charts then use 12:00 noon.")
         st.markdown("**Birth place**")
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
         city = c1.text_input("City *", value=txt("city"), max_chars=500)
         state = c2.text_input("State / region *", value=txt("state"), max_chars=120)
         country = c3.text_input("Country *", value=txt("country"), max_chars=120)
+        other = c4.text_input("Other", value=txt("other"), max_chars=500,
+                              help="Anything else about the birth place (optional; not used in the charts).")
         st.markdown("**Where you live now** (for the Now charts; optional)")
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
         city_n = c1.text_input("City", value=txt("city_n"), max_chars=500, key="city_n")
         state_n = c2.text_input("State / region", value=txt("state_n"), max_chars=120, key="state_n")
         country_n = c3.text_input("Country", value=txt("country_n"), max_chars=120, key="country_n")
+        other_n = c4.text_input("Other-N", value=txt("other_n"), max_chars=500, key="other_n",
+                                help="Anything else about where you live now (optional; not used in the charts).")
         sent = st.form_submit_button("Save my details" if row is None else "Save changes", type="primary")
     if not sent:
         return
@@ -260,7 +264,8 @@ def details_form(row: pd.Series | None):
     if city_n.strip() and locate_cached(city_n.strip(), state_n.strip(), country_n.strip()) is None:
         st.error(f"The place '{city_n}, {state_n}, {country_n}' was not found. Check the spelling, or leave it blank.")
         return
-    rec = {"name": first, "last_name": last, "country": country, "state": state, "city": city,
+    rec = {"name": first, "last_name": last, "country": country, "state": state, "city": city, "other": other,
+           "other_n": other_n,
            "year": born.year, "mon": born.month, "day": born.day,
            "hr": at.hour if at else None, "mn": at.minute if at else None,     # blank time: none kept (12:00 used)
            "country_n": country_n, "state_n": state_n, "city_n": city_n}
