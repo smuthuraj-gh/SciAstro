@@ -107,12 +107,16 @@ PAGE_HELP = {"AstroMap": "Map: the world map (coastlines). DOB: the planets at b
 
 def top_line(title: str, row: pd.Series | None):
     """Every page's top line: its title at the left, the chosen customer's First Name at the right."""
-    line = st.container(horizontal=True, vertical_alignment="center", gap="small")
-    line.subheader(title, width="content", wrap=False, help=PAGE_HELP.get(title))
+    # one row drawn here (not Streamlit's row, which can wrap the name onto a line of its own): both on one baseline
     name = str(row.get("name") or "").strip() if row is not None else ""
-    if name:
-        line.html(f'<div style="text-align:right; font-weight:600; white-space:nowrap; overflow:hidden; '
-                  f'text-overflow:ellipsis">{html.escape(name)}</div>')
+    help_text = PAGE_HELP.get(title)
+    help_mark = (f'<span title="{html.escape(help_text)}" style="cursor:help; opacity:0.6; margin-left:6px; '
+                 f'font-weight:400">&#9432;</span>') if help_text else ""
+    st.html(f'<div style="display:flex; align-items:baseline; justify-content:space-between; gap:16px; '
+            f'flex-wrap:nowrap; font-weight:600">'
+            f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
+            f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
+            f'</div>')
 
 
 def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
