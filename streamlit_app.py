@@ -170,7 +170,7 @@ def page_aspects_view():
     with st.spinner("Finding aspects..."):
         events = _events_cached(tuple(dec_on), tuple(angles), *jds, db.orb_table().to_csv(index=False))
     for ang in angles:
-        ev = [e for e in events if e[1] == ang]
+        ev = sorted((e for e in events if e[1] == ang), key=lambda e: e[0], reverse=True)   # newest first
         st.markdown(f"**{rangechart.EA_NAME[ang]}** &nbsp; {len(ev)} aspect{'' if len(ev) == 1 else 's'}")
         if not ev:
             st.caption("None in this period.")
