@@ -20,7 +20,7 @@ FIELDS = ["name", "last_name", "email", "country", "state", "city", "other", "ye
 LABELS = {"name": "First Name", "last_name": "Last Name", "email": "Email (login)", "country": "Country", "state": "State",
           "other": "Other", "city": "City",
           "year": "Year", "mon": "Mon", "day": "Date", "hr": "Hr24", "mn": "Min", "country_n": "Country-N",
-          "state_n": "State-N", "city_n": "City-N", "other_n": "Others-N", "utc": "UTC (blank = look up)"}
+          "state_n": "State-N", "city_n": "City-N", "other_n": "Other-N", "utc": "UTC (blank = look up)"}
 
 meta = sa.MetaData()
 customers = sa.Table(
@@ -233,10 +233,11 @@ def update_own_customer(rec: dict, email: str) -> bool:
 
 def import_workbook_csv(raw: bytes) -> int:
     """Customers from a CSV saved from the workbook's Customers tab (Customer, Country, State, City, Other, ... City-N,
-    Others-N; any column may be missing); new names only."""
+    Other-N; any column may be missing); new names only."""
     src = pd.read_csv(io.BytesIO(raw), dtype=str)
     back = {v.split(" (")[0].lower(): k for k, v in LABELS.items()}
     back["customer"] = "name"                                # the workbook's own heading for First Name
+    back["others-n"] = "other_n"                             # the heading's earlier name
     src = src.rename(columns={c: back.get(str(c).strip().lower(), c) for c in src.columns})
     current = all_customers()
     have = set(current["name"].str.lower())

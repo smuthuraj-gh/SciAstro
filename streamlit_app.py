@@ -129,7 +129,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Customers": "Add, change or delete customers, then Save changes. Required (*): First Name, Email (login), "
                  "State and the birth date (Year, Mon, Date); Hr24 and Min may be left blank (12:00 is then used). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
-                 "only their own). Other and Others-N: anything else to keep about the birth place and the place now "
+                 "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). UTC blank: looked up from the birth place. Import adds customers from the "
                  "workbook's Customers CSV.",
     "My details": "Your own birth details, used for all your charts. Edit my details to change them; your login "
@@ -506,7 +506,7 @@ def page_customers():
                                      "their own). Each email can belong to one customer only."),
                                 "State": st.column_config.TextColumn("State *", help="Required for every customer."),
                                 "Other": st.column_config.TextColumn(help="Anything else to keep with the record."),
-                                "Others-N": st.column_config.TextColumn(help="Anything else about the place now.")})
+                                "Other-N": st.column_config.TextColumn(help="Anything else about the place now.")})
     if st.button("Save changes", type="primary"):
         back = {v: k for k, v in db.LABELS.items()}
         try:
@@ -519,7 +519,7 @@ def page_customers():
             st.rerun()
     with st.expander("Import from the workbook"):
         st.write("Save the workbook's Customers tab as CSV (Customer, Country, State, City, Other, Year, Mon, Date, "
-                 "Hr24, Min, Country-N, State-N, City-N, Others-N; Other and Others-N may be left out) and upload it. "
+                 "Hr24, Min, Country-N, State-N, City-N, Other-N; Other and Other-N may be left out) and upload it. "
                  "Names already here are skipped. Then add each customer's Email (login): it is required to save.")
         up = st.file_uploader("Customers CSV", type="csv")
         if up is not None and st.button("Import"):
