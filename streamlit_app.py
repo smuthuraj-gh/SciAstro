@@ -107,9 +107,31 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     return _chosen
 
 
-PAGE_HELP = {"AstroMap": "Map: the world map (coastlines). DOB: the planets at birth. "
-                         "Now: the planets now. Major Aspects: conjunction, sextile, square, trine, "
-                         "opposition. Minor Aspects: 30, 45, 72, 135, 144, 150 degrees."}
+PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
+    "AstroMap": "The planets at birth (DOB) and now (Now) on a world map turned by the sky, in RA (along) and "
+                "Declination (up). Map: the coastlines. DOB: the planets at birth, with house lines from CB. "
+                "Now: the planets now (-N), with house lines from CN. Major Aspects: 0, 60, 90, 120, 180 degrees. "
+                "Minor Aspects: 30, 45, 72, 135, 144, 150 degrees. Beside the buttons: each planet's Distance% "
+                "Average and Distance% DOB. Point at a planet to see the planets it is approaching and leaving, "
+                "in RA and in Declination.",
+    "Aspects": "The aspects between the chosen planets over the period, as tables, newest first: one table per "
+               "angle, a row each time two planets came into it (RA within the angle's RA orb, Declination within "
+               "its Dec orb). Major Aspects: 0, 60, 90, 120, 180 degrees. Minor Aspects: 30, 45, 72, 135, 144, "
+               "150 degrees. Dates and times are UT.",
+    "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
+                      "them are in a chosen major aspect (0 to 180 degrees). A tag with no room is left off: point at "
+                      "its dot to see it. Dates and times are UT.",
+    "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
+                           "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
+    "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
+                       "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
+                       "apply to every chart.",
+    "Customers": "Add, change or delete customers, then Save changes. Email (login) is the Google account each "
+                 "customer signs in with (one customer per email; they see only their own). State is required. "
+                 "UTC blank: looked up from the birth place. Import adds customers from the workbook's Customers CSV.",
+    "My details": "Your own birth details, used for all your charts. Edit my details to change them; your login "
+                  "email stays the same.",
+}
 
 
 def top_line(title: str, row: pd.Series | None):
@@ -117,8 +139,11 @@ def top_line(title: str, row: pd.Series | None):
     # one row drawn here (not Streamlit's row, which can wrap the name onto a line of its own): both on one baseline
     name = str(row.get("name") or "").strip() if row is not None else ""
     help_text = PAGE_HELP.get(title)
-    help_mark = (f'<span title="{html.escape(help_text)}" style="cursor:help; opacity:0.6; margin-left:6px; '
-                 f'font-weight:400">&#9432;</span>') if help_text else ""
+    help_mark = (f'<span title="{html.escape(help_text)}" aria-label="Help: {html.escape(help_text)}" '
+                 f'style="cursor:help; display:inline-flex; align-items:center; justify-content:center; '
+                 f'width:1.15em; height:1.15em; margin-left:6px; border:1px solid currentColor; border-radius:50%; '
+                 f'opacity:0.55; font-weight:600; font-size:0.85em; line-height:1; vertical-align:middle">?</span>'
+                 ) if help_text else ""
     st.html(f'<div style="display:flex; align-items:baseline; justify-content:space-between; gap:16px; '
             f'flex-wrap:nowrap; font-weight:600">'
             f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
