@@ -26,6 +26,47 @@ st.html("""<style>
 [role="dialog"] :is(p, span, div, li, h1, h2, h3, button):not([data-testid="stIconMaterial"]),
 [data-testid="stTooltipContent"] * { font-size: 13px !important; }
 </style>""")
+# Everything (text, buttons, tables, charts, map) resizes with the window, as one picture: the whole app is zoomed so
+# that the page's content column is always WIDTH (1100) px before zooming, the width the charts are laid out at. So the
+# charts are never scaled on their own and all text, chart text too, is always the same size (13 px x the zoom).
+st.html("""<script>
+(() => {
+  if (window.__appZoom) { window.__appZoom(); return; }
+  const WIDTH = """ + str(mapchart.WIDTH) + """;
+  function zoom() {
+    const root = document.documentElement, main = document.querySelector('[data-testid="stMain"]');
+    const block = document.querySelector('[data-testid="stMainBlockContainer"]');
+    if (!main || !block) return;
+    const z = parseFloat(root.style.zoom) || 1;
+    const cs = getComputedStyle(block);
+    const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+    // the main area's width inside its scrollbar (beside any open sidebar), on screen, made WIDTH + padding wide;
+    // with the sidebar open its width on screen changes with the zoom, so each check comes a step closer
+    const want = z * main.clientWidth / (WIDTH + pad);
+    if (Math.abs(want - z) > 0.001) {
+      root.style.zoom = want;
+      // Plotly measures text in its own hidden element, and the editable tables (drawn on a canvas) size themselves
+      // from the zoomed width: keep those unzoomed, so charts lay out as at 1:1 and the tables fit the page
+      let st = document.getElementById("app-zoom-style");
+      if (!st) { st = document.createElement("style"); st.id = "app-zoom-style"; document.head.appendChild(st); }
+      // (the column keeps its width when only the zoom changes, so a table's width comes from CSS, not a measurement)
+      st.textContent = '#js-plotly-tester, [data-testid="stDataFrame"] { zoom: ' + (1 / want) + '; }' +
+                       '[data-testid="stDataFrame"], [data-testid="stDataFrameResizable"] ' +
+                       '{ width: 100% !important; max-width: 100% !important; }';
+    }
+  }
+  window.__appZoom = zoom;
+  window.addEventListener("resize", zoom);
+  const watch = () => {
+    const main = document.querySelector('[data-testid="stMain"]');
+    if (!main) return setTimeout(watch, 100);
+    new ResizeObserver(zoom).observe(main);                  // the sidebar opening or closing
+    setInterval(zoom, 500);                                  // and a check in case an event is missed
+    zoom();
+  };
+  watch();
+})();
+</script>""", unsafe_allow_javascript=True)
 
 user = auth.current_user()
 
@@ -262,7 +303,7 @@ def page_distance():
         return
     with st.spinner("Drawing..."):
         fig = _distance_cached(tuple(dist_on), *jds)
-    st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+    st.html(mapchart.fit_html(fig), unsafe_allow_javascript=True)   # a fixed size, zoomed with the page
     st.caption("D = % between the planet's least and greatest distance from the Earth (1800-2400): 0 nearest, "
                "100 farthest.")
 

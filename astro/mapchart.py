@@ -234,7 +234,8 @@ def fit_html(fig: go.Figure) -> str:
   const outer = document.getElementById("{uid}"), inner = document.getElementById("{uid}-in");
   const MAX_GROW = {MAX_GROW};
   function fit() {{
-    const s = Math.min(MAX_GROW, Math.floor(outer.clientWidth) / {w});   // fills the column: smaller or larger
+    let s = Math.min(MAX_GROW, outer.clientWidth / {w});   // fills the column: smaller or larger
+    if (Math.abs(s - 1) < 0.01) s = 1;     // the page zoom (APP_ZOOM_JS) makes the column 1100: text as on the page
     inner.style.transform = "scale(" + s + ")";
     outer.style.height = Math.ceil({h} * s) + "px";
   }}
