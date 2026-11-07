@@ -146,7 +146,7 @@ def cycles_inputs(title: str, keys: str, aspect_buttons: bool = True):
                         key=f"{keys}ea_on_v5") or []
     else:                                                     # one on / off button for each group
         groups = head.pills("Aspects", ["Major Aspects", "Minor Aspects"], selection_mode="multi",
-                            default=["Major Aspects"], key=f"{keys}groups") or []
+                            default=["Major Aspects", "Minor Aspects"], key=f"{keys}groups_v2") or []
         ea = list(ea_names) if "Major Aspects" in groups else []
         minor = "Minor Aspects" in groups
     if jds is None:
