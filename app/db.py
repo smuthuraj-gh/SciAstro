@@ -25,7 +25,7 @@ meta = sa.MetaData()
 customers = sa.Table(
     "customers", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
-    sa.Column("name", sa.String(120), nullable=False, unique=True),
+    sa.Column("name", sa.String(120), nullable=False),       # not unique: the login email is the key
     sa.Column("last_name", sa.String(120)),
     sa.Column("email", sa.String(254)),
     sa.Column("country", sa.String(120)), sa.Column("state", sa.String(120)), sa.Column("city", sa.String(500)),
@@ -62,6 +62,7 @@ def engine() -> sa.Engine:
 def _add_missing_columns(eng: sa.Engine):
     """A store made before a column (or the unique email rule) was added gets it; nothing else in it changes.
     The email rule is added only if no two customers already share an email (the Customers page checks too)."""
+    _drop_name_unique(eng)
     have = {c["name"] for c in sa.inspect(eng).get_columns("customers")}
     with eng.begin() as c:
         for col in customers.columns:
@@ -73,6 +74,31 @@ def _add_missing_columns(eng: sa.Engine):
                                    "GROUP BY LOWER(email) HAVING COUNT(*) > 1) d")).scalar()
         if not shared:
             c.execute(sa.text(f"CREATE UNIQUE INDEX IF NOT EXISTS {EMAIL_INDEX} ON customers (email)"))
+
+
+def _drop_name_unique(eng: sa.Engine):
+    """Stores made when First Name had to be unique lose that rule (the login email is the key); every customer and
+    value is kept. SQLite cannot drop a table's rule, so its table is copied into a new one without it."""
+    insp = sa.inspect(eng)
+    uniq = [u for u in insp.get_unique_constraints("customers") if u["column_names"] == ["name"]]
+    idx = [i for i in insp.get_indexes("customers") if i.get("unique") and i["column_names"] == ["name"]]
+    if not uniq and not idx:
+        return
+    if eng.dialect.name == "sqlite":
+        cols = [c["name"] for c in insp.get_columns("customers")]
+        keep = ", ".join(c for c in cols if c in customers.c)        # columns this table has; others come later
+        with eng.begin() as c:
+            c.execute(sa.text(f"DROP INDEX IF EXISTS {EMAIL_INDEX}"))
+            c.execute(sa.text("ALTER TABLE customers RENAME TO customers_old"))
+            c.execute(sa.schema.CreateTable(customers))
+            c.execute(sa.text(f"INSERT INTO customers ({keep}) SELECT {keep} FROM customers_old"))
+            c.execute(sa.text("DROP TABLE customers_old"))
+    else:
+        with eng.begin() as c:
+            for u in uniq:
+                c.execute(sa.text(f'ALTER TABLE customers DROP CONSTRAINT "{u["name"]}"'))
+            for i in idx:
+                c.execute(sa.text(f'DROP INDEX IF EXISTS "{i["name"]}"'))
 
 
 def shared_emails(df: pd.DataFrame) -> list[str]:
@@ -146,6 +172,19 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame) -> tuple[int, i
                 if not old.empty and _clean(old.iloc[0].to_dict()) != data:
                     c.execute(sa.update(customers).where(customers.c.id == int(cid)).values(**data)); changed += 1
     return added, changed, deleted
+
+
+def add_own_customer(rec: dict, email: str) -> bool:
+    """A new member's own record, linked to their login email (the key: one record per email). Returns False, saving
+    nothing, when that email already has one (they simply use it)."""
+    data = _clean({**rec, "email": email})
+    if not data.get("name") or not data.get("email"):
+        raise ValueError("First Name and a login email are needed.")
+    with engine().begin() as c:
+        if c.execute(sa.select(customers.c.id).where(sa.func.lower(customers.c.email) == data["email"])).first():
+            return False
+        c.execute(sa.insert(customers).values(**data))
+    return True
 
 
 def import_workbook_csv(raw: bytes) -> int:

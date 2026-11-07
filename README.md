@@ -13,8 +13,10 @@ zodiac), with the same rules.
 | Customers | admins | add, edit, delete customers; import the workbook's Customers tab as CSV |
 | My details | users | their own birth details |
 
-Users sign in with Google and see only the customers whose **Email (login)** is theirs. Admins are listed in the
-`admins` secret.
+Users sign in with Google and see only the customers whose **Email (login)** is theirs. A new member (no customer
+has their email yet) gets a form to enter their own birth details, saved with their login email; a member already
+there goes straight to their charts. The login email is the key: one customer per email (First Names may repeat).
+Admins are listed in the `admins` secret.
 
 ## Run on this PC
 

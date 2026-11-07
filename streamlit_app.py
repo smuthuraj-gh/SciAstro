@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from app import auth, db
-from app.chartdata import Prepared, now_local_text, now_values, prepare
+from app.chartdata import Prepared, locate_cached, now_local_text, now_values, prepare
 from astro import core, distancechart, mapchart, rangechart, se
 
 # wide pages, the sidebar (menu, customer) starting closed so the charts get the whole window; » opens it
@@ -125,13 +125,18 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     st.sidebar.markdown(f"**{user.name}**" + ("  \n:blue-badge[admin]" if user.is_admin else ""))
     auth.sign_out_button(user)
     if df.empty:
-        st.sidebar.info("No customers yet." if user.is_admin else "No birth details are linked to your email yet.")
+        st.sidebar.info("No customers yet." if user.is_admin else "Enter your birth details on the page to start.")
         return None, None
-    names = df["name"].tolist()
-    prev = st.session_state.get("customer")
-    idx = names.index(prev) if prev in names else 0
-    name = st.sidebar.selectbox("Customer", names, index=idx, key="customer")
-    row = df[df["name"] == name].iloc[0]
+    # chosen by record (names need not be unique: the login email is the key), shown as First and Last Name, with the
+    # email added where two customers share both
+    full = (df["name"].fillna("") + " " + df["last_name"].fillna("")).str.strip()
+    label = {int(i): (f"{f} ({e})" if (full == f).sum() > 1 and e else f)
+             for i, f, e in zip(df["id"], full, df["email"].fillna(""))}
+    ids = list(label)
+    prev = st.session_state.get("customer_id")
+    idx = ids.index(prev) if prev in ids else 0
+    cid = st.sidebar.selectbox("Customer", ids, index=idx, format_func=label.get, key="customer_id")
+    row = df[df["id"] == cid].iloc[0]
     prep = prepare(record_items(row))
     if not prep.ok:
         st.sidebar.error(prep.message)
@@ -146,9 +151,57 @@ def orbs() -> core.Orbs:
     return core.Orbs(db.orb_table())
 
 
+def new_member_form():
+    """A member signing in for the first time (no record has their email yet) enters their own birth details; the
+    record is saved with their login email, so they see their charts at once. One record per email."""
+    st.write("Welcome! Enter your birth details to see your charts. They are kept private: only you (and the admin) "
+             "can see them.")
+    with st.form("new_member"):
+        c1, c2 = st.columns(2)
+        first = c1.text_input("First Name *", max_chars=120)
+        last = c2.text_input("Last Name", max_chars=120)
+        c1, c2 = st.columns(2)
+        born = c1.date_input("Birth date *", value=None, min_value=datetime(1800, 1, 1).date(),
+                             max_value=datetime.now().date(), format="YYYY-MM-DD")
+        at = c2.time_input("Birth time (local, 24 h) *", value=None, step=60)
+        st.markdown("**Birth place**")
+        c1, c2, c3 = st.columns(3)
+        city = c1.text_input("City *", max_chars=500)
+        state = c2.text_input("State / region", max_chars=120)
+        country = c3.text_input("Country *", max_chars=120)
+        st.markdown("**Where you live now** (for the Now charts; optional)")
+        c1, c2, c3 = st.columns(3)
+        city_n = c1.text_input("City", max_chars=500, key="city_n")
+        state_n = c2.text_input("State / region", max_chars=120, key="state_n")
+        country_n = c3.text_input("Country", max_chars=120, key="country_n")
+        sent = st.form_submit_button("Save my details", type="primary")
+    if not sent:
+        return
+    missing = [n for n, v in (("First Name", first), ("Birth date", born), ("Birth time", at), ("City", city),
+                              ("Country", country)) if not (v.strip() if isinstance(v, str) else v)]
+    if missing:
+        st.error("Please fill in: " + ", ".join(missing) + ".")
+        return
+    if locate_cached(city.strip(), state.strip(), country.strip()) is None:   # caught here, before saving
+        st.error(f"The birth place '{city}, {state}, {country}' was not found. Check the spelling, or try a larger "
+                 "city nearby.")
+        return
+    if city_n.strip() and locate_cached(city_n.strip(), state_n.strip(), country_n.strip()) is None:
+        st.error(f"The place '{city_n}, {state_n}, {country_n}' was not found. Check the spelling, or leave it blank.")
+        return
+    rec = {"name": first, "last_name": last, "country": country, "state": state, "city": city,
+           "year": born.year, "mon": born.month, "day": born.day, "hr": at.hour, "mn": at.minute,
+           "country_n": country_n, "state_n": state_n, "city_n": city_n}
+    db.add_own_customer(rec, user.email)       # an email that already has a record keeps it (nothing is changed)
+    st.rerun()
+
+
 def need_chart(prep: Prepared | None) -> bool:
     if prep is None:
-        st.info("Choose a customer in the sidebar." if user.is_admin else "Ask the admin to add your birth details.")
+        if user.is_admin:
+            st.info("Choose a customer in the sidebar.")
+        else:
+            new_member_form()
         return False
     if not prep.ok:
         st.warning(prep.message)
@@ -384,7 +437,7 @@ def page_customers():
 def page_my_details():
     row, prep = pick_customer()
     if row is None:
-        st.info("No birth details are linked to your email yet. Ask the admin to add them.")
+        new_member_form()
         return
     st.table(pd.DataFrame({"": [db.LABELS[f].split(" (")[0] for f in db.FIELDS if f not in ("email", "utc")],
                            "Value": [row[f] for f in db.FIELDS if f not in ("email", "utc")]}).astype(str))
