@@ -25,6 +25,11 @@ st.html("""<style>
 [data-baseweb="popover"] :is(p, span, div, li):not([data-testid="stIconMaterial"]),
 [role="dialog"] :is(p, span, div, li, h1, h2, h3, button):not([data-testid="stIconMaterial"]),
 [data-testid="stTooltipContent"] * { font-size: 13px !important; }
+/* the button that opens the sidebar (pages, customer) is titled Menu, so it is clear what it opens */
+[data-testid="stExpandSidebarButton"] { width: auto !important; padding: 0 6px !important; gap: 4px;
+  display: inline-flex !important; align-items: center; }
+[data-testid="stExpandSidebarButton"]::after { content: "Menu"; font-size: 13px; font-weight: 600;
+  color: rgba(47, 45, 43, 0.8); white-space: nowrap; }
 </style>""")
 # Everything (text, buttons, tables, charts, map) resizes with the window, as one picture: the whole app is zoomed so
 # that the page's content column is always WIDTH (1100) px before zooming, the width the charts are laid out at. So the
