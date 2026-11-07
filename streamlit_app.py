@@ -5,6 +5,7 @@ Customers for admins; My details for users. Run locally:  .venv\\Scripts\\stream
 """
 from __future__ import annotations
 
+import html
 from datetime import datetime, time, timezone
 
 import pandas as pd
@@ -44,7 +45,23 @@ def record_items(row: pd.Series) -> tuple:
     return tuple(out)
 
 
+_chosen: tuple[pd.Series | None, Prepared | None] = (None, None)
+
+
 def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
+    """The customer chosen in the sidebar (chosen once per run, before the page; see the end of this file)."""
+    return _chosen
+
+
+def show_first_name(row: pd.Series | None):
+    """The chosen customer's First Name at the top right of every page."""
+    if row is None or not str(row.get("name") or "").strip():
+        return
+    st.html(f'<div style="text-align:right; font-weight:600; white-space:nowrap; overflow:hidden; '
+            f'text-overflow:ellipsis">{html.escape(str(row["name"]).strip())}</div>')
+
+
+def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     df = visible_customers()
     st.sidebar.markdown(f"**{user.name}**" + ("  \n:blue-badge[admin]" if user.is_admin else ""))
     auth.sign_out_button(user)
@@ -335,5 +352,8 @@ if user.is_admin:                                             # the Aspects Deta
               st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers")]
 else:
     pages.append(st.Page(page_my_details, title="My details", icon=":material/person:", url_path="me"))
-st.navigation(pages).run()
+nav = st.navigation(pages)
+_chosen = _pick_customer()                                    # the sidebar's customer, for every page
+show_first_name(_chosen[0])
+nav.run()
 st.sidebar.caption(f"Swiss Ephemeris via {se.BACKEND}. Equatorial (RA / Dec) only.")
