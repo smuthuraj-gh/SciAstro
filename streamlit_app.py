@@ -179,28 +179,10 @@ def _distance_cached(dist_on, jd_from, jd_to):
 
 
 def page_tables():
-    row, prep = pick_customer()
+    # The page is kept, empty: its columns (Planets, D, D-N, Distance% Average) were removed; the same distances
+    # show on AstroMap (Distance% DOB, Distance% Average, Distance% Now)
+    pick_customer()
     st.subheader("Tables")
-    if not need_chart(prep):
-        return
-    jd_now = core.now_jd()
-    rows = []
-    for p in core.PLANETS:
-        b, n = core.position(p, prep.jd_birth), core.position(p, jd_now)
-        d, dn = core.distance_pct(p, b.dist_au), core.distance_pct(p, n.dist_au)
-        rows.append({"Planets": p, "D": d, "D-N": dn, "Distance% Average": round((d + dn) / 2, 2), "_ra": prep.birth[p][0],
-                     "_up_b": b.dist_speed >= 0, "_up_n": n.dist_speed >= 0})
-    df = pd.DataFrame(rows).sort_values("_ra").reset_index(drop=True)
-
-    def colour(col):
-        key = "_up_b" if col.name == "D" else "_up_n"
-        return [f"color: {'rgb(255,0,0)' if up else 'rgb(0,128,0)'}" for up in df[key]]
-
-    shown = df[["Planets", "D", "D-N", "Distance% Average"]]
-    st.dataframe(shown.style.apply(colour, subset=["D", "D-N", "Distance% Average"]).format({"D": "{:.1f}", "D-N": "{:.1f}", "Distance% Average": "{:.1f}"}),
-                 hide_index=True, width="content")
-    st.caption("D = % between the planet's least and greatest distance (1800-2400): D at birth, D-N now, and "
-               "Distance% Average, the average of the two. Red: distance growing, green: shrinking. Click a heading to sort.")
 
 
 def page_aspects():
