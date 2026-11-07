@@ -216,6 +216,10 @@ def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool, 
 
 
 MAX_GROW = 1.6                    # a chart may be shown up to this many times its laid-out size in a wide window
+# Everything else on a page keeps within AstroMap's Latitude/Declination (left) and Planets-Declination (right)
+# titles: the page's text column is narrower than the charts by these (pixels of the 1100-px chart, measured in a
+# browser), and each chart reaches out past it by the same on both sides
+INSET_L, INSET_R = 15, 11
 
 
 def fit_html(fig: go.Figure) -> str:
@@ -227,7 +231,9 @@ def fit_html(fig: go.Figure) -> str:
     w, h = int(fig.layout.width), int(fig.layout.height)
     uid = "chart-" + uuid.uuid4().hex[:8]
     cdn = f"https://cdn.plot.ly/plotly-{get_plotlyjs_version()}.min.js"   # the version this Plotly package draws with
-    return f"""<div id="{uid}" style="width:100%; overflow:hidden">
+    # (Plotly's hover toolbar moved in from the chart's right edge, inside Planets-Declination too)
+    return f"""<style>#{uid} .modebar-container {{ right: {INSET_R}px !important; }}</style>
+<div id="{uid}" style="width:calc(100% + {INSET_L + INSET_R}px); margin-left:-{INSET_L}px; overflow:hidden">
 <div id="{uid}-in" style="width:{w}px; height:{h}px; transform-origin:0 0"></div></div>
 <script>
 (function () {{

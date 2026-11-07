@@ -32,7 +32,7 @@ st.html("""<style>
 st.html("""<script>
 (() => {
   if (window.__appZoom) { window.__appZoom(); return; }
-  const WIDTH = """ + str(mapchart.WIDTH) + """;
+  const WIDTH = """ + str(mapchart.WIDTH - mapchart.INSET_L - mapchart.INSET_R) + """;   // the text column
   function zoom() {
     const root = document.documentElement, main = document.querySelector('[data-testid="stMain"]');
     const block = document.querySelector('[data-testid="stMainBlockContainer"]');
