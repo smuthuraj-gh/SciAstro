@@ -266,7 +266,7 @@ def _key_row(items: list[tuple[str, str, float | None]], label: str = "", label_
 
 
 def key_html(m: MapInput) -> str:
-    """For beside the buttons: each planet's Distance% Average (the average of D at birth and D-N now, as Tables), then below it
+    """For beside the buttons: each planet's Distance% Average (the average of D at birth and D-N now), then below it
     each planet at birth with its D (Distance% DOB) beneath."""
     rows = []
     da = [(n, "&#9679;", round((m.d_birth[n] + m.d_now[n]) / 2, 2)) for n in core.BUTTON_ORDER
