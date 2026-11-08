@@ -111,8 +111,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "AstroMap": "The planets at birth (DOB) and now (Now) on a world map turned by the sky, in RA (along) and "
                 "Declination (up). Map: the coastlines. DOB: the planets at birth, with house lines from CB. "
                 "Now: the planets now (-N), with house lines from CN. Major Aspects: 0, 60, 90, 120, 180 degrees. "
-                "Minor Aspects: 30, 45, 72, 135, 144, 150 degrees. Beside the buttons: each planet's Distance% "
-                "Average and Distance% DOB. Point at a planet to see the planets it is approaching and leaving, "
+                "Minor Aspects: 30, 45, 72, 135, 144, 150 degrees. Beside the buttons: each planet's Distance(%) "
+                "from earth DOB+Now (the average of its distance at birth and now) and Distance(%) from earth DOB. Point at a planet to see the planets it is approaching and leaving, "
                 "in RA and in Declination.",
     "Aspects": "The aspects between the chosen planets over the period, as tables, newest first: one table per "
                "angle, a row each time two planets came into it (RA within the angle's RA orb, Declination within "
@@ -330,7 +330,7 @@ def page_map():
         d_birth=prep.d_birth, d_now=d_now, show_birth=show_birth, show_now=show_now, major=major, minor=minor,
         show_map="Map" in shown)
     key = mapchart.key_html(m)
-    if key:                                                   # birth marks with D, then Distance% Average: next to Minor Aspects
+    if key:                                                   # Distance(%) from earth DOB+Now, then DOB: next to the buttons
         head.markdown(key, unsafe_allow_html=True, width="content")
     # Laid out at its own fixed size (every label is spaced for it) and scaled down whole to fit a narrower column:
     # st.plotly_chart would re-lay it out narrower and bring the labels back on top of each other
