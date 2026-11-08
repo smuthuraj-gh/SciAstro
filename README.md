@@ -5,7 +5,7 @@ zodiac), with the same rules.
 
 | Page | Who | What |
 |---|---|---|
-| AstroGlobe | everyone | the Earth as a globe, its axis fixed at a 23.44 degree tilt with lines out of the poles, turning about that axis west to east; each planet where it was overhead, its RA and Dec lines, and CB / CN; DOB / Now / RA/Dec / Rotate |
+| AstroGlobe | everyone | the Earth inside the celestial sphere, its axis fixed at a 23.44 degree tilt and joining the celestial poles, turning about that axis west to east while the sphere stands still; each planet on the sphere at its RA and Dec with its RA and Dec lines, the celestial equator, and CB / CN on the Earth; DOB / Now / RA/Dec / Rotate |
 | AstroMap | everyone | planets at birth and now over a world map turned by the sky; Map / DOB / Now / Major Aspects / Minor Aspects; each planet's Distance(%) from earth (DOB+Now)/2 and Distance(%) from earth on DOB beside the buttons, D-N beside the Longitude / RA title; aspect and house lines; point at a planet for the planets it is approaching and leaving, in RA and in Dec |
 | Aspects | everyone | Planets Cycles' aspects as tables: one per angle, one row per aspect (date, planets, their Dec), newest first; a Major Aspects button (all five major angles) and a Minor Aspects button (30° / 45° / 72° / 135° / 144° / 150°) |
 | Planets Cycles | everyone | Dec (-M) lines from birth to now, with 0° / 60° / 90° / 120° / 180° aspect dots and tags |

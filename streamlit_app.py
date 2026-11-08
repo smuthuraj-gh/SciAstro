@@ -110,13 +110,13 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "AstroGlobe": "The Earth as a globe, its axis tilted 23.44 degrees, with lines out of the North and South Poles "
-                  "(point at it to pause). Rotate: it turns about that fixed axis, west to east. "
-                  "Each planet is marked where it "
-                  "was overhead: latitude = its Declination, longitude = its RA less the sidereal time at Greenwich. "
-                  "RA/Dec: the RA line (the meridian through it) and Dec line (the circle of latitude through it) of "
-                  "each planet, CB and CN. DOB: at birth, solid lines, with CB at the birth place. Now: the planets now (-N), "
-                  "dashed lines, with CN at the place now.",
+    "AstroGlobe": "The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the celestial poles. "
+                  "Rotate: the Earth turns about that fixed axis, west to east, while the sphere stands still (point at "
+                  "the chart to pause). The Earth starts as it was at that moment, so a planet is straight above the place "
+                  "it was overhead. Each planet is on the sphere at its RA and Declination; the far side of the sphere is "
+                  "fainter, and hidden behind the Earth. RA/Dec: the RA and Dec lines of each planet on the sphere, and "
+                  "of CB and CN on the Earth. DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
+                  "now (-N), dashed lines, with CN at the place now.",
     "AstroMap": "The planets at birth (DOB) and now (Now) on a world map turned by the sky, in RA (along) and "
                 "Declination (up). Map: the coastlines. DOB: the planets at birth, with house lines from CB. "
                 "Now: the planets now (-N), with house lines from CN. Major Aspects: 0, 60, 90, 120, 180 degrees. "
@@ -420,7 +420,7 @@ def cycles_inputs(title: str, keys: str, aspect_buttons: bool = True):
 
 
 def page_globe():
-    """The turning globe: the planets where they were overhead, their RA and Dec lines, CB and CN."""
+    """The Earth turning inside the celestial sphere: the planets and their RA and Dec lines on the sphere, CB, CN on it."""
     row, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="center", gap="small")
     if not need_chart(prep):
@@ -435,7 +435,7 @@ def page_globe():
         show_lines="RA/Dec" in shown)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
-                              after_js=globechart.globe_js("Rotate" in shown)),
+                              after_js=globechart.globe_js(g, "Rotate" in shown)),
             unsafe_allow_javascript=True)
 
 
