@@ -22,6 +22,8 @@ DEFAULT_SPEED = "1d=1min"
 EARTH_RADIUS = 165.0              # pixels, in the chart's own layout
 SKY_RADIUS = 315.0                # the celestial sphere, pixels (it fits the chart's height with its pole labels)
 AXIS_COLOUR = "rgb(60,60,60)"
+GRID_DEGREES = 30                 # between the Earth's lines of latitude, and of longitude
+GRID_COLOUR = "rgb(120,120,120)"
 SKY_FILL = "rgb(244,246,252)"
 BACK_OPACITY = 0.3                # the far side of the sphere, seen through it
 BODY_RADIUS_KM = {"Su": 695700.0, "Mo": 1737.4, "Me": 2439.7, "Ve": 6051.8, "Ma": 3396.2, "Ju": 71492.0, "Sa": 60268.0}
@@ -48,6 +50,8 @@ class GlobeInput:
     show_now: bool = False
     show_ra: bool = True
     show_dec: bool = True
+    show_latitude: bool = False       # the Earth's lines of latitude and of longitude, which turn with it
+    show_longitude: bool = False
     paths: tuple = PATH_CHOICES       # the bodies whose paths to draw
 
 
@@ -302,7 +306,8 @@ def globe_figure(g: GlobeInput) -> go.Figure:
                  showland=True, landcolor="rgb(236,236,230)", showocean=True, oceancolor="rgb(220,232,245)",
                  showcoastlines=True, coastlinecolor="rgb(150,150,150)", showcountries=True,
                  countrycolor="rgb(200,200,200)", showframe=False, bgcolor="rgba(0,0,0,0)",
-                 lataxis=dict(showgrid=False), lonaxis=dict(showgrid=False)))
+                 lataxis=dict(showgrid=g.show_latitude, dtick=GRID_DEGREES, gridcolor=GRID_COLOUR, gridwidth=1),
+                 lonaxis=dict(showgrid=g.show_longitude, dtick=GRID_DEGREES, gridcolor=GRID_COLOUR, gridwidth=1)))
     return fig
 
 
