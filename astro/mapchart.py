@@ -308,12 +308,12 @@ X_TITLE = "<b>Longitude / RA</b>"
 
 
 def _now_key(fig: go.Figure, m: MapInput) -> float:
-    """With Now on: the title "Distance% Now" on the Longitude / RA title's line, to its right, and beneath it the
+    """With Now on: the title "Distance(%) from earth at Now" on the Longitude / RA title's line, to its right, and beneath it the
     planets now (-N), each with its D-N beneath, ending at the grid's right edge. Returns where the row starts (pixels
     from the grid's left edge)."""
     items = [(n + "-N", "&#9675;", m.d_now.get(n)) for n in m.now]
     widths = [max(text_px(f"o {n}"), text_px(f"{d:.1f}" if d is not None else "")) + 4 for n, _, d in items]
-    label = "<b>Distance% Now</b>"
+    label = "<b>Distance(%) from earth at Now</b>"
     start = x = PLOT_W - max(sum(widths), text_px(label) + 4)
     fig.add_annotation(xref="paper", x=start / PLOT_W, xanchor="left", yref="paper", y=0, yanchor="middle",
                        yshift=-TITLE_LINE, showarrow=False, text=label, font=dict(size=FONT))

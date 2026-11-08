@@ -112,7 +112,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                 "Declination (up). Map: the coastlines. DOB: the planets at birth, with house lines from CB. "
                 "Now: the planets now (-N), with house lines from CN. Major Aspects: 0, 60, 90, 120, 180 degrees. "
                 "Minor Aspects: 30, 45, 72, 135, 144, 150 degrees. Beside the buttons: each planet's Distance(%) "
-                "from earth (DOB+Now)/2 (the average of its distance at birth and now) and Distance(%) from earth on DOB. Point at a planet to see the planets it is approaching and leaving, "
+                "from earth (DOB+Now)/2 (the average of its distance at birth and now) and Distance(%) from earth on DOB; with Now, "
+                "Distance(%) from earth at Now under the map. Point at a planet to see the planets it is approaching and leaving, "
                 "in RA and in Declination.",
     "Aspects": "The aspects between the chosen planets over the period, as tables, newest first: one table per "
                "angle, a row each time two planets came into it (RA within the angle's RA orb, Declination within "
