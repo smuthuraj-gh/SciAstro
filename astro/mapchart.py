@@ -283,10 +283,14 @@ def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str
         return (f'<span style="display:inline-block; text-align:center; margin-right:5px; line-height:1.4">'
                 f'<span style="white-space:nowrap"><span style="color:{core.colour(n)}">{sym}</span>&nbsp;{n}</span>'
                 f'<br><span style="font-size:{FONT}px; opacity:0.75">{value}</span></span>')
-    head = (f'<div style="font-size:{FONT}px; line-height:1.2; margin-bottom:3px"><b>{label}</b></div>'
-            if label else "")
-    return (f'<div style="white-space:nowrap; font-size:{FONT}px">' + head
+    head = (f'<div style="font-size:{FONT}px; line-height:1.2; margin-bottom:3px"><b style="font-weight:700">{label}</b>'
+            f'</div>' if label else "")
+    # in the charts' own font (Plotly's), so these rows match the Distance(%) from earth at Now row under the map
+    return (f'<div style="white-space:nowrap; font-size:{FONT}px; font-family:{CHART_FONT_FAMILY}">' + head
             + "".join(item(*i) for i in items) + "</div>")
+
+
+CHART_FONT_FAMILY = "'Open Sans', verdana, arial, sans-serif"     # Plotly's default, which the charts are drawn in
 
 
 def key_html(m: MapInput) -> str:
