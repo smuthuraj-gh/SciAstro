@@ -164,7 +164,8 @@ def _clean(rec: dict) -> dict:
 
 
 REQUIRED = {"email": "Email (login)", "name": "First Name", "last_name": "Last Name", "country": "Country",
-            "state": "State", "city": "City"}                # and the birth date and time (Year, Mon, Date, Hr24, Min)
+            "state": "State", "city": "City", "country_n": "Country-N", "state_n": "State-N", "city_n": "City-N"}
+# (and the birth date and time: Year, Mon, Date, Hr24, Min)
 
 
 def missing_required(df: pd.DataFrame) -> list[str]:
@@ -198,8 +199,9 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame) -> tuple[int, i
         raise ValueError("Each login email can belong to one customer only. Used more than once: " + ", ".join(dup))
     problems = missing_required(edited)
     if problems:
-        raise ValueError("Required for every customer: Email (login), First Name, Last Name, Country, State, City "
-                         "and the birth date and time (Year, Mon, Date, Hr24, Min). " + "; ".join(problems))
+        raise ValueError("Required for every customer: Email (login), First Name, Last Name, Country, State, City, "
+                         "the birth date and time (Year, Mon, Date, Hr24, Min), and Country-N, State-N, City-N. "
+                         + "; ".join(problems))
     added = changed = deleted = 0
     keep_ids = set(edited["id"].dropna().astype(int)) if "id" in edited else set()
     now = _now()

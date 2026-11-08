@@ -130,7 +130,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",
     "Customers": "Add, change or delete customers, then Save changes. Required (*): Email (login), First Name, "
-                 "Last Name, Country, State, City, and the birth date and time (Year, Mon, Date, Hr24, Min). "
+                 "Last Name, Country, State, City, the birth date and time (Year, Mon, Date, Hr24, Min), and where they "
+                 "live now (Country-N, State-N, City-N). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Added, Updated "
@@ -266,11 +267,11 @@ def details_form(row: pd.Series | None):
         other = c4.text_input("District/Others", value=txt("other"), max_chars=500,
                               help="The district, or anything else about the birth place (optional; not used in the "
                                    "charts).")
-        st.markdown("**Where you live now** (for the Now charts; optional)")
+        st.markdown("**Where you live now** (for the Now charts)")
         c1, c2, c3, c4 = st.columns(4)
-        city_n = c1.text_input("City", value=txt("city_n"), max_chars=500, key="city_n")
-        state_n = c2.text_input("State / region", value=txt("state_n"), max_chars=120, key="state_n")
-        country_n = c3.text_input("Country", value=txt("country_n"), max_chars=120, key="country_n")
+        city_n = c1.text_input("City *", value=txt("city_n"), max_chars=500, key="city_n")
+        state_n = c2.text_input("State / region *", value=txt("state_n"), max_chars=120, key="state_n")
+        country_n = c3.text_input("Country *", value=txt("country_n"), max_chars=120, key="country_n")
         other_n = c4.text_input("District/Other-N", value=txt("other_n"), max_chars=500, key="other_n",
                                 help="The district, or anything else about where you live now (optional; not used "
                                      "in the charts).")
@@ -285,7 +286,8 @@ def details_form(row: pd.Series | None):
         st.error("Birth time: type it as hh:mm in 24 hours, e.g. 14:30 or 09:05.")
         return
     missing = [n for n, v in (("First Name", first), ("Last Name", last), ("Birth date", born), ("Birth time", at),
-                              ("City", city), ("State / region", state), ("Country", country))
+                              ("City", city), ("State / region", state), ("Country", country),
+                              ("City (now)", city_n), ("State / region (now)", state_n), ("Country (now)", country_n))
                if not (v.strip() if isinstance(v, str) else v)]
     if missing:
         st.error("Please fill in: " + ", ".join(missing) + ".")
@@ -294,8 +296,9 @@ def details_form(row: pd.Series | None):
         st.error(f"The birth place '{city}, {state}, {country}' was not found. Check the spelling, or try a larger "
                  "city nearby.")
         return
-    if city_n.strip() and locate_cached(city_n.strip(), state_n.strip(), country_n.strip()) is None:
-        st.error(f"The place '{city_n}, {state_n}, {country_n}' was not found. Check the spelling, or leave it blank.")
+    if locate_cached(city_n.strip(), state_n.strip(), country_n.strip()) is None:
+        st.error(f"The place where you live now, '{city_n}, {state_n}, {country_n}', was not found. Check the "
+                 "spelling, or try a larger city nearby.")
         return
     rec = {"name": first, "last_name": last, "country": country, "state": state, "city": city, "other": other,
            "other_n": other_n,
@@ -566,6 +569,9 @@ def page_customers():
                                 "State": st.column_config.TextColumn("State *", help="Birth place: required."),
                                 "City": st.column_config.TextColumn("City *", help="Birth place: required."),
                                 "Other": st.column_config.TextColumn(help="Anything else to keep with the record."),
+                                "Country-N": st.column_config.TextColumn("Country-N *", help="Place now: required."),
+                                "State-N": st.column_config.TextColumn("State-N *", help="Place now: required."),
+                                "City-N": st.column_config.TextColumn("City-N *", help="Place now: required."),
                                 "Other-N": st.column_config.TextColumn(help="Anything else about the place now.")})
     if st.button("Save changes", type="primary"):
         back = {v: k for k, v in db.LABELS.items()}
