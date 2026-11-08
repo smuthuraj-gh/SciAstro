@@ -24,6 +24,13 @@ SKY_RADIUS = 315.0                # the celestial sphere, pixels (it fits the ch
 AXIS_COLOUR = "rgb(60,60,60)"
 SKY_FILL = "rgb(244,246,252)"
 BACK_OPACITY = 0.3                # the far side of the sphere, seen through it
+BODY_RADIUS_KM = {"Su": 695700.0, "Mo": 1737.4, "Me": 2439.7, "Ve": 6051.8, "Ma": 3396.2, "Ju": 71492.0, "Sa": 60268.0}
+SIZE_RANGE_ARCSEC = (3.5, 2040.0)     # the smallest (Mars at its farthest) to the largest (the Moon at its nearest) ...
+MARKER_RANGE = (3.0, 11.0)            # ... drawn with these marker radii, in pixels
+# A path's days (one trip round the sky seen from the Earth: Mercury and Venus keep with the Sun, so a year), points drawn, name
+PATH_SPAN = {"Mo": (27.32, 110, "Path of the Moon"), "Me": (365.25, 365, "Path of Mercury"),
+             "Ve": (365.25, 365, "Path of Venus"), "Ma": (687.0, 400, "Path of Mars"),
+             "Ju": (4333.0, 400, "Path of Jupiter"), "Sa": (10759.0, 400, "Path of Saturn")}
 CX, CY = WIDTH / 2.0, HEIGHT / 2.0
 TEXT_W, TEXT_H = 7.6, 15.0        # a character's width and a line's height, for keeping labels apart
 
@@ -39,6 +46,7 @@ class GlobeInput:
     show_birth: bool = True
     show_now: bool = False
     show_lines: bool = True
+    show_paths: bool = True
 
 
 def _view() -> tuple[float, float]:
@@ -67,6 +75,23 @@ def _sky_point(ra: float, dec: float, ra_facing: float) -> tuple[float, float, f
     return CX + SKY_RADIUS * x, CY - SKY_RADIUS * y, z
 
 
+def _angular_size(planet: str, jd: float) -> float:
+    """How wide the body looks from the Earth at jd, in arcseconds, from its real size and its distance then."""
+    return 2.0 * math.degrees(math.atan(BODY_RADIUS_KM[planet] / (core.position(planet, jd).dist_au * core.AU_KM))) * 3600.0
+
+
+def _marker_radius(arcsec: float) -> float:
+    """The marker's radius in pixels. To true scale the Sun and Moon would be about 3 px wide and the planets far less than
+    1 px (and 60 to 400 times smaller than the Sun), so the sizes are on a logarithmic scale: bigger always means looks bigger."""
+    low, high = SIZE_RANGE_ARCSEC
+    share = (math.log(arcsec) - math.log(low)) / (math.log(high) - math.log(low))
+    return MARKER_RANGE[0] + (MARKER_RANGE[1] - MARKER_RANGE[0]) * max(0.0, min(1.0, share))
+
+
+def _size_text(arcsec: float) -> str:
+    return f"{arcsec / 60.0:.1f} arcmin" if arcsec >= 60.0 else f"{arcsec:.1f} arcsec"
+
+
 def _sun_path(angle: float) -> tuple[float, float]:
     """The (RA, Dec) a given angle round the Sun's yearly path, counted from where it crosses the celestial equator going
     north. Only the circle is drawn: the angle itself is never shown."""
@@ -75,11 +100,13 @@ def _sun_path(angle: float) -> tuple[float, float]:
             math.degrees(math.asin(math.sin(t) * math.sin(a))))
 
 
-def _moon_path(jd: float) -> list[tuple[float, float]]:
-    """The (RA, Dec) of the Moon over its month (27.32 days) with jd in the middle, closed into a loop."""
-    pts = [core.position("Mo", jd + v * 0.25) for v in range(-55, 55)]
+def _planet_path(planet: str, jd: float) -> list[tuple[float, float]]:
+    """The (RA, Dec) of a body from the Earth over one trip round the sky with jd in the middle, loops included. The Moon's
+    is closed into a ring; a planet's does not quite meet, as a planet comes back to a different place."""
+    days, steps, _ = PATH_SPAN[planet]
+    pts = [core.position(planet, jd + days * (v / steps - 0.5)) for v in range(steps + 1)]
     pts = [(p.ra, p.dec) for p in pts]
-    return pts + pts[:1]
+    return pts + pts[:1] if planet == "Mo" else pts
 
 
 def _sky_line(pts: list[tuple[float, float]], ra_facing: float, colour: str, width: float, dash: bool, tip: str,
@@ -115,18 +142,18 @@ def _clear(box, taken) -> bool:
     return all(box[2] < t[0] or t[2] < box[0] or box[3] < t[1] or t[3] < box[1] for t in taken)
 
 
-def _label_spot(x: float, y: float, text: str, taken: list) -> tuple[float, float]:
-    """The nearest spot around a marker where its label overlaps nothing placed so far."""
-    half = len(text) * TEXT_W / 2
+def _label_spot(x: float, y: float, text: str, taken: list, r: float) -> tuple[float, float]:
+    """The nearest spot around a marker of radius r where its label overlaps nothing placed so far."""
+    side = len(text) * TEXT_W / 2 + r + 5
     for reach in range(40):
-        for dx, dy in ((0, -12), (0, 21), (half + 10, 5), (-half - 10, 5),
-                       (half + 10, -10), (-half - 10, -10), (half + 10, 18), (-half - 10, 18)):
+        for dx, dy in ((0, -r - 6), (0, r + 15), (side, 5), (-side, 5),
+                       (side, -r - 4), (-side, -r - 4), (side, r + 13), (-side, r + 13)):
             sx = x + dx + (reach * 12 if dx > 0 else -reach * 12 if dx < 0 else 0)
             sy = y + dy + (reach * 14 if dy > 5 else -reach * 14 if dy < 0 else 0)
             box = _box(sx, sy, text)
             if box[0] > 0 and box[2] < WIDTH and box[1] > 0 and box[3] < HEIGHT and _clear(box, taken):
                 return sx, sy
-    return x, y - 12
+    return x, y - r - 6
 
 
 def sky_svg(g: GlobeInput) -> str:
@@ -156,36 +183,6 @@ def sky_svg(g: GlobeInput) -> str:
         marks.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="4" fill="{AXIS_COLOUR}"/>')
         taken.append((px - 5, py - 5, px + 5, py + 5))
 
-    # the celestial equator, named at its near side's right-hand end
-    circle = [ra_facing + v for v in range(-180, 181, 2)]
-    _sky_line([(a, 0.0) for a in circle], ra_facing, AXIS_COLOUR, 1.4, False, "Celestial equator (Dec 0)", near, far)
-    ex, ey, _ = max((_sky_point(a, 0.0, ra_facing) for a in circle if _sky_point(a, 0.0, ra_facing)[2] >= 0),
-                    key=lambda p: p[0])
-    marks.append(_text(ex + 8, ey + 4, "Celestial Equator", AXIS_COLOUR, "start"))
-    taken.append(_box(ex + 8, ey + 4, "Celestial Equator", "start"))
-
-    # the Sun's path over a year: the circle tilted TILT to the celestial equator, named at its near side's left-hand end
-    path = [_sun_path(v) for v in range(0, 361, 2)]
-    _sky_line(path, ra_facing, core.colour("Su"), 2.4, False,
-              f"Path of the Sun over a year (Dec between {-TILT:+.2f} and {TILT:+.2f})", near, far)
-    sx, sy, _ = min((p for p in (_sky_point(a, d, ra_facing) for a, d in path) if p[2] >= 0), key=lambda p: p[0])
-    marks.append(_text(sx - 8, sy + 4, "Path of the Sun", core.colour("Su"), "end"))
-    taken.append(_box(sx - 8, sy + 4, "Path of the Sun", "end"))
-
-    # the Moon's path, which shifts over the years: the month around the birth and, dashed, around now; named at the same end
-    moon = core.colour("Mo")
-    for show, when, name, what, dash in ((g.show_birth, g.jd_birth, "Path of the Moon", "birth", False),
-                                         (g.show_now, g.jd_now, "Path of the Moon-N", "now", True)):
-        if show and when is not None:
-            path = _moon_path(when)
-            _sky_line(path, ra_facing, moon, 2.4, dash, f"{name}: its month around {what} "
-                      f"(Dec between {min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})", near, far)
-            mx, my, _ = min((p for p in (_sky_point(a, d, ra_facing) for a, d in path) if p[2] >= 0), key=lambda p: p[0])
-            ly = next(y for y in (my + 4 + v * 16 * s for v in range(40) for s in (1, -1))
-                      if _clear(_box(mx - 8, y, name, "end"), taken))
-            marks.append(_text(mx - 8, ly, name, moon, "end"))
-            taken.append(_box(mx - 8, ly, name, "end"))
-
     bodies = []
     if g.show_birth and g.birth:
         bodies += [(p, g.birth[p], False) for p in core.BUTTON_ORDER if p in g.birth]
@@ -202,16 +199,52 @@ def sky_svg(g: GlobeInput) -> str:
         x, y, z = _sky_point(ra, de, ra_facing)
         if z < 0 and math.hypot(x - CX, y - CY) < E:              # behind the Earth: hidden, as the Earth is before it
             continue
-        shown.append((p, ra, de, now, x, y, z))
-        taken.append((x - 6, y - 6, x + 6, y + 6))                # no label may cover another's marker
-    for p, ra, de, now, x, y, z in shown:
+        size = _angular_size(p, g.jd_now if now else g.jd_birth)
+        r = _marker_radius(size)
+        shown.append((p, ra, de, now, x, y, z, size, r))
+        taken.append((x - r - 1, y - r - 1, x + r + 1, y + r + 1))     # no label may cover a marker
+
+    def path_label(points: list, name: str, colour: str, right: bool = False) -> None:
+        """Names a line at its near side's left-hand (or right-hand) end, or as near there as is free."""
+        px, py, _ = (max if right else min)((p for p in (_sky_point(a, d, ra_facing) for a, d in points) if p[2] >= 0),
+                                            key=lambda p: p[0])
+        lx, anchor = (px + 8, "start") if right else (px - 8, "end")
+        ly = next(y for y in (py + 4 + v * 16 * s for v in range(90) for s in (1, -1))
+                  if 16 < y < HEIGHT - 4 and _clear(_box(lx, y, name, anchor), taken))
+        marks.append(_text(lx, ly, name, colour, anchor))
+        taken.append(_box(lx, ly, name, anchor))
+
+    # the celestial equator
+    circle = [(ra_facing + v, 0.0) for v in range(-180, 181, 2)]
+    _sky_line(circle, ra_facing, AXIS_COLOUR, 1.4, False, "Celestial equator (Dec 0)", near, far)
+    path_label(circle, "Celestial Equator", AXIS_COLOUR, right=True)
+
+    if g.show_paths:
+        # the Sun's path over a year: the circle tilted TILT to the celestial equator
+        path = [_sun_path(v) for v in range(0, 361, 2)]
+        _sky_line(path, ra_facing, core.colour("Su"), 2.4, False,
+                  f"Path of the Sun over a year (Dec between {-TILT:+.2f} and {TILT:+.2f})", near, far)
+        path_label(path, "Path of the Sun", core.colour("Su"))
+
+        # the others, which shift over the years: one trip round the sky around the birth and, dashed, around now
+        for show, when, suffix, what, dash in ((g.show_birth, g.jd_birth, "", "birth", False),
+                                               (g.show_now, g.jd_now, "-N", "now", True)):
+            if show and when is not None:
+                for p, (days, _steps, name) in PATH_SPAN.items():
+                    path = _planet_path(p, when)
+                    _sky_line(path, ra_facing, core.colour(p), 2.4 if p == "Mo" else 1.8, dash,
+                              f"{name}{suffix}: {days:g} days around {what} "
+                              f"(Dec between {min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})", near, far)
+                    path_label(path, name + suffix, core.colour(p))
+
+    for p, ra, de, now, x, y, z, size, r in shown:
         name, c = p + ("-N" if now else ""), core.colour(p)
         opacity = 1.0 if z >= 0 else 0.55
         side = "near side" if z >= 0 else "far side"
-        marks.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="5.5" fill="{"white" if now else c}" stroke="{c}" '
+        marks.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{"white" if now else c}" stroke="{c}" '
                      f'stroke-width="2" opacity="{opacity}" style="pointer-events:auto"><title>{name} ({side} of the '
-                     f'sphere)\nRA {ra:.2f}\nDec {de:+.2f}</title></circle>')
-        lx, ly = _label_spot(x, y, name, taken)
+                     f'sphere)\nRA {ra:.2f}\nDec {de:+.2f}\nAngular size {_size_text(size)}</title></circle>')
+        lx, ly = _label_spot(x, y, name, taken, r)
         taken.append(_box(lx, ly, name))
         marks.append(_text(lx, ly, name, c, opacity=opacity))
 

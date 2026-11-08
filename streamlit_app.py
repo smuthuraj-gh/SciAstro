@@ -114,10 +114,11 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "Rotate: the Earth turns about that fixed axis, west to east, while the sphere stands still (point at "
                   "the chart to pause); the speed beside it sets how long one day's turn takes: 1 minute or "
                   "1 second. The Earth starts as it was at that moment, so a planet is straight above the place "
-                  "it was overhead. Each planet is on the sphere at its RA and Declination, with the path of the Sun over a "
-                  "year always shown and the path of the Moon over the month around that moment (thicker lines); the far side of the sphere is "
+                  "it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth on that date (a "
+                  "logarithmic scale, as to true scale the planets would not show; point at one for its angular size), the far side of the sphere is "
                   "fainter, and hidden behind the Earth. RA/Dec: the RA and Dec lines of each planet on the sphere, and "
-                  "of CB and CN on the Earth. DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
+                  "of CB and CN on the Earth. Planets Paths: the Sun's over a year, and the others' over one trip round "
+                  "the sky around that moment (Moon 27.32 days; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now (-N), dashed lines, with CN at the place now.",
     "AstroMap": "The planets at birth (DOB) and now (Now) on a world map turned by the sky, in RA (along) and "
                 "Declination (up). Map: the coastlines. DOB: the planets at birth, with house lines from CB. "
@@ -424,22 +425,23 @@ def cycles_inputs(title: str, keys: str, aspect_buttons: bool = True):
 def page_globe():
     """The Earth turning inside the celestial sphere: the planets and their RA and Dec lines on the sphere, CB, CN on it."""
     row, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="center", gap="small")
+    head = st.container(horizontal=True, vertical_alignment="top", gap="small")
     if not need_chart(prep):
         return
-    shown = head.pills("Show", ["DOB", "Now", "RA/Dec", "Rotate"], selection_mode="multi",
-                       default=["DOB", "RA/Dec", "Rotate"], key="globe_show_v4", label_visibility="collapsed")
+    shown = head.pills("Show", ["DOB", "Now", "RA/Dec", "Planets Paths"], selection_mode="multi",
+                       default=["DOB", "RA/Dec", "Planets Paths"], key="globe_show_v6", label_visibility="collapsed")
+    spin = head.container(width="content", gap="small")       # Rotate, with how fast below it
     day_seconds = None
-    if "Rotate" in shown:                                     # how fast, beside the button
-        speed = head.pills("Rotate speed", list(globechart.SPEEDS), default=globechart.DEFAULT_SPEED,
-                           key="globe_speed", label_visibility="collapsed")
+    if spin.pills("Rotate", ["Rotate"], default="Rotate", key="globe_rotate", label_visibility="collapsed"):
+        speed = spin.pills("Rotate speed", list(globechart.SPEEDS), default=globechart.DEFAULT_SPEED, key="globe_speed",
+                           label_visibility="collapsed", width=120)   # (room for one button a line: one below the other)
         day_seconds = globechart.SPEEDS[speed or globechart.DEFAULT_SPEED]
     jd_now = core.now_jd()
     now_pts, _ = now_values(jd_now)
     g = globechart.GlobeInput(
         birth=prep.birth, now=now_pts, jd_birth=prep.jd_birth, jd_now=jd_now,
         cb=(prep.birth_lat, prep.birth_lon), cn=prep.cn, show_birth="DOB" in shown, show_now="Now" in shown,
-        show_lines="RA/Dec" in shown)
+        show_lines="RA/Dec" in shown, show_paths="Planets Paths" in shown)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
                               after_js=globechart.globe_js(g, day_seconds)),
