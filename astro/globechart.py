@@ -508,7 +508,7 @@ _MOTION_JS = r"""
       const s = sample(b, t), gap = s.dec - pl.lat, rate = s.dec_speed * (gap >= 0 ? 1 : -1);
       if (rate) (rate < 0 ? near : away).push([p, Math.abs(gap)]);
     });
-    return tag("b") + pl.label + tag("/b") + " " + pl.title + NL + "Longi: " + signed(pl.lon) + NL + "Dec/Lati: " + signed(pl.lat) +
+    return tag("b") + pl.label + tag("/b") + " " + pl.title + NL + "Long: " + signed(pl.lon) + NL + "Dec/Lati: " + signed(pl.lat) +
       NL + "RA: " + (((pl.ra + D.spin * t) % 360 + 360) % 360).toFixed(2) +
       NL + "Approaching: " + names(near) + NL + "Leaving: " + names(away);
   };
