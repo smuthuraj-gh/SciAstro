@@ -117,7 +117,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "Rotate: the Earth turns about that fixed axis, west to east, while the sphere stands still, and time "
                   "runs from each moment, until Rotate is turned off: the clock beside the name gives the date and time, and the Sun, "
                   "Moon and planets move over the sphere as they really did (time starts again after 4 years; refresh the page to go back "
-                  "to the start). The speed below it: an hour (h), a day (d), a week (w) or a month (m) to a second. The Earth starts as it was at that "
+                  "to the start). Pick a speed below it to start: an hour (h), a day (d), a week (w) or a month (m) to a second; with none picked it holds still. The Earth starts as it was at that "
                   "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth then (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its angular size and Distance(%) from earth). The far side of the sphere is "
                   "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Coordi, with RA, Dec, Lati and Long below it: which coordinate lines to show. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
@@ -452,15 +452,15 @@ def page_globe():
                                label_visibility="collapsed", width=42))    # (room for one a line: one below another)
 
     shown = stacked(("DOB", "Now"), ("DOB",), title="Time")
-    bodies = bodies_under("Planets", "bodies", ["Su", "Mo"])
+    bodies = bodies_under("Planets", "bodies", list(globechart.BODY_CHOICES))
     paths = bodies_under("Paths", "paths", ["Su"])
     shown += stacked(("RA", "Dec", "Lati", "Long"), (), title="Coordi")
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds = None
     if spin.pills("Rotate", ["Rotate"], default="Rotate", key="globe_rotate", label_visibility="collapsed"):
-        speed = spin.pills("Rotate speed", list(globechart.SPEEDS), default=globechart.DEFAULT_SPEED, key="globe_speed",
+        speed = spin.pills("Rotate speed", list(globechart.SPEEDS), default=None, key="globe_speed",
                            label_visibility="collapsed", width=60)    # (just room for one button a line: one below the other)
-        day_seconds = globechart.SPEEDS[speed or globechart.DEFAULT_SPEED]
+        day_seconds = globechart.SPEEDS[speed] if speed else None     # no speed picked: it holds still
     jd_now = core.now_jd()
     now_pts, _ = now_values(jd_now)
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
