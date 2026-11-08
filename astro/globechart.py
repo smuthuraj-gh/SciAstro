@@ -252,8 +252,8 @@ def globe_figure(g: GlobeInput) -> go.Figure:
             lat, lon = place
             if jd is not None:                                # its RA (the sidereal time there) and Dec (its latitude)
                 ra = core.lst(jd, lon)
-                for on, text, line_lon, line_lat in ((g.show_ra, f"{label} RA {ra:.2f}", [lon] * len(lats), lats),
-                                                     (g.show_dec, f"{label} Dec {lat:+.2f}", lons, [lat] * len(lons))):
+                for on, text, line_lon, line_lat in ((g.show_ra, f"{label} RA: {ra:.2f}", [lon] * len(lats), lats),
+                                                     (g.show_dec, f"{label} Dec/Lati: {lat:+.2f}", lons, [lat] * len(lons))):
                     if not on:
                         continue
                     fig.add_trace(go.Scattergeo(
@@ -397,12 +397,12 @@ _MOTION_JS = r"""
       if (body.raLine) {
         const pts = [];
         for (let v = -90; v !== 93; v += 3) pts.push([s.ra, v]);
-        body.raLine(pts, body.tipName + " RA " + s.ra.toFixed(2));
+        body.raLine(pts, body.tipName + " RA: " + s.ra.toFixed(2));
       }
       if (body.decLine) {
         const pts = [];
         for (let v = -180; v !== 183; v += 3) pts.push([D.ra_facing + v, s.dec]);
-        body.decLine(pts, body.tipName + " Dec " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2));
+        body.decLine(pts, body.tipName + " Dec/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2));
       }
       const arcsec = 2 * Math.atan(b.km / (s.dist * D.au_km)) / RAD * 3600;
       const share = Math.max(0, Math.min(1, (Math.log(arcsec) - LOW) / (HIGH - LOW)));
@@ -414,9 +414,9 @@ _MOTION_JS = r"""
       body.mark.setAttribute("cx", x.toFixed(1)); body.mark.setAttribute("cy", y.toFixed(1));
       body.mark.setAttribute("r", r.toFixed(1)); body.mark.setAttribute("opacity", fade);
       body.mark.style.display = hidden ? "none" : ""; body.label.style.display = hidden ? "none" : "";
-      body.tip.textContent = body.tipName + " (" + (z >= 0 ? "near" : "far") + " side of the sphere)\nRA " + s.ra.toFixed(2) +
-        "\nDec " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2) + "\nAngular size " + size +
-        "\nDistance(%) from earth " + pct.toFixed(2);
+      body.tip.textContent = body.tipName + " (" + (z >= 0 ? "near" : "far") + " side of the sphere)\nRA: " + s.ra.toFixed(2) +
+        "\nDec/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2) + "\nAngular Size: " + size +
+        "\nDistance from earth: " + String(Math.max(0, Math.round(pct))).padStart(3, "0") + "%";
       if (!hidden) taken.push([x - r - 1, y - r - 1, x + r + 1, y + r + 1]);   // no label may cover a marker
     });
     bodies.forEach((body) => {
