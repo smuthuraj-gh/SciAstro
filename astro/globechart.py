@@ -31,8 +31,9 @@ MARKER_RANGE = (3.0, 11.0)            # ... drawn with these marker radii, in pi
 PATH_SPAN = {"Mo": (27.32, 110, "Path of the Moon"), "Me": (365.25, 365, "Path of Mercury"),
              "Ve": (365.25, 365, "Path of Venus"), "Ma": (687.0, 400, "Path of Mars"),
              "Ju": (4333.0, 400, "Path of Jupiter"), "Sa": (10759.0, 400, "Path of Saturn")}
+PATH_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
 CX, CY = WIDTH / 2.0, HEIGHT / 2.0
-TEXT_W, TEXT_H = 7.6, 15.0        # a character's width and a line's height, for keeping labels apart
+TEXT_W, TEXT_H = 8.0, 18.0      # a character's width and a line's height, for keeping labels apart
 
 
 @dataclass
@@ -46,7 +47,7 @@ class GlobeInput:
     show_birth: bool = True
     show_now: bool = False
     show_lines: bool = True
-    show_paths: bool = True
+    paths: tuple = PATH_CHOICES       # the bodies whose paths to draw
 
 
 def _view() -> tuple[float, float]:
@@ -135,7 +136,7 @@ def _box(x: float, y: float, text: str, anchor: str = "middle") -> tuple[float, 
     """The room a label takes: left, top, right, bottom (y is its baseline)."""
     w = len(text) * TEXT_W
     left = x - w / 2 if anchor == "middle" else x if anchor == "start" else x - w
-    return left, y - TEXT_H + 3, left + w, y + 3
+    return left - 3, y - TEXT_H + 3, left + w + 3, y + 3      # (a little to spare at each side)
 
 
 def _clear(box, taken) -> bool:
@@ -209,7 +210,7 @@ def sky_svg(g: GlobeInput) -> str:
         px, py, _ = (max if right else min)((p for p in (_sky_point(a, d, ra_facing) for a, d in points) if p[2] >= 0),
                                             key=lambda p: p[0])
         lx, anchor = (px + 8, "start") if right else (px - 8, "end")
-        ly = next(y for y in (py + 4 + v * 16 * s for v in range(90) for s in (1, -1))
+        ly = next(y for y in (py + 4 + v * 19 * s for v in range(90) for s in (1, -1))
                   if 16 < y < HEIGHT - 4 and _clear(_box(lx, y, name, anchor), taken))
         marks.append(_text(lx, ly, name, colour, anchor))
         taken.append(_box(lx, ly, name, anchor))
@@ -219,23 +220,25 @@ def sky_svg(g: GlobeInput) -> str:
     _sky_line(circle, ra_facing, AXIS_COLOUR, 1.4, False, "Celestial equator (Dec 0)", near, far)
     path_label(circle, "Celestial Equator", AXIS_COLOUR, right=True)
 
-    if g.show_paths:
+    if "Su" in g.paths:
         # the Sun's path over a year: the circle tilted TILT to the celestial equator
         path = [_sun_path(v) for v in range(0, 361, 2)]
         _sky_line(path, ra_facing, core.colour("Su"), 2.4, False,
                   f"Path of the Sun over a year (Dec between {-TILT:+.2f} and {TILT:+.2f})", near, far)
         path_label(path, "Path of the Sun", core.colour("Su"))
 
-        # the others, which shift over the years: one trip round the sky around the birth and, dashed, around now
-        for show, when, suffix, what, dash in ((g.show_birth, g.jd_birth, "", "birth", False),
-                                               (g.show_now, g.jd_now, "-N", "now", True)):
-            if show and when is not None:
-                for p, (days, _steps, name) in PATH_SPAN.items():
-                    path = _planet_path(p, when)
-                    _sky_line(path, ra_facing, core.colour(p), 2.4 if p == "Mo" else 1.8, dash,
-                              f"{name}{suffix}: {days:g} days around {what} "
-                              f"(Dec between {min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})", near, far)
-                    path_label(path, name + suffix, core.colour(p))
+    # the others, which shift over the years: one trip round the sky around the birth and, dashed, around now
+    for show, when, suffix, what, dash in ((g.show_birth, g.jd_birth, "", "birth", False),
+                                           (g.show_now, g.jd_now, "-N", "now", True)):
+        if show and when is not None:
+            for p, (days, _steps, name) in PATH_SPAN.items():
+                if p not in g.paths:
+                    continue
+                path = _planet_path(p, when)
+                _sky_line(path, ra_facing, core.colour(p), 2.4 if p == "Mo" else 1.8, dash,
+                          f"{name}{suffix}: {days:g} days around {what} "
+                          f"(Dec between {min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})", near, far)
+                path_label(path, name + suffix, core.colour(p))
 
     for p, ra, de, now, x, y, z, size, r in shown:
         name, c = p + ("-N" if now else ""), core.colour(p)

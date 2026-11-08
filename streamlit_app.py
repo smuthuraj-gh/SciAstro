@@ -117,7 +117,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth on that date (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its angular size). The far side of the sphere is "
                   "fainter, and hidden behind the Earth. RA/Dec: the RA and Dec lines of each planet on the sphere, and "
-                  "of CB and CN on the Earth. Paths: the Sun's over a year, and the others' over one trip round "
+                  "of CB and CN on the Earth. Paths, picking from the list below it: the Sun's over a year, and the others' over one trip round "
                   "the sky around that moment (Moon 27.32 days; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now (-N), dashed lines, with CN at the place now.",
     "AstroMap": "The planets at birth (DOB) and now (Now) on a world map turned by the sky, in RA (along) and "
@@ -428,20 +428,26 @@ def page_globe():
     head = st.container(horizontal=True, vertical_alignment="top", gap="small")
     if not need_chart(prep):
         return
-    shown = head.pills("Show", ["DOB", "Now", "RA/Dec", "Paths"], selection_mode="multi",
-                       default=["DOB", "RA/Dec", "Paths"], key="globe_show_v7", label_visibility="collapsed")
+    shown = head.pills("Show", ["DOB", "Now", "RA/Dec"], selection_mode="multi",
+                       default=["DOB", "RA/Dec"], key="globe_show_v8", label_visibility="collapsed")
+    drawn = head.container(width="content", gap="small")      # Paths, with which ones below it
+    paths = ()
+    if drawn.pills("Paths", ["Paths"], default="Paths", key="globe_paths_on", label_visibility="collapsed"):
+        names = list(globechart.PATH_CHOICES)
+        paths = tuple(drawn.pills("Which paths", names, selection_mode="multi", default=names, key="globe_paths",
+                                  label_visibility="collapsed", width=42))   # (room for one a line: one below another)
     spin = head.container(width="content", gap="small")       # Rotate, with how fast below it
     day_seconds = None
     if spin.pills("Rotate", ["Rotate"], default="Rotate", key="globe_rotate", label_visibility="collapsed"):
         speed = spin.pills("Rotate speed", list(globechart.SPEEDS), default=globechart.DEFAULT_SPEED, key="globe_speed",
-                           label_visibility="collapsed", width=120)   # (room for one button a line: one below the other)
+                           label_visibility="collapsed", width=92)    # (just room for one button a line: one below the other)
         day_seconds = globechart.SPEEDS[speed or globechart.DEFAULT_SPEED]
     jd_now = core.now_jd()
     now_pts, _ = now_values(jd_now)
     g = globechart.GlobeInput(
         birth=prep.birth, now=now_pts, jd_birth=prep.jd_birth, jd_now=jd_now,
         cb=(prep.birth_lat, prep.birth_lon), cn=prep.cn, show_birth="DOB" in shown, show_now="Now" in shown,
-        show_lines="RA/Dec" in shown, show_paths="Paths" in shown)
+        show_lines="RA/Dec" in shown, paths=paths)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
                               after_js=globechart.globe_js(g, day_seconds)),
