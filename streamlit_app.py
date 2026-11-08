@@ -186,10 +186,20 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
         st.sidebar.caption(f"{int(row['year'])}-{int(row['mon']):02d}-{int(row['day']):02d} {prep.weekday} "
                            f"{at}, UTC {prep.utc:+.2f}  \n"
                            f"{row['city']}, {row['state'] or ''}, {row['country'] or ''} ({prep.birth_lat}, {prep.birth_lon})")
-    if not user.is_admin and not st.session_state.get("accessed_marked"):   # once per visit: the Accessed column
-        db.mark_accessed(user.email)
-        st.session_state["accessed_marked"] = True
+    mark_accessed()
     return row, prep
+
+
+def mark_accessed():
+    """The Accessed column: the last time this member used the site. Set when they open it and again while they go
+    on using it (at most every 5 minutes, not on every click); an admin looking at customers does not count."""
+    import time as _t
+    if user.is_admin:
+        return
+    last = st.session_state.get("accessed_marked_at", 0.0)
+    if _t.time() - last >= 300:
+        db.mark_accessed(user.email)
+        st.session_state["accessed_marked_at"] = _t.time()
 
 
 def orbs() -> core.Orbs:
