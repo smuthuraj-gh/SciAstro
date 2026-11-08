@@ -115,7 +115,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "the chart to pause); the speed beside it sets how long one day's turn takes: 1 minute or "
                   "1 second. The Earth starts as it was at that moment, so a planet is straight above the place "
                   "it was overhead. Each planet is on the sphere at its RA and Declination, with the path of the Sun over a "
-                  "year (thicker line) always shown; the far side of the sphere is "
+                  "year always shown and the path of the Moon over the month around that moment (thicker lines); the far side of the sphere is "
                   "fainter, and hidden behind the Earth. RA/Dec: the RA and Dec lines of each planet on the sphere, and "
                   "of CB and CN on the Earth. DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now (-N), dashed lines, with CN at the place now.",

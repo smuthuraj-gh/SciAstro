@@ -75,6 +75,13 @@ def _sun_path(angle: float) -> tuple[float, float]:
             math.degrees(math.asin(math.sin(t) * math.sin(a))))
 
 
+def _moon_path(jd: float) -> list[tuple[float, float]]:
+    """The (RA, Dec) of the Moon over its month (27.32 days) with jd in the middle, closed into a loop."""
+    pts = [core.position("Mo", jd + v * 0.25) for v in range(-55, 55)]
+    pts = [(p.ra, p.dec) for p in pts]
+    return pts + pts[:1]
+
+
 def _sky_line(pts: list[tuple[float, float]], ra_facing: float, colour: str, width: float, dash: bool, tip: str,
               near: list[str], far: list[str]) -> None:
     """A line along the sphere, cut where it passes between the near side and the far side."""
@@ -164,6 +171,20 @@ def sky_svg(g: GlobeInput) -> str:
     sx, sy, _ = min((p for p in (_sky_point(a, d, ra_facing) for a, d in path) if p[2] >= 0), key=lambda p: p[0])
     marks.append(_text(sx - 8, sy + 4, "Path of the Sun", core.colour("Su"), "end"))
     taken.append(_box(sx - 8, sy + 4, "Path of the Sun", "end"))
+
+    # the Moon's path, which shifts over the years: the month around the birth and, dashed, around now; named at the same end
+    moon = core.colour("Mo")
+    for show, when, name, what, dash in ((g.show_birth, g.jd_birth, "Path of the Moon", "birth", False),
+                                         (g.show_now, g.jd_now, "Path of the Moon-N", "now", True)):
+        if show and when is not None:
+            path = _moon_path(when)
+            _sky_line(path, ra_facing, moon, 2.4, dash, f"{name}: its month around {what} "
+                      f"(Dec between {min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})", near, far)
+            mx, my, _ = min((p for p in (_sky_point(a, d, ra_facing) for a, d in path) if p[2] >= 0), key=lambda p: p[0])
+            ly = next(y for y in (my + 4 + v * 16 * s for v in range(40) for s in (1, -1))
+                      if _clear(_box(mx - 8, y, name, "end"), taken))
+            marks.append(_text(mx - 8, ly, name, moon, "end"))
+            taken.append(_box(mx - 8, ly, name, "end"))
 
     bodies = []
     if g.show_birth and g.birth:
