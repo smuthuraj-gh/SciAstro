@@ -117,7 +117,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "Rotate: the Earth turns about that fixed axis, west to east, while the sphere stands still, and time "
                   "runs from each moment, until Rotate is turned off: the clock beside the name gives the date and time, and the Sun, "
                   "Moon and planets move over the sphere as they really did (time starts again after 4 years; refresh the page to go back "
-                  "to the start). The speed below it: a day (d) to a minute, or an hour (h), a week (w) or a month (m) to a second. The Earth starts as it was at that "
+                  "to the start). The speed below it: an hour (h), a day (d), a week (w) or a month (m) to a second. The Earth starts as it was at that "
                   "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth then (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its angular size and Distance(%) from earth). The far side of the sphere is "
                   "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Coordi, with RA, Dec, Lati and Long below it: which coordinate lines to show. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
