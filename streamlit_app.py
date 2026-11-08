@@ -129,9 +129,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",
-    "Customers": "Add, change or delete customers, then Save changes. Required (*): First Name, Email (login), "
-                 "Country, State, City and the birth date (Year, Mon, Date); Hr24 and Min may be left blank (12:00 is "
-                 "then used). "
+    "Customers": "Add, change or delete customers, then Save changes. Required (*): Email (login), First Name, "
+                 "Last Name, Country, State, City, and the birth date and time (Year, Mon, Date, Hr24, Min). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Added, Updated "
@@ -252,13 +251,13 @@ def details_form(row: pd.Series | None):
     with st.form("member_details" if row is None else "edit_details"):
         c1, c2 = st.columns(2)
         first = c1.text_input("First Name *", value=txt("name"), max_chars=120)
-        last = c2.text_input("Last Name", value=txt("last_name"), max_chars=120)
+        last = c2.text_input("Last Name *", value=txt("last_name"), max_chars=120)
         c1, c2 = st.columns(2)
         born = c1.date_input("Birth date *", value=born0, min_value=datetime(1800, 1, 1).date(),
                              max_value=datetime.now().date(), format="YYYY-MM-DD")
         # a text box (Streamlit's time box shows its own "HH:mm"): hh:mm, 24 h
-        at_txt = c2.text_input("Birth time (local, 24 h)", value=at0, placeholder="hh:mm", max_chars=5,
-                               help="Leave blank if it is not known: the charts then use 12:00 noon.")
+        at_txt = c2.text_input("Birth time (local, 24 h) *", value=at0, placeholder="hh:mm", max_chars=5,
+                               help="Hours and minutes, 24 h, e.g. 14:30 or 09:05.")
         st.markdown("**Birth place**")
         c1, c2, c3, c4 = st.columns(4)
         city = c1.text_input("City *", value=txt("city"), max_chars=500)
@@ -285,8 +284,8 @@ def details_form(row: pd.Series | None):
     elif (at_txt or "").strip():
         st.error("Birth time: type it as hh:mm in 24 hours, e.g. 14:30 or 09:05.")
         return
-    missing = [n for n, v in (("First Name", first), ("Birth date", born), ("City", city),
-                              ("State / region", state), ("Country", country))
+    missing = [n for n, v in (("First Name", first), ("Last Name", last), ("Birth date", born), ("Birth time", at),
+                              ("City", city), ("State / region", state), ("Country", country))
                if not (v.strip() if isinstance(v, str) else v)]
     if missing:
         st.error("Please fill in: " + ", ".join(missing) + ".")
@@ -549,6 +548,11 @@ def page_customers():
                             disabled=list(db.STAMPS.values()),
                             column_config={"id": None, **stamp_cols,
                                 "First Name": st.column_config.TextColumn("First Name *", help="Required."),
+                                "Last Name": st.column_config.TextColumn("Last Name *", help="Required."),
+                                "Hr24": st.column_config.NumberColumn("Hr24 *", help="Birth time, hour 0-23: required.",
+                                                                      format="%d", step=1, min_value=0, max_value=23),
+                                "Min": st.column_config.NumberColumn("Min *", help="Birth time, minute 0-59: required.",
+                                                                     format="%d", step=1, min_value=0, max_value=59),
                                 "Year": st.column_config.NumberColumn("Year *", help="Birth date: required.",
                                                                       format="%d", step=1),
                                 "Mon": st.column_config.NumberColumn("Mon *", help="Birth date: required.",

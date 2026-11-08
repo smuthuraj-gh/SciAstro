@@ -163,8 +163,8 @@ def _clean(rec: dict) -> dict:
     return out
 
 
-REQUIRED = {"name": "First Name", "email": "Email (login)", "country": "Country", "state": "State",
-            "city": "City"}                                  # and a birth date (Year, Mon, Date)
+REQUIRED = {"email": "Email (login)", "name": "First Name", "last_name": "Last Name", "country": "Country",
+            "state": "State", "city": "City"}                # and the birth date and time (Year, Mon, Date, Hr24, Min)
 
 
 def missing_required(df: pd.DataFrame) -> list[str]:
@@ -180,6 +180,10 @@ def missing_required(df: pd.DataFrame) -> list[str]:
             date(data["year"], data["mon"], data["day"])
         except (TypeError, ValueError):
             lacks.append("Birth date")
+        if data.get("hr") is None or not 0 <= data["hr"] <= 23:     # the birth time: Hr24 0-23, Min 0-59
+            lacks.append("Hr24")
+        if data.get("mn") is None or not 0 <= data["mn"] <= 59:
+            lacks.append("Min")
         if lacks:
             who = " ".join(x for x in (data.get("name"), data.get("last_name")) if x) or f"row {i}"
             out.append(f"{who}: {', '.join(lacks)}")
@@ -194,8 +198,8 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame) -> tuple[int, i
         raise ValueError("Each login email can belong to one customer only. Used more than once: " + ", ".join(dup))
     problems = missing_required(edited)
     if problems:
-        raise ValueError("Required for every customer: First Name, Email (login), Country, State, City and the "
-                         "birth date (Year, Mon, Date). " + "; ".join(problems))
+        raise ValueError("Required for every customer: Email (login), First Name, Last Name, Country, State, City "
+                         "and the birth date and time (Year, Mon, Date, Hr24, Min). " + "; ".join(problems))
     added = changed = deleted = 0
     keep_ids = set(edited["id"].dropna().astype(int)) if "id" in edited else set()
     now = _now()
@@ -221,8 +225,9 @@ def add_own_customer(rec: dict, email: str) -> bool:
     """A new member's own record, linked to their login email (the key: one record per email). Returns False, saving
     nothing, when that email already has one (they simply use it)."""
     data = _clean({**rec, "email": email})
-    if not data.get("name") or not data.get("email") or not data.get("state"):
-        raise ValueError("First Name, State and a login email are needed.")
+    problems = missing_required(pd.DataFrame([data]))      # the same rule as the Customers table
+    if problems:
+        raise ValueError("Missing: " + problems[0].split(": ", 1)[-1])
     with engine().begin() as c:
         if c.execute(sa.select(customers.c.id).where(sa.func.lower(customers.c.email) == data["email"])).first():
             return False
@@ -235,8 +240,9 @@ def update_own_customer(rec: dict, email: str) -> bool:
     """A member's changes to their own record, found by their login email (which stays as it is). Returns False when
     no record has that email. The UTC offset is cleared, to be looked up again for the new birth time and place."""
     data = _clean({**rec, "email": email})
-    if not data.get("name") or not data.get("email") or not data.get("state"):
-        raise ValueError("First Name, State and a login email are needed.")
+    problems = missing_required(pd.DataFrame([data]))      # the same rule as the Customers table
+    if problems:
+        raise ValueError("Missing: " + problems[0].split(": ", 1)[-1])
     data["utc"] = rec.get("utc")
     # only what the member's form has (and the UTC offset): columns it does not show are kept as they are; Updated is
     # set only when something they saved differs from what was there
