@@ -97,7 +97,8 @@ def _motion_table(planet: str, jd: float) -> dict:
     step = MOTION_STEP_DAYS[planet]
     pts = [core.position(planet, jd + i * step) for i in range(int(MOTION_DAYS / step) + 2)]
     return {"step": step, "ra": [round(p.ra, 3) for p in pts], "dec": [round(p.dec, 3) for p in pts],
-            "dist": [round(p.dist_au, 6) for p in pts], "km": BODY_RADIUS_KM[planet], "colour": core.colour(planet),
+            "dist": [round(p.dist_au, 6) for p in pts], "dec_speed": [round(p.dec_speed, 4) for p in pts],
+            "km": BODY_RADIUS_KM[planet], "colour": core.colour(planet),
             "lo": core.DIST_RANGE[planet][0], "hi": core.DIST_RANGE[planet][1]}
 
 
@@ -226,14 +227,18 @@ def _motion_data(g: GlobeInput, day_seconds: float | None) -> dict:
     """All the page needs to place the bodies at any moment after the start."""
     jd, facing = _start(g)
     lat0, roll0 = _view()
-    sets = []
-    for show, when, name, offset in ((g.show_birth, g.jd_birth, "DOB", g.utc_birth),
-                                     (g.show_now, g.jd_now, "Now", g.utc_now)):
+    sets, places = [], []
+    for show, when, name, offset, label, title, place in (
+            (g.show_birth, g.jd_birth, "DOB", g.utc_birth, "CB", "birth place", g.cb),
+            (g.show_now, g.jd_now, "Now", g.utc_now, "CN", "place now", g.cn)):
         if show and when is not None:
-            sets.append(dict(clock=name, jd=when, offset=offset,
-                             bodies={p: _motion_table(p, when) for p in core.BUTTON_ORDER if p in g.bodies}))
+            if place:                                         # its box: the planets moving to and from it are all seven
+                places.append(dict(label=label, title=title, lat=place[0], lon=place[1], ra=core.lst(when, place[1]),
+                                   set=len(sets)))
+            sets.append(dict(clock=name, jd=when, offset=offset, shown=[p for p in core.BUTTON_ORDER if p in g.bodies],
+                             tables={p: _motion_table(p, when) for p in core.BUTTON_ORDER}))
     svg, taken = sky_svg(g)
-    return dict(svg=svg, taken=[[round(v, 1) for v in box] for box in taken], sets=sets,
+    return dict(svg=svg, taken=[[round(v, 1) for v in box] for box in taken], sets=sets, places=places,
                 key=f"{g.jd_birth}|{g.cb}", ra_facing=core.lst(jd, facing), lon0=facing, tilt=math.radians(lat0),
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
@@ -344,7 +349,8 @@ _MOTION_JS = r"""
     };
   };
   const bodies = [];
-  D.sets.forEach((s) => Object.entries(s.bodies).forEach(([p, b]) => {
+  D.sets.forEach((s) => s.shown.forEach((p) => {
+    const b = s.tables[p];
     const body = {name: p, tipName: p + " " + s.clock, b, now: s.clock === "Now"};   // Now: hollow, dashed
     if (D.show_ra) body.raLine = line(b.colour, body.now);
     if (D.show_dec) body.decLine = line(b.colour, body.now);
@@ -428,12 +434,38 @@ _MOTION_JS = r"""
     });
     showClocks(t);
   };
+  const signed = (v) => (v >= 0 ? "+" : "") + v.toFixed(2);
+  const tag = (name) => String.fromCharCode(60) + name + String.fromCharCode(62);   // (no tags written out in this script)
+  const NL = tag("br");
+  const placeBox = (pl, t) => {                    // CB's or CN's box: approaching = the gap in Dec to its latitude is closing
+    const near = [], away = [];
+    Object.entries(D.sets[pl.set].tables).forEach(([p, b]) => {
+      const u = t / b.step, i = Math.min(Math.floor(u), b.dec.length - 2), gap = sample(b, t).dec - pl.lat;
+      const rate = (b.dec_speed[i] + (b.dec_speed[i + 1] - b.dec_speed[i]) * (u - i)) * (gap >= 0 ? 1 : -1);
+      if (rate) (rate < 0 ? near : away).push([p, Math.abs(gap)]);
+    });
+    const names = (list) => list.sort((a, b) => a[1] - b[1]).map(([p, gap]) => p + " " + gap.toFixed(1) + "°").join(", ") || "none";
+    return tag("b") + pl.label + tag("/b") + " " + pl.title + NL + "Dec/Lati: " + signed(pl.lat) +
+      NL + "RA: " + (((pl.ra + D.spin * t) % 360 + 360) % 360).toFixed(2) + NL + "Long: " + signed(pl.lon) +
+      NL + "Approaching Planets: " + names(near) + NL + "Leaving Planets: " + names(away);
+  };
+  const placeTraces = D.places.map((pl) => gd.data.findIndex((d) =>
+    d.mode === "markers+text" && String(d.text[0]).includes(pl.label)));
+  let textsDue = 0;
+  const redraw = (t) => {                          // the Earth's turn and, each second, CB's and CN's boxes
+    const now = performance.now(), turn = {"geo.projection.rotation.lon": facing(t)}, done = () => { busy = false; };
+    busy = true;
+    if (D.places.length && now >= textsDue) {
+      textsDue = now + 1000;
+      Plotly.update(gd, {hovertext: D.places.map((pl) => placeBox(pl, t))}, turn, placeTraces).then(done);
+    } else Plotly.relayout(gd, turn).then(done);
+  };
   const facing = (t) => (((D.lon0 - D.spin * t + 540) % 360) + 360) % 360 - 180;
   if (!window.globeClock || window.globeClock.key !== D.key) window.globeClock = {key: D.key, t: 0};
   const clock = window.globeClock;
   place(clock.t);
-  let busy = true;
-  Plotly.relayout(gd, {"geo.projection.rotation.lon": facing(clock.t)}).then(() => { busy = false; });
+  let busy = false;
+  redraw(clock.t);
   if (D.day_seconds) {
     let last = performance.now();
     const timer = setInterval(() => {
@@ -444,8 +476,7 @@ _MOTION_JS = r"""
       last = now;
       if (clock.t >= D.days) clock.t = 0;           // the end of the tables: from the start again
       place(clock.t);
-      busy = true;
-      Plotly.relayout(gd, {"geo.projection.rotation.lon": facing(clock.t)}).then(() => { busy = false; });
+      redraw(clock.t);
     }, D.step_ms);
   }
 """
