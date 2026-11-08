@@ -270,9 +270,9 @@ def fit_html(fig: go.Figure, after_js: str = "") -> str:
   const fig = {fig.to_json()};
   (function draw() {{
     if (!window.Plotly) return setTimeout(draw, 50);
-    // (the mouse wheel scrolls the page, never zooms a chart; on a globe no zoom buttons: it keeps its size)
+    // (the mouse wheel scrolls the page, never zooms a chart; a globe has no zoom or reset buttons: it stays as it is)
     Plotly.newPlot(inner, fig.data, fig.layout, {{displaylogo: false, responsive: false, scrollZoom: false,
-                                                 modeBarButtonsToRemove: ["zoomInGeo", "zoomOutGeo"]}}).then(function (gd) {{
+                                                 modeBarButtonsToRemove: ["zoomInGeo", "zoomOutGeo", "resetGeo"]}}).then(function (gd) {{
       {after_js}
     }});
   }})();

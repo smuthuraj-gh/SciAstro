@@ -111,9 +111,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "AstroGlobe": "The Earth as a globe, its axis tilted 23.44 degrees, with lines out of the North and South Poles "
-                  "(point at it to pause, drag to spin). Rotate: it turns about its axis, and the axis slowly circles, "
-                  "keeping its tilt (the wobble, or precession: here one circle in 40 seconds, really about 25,772 "
-                  "years). "
+                  "(point at it to pause). Rotate: it turns about that fixed axis, west to east. "
                   "Each planet is marked where it "
                   "was overhead: latitude = its Declination, longitude = its RA less the sidereal time at Greenwich. "
                   "RA/Dec: the RA line (the meridian through it) and Dec line (the circle of latitude through it) of "
@@ -437,7 +435,7 @@ def page_globe():
         show_lines="RA/Dec" in shown)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
-                              after_js=globechart.globe_js("Rotate" in shown, "Rotate" in shown)),   # turns and wobbles
+                              after_js=globechart.globe_js("Rotate" in shown)),
             unsafe_allow_javascript=True)
 
 
@@ -653,8 +651,8 @@ def page_my_details():
         details_form(row)
 
 
-pages = [st.Page(page_map, title="AstroMap", icon=":material/public:", url_path="astromap", default=True),
-         st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe"),
+pages = [st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe"),
+         st.Page(page_map, title="AstroMap", icon=":material/public:", url_path="astromap", default=True),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
