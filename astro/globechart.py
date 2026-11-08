@@ -431,8 +431,8 @@ _MOTION_JS = r"""
       body.mark.setAttribute("cx", x.toFixed(1)); body.mark.setAttribute("cy", y.toFixed(1));
       body.mark.setAttribute("r", r.toFixed(1)); body.mark.setAttribute("opacity", fade);
       body.mark.style.display = hidden ? "none" : ""; body.label.style.display = hidden ? "none" : "";
-      body.tip.textContent = body.tipName + " (" + (z >= 0 ? "near" : "far") + " side of the sphere)\nRA: " + s.ra.toFixed(2) +
-        "\nDec/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2) + "\nAngular Size: " + size +
+      body.tip.textContent = body.tipName + " (" + (z >= 0 ? "near" : "far") + " side of the sphere)\nDec/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2) +
+        "\nRA: " + s.ra.toFixed(2) + "\nAngular Size: " + size +
         "\nDistance from earth: " + Math.max(0, Math.round(pct)) + "%" + moving(body, s, t);
       if (!hidden) taken.push([x - r - 1, y - r - 1, x + r + 1, y + r + 1]);   // no label may cover a marker
     });
