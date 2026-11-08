@@ -26,6 +26,8 @@ st.html("""<style>
 [data-baseweb="popover"] :is(p, span, div, li):not([data-testid="stIconMaterial"]),
 [role="dialog"] :is(p, span, div, li, h1, h2, h3, button):not([data-testid="stIconMaterial"]),
 [data-testid="stTooltipContent"] * { font-size: 13px !important; }
+/* except the planet dots in AstroMap's Distance(%) rows, bigger (mapchart.DOT_SCALE) */
+.stApp span.key-dot { font-size: """ + str(round(mapchart.FONT * mapchart.DOT_SCALE)) + """px !important; }
 /* the button that opens the sidebar (pages, customer) is titled Menu, so it is clear what it opens */
 [data-testid="stExpandSidebarButton"] { width: auto !important; padding: 0 6px !important; gap: 4px;
   display: inline-flex !important; align-items: center; }

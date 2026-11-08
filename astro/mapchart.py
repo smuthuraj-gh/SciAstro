@@ -23,7 +23,8 @@ TEXT_H = ROW + 1                  # the height Plotly gives a line of text (its 
 TITLE_LINE = GAP + 2 * ROW + 15   # pixels from the grid's bottom edge to the middle of the Longitude / RA title
 # The chart has a fixed size, so every label's place is known in pixels and can be kept clear of the others
 MARGIN_L, MARGIN_R = 72, 85
-MARGIN_B = TITLE_LINE + 3 * ROW + 4               # the bottom: longitudes, RA, then the titles' line and the Now rows
+DOT_DROP = 4                      # the Now row's planets this much lower, for their bigger dots (DOT_SCALE)
+MARGIN_B = TITLE_LINE + 3 * ROW + 4 + DOT_DROP    # the bottom: longitudes, RA, then the titles' line and the Now rows
 WIDTH, HEIGHT = 1100, 585 + MARGIN_B
 PLOT_W = WIDTH - MARGIN_L - MARGIN_R
 
@@ -284,9 +285,12 @@ def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str
         value = f"{v:.1f}" if v is not None else "&nbsp;"
         return (f'<span style="display:inline-block; text-align:center; margin-right:{KEY_GAP_HTML}px; '
                 f'line-height:1.4">'
-                f'<span style="white-space:nowrap"><span style="color:{core.colour(n)}">{sym}</span>&nbsp;{n}</span>'
+                f'<span style="white-space:nowrap"><span class="key-dot" style="color:{core.colour(n)}; '
+                f'font-size:{round(FONT * DOT_SCALE)}px; line-height:0; vertical-align:0.05em">{sym}</span>'
+                f'&nbsp;{n}</span>'
                 f'<br><span style="font-size:{FONT}px">{value}</span></span>')
-    head = (f'<div style="font-size:{FONT}px; line-height:1.2; margin-bottom:3px"><b style="font-weight:700">{label}</b>'
+    head = (f'<div style="font-size:{FONT}px; line-height:1.2; margin-bottom:{3 + DOT_ROOM}px">'
+            f'<b style="font-weight:700">{label}</b>'
             f'</div>' if label else "")
     # in the charts' own font (Plotly's) and text colour, so these rows match the row under the map
     return (f'<div style="white-space:nowrap; font-size:{FONT}px; font-family:{CHART_FONT_FAMILY}; '
@@ -295,10 +299,12 @@ def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str
 
 CHART_FONT_FAMILY = "'Open Sans', verdana, arial, sans-serif"     # Plotly's default, which the charts are drawn in
 CHART_TEXT = "#444"                                              # Plotly's text colour
+DOT_SCALE = 1.5                  # the planet dots (● ○) in the Distance(%) rows, this many times the text's size
+DOT_ROOM = 5                     # extra pixels under a row's title for the bigger dots' line
 # The space between one planet and the next in the three Distance(%) rows, about 14 px in each (so the two rows fit on
 # the buttons' line): under the map each planet's room is its widest-text estimate (text_px, a little over) + KEY_GAP;
 # beside the buttons a plain margin
-KEY_GAP = 6
+KEY_GAP = 3
 KEY_GAP_HTML = 14
 
 
@@ -325,7 +331,9 @@ def _now_key(fig: go.Figure, m: MapInput) -> float:
     planets now (-N), each with its D-N beneath, ending at the grid's right edge. Returns where the row starts (pixels
     from the grid's left edge)."""
     items = [(n + "-N", "&#9675;", m.d_now.get(n)) for n in m.now]
-    widths = [max(text_px(f"o {n}"), text_px(f"{d:.1f}" if d is not None else "")) + KEY_GAP for n, _, d in items]
+    dot = round(FONT * DOT_SCALE)                             # the dots bigger, as in the rows beside the buttons
+    widths = [max(text_px(f"o {n}") + text_px("o") * (DOT_SCALE - 1), text_px(f"{d:.1f}" if d is not None else ""))
+              + KEY_GAP for n, _, d in items]
     label = "<b>Distance(%) from earth at Now</b>"
     start = x = PLOT_W - max(sum(widths), text_px(label) + 4)
     fig.add_annotation(xref="paper", x=start / PLOT_W, xanchor="left", yref="paper", y=0, yanchor="middle",
@@ -333,8 +341,9 @@ def _now_key(fig: go.Figure, m: MapInput) -> float:
     for (n, sym, d), w in zip(items, widths):                 # names, then values, the lines under the title
         value = f"{d:.1f}" if d is not None else " "
         fig.add_annotation(xref="paper", x=(x + w / 2) / PLOT_W, xanchor="center", yref="paper", y=0,
-                           yanchor="middle", yshift=-(TITLE_LINE + ROW * 1.5 + 2), align="center", showarrow=False,
-                           text=f'<span style="color:{core.colour(n)}">{sym}</span> {n}<br>{value}',
+                           yanchor="middle", yshift=-(TITLE_LINE + ROW * 1.5 + 2 + DOT_DROP), align="center",
+                           showarrow=False,
+                           text=f'<span style="color:{core.colour(n)}; font-size:{dot}px">{sym}</span> {n}<br>{value}',
                            font=dict(size=FONT))
         x += w
     return start
