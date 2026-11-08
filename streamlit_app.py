@@ -31,8 +31,9 @@ st.html("""<style>
 .stApp span.key-dot { font-size: """ + str(round(mapchart.FONT * mapchart.DOT_SCALE)) + """px !important; }
 /* an editable table's cell editor opens outside the table: it undoes the page's zoom, as the table does, to open on its cell */
 #portal { zoom: calc(1 / var(--app-zoom, 1)); }
-/* AstroGlobe's Planets and Paths lists: two a line, the last alone not stretched across */
-.st-key-globe_bodies button, .st-key-globe_paths button { flex: 0 0 auto !important; width: auto !important; }
+/* AstroGlobe's lists: two a line, the last alone not stretched across */
+.st-key-globe_bodies button, .st-key-globe_paths button, .st-key-globe_coords button, .st-key-globe_speed button
+  { flex: 0 0 auto !important; width: auto !important; }
 /* AstroGlobe's speed buttons, as small as their text allows */
 .st-key-globe_speed button { padding-left: 4px !important; padding-right: 4px !important; }
 /* the button that opens the sidebar (pages, customer) is titled Menu, so it is clear what it opens */
@@ -125,7 +126,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth then (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its Dec/Lati, RA, Angular Size, Distance from earth and the others approaching and leaving it in Dec/Lati; at CB or CN for its Long, Dec/Lati, RA and the planets approaching and leaving its Dec/Lati). The far side of the sphere is "
                   "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Coordinates, with Houses, RA, Dec, Lati and Long below it: which lines to show. Houses: twelve lines on the sphere, 30 degrees apart from the RA of CB (solid) and of CN (dashed), named H01 to H12 as on AstroMap, turning with the Earth. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
-                  "of CB and CN on the Earth. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Paths, picking from the list below it: the Sun's over a year, and the others' over one trip round "
+                  "of CB and CN on the Earth. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Pla Paths, picking from the list below it: the Sun's over a year, and the others' over one trip round "
                   "the sky around that moment (Moon 27.32 days; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now, hollow, dashed lines, with CN at the place now.",
     "AstroMap": "The planets at birth (DOB) and now (Now) on a world map turned by the sky, in RA (along) and "
@@ -448,24 +449,25 @@ def page_globe():
         return [n for n in names if box.pills(n, [n], default=n if n in default else None, key=f"globe_{n}",
                                               label_visibility="collapsed")]
 
-    def bodies_under(title: str, key: str, default: list) -> tuple:
-        """A button with the Sun, Moon and planets listed below it to pick from; those picked, none with the button off."""
+    def options_under(title: str, key: str, names: list, default: list, width: int = 84) -> tuple:
+        """A button with options listed below it, two a line (width: room for two), to pick from; those picked, none with
+        the button off."""
         box = head.container(width="content", gap="xxsmall")
         if not box.pills(title, [title], default=title, key=f"globe_{key}_on", label_visibility="collapsed"):
             return ()
-        names = list(globechart.BODY_CHOICES)
         return tuple(box.pills(f"Which {title}", names, selection_mode="multi", default=default, key=f"globe_{key}",
-                               label_visibility="collapsed", width=84))    # (room for two a line)
+                               label_visibility="collapsed", width=width))
 
     shown = stacked(("Now", "DOB"), ("DOB",), title="Time")
-    bodies = bodies_under("Planets", "bodies", list(globechart.BODY_CHOICES))
-    paths = bodies_under("Paths", "paths", [])
-    shown += stacked(("Houses", "RA", "Dec", "Lati", "Long"), (), title="Coordinates")
+    all_bodies = list(globechart.BODY_CHOICES)
+    bodies = options_under("Planets", "bodies", all_bodies, all_bodies)
+    paths = options_under("Pla Paths", "paths", all_bodies, [])
+    shown += options_under("Coordinates", "coords", ["Houses", "RA", "Dec", "Lati", "Long"], [], width=108)
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds, manual = None, False
     if spin.pills("Rotate", ["Rotate"], default="Rotate", key="globe_rotate", label_visibility="collapsed"):
         speed = spin.pills("Rotate speed", [globechart.MANUAL] + list(globechart.SPEEDS), default=None, key="globe_speed",
-                           label_visibility="collapsed", width=60)    # (just room for one button a line: one below the other)
+                           label_visibility="collapsed", width=124)   # (room for two a line)
         manual = speed == globechart.MANUAL                           # the Earth is dragged round by hand
         day_seconds = globechart.SPEEDS.get(speed)                    # nothing picked: it holds still
     jd_now = core.now_jd()
