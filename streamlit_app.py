@@ -118,7 +118,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "1 second. The Earth starts as it was at that moment, so a planet is straight above the place "
                   "it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth on that date (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its angular size and Distance(%) from earth). The far side of the sphere is "
-                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
+                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Coordi, with RA, Dec, Lati and Long below it: which coordinate lines to show. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
                   "of CB and CN on the Earth. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Paths, picking from the list below it: the Sun's over a year, and the others' over one trip round "
                   "the sky around that moment (Moon 27.32 days; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now (-N), dashed lines, with CN at the place now.",
@@ -450,7 +450,7 @@ def page_globe():
 
     shown = stacked(("DOB", "Now"), ("DOB",), title="Time")
     bodies = bodies_under("Planets", "bodies")
-    shown += stacked(("RA", "Dec", "Lati", "Long"), ("RA", "Dec"))
+    shown += stacked(("RA", "Dec", "Lati", "Long"), ("RA", "Dec"), title="Coordi")
     paths = bodies_under("Paths", "paths")
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds = None
