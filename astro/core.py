@@ -128,6 +128,20 @@ def approach_lists(jd_ut: float) -> dict[str, dict[str, list[tuple[str, float]]]
     return out
 
 
+def dec_approach_to(jd_ut: float, dec: float) -> dict[str, list[tuple[str, float]]]:
+    """The planets approaching and leaving a fixed Declination (as CB's or CN's: a place's latitude) at jd_ut:
+    approaching = the gap between the planet's Dec and dec is getting smaller now. {"dec+": [(planet, gap)],
+    "dec-": [...]}."""
+    out = {"dec+": [], "dec-": []}
+    for p in BUTTON_ORDER:
+        a = position(p, jd_ut)
+        d = a.dec - dec
+        rate = a.dec_speed * (1 if d >= 0 else -1)
+        if rate:
+            out["dec+" if rate < 0 else "dec-"].append((p, abs(d)))
+    return out
+
+
 def now_points(jd_now: float) -> dict[str, tuple[float, float]]:
     out = {}
     for p in BUTTON_ORDER:

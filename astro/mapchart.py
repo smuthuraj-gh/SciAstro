@@ -433,14 +433,26 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         return (f"<br>RA approaching: {names('ra+')}<br>RA leaving: {names('ra-')}"
                 f"<br>Dec approaching: {names('dec+')}<br>Dec leaving: {names('dec-')}")
 
+    def moving_dec(lists: dict, suffix: str = "") -> str:
+        """For CB and CN (a place, fixed in Dec): only the planets approaching and leaving it in Dec."""
+        def names(key):
+            got = sorted(lists[key], key=lambda g: g[1])
+            return ", ".join(f"{q}{suffix} {gap:.1f}°" for q, gap in got) or "none"
+        return f"<br>Dec approaching: {names('dec+')}<br>Dec leaving: {names('dec-')}"
+
     moves_b = core.approach_lists(m.jd_birth) if birth and m.jd_birth is not None else {}
     moves_n = core.approach_lists(m.jd_now) if now else {}
     for n, (ra, de) in birth.items():
-        mark(n, ra, de, "diamond" if n == "CB" else "circle", False, moving(moves_b.get(n)))
+        if n == "CB":                                         # the birth place: Dec = its latitude, planets at birth
+            extra = moving_dec(core.dec_approach_to(m.jd_birth, de)) if m.jd_birth is not None else ""
+            mark(n, ra, de, "diamond", False, extra)
+            continue
+        mark(n, ra, de, "circle", False, moving(moves_b.get(n)))
     for n, (ra, de) in now.items():
         mark(n + "-N", ra, de, "circle", True, moving(moves_n.get(n), "-N"))
     if cn_x is not None:
-        mark("CN", cn_x, m.cn[0], "triangle-up", False, f"<br>lat {m.cn[0]:+.2f}, lon {m.cn[1]:+.2f}")
+        # the place now: Dec = its latitude, the planets now (-N)
+        mark("CN", cn_x, m.cn[0], "triangle-up", False, moving_dec(core.dec_approach_to(m.jd_now, m.cn[0]), "-N"))
     draw_marks()
 
     # Labels inside the grid, each in the first free place: first the marks themselves are kept clear, then each
