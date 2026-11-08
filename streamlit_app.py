@@ -8,6 +8,7 @@ from __future__ import annotations
 import html
 import re
 from datetime import datetime, time, timezone
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import streamlit as st
@@ -113,10 +114,11 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "AstroGlobe": "Time, with DOB and Now below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the celestial poles. "
-                  "Rotate: the Earth turns about that fixed axis, west to east, while the sphere stands still, "
-                  "until Rotate is turned off; the speed beside it sets how long one day's turn takes: 1 minute or "
-                  "1 second. The Earth starts as it was at that moment, so a planet is straight above the place "
-                  "it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth on that date (a "
+                  "Rotate: the Earth turns about that fixed axis, west to east, while the sphere stands still, and time "
+                  "runs from each moment, until Rotate is turned off: the clock at the top right gives the date and time, and the Sun, "
+                  "Moon and planets move over the sphere as they really did (time starts again after 4 years; refresh the page to go back "
+                  "to the start). The speed below it sets how long one day takes: 1 minute or 1 second. The Earth starts as it was at that "
+                  "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth then (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its angular size and Distance(%) from earth). The far side of the sphere is "
                   "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Coordi, with RA, Dec, Lati and Long below it: which coordinate lines to show. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
                   "of CB and CN on the Earth. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Paths, picking from the list below it: the Sun's over a year, and the others' over one trip round "
@@ -458,13 +460,17 @@ def page_globe():
         speed = spin.pills("Rotate speed", list(globechart.SPEEDS), default=globechart.DEFAULT_SPEED, key="globe_speed",
                            label_visibility="collapsed", width=60)    # (just room for one button a line: one below the other)
         day_seconds = globechart.SPEEDS[speed or globechart.DEFAULT_SPEED]
+    # the date and time clock, at the top right, on the buttons' line: the chart's script writes it as time runs
+    head.container(width="stretch", horizontal_alignment="right").html(
+        '<div class="globe-clock" style="white-space:pre-line; text-align:right; font-weight:600"></div>')
     jd_now = core.now_jd()
     now_pts, _ = now_values(jd_now)
+    utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
     g = globechart.GlobeInput(
         birth=prep.birth, now=now_pts, jd_birth=prep.jd_birth, jd_now=jd_now,
         cb=(prep.birth_lat, prep.birth_lon), cn=prep.cn, show_birth="DOB" in shown, show_now="Now" in shown,
         show_ra="RA" in shown, show_dec="Dec" in shown, show_latitude="Lati" in shown,
-        show_longitude="Long" in shown, bodies=bodies, paths=paths)
+        show_longitude="Long" in shown, bodies=bodies, paths=paths, utc_birth=prep.utc, utc_now=utc_now)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
                               after_js=globechart.globe_js(g, day_seconds)),

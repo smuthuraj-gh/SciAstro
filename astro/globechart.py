@@ -1,12 +1,14 @@
-"""The AstroGlobe page: the Earth turning inside the celestial sphere. The sphere stands still, with each planet at its RA
-and Dec, its RA line (the circle of RA through it) and Dec line (the circle of Dec through it), the celestial equator and
-the celestial poles; the Earth inside it, with CB and CN on it, turns about the axis that joins those poles. At the start
-the Earth is set as it was at that moment, so a planet is straight above the place it was overhead. Equatorial only (RA / Dec)."""
+"""The AstroGlobe page: the Earth turning inside the celestial sphere. The sphere stands still, with the celestial equator
+and the celestial poles; the Earth inside it, with CB and CN on it, turns about the axis that joins those poles. As it turns,
+time runs, and each planet moves over the sphere as it really did, with its RA line (the circle of RA through it), Dec line
+(the circle of Dec through it) and size. At the start the Earth is set as it was at that moment, so a planet is straight
+above the place it was overhead. Equatorial only (RA / Dec)."""
 from __future__ import annotations
 
 import json
 import math
 from dataclasses import dataclass
+from functools import lru_cache
 
 import plotly.graph_objects as go
 
@@ -34,6 +36,9 @@ PATH_SPAN = {"Mo": (27.32, 110, "Path of the Moon"), "Me": (365.25, 365, "Path o
              "Ve": (365.25, 365, "Path of Venus"), "Ma": (687.0, 400, "Path of Mars"),
              "Ju": (4333.0, 400, "Path of Jupiter"), "Sa": (10759.0, 400, "Path of Saturn")}
 BODY_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
+EARTH_DEGREES_A_DAY = 360.98565   # the Earth's turn against the still sky in one day of the clock
+MOTION_DAYS = 1461                # how far time runs (4 years) before it starts again, and the tables' reach ...
+MOTION_STEP_DAYS = {"Mo": 0.5, "Me": 2.0, "Ve": 4.0, "Su": 5.0, "Ma": 5.0, "Ju": 20.0, "Sa": 20.0}    # ... and their steps
 CX, CY = WIDTH / 2.0, HEIGHT / 2.0
 TEXT_W, TEXT_H = 8.0, 18.0      # a character's width and a line's height, for keeping labels apart
 
@@ -54,6 +59,8 @@ class GlobeInput:
     show_longitude: bool = False
     bodies: tuple = BODY_CHOICES      # the bodies to show, with their RA and Dec lines
     paths: tuple = BODY_CHOICES       # the bodies whose paths to draw
+    utc_birth: float | None = None    # the UTC offsets the clocks show their moments in, hours (None: in UT)
+    utc_now: float | None = None
 
 
 def _view() -> tuple[float, float]:
@@ -82,21 +89,16 @@ def _sky_point(ra: float, dec: float, ra_facing: float) -> tuple[float, float, f
     return CX + SKY_RADIUS * x, CY - SKY_RADIUS * y, z
 
 
-def _angular_size(planet: str, jd: float) -> float:
-    """How wide the body looks from the Earth at jd, in arcseconds, from its real size and its distance then."""
-    return 2.0 * math.degrees(math.atan(BODY_RADIUS_KM[planet] / (core.position(planet, jd).dist_au * core.AU_KM))) * 3600.0
-
-
-def _marker_radius(arcsec: float) -> float:
-    """The marker's radius in pixels. To true scale the Sun and Moon would be about 3 px wide and the planets far less than
-    1 px (and 60 to 400 times smaller than the Sun), so the sizes are on a logarithmic scale: bigger always means looks bigger."""
-    low, high = SIZE_RANGE_ARCSEC
-    share = (math.log(arcsec) - math.log(low)) / (math.log(high) - math.log(low))
-    return MARKER_RANGE[0] + (MARKER_RANGE[1] - MARKER_RANGE[0]) * max(0.0, min(1.0, share))
-
-
-def _size_text(arcsec: float) -> str:
-    return f"{arcsec / 60.0:.1f} arcmin" if arcsec >= 60.0 else f"{arcsec:.1f} arcsec"
+@lru_cache(maxsize=64)
+def _motion_table(planet: str, jd: float) -> dict:
+    """A body's RA, Dec and distance from jd on, for the page to move it by: what it needs to size it and name its Distance(%)
+    too. (To true scale the Sun and Moon would be about 3 px wide and the planets far less than 1 px, so the page sizes the
+    markers on a logarithmic scale of how wide they look from the Earth: bigger always means looks bigger.)"""
+    step = MOTION_STEP_DAYS[planet]
+    pts = [core.position(planet, jd + i * step) for i in range(int(MOTION_DAYS / step) + 2)]
+    return {"step": step, "ra": [round(p.ra, 3) for p in pts], "dec": [round(p.dec, 3) for p in pts],
+            "dist": [round(p.dist_au, 6) for p in pts], "km": BODY_RADIUS_KM[planet], "colour": core.colour(planet),
+            "lo": core.DIST_RANGE[planet][0], "hi": core.DIST_RANGE[planet][1]}
 
 
 def _sun_path(angle: float) -> tuple[float, float]:
@@ -149,23 +151,10 @@ def _clear(box, taken) -> bool:
     return all(box[2] < t[0] or t[2] < box[0] or box[3] < t[1] or t[3] < box[1] for t in taken)
 
 
-def _label_spot(x: float, y: float, text: str, taken: list, r: float) -> tuple[float, float]:
-    """The nearest spot around a marker of radius r where its label overlaps nothing placed so far."""
-    side = len(text) * TEXT_W / 2 + r + 5
-    for reach in range(40):
-        for dx, dy in ((0, -r - 6), (0, r + 15), (side, 5), (-side, 5),
-                       (side, -r - 4), (-side, -r - 4), (side, r + 13), (-side, r + 13)):
-            sx = x + dx + (reach * 12 if dx > 0 else -reach * 12 if dx < 0 else 0)
-            sy = y + dy + (reach * 14 if dy > 5 else -reach * 14 if dy < 0 else 0)
-            box = _box(sx, sy, text)
-            if box[0] > 0 and box[2] < WIDTH and box[1] > 0 and box[3] < HEIGHT and _clear(box, taken):
-                return sx, sy
-    return x, y - r - 6
-
-
-def sky_svg(g: GlobeInput) -> str:
+def sky_svg(g: GlobeInput) -> tuple[str, list]:
     """The celestial sphere, drawn over the Earth's chart: its far side faint and hidden where the Earth is before it,
-    its near side in front of the Earth, as through glass. It never moves, so it is drawn once."""
+    its near side in front of the Earth, as through glass. It never moves, so it is drawn once, with empty groups for the
+    page to put the moving bodies and their lines in. Also the room its labels take, for the moving labels to keep off."""
     jd, facing = _start(g)
     ra_facing = core.lst(jd, facing)
     lat0, roll0 = _view()
@@ -189,28 +178,6 @@ def sky_svg(g: GlobeInput) -> str:
         px, py = CX + s * R * tilt_up * ux, CY - s * R * tilt_up * uy
         marks.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="4" fill="{AXIS_COLOUR}"/>')
         taken.append((px - 5, py - 5, px + 5, py + 5))
-
-    bodies = []
-    if g.show_birth and g.birth:
-        bodies += [(p, g.birth[p], False) for p in core.BUTTON_ORDER if p in g.birth and p in g.bodies]
-    if g.show_now and g.now:
-        bodies += [(p, g.now[p], True) for p in core.BUTTON_ORDER if p in g.now and p in g.bodies]
-    for p, (ra, de), now in bodies:
-        name, c = p + ("-N" if now else ""), core.colour(p)
-        if g.show_ra:
-            _sky_line([(ra, v) for v in range(-90, 91, 2)], ra_facing, c, 1.4, now, f"{name} RA {ra:.2f}", near, far)
-        if g.show_dec:
-            _sky_line([(ra_facing + v, de) for v in range(-180, 181, 2)], ra_facing, c, 1.4, now,
-                      f"{name} Dec {de:+.2f}", near, far)
-    shown = []
-    for p, (ra, de), now in bodies:
-        x, y, z = _sky_point(ra, de, ra_facing)
-        if z < 0 and math.hypot(x - CX, y - CY) < E:              # behind the Earth: hidden, as the Earth is before it
-            continue
-        size = _angular_size(p, g.jd_now if now else g.jd_birth)
-        r = _marker_radius(size)
-        shown.append((p, ra, de, now, x, y, z, size, r))
-        taken.append((x - r - 1, y - r - 1, x + r + 1, y + r + 1))     # no label may cover a marker
 
     def path_label(points: list, name: str, colour: str, right: bool = False) -> None:
         """Names a line at its near side's left-hand (or right-hand) end, or as near there as is free."""
@@ -247,26 +214,32 @@ def sky_svg(g: GlobeInput) -> str:
                           f"(Dec between {min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})", near, far)
                 path_label(path, name + suffix, core.colour(p))
 
-    for p, ra, de, now, x, y, z, size, r in shown:
-        name, c = p + ("-N" if now else ""), core.colour(p)
-        opacity = 1.0 if z >= 0 else 0.55
-        side = "near side" if z >= 0 else "far side"
-        distance = core.distance_pct(p, core.position(p, g.jd_now if now else g.jd_birth).dist_au)
-        marks.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{"white" if now else c}" stroke="{c}" '
-                     f'stroke-width="2" opacity="{opacity}" style="pointer-events:auto"><title>{name} ({side} of the '
-                     f'sphere)\nRA {ra:.2f}\nDec {de:+.2f}\nAngular size {_size_text(size)}\n'
-                     f'Distance(%) from earth {distance:.2f}</title></circle>')
-        lx, ly = _label_spot(x, y, name, taken, r)
-        taken.append(_box(lx, ly, name))
-        marks.append(_text(lx, ly, name, c, opacity=opacity))
-
-    hole = f"M{CX - E} {CY}a{E} {E} 0 1 0 {2 * E} 0a{E} {E} 0 1 0 {-2 * E} 0Z"     # the Earth's disc
+    hole =f"M{CX - E} {CY}a{E} {E} 0 1 0 {2 * E} 0a{E} {E} 0 1 0 {-2 * E} 0Z"     # the Earth's disc
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}" '
             f'style="position:absolute;left:0;top:0;pointer-events:none">'
             f'<defs><clipPath id="off-earth"><path clip-rule="evenodd" d="M0 0H{WIDTH}V{HEIGHT}H0Z{hole}"/></clipPath></defs>'
             f'<g clip-path="url(#off-earth)"><circle cx="{CX}" cy="{CY}" r="{R}" fill="{SKY_FILL}" stroke="{AXIS_COLOUR}" '
-            f'stroke-width="1"/><g opacity="{BACK_OPACITY}">{"".join(far)}</g></g>'
-            f'{axis}{"".join(near)}{"".join(marks)}</svg>')
+            f'stroke-width="1"/><g opacity="{BACK_OPACITY}">{"".join(far)}<g class="sky-far"></g></g></g>'
+            f'{axis}{"".join(near)}<g class="sky-near"></g>{"".join(marks)}<g class="sky-marks"></g></svg>'), taken
+
+
+def _motion_data(g: GlobeInput, day_seconds: float | None) -> dict:
+    """All the page needs to place the bodies at any moment after the start."""
+    jd, facing = _start(g)
+    lat0, roll0 = _view()
+    sets = []
+    for show, when, name, suffix, offset in ((g.show_birth, g.jd_birth, "DOB", "", g.utc_birth),
+                                             (g.show_now, g.jd_now, "Now", "-N", g.utc_now)):
+        if show and when is not None:
+            sets.append(dict(clock=name, suffix=suffix, jd=when, offset=offset,
+                             bodies={p: _motion_table(p, when) for p in core.BUTTON_ORDER if p in g.bodies}))
+    svg, taken = sky_svg(g)
+    return dict(svg=svg, taken=[[round(v, 1) for v in box] for box in taken], sets=sets,
+                key=f"{g.jd_birth}|{g.cb}", ra_facing=core.lst(jd, facing), lon0=facing, tilt=math.radians(lat0),
+                roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
+                day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
+                au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
+                family=CHART_FONT_FAMILY, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
 
 
 def globe_figure(g: GlobeInput) -> go.Figure:
@@ -312,30 +285,175 @@ def globe_figure(g: GlobeInput) -> go.Figure:
     return fig
 
 
+# The page's part, run with the chart drawn as gd. Time runs from each shown moment by the same days t: the Earth turns inside
+# the still sphere, west to east, and each body moves over the sphere as it really did, by the clock, so the speed holds
+# however long a redraw takes. t is kept across the page's redraws, so a button does not send it back, and holds when Rotate
+# is off. (Spaces after every less-than: the page drops a script that seems to have tags in it.)
+_MOTION_JS = r"""
+  const D = __DATA__;
+  const holder = document.createElement("div");
+  holder.innerHTML = D.svg;
+  const sky = holder.firstChild;
+  const tops = gd.querySelector(".svg-container").querySelectorAll(":scope > svg.main-svg");
+  tops[tops.length - 1].before(sky);
+  const NS = "http://www.w3.org/2000/svg", RAD = Math.PI / 180;
+  const farG = sky.querySelector(".sky-far"), nearG = sky.querySelector(".sky-near"), markG = sky.querySelector(".sky-marks");
+  const make = (tag, parent, attrs) => {
+    const e = document.createElementNS(NS, tag);
+    Object.entries(attrs || {}).forEach(([k, v]) => e.setAttribute(k, v));
+    parent.appendChild(e);
+    return e;
+  };
+  const words = (parent, attrs) => make("text", parent, Object.assign({"font-weight": "bold", "font-size": D.font,
+    "font-family": D.family, stroke: "white", "stroke-width": 3, "paint-order": "stroke"}, attrs));
+  const cp = Math.cos(D.tilt), sp = Math.sin(D.tilt), cr = Math.cos(D.roll), sr = Math.sin(D.roll);
+  const point = (ra, dec) => {                     // on the chart: x, y, and z above 0 on the side toward the viewer
+    const d = (ra - D.ra_facing) * RAD, e = dec * RAD, ce = Math.cos(e);
+    const x = ce * Math.sin(d), y = Math.sin(e), z = ce * Math.cos(d);
+    const y1 = y * cp - z * sp, z1 = y * sp + z * cp;
+    return [D.cx + D.sky * (x * cr + y1 * sr), D.cy - D.sky * (-x * sr + y1 * cr), z1];
+  };
+  const sample = (b, t) => {                       // between its two nearest table rows
+    const u = t / b.step, i = Math.min(Math.floor(u), b.ra.length - 2), f = u - i;
+    const turn = ((b.ra[i + 1] - b.ra[i] + 540) % 360) - 180;
+    return {ra: (b.ra[i] + turn * f + 360) % 360, dec: b.dec[i] + (b.dec[i + 1] - b.dec[i]) * f,
+            dist: b.dist[i] + (b.dist[i + 1] - b.dist[i]) * f};
+  };
+  const curve = (pts) => {                         // the path data of a line's near side and of its far side
+    let near = "", far = "", side = null, last = "";
+    pts.forEach(([ra, dec]) => {
+      const [x, y, z] = point(ra, dec), here = z >= 0, at = x.toFixed(1) + " " + y.toFixed(1);
+      if (here !== side) {
+        const start = (last ? "M" + last + "L" : "M") + at;
+        if (here) near += start; else far += start;
+        side = here;
+      } else if (here) near += "L" + at; else far += "L" + at;
+      last = at;
+    });
+    return [near, far];
+  };
+  const line = (colour, dashed) => {               // a near part and a far part, each with its hover title
+    const parts = [nearG, farG].map((g) => {
+      const attrs = {fill: "none", stroke: colour, "stroke-width": 1.4, style: "pointer-events:stroke"};
+      if (dashed) attrs["stroke-dasharray"] = "6 4";
+      const e = make("path", g, attrs);
+      return [e, make("title", e)];
+    });
+    return (pts, tip) => {
+      const c = curve(pts);
+      parts.forEach(([e, title], i) => { e.setAttribute("d", c[i]); title.textContent = tip; });
+    };
+  };
+  const bodies = [];
+  D.sets.forEach((s) => Object.entries(s.bodies).forEach(([p, b]) => {
+    const name = p + s.suffix;
+    const body = {name, b, now: !!s.suffix};
+    if (D.show_ra) body.raLine = line(b.colour, body.now);
+    if (D.show_dec) body.decLine = line(b.colour, body.now);
+    bodies.push(body);
+  }));
+  bodies.forEach((body) => {
+    const c = body.b.colour;
+    body.mark = make("circle", markG, {fill: body.now ? "white" : c, stroke: c, "stroke-width": 2, style: "pointer-events:auto"});
+    body.tip = make("title", body.mark);
+    body.label = words(markG, {"text-anchor": "middle", fill: c});
+    body.label.textContent = body.name;
+  });
+  const pad2 = (n) => (n >= 0 ? "+" : "-") + Math.abs(n).toFixed(2);
+  const clockLine = (s, t) => {                    // its date and time, at its place's UTC offset
+    const known = s.offset !== null && s.offset !== undefined, off = known ? s.offset : 0;
+    const ms = (s.jd + t - 2440587.5) * 86400000 + off * 3600000 + 30000;     // to the nearest minute
+    return s.clock + " " + new Date(ms).toISOString().slice(0, 16).replace("T", " ") + (known ? " UTC" + pad2(off) : " UT");
+  };
+  const showClocks = (t) => {                      // in the page's clock, at the end of the row of buttons
+    const box = document.querySelector(".globe-clock");
+    if (box) box.textContent = D.sets.map((s) => clockLine(s, t)).join("\n");
+  };
+  const boxOf = (x, y, text) => {
+    const w = text.length * D.text_w;
+    return [x - w / 2 - 3, y - D.text_h + 3, x + w / 2 + 3, y + 3];
+  };
+  const clear = (a, taken) => taken.every((b) => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
+  const inChart = (a) => a[0] > 0 && a[1] > 0 && a[2] < D.width && a[3] < D.height;
+  const spot = (body, x, y, r, taken) => {         // its last way round the marker while that stays free, else the nearest free
+    const side = body.name.length * D.text_w / 2 + r + 5;
+    const ways = [[0, -r - 6], [0, r + 15], [side, 5], [-side, 5], [side, -r - 4], [-side, -r - 4], [side, r + 13], [-side, r + 13]];
+    const at = (w, reach) => {
+      const [dx, dy] = ways[w];
+      return [x + dx + (dx > 0 ? reach * 12 : dx < 0 ? -reach * 12 : 0), y + dy + (dy > 5 ? reach * 14 : dy < 0 ? -reach * 14 : 0)];
+    };
+    const ok = (p) => { const a = boxOf(p[0], p[1], body.name); return inChart(a) && clear(a, taken); };
+    if (body.way !== undefined && ok(at(body.way, 0))) return at(body.way, 0);
+    for (let reach = 0; reach !== 40; reach++) for (let w = 0; w !== 8; w++) {
+      const p = at(w, reach);
+      if (ok(p)) { body.way = w; return p; }
+    }
+    return at(0, 0);
+  };
+  const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
+  const place = (t) => {
+    const taken = D.taken.slice();
+    bodies.forEach((body) => {
+      const b = body.b, s = sample(b, t);
+      const [x, y, z] = point(s.ra, s.dec);
+      if (body.raLine) {
+        const pts = [];
+        for (let v = -90; v !== 93; v += 3) pts.push([s.ra, v]);
+        body.raLine(pts, body.name + " RA " + s.ra.toFixed(2));
+      }
+      if (body.decLine) {
+        const pts = [];
+        for (let v = -180; v !== 183; v += 3) pts.push([D.ra_facing + v, s.dec]);
+        body.decLine(pts, body.name + " Dec " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2));
+      }
+      const arcsec = 2 * Math.atan(b.km / (s.dist * D.au_km)) / RAD * 3600;
+      const share = Math.max(0, Math.min(1, (Math.log(arcsec) - LOW) / (HIGH - LOW)));
+      const r = D.radii[0] + (D.radii[1] - D.radii[0]) * share;
+      const hidden = z < 0 && Math.hypot(x - D.cx, y - D.cy) < D.earth;   // behind the Earth
+      const fade = z >= 0 ? 1 : 0.55, size = arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec";
+      const pct = (s.dist * D.au_km - b.lo) / (b.hi - b.lo) * 100;
+      Object.assign(body, {x, y, r, hidden, fade});
+      body.mark.setAttribute("cx", x.toFixed(1)); body.mark.setAttribute("cy", y.toFixed(1));
+      body.mark.setAttribute("r", r.toFixed(1)); body.mark.setAttribute("opacity", fade);
+      body.mark.style.display = hidden ? "none" : ""; body.label.style.display = hidden ? "none" : "";
+      body.tip.textContent = body.name + " (" + (z >= 0 ? "near" : "far") + " side of the sphere)\nRA " + s.ra.toFixed(2) +
+        "\nDec " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2) + "\nAngular size " + size +
+        "\nDistance(%) from earth " + pct.toFixed(2);
+      if (!hidden) taken.push([x - r - 1, y - r - 1, x + r + 1, y + r + 1]);   // no label may cover a marker
+    });
+    bodies.forEach((body) => {
+      if (body.hidden) return;
+      const [lx, ly] = spot(body, body.x, body.y, body.r, taken);
+      taken.push(boxOf(lx, ly, body.name));
+      body.label.setAttribute("x", lx.toFixed(1)); body.label.setAttribute("y", ly.toFixed(1));
+      body.label.setAttribute("opacity", body.fade);
+    });
+    showClocks(t);
+  };
+  const facing = (t) => (((D.lon0 - D.spin * t + 540) % 360) + 360) % 360 - 180;
+  if (!window.globeClock || window.globeClock.key !== D.key) window.globeClock = {key: D.key, t: 0};
+  const clock = window.globeClock;
+  place(clock.t);
+  let busy = true;
+  Plotly.relayout(gd, {"geo.projection.rotation.lon": facing(clock.t)}).then(() => { busy = false; });
+  if (D.day_seconds) {
+    let last = performance.now();
+    const timer = setInterval(() => {
+      if (!document.body.contains(gd)) return clearInterval(timer);
+      if (busy) return;
+      const now = performance.now();
+      clock.t += (now - last) / 1000 / D.day_seconds;
+      last = now;
+      if (clock.t >= D.days) clock.t = 0;           // the end of the tables: from the start again
+      place(clock.t);
+      busy = true;
+      Plotly.relayout(gd, {"geo.projection.rotation.lon": facing(clock.t)}).then(() => { busy = false; });
+    }, D.step_ms);
+  }
+"""
+
+
 def globe_js(g: GlobeInput, day_seconds: float | None) -> str:
-    """Puts the celestial sphere over the chart (under Plotly's hover boxes) and, given the seconds one turn takes, turns
-    the Earth inside it about its fixed axis, west to east only, until Rotate is turned off: the surface moves
-    eastward, so the longitude facing the viewer falls. By the clock, so the speed holds however long a redraw takes.
-    Run with the chart drawn as gd."""
-    step = max(40, int((day_seconds or 60.0) * 2.5))          # milliseconds: about 0.9 degree a step, within reason
-    return f"""
-      const holder = document.createElement("div");
-      holder.innerHTML = {json.dumps(sky_svg(g)).replace("<", chr(92) + "u003c")};  // (the page drops a script with tags in)
-      const box = gd.querySelector(".svg-container");
-      const tops = box.querySelectorAll(":scope > svg.main-svg");
-      tops[tops.length - 1].before(holder.firstChild);
-      if ({str(day_seconds is not None).lower()}) {{
-        const RATE = 360 / {day_seconds or 60.0};             // degrees a second
-        let busy = false, last = performance.now();
-        const timer = setInterval(() => {{
-          if (!document.body.contains(gd)) return clearInterval(timer);
-          if (busy) return;
-          const t = performance.now(), passed = (t - last) / 1000;
-          last = t;
-          const lon = (gd.layout.geo.projection.rotation || {{}}).lon || 0;
-          busy = true;
-          Plotly.relayout(gd, {{"geo.projection.rotation.lon": ((lon - RATE * passed + 540) % 360 + 360) % 360 - 180}})
-            .then(() => {{ busy = false; }});
-        }}, {step});
-      }}
-    """
+    """Puts the celestial sphere over the chart, under Plotly's hover boxes, and moves what is on it; day_seconds is how many
+    seconds a day takes, None with Rotate off."""
+    return _MOTION_JS.replace("__DATA__", json.dumps(_motion_data(g, day_seconds)).replace("<", chr(92) + "u003c"))
