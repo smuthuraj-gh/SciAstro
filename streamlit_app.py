@@ -118,7 +118,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "1 second. The Earth starts as it was at that moment, so a planet is straight above the place "
                   "it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth on that date (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its angular size and Distance(%) from earth). The far side of the sphere is "
-                  "fainter, and hidden behind the Earth. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
+                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
                   "of CB and CN on the Earth. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Paths, picking from the list below it: the Sun's over a year, and the others' over one trip round "
                   "the sky around that moment (Moon 27.32 days; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now (-N), dashed lines, with CN at the place now.",
@@ -430,20 +430,26 @@ def page_globe():
     head = st.container(horizontal=True, vertical_alignment="top", gap="small")
     if not need_chart(prep):
         return
-    shown = []
-    for names, default in ((("DOB", "Now"), ("DOB",)),                # each set one below the other
-                           (("RA", "Dec", "Lati", "Long"), ("RA", "Dec"))):
-        stack = head.container(width="content", gap="xxsmall")
-        for name in names:
-            if stack.pills(name, [name], default=name if name in default else None, key=f"globe_{name}",
-                           label_visibility="collapsed"):
-                shown.append(name)
-    drawn = head.container(width="content", gap="xxsmall")    # Paths, with which ones below it
-    paths = ()
-    if drawn.pills("Paths", ["Paths"], default="Paths", key="globe_paths_on", label_visibility="collapsed"):
-        names = list(globechart.PATH_CHOICES)
-        paths = tuple(drawn.pills("Which paths", names, selection_mode="multi", default=names, key="globe_paths",
-                                  label_visibility="collapsed", width=42))   # (room for one a line: one below another)
+
+    def stacked(names: tuple, default: tuple) -> list:
+        """Buttons one below another; those on."""
+        box = head.container(width="content", gap="xxsmall")
+        return [n for n in names if box.pills(n, [n], default=n if n in default else None, key=f"globe_{n}",
+                                              label_visibility="collapsed")]
+
+    def bodies_under(title: str, key: str) -> tuple:
+        """A button with the Sun, Moon and planets listed below it to pick from; those picked, none with the button off."""
+        box = head.container(width="content", gap="xxsmall")
+        if not box.pills(title, [title], default=title, key=f"globe_{key}_on", label_visibility="collapsed"):
+            return ()
+        names = list(globechart.BODY_CHOICES)
+        return tuple(box.pills(f"Which {title}", names, selection_mode="multi", default=names, key=f"globe_{key}",
+                               label_visibility="collapsed", width=42))    # (room for one a line: one below another)
+
+    shown = stacked(("DOB", "Now"), ("DOB",))
+    bodies = bodies_under("Planets", "bodies")
+    shown += stacked(("RA", "Dec", "Lati", "Long"), ("RA", "Dec"))
+    paths = bodies_under("Paths", "paths")
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds = None
     if spin.pills("Rotate", ["Rotate"], default="Rotate", key="globe_rotate", label_visibility="collapsed"):
@@ -456,7 +462,7 @@ def page_globe():
         birth=prep.birth, now=now_pts, jd_birth=prep.jd_birth, jd_now=jd_now,
         cb=(prep.birth_lat, prep.birth_lon), cn=prep.cn, show_birth="DOB" in shown, show_now="Now" in shown,
         show_ra="RA" in shown, show_dec="Dec" in shown, show_latitude="Lati" in shown,
-        show_longitude="Long" in shown, paths=paths)
+        show_longitude="Long" in shown, bodies=bodies, paths=paths)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
                               after_js=globechart.globe_js(g, day_seconds)),

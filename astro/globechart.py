@@ -33,7 +33,7 @@ MARKER_RANGE = (3.0, 11.0)            # ... drawn with these marker radii, in pi
 PATH_SPAN = {"Mo": (27.32, 110, "Path of the Moon"), "Me": (365.25, 365, "Path of Mercury"),
              "Ve": (365.25, 365, "Path of Venus"), "Ma": (687.0, 400, "Path of Mars"),
              "Ju": (4333.0, 400, "Path of Jupiter"), "Sa": (10759.0, 400, "Path of Saturn")}
-PATH_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
+BODY_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
 CX, CY = WIDTH / 2.0, HEIGHT / 2.0
 TEXT_W, TEXT_H = 8.0, 18.0      # a character's width and a line's height, for keeping labels apart
 
@@ -52,7 +52,8 @@ class GlobeInput:
     show_dec: bool = True
     show_latitude: bool = False       # the Earth's lines of latitude and of longitude, which turn with it
     show_longitude: bool = False
-    paths: tuple = PATH_CHOICES       # the bodies whose paths to draw
+    bodies: tuple = BODY_CHOICES      # the bodies to show, with their RA and Dec lines
+    paths: tuple = BODY_CHOICES       # the bodies whose paths to draw
 
 
 def _view() -> tuple[float, float]:
@@ -191,9 +192,9 @@ def sky_svg(g: GlobeInput) -> str:
 
     bodies = []
     if g.show_birth and g.birth:
-        bodies += [(p, g.birth[p], False) for p in core.BUTTON_ORDER if p in g.birth]
+        bodies += [(p, g.birth[p], False) for p in core.BUTTON_ORDER if p in g.birth and p in g.bodies]
     if g.show_now and g.now:
-        bodies += [(p, g.now[p], True) for p in core.BUTTON_ORDER if p in g.now]
+        bodies += [(p, g.now[p], True) for p in core.BUTTON_ORDER if p in g.now and p in g.bodies]
     for p, (ra, de), now in bodies:
         name, c = p + ("-N" if now else ""), core.colour(p)
         if g.show_ra:
