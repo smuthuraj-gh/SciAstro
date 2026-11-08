@@ -37,11 +37,20 @@ customers = sa.Table(
     sa.Column("country_n", sa.String(120)), sa.Column("state_n", sa.String(120)), sa.Column("city_n", sa.String(500)),
     sa.Column("other_n", sa.String(500)),                     # free text, like Other, for the place now
     sa.Column("utc", sa.Float),
+    # when (UT): the record was added, last changed, and last opened by the customer themself (set by the app)
+    sa.Column("added_at", sa.DateTime), sa.Column("updated_at", sa.DateTime), sa.Column("accessed_at", sa.DateTime),
 )
+STAMPS = {"added_at": "Added", "updated_at": "Updated", "accessed_at": "Accessed"}
 # One customer per login email (kept in lower case); blank emails are allowed for any number of customers
 EMAIL_INDEX = "ux_customers_email"
 sa.Index(EMAIL_INDEX, customers.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
+
+
+def _now():
+    """Now, in UT, to the second (the time stamps are kept without a time zone, as UT)."""
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
 
 
 def _secret(key: str, default=None):
@@ -188,6 +197,7 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame) -> tuple[int, i
                          "birth date (Year, Mon, Date). " + "; ".join(problems))
     added = changed = deleted = 0
     keep_ids = set(edited["id"].dropna().astype(int)) if "id" in edited else set()
+    now = _now()
     with engine().begin() as c:
         for cid in set(original["id"].astype(int)) - keep_ids:
             c.execute(sa.delete(customers).where(customers.c.id == cid)); deleted += 1
@@ -197,11 +207,12 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame) -> tuple[int, i
                 continue
             cid = rec.get("id")
             if cid is None or pd.isna(cid):
-                c.execute(sa.insert(customers).values(**data)); added += 1
+                c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now)); added += 1
             else:
                 old = original[original["id"] == int(cid)]
                 if not old.empty and _clean(old.iloc[0].to_dict()) != data:
-                    c.execute(sa.update(customers).where(customers.c.id == int(cid)).values(**data)); changed += 1
+                    c.execute(sa.update(customers).where(customers.c.id == int(cid)).values(**data, updated_at=now))
+                    changed += 1
     return added, changed, deleted
 
 
@@ -214,7 +225,8 @@ def add_own_customer(rec: dict, email: str) -> bool:
     with engine().begin() as c:
         if c.execute(sa.select(customers.c.id).where(sa.func.lower(customers.c.email) == data["email"])).first():
             return False
-        c.execute(sa.insert(customers).values(**data))
+        now = _now()
+        c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now, accessed_at=now))
     return True
 
 
@@ -228,8 +240,18 @@ def update_own_customer(rec: dict, email: str) -> bool:
     # only what the member's form has (and the UTC offset): columns it does not show, as Other, are kept as they are
     with engine().begin() as c:
         done = c.execute(sa.update(customers).where(sa.func.lower(customers.c.email) == data["email"])
-                         .values(**{k: v for k, v in data.items() if k in rec and k != "email"})).rowcount
+                         .values(**{k: v for k, v in data.items() if k in rec and k != "email"},
+                                 updated_at=_now())).rowcount
     return bool(done)
+
+
+def mark_accessed(email: str):
+    """The customer with this login email opened their charts now (an admin looking at them does not count)."""
+    if not email:
+        return
+    with engine().begin() as c:
+        c.execute(sa.update(customers).where(sa.func.lower(customers.c.email) == email.lower())
+                  .values(accessed_at=_now()))
 
 
 def import_workbook_csv(raw: bytes) -> int:
@@ -250,7 +272,9 @@ def import_workbook_csv(raw: bytes) -> int:
             if data.get("email") in used:                    # an email already taken: imported without it
                 data["email"] = None
             if data.get("name") and data["name"].lower() not in have and data["name"].lower() != "new":
-                c.execute(sa.insert(customers).values(**data)); have.add(data["name"].lower()); n += 1
+                now = _now()
+                c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now))
+                have.add(data["name"].lower()); n += 1
                 if data.get("email"):
                     used.add(data["email"])
     return n

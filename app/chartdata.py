@@ -48,7 +48,7 @@ def prepare(rec_items: tuple) -> Prepared:
     utc = rec.get("utc")
     if utc is None:
         if not tz:
-            return Prepared(False, "No time zone for the birth place: type the UTC offset in the customer's record.")
+            return Prepared(False, "No time zone was found for the birth place: check its City, State and Country.")
         utc = places.utc_offset(tz, when)
     jd = core.birth_jd(y, m, d, h, mi, utc)
     birth = core.birth_points(jd, ll[0], ll[1])

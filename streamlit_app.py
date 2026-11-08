@@ -131,8 +131,9 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "then used). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
-                 "(not used in the charts). UTC blank: looked up from the birth place. Import adds customers from the "
-                 "workbook's Customers CSV.",
+                 "(not used in the charts). The UTC offset is looked up from the birth place and date. Added, Updated "
+                 "and Accessed (UT) are set by the app: when the customer was added, last changed, and last opened "
+                 "their charts. Import adds customers from the workbook's Customers CSV.",
     "My details": "Your own birth details, used for all your charts. Edit my details to change them; your login "
                   "email stays the same.",
 }
@@ -185,6 +186,9 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
         st.sidebar.caption(f"{int(row['year'])}-{int(row['mon']):02d}-{int(row['day']):02d} {prep.weekday} "
                            f"{at}, UTC {prep.utc:+.2f}  \n"
                            f"{row['city']}, {row['state'] or ''}, {row['country'] or ''} ({prep.birth_lat}, {prep.birth_lon})")
+    if not user.is_admin and not st.session_state.get("accessed_marked"):   # once per visit: the Accessed column
+        db.mark_accessed(user.email)
+        st.session_state["accessed_marked"] = True
     return row, prep
 
 
@@ -498,9 +502,19 @@ def page_customers():
         st.warning("Saved in a local SQLite file. On Streamlit Community Cloud that file is lost on every restart: "
                    "set the secret db_url to a hosted Postgres database (see README).")
     df = db.all_customers()
-    show = df[["id"] + db.FIELDS].rename(columns=db.LABELS)
+    # UTC is not shown (a blank one is looked up from the birth place; one already kept stays, see below); the times
+    # Added / Updated / Accessed are shown at the end, set by the app, not typed
+    shown_fields = [f for f in db.FIELDS if f != "utc"]
+    show = df[["id"] + shown_fields + list(db.STAMPS)].rename(columns={**db.LABELS, **db.STAMPS})
+    stamp_cols = {label: st.column_config.DatetimeColumn(label, format="YYYY-MM-DD HH:mm", disabled=True,
+                                                         help=help_text)
+                  for label, help_text in (("Added", "When the customer was added (UT)."),
+                                           ("Updated", "When the details last changed (UT)."),
+                                           ("Accessed", "When the customer last opened their charts (UT); "
+                                                        "an admin looking does not count."))}
     edited = st.data_editor(show, hide_index=True, width="stretch", num_rows="dynamic", key="cust_editor",
-                            column_config={"id": None,
+                            disabled=list(db.STAMPS.values()),
+                            column_config={"id": None, **stamp_cols,
                                 "First Name": st.column_config.TextColumn("First Name *", help="Required."),
                                 "Year": st.column_config.NumberColumn("Year *", help="Birth date: required.",
                                                                       format="%d", step=1),
@@ -518,8 +532,10 @@ def page_customers():
                                 "Other-N": st.column_config.TextColumn(help="Anything else about the place now.")})
     if st.button("Save changes", type="primary"):
         back = {v: k for k, v in db.LABELS.items()}
+        out = edited.rename(columns=back).drop(columns=list(db.STAMPS.values()), errors="ignore")
+        out["utc"] = out["id"].map(df.set_index("id")["utc"])   # each customer's kept UTC, unchanged (new: blank)
         try:
-            a, ch, de = db.save_customers(edited.rename(columns=back), df)
+            a, ch, de = db.save_customers(out, df)
         except ValueError as e:                               # e.g. a login email used twice: nothing saved
             st.error(f"{e}. Nothing was saved.")
         else:
