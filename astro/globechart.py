@@ -456,7 +456,7 @@ _MOTION_JS = r"""
     });
     return tag("b") + pl.label + tag("/b") + " " + pl.title + NL + "Long: " + signed(pl.lon) + NL + "Dec/Lati: " + signed(pl.lat) +
       NL + "RA: " + (((pl.ra + D.spin * t) % 360 + 360) % 360).toFixed(2) +
-      NL + "Approaching Planets: " + names(near) + NL + "Leaving Planets: " + names(away);
+      NL + "Approaching: " + names(near) + NL + "Leaving: " + names(away);
   };
   const placeTraces = D.places.map((pl) => gd.data.findIndex((d) =>
     d.mode === "markers+text" && String(d.text[0]).includes(pl.label)));
