@@ -148,7 +148,8 @@ def top_line(title: str, row: pd.Series | None):
                  f'width:1.15em; height:1.15em; margin-left:6px; border:1px solid currentColor; border-radius:50%; '
                  f'opacity:0.55; font-weight:600; font-size:0.85em; line-height:1; vertical-align:middle">?</span>'
                  ) if help_text else ""
-    st.html(f'<div style="display:flex; align-items:baseline; justify-content:space-between; gap:16px; '
+    # the First Name right after the title (and its help), on the same line
+    st.html(f'<div style="display:flex; align-items:baseline; justify-content:flex-start; gap:24px; '
             f'flex-wrap:nowrap; font-weight:600">'
             f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
             f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
