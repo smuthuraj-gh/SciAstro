@@ -414,10 +414,8 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
         """The marks, each pointed at showing its values; marks on the same spot (as CB and CN, born where one is
         now) show all of theirs together, as only one of them can be pointed at."""
         for i, (name, x, de, symbol, hollow, text) in enumerate(pending):
-            same = [t for j, (n2, x2, de2, *_, t) in enumerate(pending) if j != i
-                    and abs(x2 - x) < 1.0 and abs(H(de2) - H(de)) < 1.0
-                    and not (name in together and n2 in together)]   # CB and CN together: one list already
-            text = together.get(name, text)
+            same = [t for j, (_, x2, de2, *_, t) in enumerate(pending) if j != i
+                    and abs(x2 - x) < 1.0 and abs(H(de2) - H(de)) < 1.0]
             c = core.colour(name)
             fig.add_trace(go.Scatter(                         # their key is shown beside the buttons (key_html)
                 x=[x], y=[H(de)], mode="markers", name=name, showlegend=False,
@@ -442,28 +440,19 @@ def map_figure(m: MapInput, orbs: core.Orbs) -> go.Figure:
             return ", ".join(f"{q}{suffix} {gap:.1f}°" for q, gap in got) or "none"
         return f"<br>Dec approaching: {names('dec+')}<br>Dec leaving: {names('dec-')}"
 
-    together: dict[str, str] = {}                             # CB and CN on one spot: their one shared box
-    cb = cn = None                                            # (x, Dec, its Dec lists with names as shown)
     moves_b = core.approach_lists(m.jd_birth) if birth and m.jd_birth is not None else {}
     moves_n = core.approach_lists(m.jd_now) if now else {}
     for n, (ra, de) in birth.items():
         if n == "CB":                                         # the birth place: Dec = its latitude, planets at birth
-            lists = core.dec_approach_to(m.jd_birth, de) if m.jd_birth is not None else {"dec+": [], "dec-": []}
-            cb = (ra, de, lists)
-            mark(n, ra, de, "diamond", False, moving_dec(lists))
+            extra = moving_dec(core.dec_approach_to(m.jd_birth, de)) if m.jd_birth is not None else ""
+            mark(n, ra, de, "diamond", False, extra)
             continue
         mark(n, ra, de, "circle", False, moving(moves_b.get(n)))
     for n, (ra, de) in now.items():
         mark(n + "-N", ra, de, "circle", True, moving(moves_n.get(n), "-N"))
     if cn_x is not None:
         # the place now: Dec = its latitude, the planets now (-N)
-        lists = core.dec_approach_to(m.jd_now, m.cn[0])
-        cn = (cn_x, m.cn[0], {k: [(q + "-N", g) for q, g in v] for k, v in lists.items()})
-        mark("CN", cn_x, m.cn[0], "triangle-up", False, moving_dec(lists, "-N"))
-    if cb and cn and abs(cb[0] - cn[0]) < 1.0 and abs(H(cb[1]) - H(cn[1])) < 1.0:
-        # born where they live now: one box, one pair of Dec lists (the planets at birth and now, nearest first)
-        joined = {k: cb[2][k] + cn[2][k] for k in ("dec+", "dec-")}
-        together = {"CB": "<b>CB / CN</b>" + moving_dec(joined), "CN": "<b>CB / CN</b>" + moving_dec(joined)}
+        mark("CN", cn_x, m.cn[0], "triangle-up", False, moving_dec(core.dec_approach_to(m.jd_now, m.cn[0]), "-N"))
     draw_marks()
 
     # Labels inside the grid, each in the first free place: first the marks themselves are kept clear, then each
