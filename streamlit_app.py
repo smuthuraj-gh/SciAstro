@@ -28,6 +28,8 @@ st.html("""<style>
 [data-testid="stTooltipContent"] * { font-size: 13px !important; }
 /* except the planet dots in AstroMap's Distance(%) rows, bigger (mapchart.DOT_SCALE) */
 .stApp span.key-dot { font-size: """ + str(round(mapchart.FONT * mapchart.DOT_SCALE)) + """px !important; }
+/* AstroGlobe's speed buttons, as small as their text allows */
+.st-key-globe_speed button { padding-left: 4px !important; padding-right: 4px !important; }
 /* the button that opens the sidebar (pages, customer) is titled Menu, so it is clear what it opens */
 [data-testid="stExpandSidebarButton"] { width: auto !important; padding: 0 6px !important; gap: 4px;
   display: inline-flex !important; align-items: center; }
@@ -445,7 +447,7 @@ def page_globe():
     day_seconds = None
     if spin.pills("Rotate", ["Rotate"], default="Rotate", key="globe_rotate", label_visibility="collapsed"):
         speed = spin.pills("Rotate speed", list(globechart.SPEEDS), default=globechart.DEFAULT_SPEED, key="globe_speed",
-                           label_visibility="collapsed", width=74)    # (just room for one button a line: one below the other)
+                           label_visibility="collapsed", width=60)    # (just room for one button a line: one below the other)
         day_seconds = globechart.SPEEDS[speed or globechart.DEFAULT_SPEED]
     jd_now = core.now_jd()
     now_pts, _ = now_values(jd_now)
