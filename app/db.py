@@ -237,12 +237,19 @@ def update_own_customer(rec: dict, email: str) -> bool:
     if not data.get("name") or not data.get("email") or not data.get("state"):
         raise ValueError("First Name, State and a login email are needed.")
     data["utc"] = rec.get("utc")
-    # only what the member's form has (and the UTC offset): columns it does not show, as Other, are kept as they are
+    # only what the member's form has (and the UTC offset): columns it does not show are kept as they are; Updated is
+    # set only when something they saved differs from what was there
+    new = {k: v for k, v in data.items() if k in rec and k != "email"}
     with engine().begin() as c:
-        done = c.execute(sa.update(customers).where(sa.func.lower(customers.c.email) == data["email"])
-                         .values(**{k: v for k, v in data.items() if k in rec and k != "email"},
-                                 updated_at=_now())).rowcount
-    return bool(done)
+        where = sa.func.lower(customers.c.email) == data["email"]
+        old = c.execute(sa.select(customers).where(where)).mappings().first()
+        if old is None:
+            return False
+        before = _clean(dict(old))
+        before["utc"] = old["utc"]
+        if any(before.get(k) != v for k, v in new.items()):
+            c.execute(sa.update(customers).where(where).values(**new, updated_at=_now()))
+    return True
 
 
 def mark_accessed(email: str):
