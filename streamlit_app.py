@@ -112,7 +112,8 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "AstroGlobe": "The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the celestial poles. "
                   "Rotate: the Earth turns about that fixed axis, west to east, while the sphere stands still (point at "
-                  "the chart to pause). The Earth starts as it was at that moment, so a planet is straight above the place "
+                  "the chart to pause); the speed beside it sets how long one day's turn takes: 1 hour, 1 minute or "
+                  "1 second. The Earth starts as it was at that moment, so a planet is straight above the place "
                   "it was overhead. Each planet is on the sphere at its RA and Declination; the far side of the sphere is "
                   "fainter, and hidden behind the Earth. RA/Dec: the RA and Dec lines of each planet on the sphere, and "
                   "of CB and CN on the Earth. DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
@@ -427,6 +428,11 @@ def page_globe():
         return
     shown = head.pills("Show", ["DOB", "Now", "RA/Dec", "Rotate"], selection_mode="multi",
                        default=["DOB", "RA/Dec", "Rotate"], key="globe_show_v4", label_visibility="collapsed")
+    day_seconds = None
+    if "Rotate" in shown:                                     # how fast, beside the button
+        speed = head.pills("Rotate speed", list(globechart.SPEEDS), default=globechart.DEFAULT_SPEED,
+                           key="globe_speed", label_visibility="collapsed")
+        day_seconds = globechart.SPEEDS[speed or globechart.DEFAULT_SPEED]
     jd_now = core.now_jd()
     now_pts, _ = now_values(jd_now)
     g = globechart.GlobeInput(
@@ -435,7 +441,7 @@ def page_globe():
         show_lines="RA/Dec" in shown)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
-                              after_js=globechart.globe_js(g, "Rotate" in shown)),
+                              after_js=globechart.globe_js(g, day_seconds)),
             unsafe_allow_javascript=True)
 
 

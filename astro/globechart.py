@@ -17,7 +17,8 @@ WIDTH, HEIGHT = 1100, 720
 MARGIN = 10
 TILT = 23.44                      # degrees the Earth's axis leans from upright (its obliquity)
 LEAN_TOWARD = 45.0                # the way the axis leans: 0 = toward the viewer, 90 = to the right; here between them
-SPIN_DEGREES = 6.0                # degrees a second the Earth turns about its axis on screen
+SPEEDS = {"1 day = 1 hr": 3600.0, "1 day = 1 min": 60.0, "1 day = 1 sec": 1.0}   # the seconds one turn of the Earth takes
+DEFAULT_SPEED = "1 day = 1 min"
 EARTH_RADIUS = 165.0              # pixels, in the chart's own layout
 SKY_RADIUS = 315.0                # the celestial sphere, pixels (it fits the chart's height with its pole labels)
 AXIS_COLOUR = "rgb(60,60,60)"
@@ -226,28 +227,33 @@ def globe_figure(g: GlobeInput) -> go.Figure:
     return fig
 
 
-def globe_js(g: GlobeInput, rotate: bool) -> str:
-    """Puts the celestial sphere over the chart (under Plotly's hover boxes) and, with rotate, turns the Earth inside it
-    about its fixed axis, west to east only, while the pointer is not on it: the surface moves eastward, so the longitude
-    facing the viewer falls. Run with the chart drawn as gd."""
-    step = 0.15                                               # seconds
+def globe_js(g: GlobeInput, day_seconds: float | None) -> str:
+    """Puts the celestial sphere over the chart (under Plotly's hover boxes) and, given the seconds one turn takes, turns
+    the Earth inside it about its fixed axis, west to east only, while the pointer is not on it: the surface moves
+    eastward, so the longitude facing the viewer falls. By the clock, so the speed holds however long a redraw takes.
+    Run with the chart drawn as gd."""
+    step = max(40, min(1000, int((day_seconds or 60.0) * 2.5)))   # milliseconds: about 0.9 degree a step, within reason
     return f"""
-      const SPIN = {SPIN_DEGREES * step};
       const holder = document.createElement("div");
       holder.innerHTML = {json.dumps(sky_svg(g)).replace("<", chr(92) + "u003c")};  // (the page drops a script with tags in)
       const box = gd.querySelector(".svg-container");
       const tops = box.querySelectorAll(":scope > svg.main-svg");
       tops[tops.length - 1].before(holder.firstChild);
-      if ({str(rotate).lower()}) {{
-        let paused = false, busy = false;
+      if ({str(day_seconds is not None).lower()}) {{
+        const RATE = 360 / {day_seconds or 60.0};             // degrees a second
+        let paused = false, busy = false, last = performance.now();
         gd.addEventListener("mouseenter", () => {{ paused = true; }});
         gd.addEventListener("mouseleave", () => {{ paused = false; }});
-        setInterval(() => {{
-          if (paused || busy || !document.body.contains(gd)) return;
+        const timer = setInterval(() => {{
+          if (!document.body.contains(gd)) return clearInterval(timer);
+          if (busy) return;
+          const t = performance.now(), passed = (t - last) / 1000;
+          last = t;
+          if (paused) return;
           const lon = (gd.layout.geo.projection.rotation || {{}}).lon || 0;
           busy = true;
-          Plotly.relayout(gd, {{"geo.projection.rotation.lon": ((lon - SPIN + 540) % 360) - 180}})
+          Plotly.relayout(gd, {{"geo.projection.rotation.lon": ((lon - RATE * passed + 540) % 360 + 360) % 360 - 180}})
             .then(() => {{ busy = false; }});
-        }}, {int(step * 1000)});
+        }}, {step});
       }}
     """
