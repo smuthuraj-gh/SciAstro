@@ -31,6 +31,10 @@ st.html("""<style>
 .stApp span.key-dot { font-size: """ + str(round(mapchart.FONT * mapchart.DOT_SCALE)) + """px !important; }
 /* an editable table's cell editor opens outside the table: it undoes the page's zoom, as the table does, to open on its cell */
 #portal { zoom: calc(1 / var(--app-zoom, 1)); }
+/* a pulldown list is placed by screen position outside the page, so the page's zoom would move it again and off its box:
+   its holder undoes the zoom, and its text is sized to match the page's */
+body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / var(--app-zoom, 1)); }
+[data-testid="stSelectboxVirtualDropdown"] * { font-size: calc(13px * var(--app-zoom, 1)) !important; }
 /* AstroGlobe's lists: two a line, the last alone not stretched across */
 .st-key-globe_bodies button, .st-key-globe_paths button, .st-key-globe_coords button, .st-key-globe_speed button,
 .st-key-globe_major button, .st-key-globe_minor button
