@@ -110,7 +110,10 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "AstroGlobe": "The Earth as a turning globe (point at it to pause, drag to spin). Each planet is marked where it "
+    "AstroGlobe": "The Earth as a globe, its axis tilted 23.44 degrees, with lines out of the North and South Poles "
+                  "(point at it to pause, drag to spin). Rotate: it turns about its axis. Wobble: the axis slowly "
+                  "circles, keeping its tilt (precession, here one circle in 40 seconds; really about 25,772 years). "
+                  "Each planet is marked where it "
                   "was overhead: latitude = its Declination, longitude = its RA less the sidereal time at Greenwich. "
                   "RA/Dec: the RA line (the meridian through it) and Dec line (the circle of latitude through it) of "
                   "each planet, CB and CN. DOB: at birth, solid lines, with CB at the birth place. Now: the planets now (-N), "
@@ -423,8 +426,9 @@ def page_globe():
     head = st.container(horizontal=True, vertical_alignment="center", gap="small")
     if not need_chart(prep):
         return
-    shown = head.pills("Show", ["DOB", "Now", "RA/Dec", "Rotate"], selection_mode="multi",
-                       default=["DOB", "RA/Dec", "Rotate"], key="globe_show_v2", label_visibility="collapsed")
+    shown = head.pills("Show", ["DOB", "Now", "RA/Dec", "Rotate", "Wobble"], selection_mode="multi",
+                       default=["DOB", "RA/Dec", "Rotate", "Wobble"], key="globe_show_v3",
+                       label_visibility="collapsed")
     jd_now = core.now_jd()
     now_pts, _ = now_values(jd_now)
     g = globechart.GlobeInput(
@@ -433,7 +437,7 @@ def page_globe():
         show_lines="RA/Dec" in shown)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
-                              after_js=globechart.poles_js() + globechart.rotate_js("Rotate" in shown)),
+                              after_js=globechart.globe_js("Rotate" in shown, "Wobble" in shown)),
             unsafe_allow_javascript=True)
 
 
