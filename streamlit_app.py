@@ -140,9 +140,13 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
 
 
 def top_line(title: str, row: pd.Series | None):
-    """Every page's top line: its title at the left, the chosen customer's First Name at the right."""
+    """Every page's top line: its title (with its help), then the chosen customer's First and Last Name."""
     # one row drawn here (not Streamlit's row, which can wrap the name onto a line of its own): both on one baseline
-    name = str(row.get("name") or "").strip() if row is not None else ""
+    name = ""
+    if row is not None:                                       # First Name and Last Name (blank parts left out)
+        parts = [row.get(f) for f in ("name", "last_name")]
+        name = " ".join(str(p).strip() for p in parts if p is not None and not (isinstance(p, float) and pd.isna(p))
+                        and str(p).strip())
     help_text = PAGE_HELP.get(title)
     help_mark = (f'<span title="{html.escape(help_text)}" aria-label="Help: {html.escape(help_text)}" '
                  f'style="cursor:help; display:inline-flex; align-items:center; justify-content:center; '
