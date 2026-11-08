@@ -119,7 +119,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth on that date (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its angular size and Distance(%) from earth). The far side of the sphere is "
                   "fainter, and hidden behind the Earth. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
-                  "of CB and CN on the Earth. Latitude, Longitude: the Earth's lines of each, every 30 degrees, turning with it. Paths, picking from the list below it: the Sun's over a year, and the others' over one trip round "
+                  "of CB and CN on the Earth. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Paths, picking from the list below it: the Sun's over a year, and the others' over one trip round "
                   "the sky around that moment (Moon 27.32 days; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now (-N), dashed lines, with CN at the place now.",
     "AstroMap": "The planets at birth (DOB) and now (Now) on a world map turned by the sky, in RA (along) and "
@@ -432,7 +432,7 @@ def page_globe():
         return
     shown = []
     for names, default in ((("DOB", "Now"), ("DOB",)),                # each set one below the other
-                           (("RA", "Dec", "Latitude", "Longitude"), ("RA", "Dec"))):
+                           (("RA", "Dec", "Lati", "Long"), ("RA", "Dec"))):
         stack = head.container(width="content", gap="xxsmall")
         for name in names:
             if stack.pills(name, [name], default=name if name in default else None, key=f"globe_{name}",
@@ -455,8 +455,8 @@ def page_globe():
     g = globechart.GlobeInput(
         birth=prep.birth, now=now_pts, jd_birth=prep.jd_birth, jd_now=jd_now,
         cb=(prep.birth_lat, prep.birth_lon), cn=prep.cn, show_birth="DOB" in shown, show_now="Now" in shown,
-        show_ra="RA" in shown, show_dec="Dec" in shown, show_latitude="Latitude" in shown,
-        show_longitude="Longitude" in shown, paths=paths)
+        show_ra="RA" in shown, show_dec="Dec" in shown, show_latitude="Lati" in shown,
+        show_longitude="Long" in shown, paths=paths)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
                               after_js=globechart.globe_js(g, day_seconds)),
