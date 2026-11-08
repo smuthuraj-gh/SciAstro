@@ -164,7 +164,9 @@ def top_line(title: str, row: pd.Series | None):
         f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
         f'</div>')
-    TITLE_SLOT = line.container(width="content")
+    # the slot fills the rest of the line, its content at the right end: on AstroMap the rows then start after the
+    # buttons below (Map ... Minor Aspects), never above them
+    TITLE_SLOT = line.container(width="stretch", horizontal_alignment="right")
 
 
 TITLE_SLOT = None                                             # set by top_line for the page being shown
