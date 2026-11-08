@@ -154,12 +154,20 @@ def top_line(title: str, row: pd.Series | None):
                  f'width:1.15em; height:1.15em; margin-left:6px; border:1px solid currentColor; border-radius:50%; '
                  f'opacity:0.55; font-weight:600; font-size:0.85em; line-height:1; vertical-align:middle">?</span>'
                  ) if help_text else ""
-    # the First Name right after the title (and its help), on the same line
-    st.html(f'<div style="display:flex; align-items:baseline; justify-content:flex-start; gap:24px; '
-            f'flex-wrap:nowrap; font-weight:600">'
-            f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
-            f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
-            f'</div>')
+    # the First Name right after the title (and its help), on the same line; then a slot (TITLE_SLOT) where a page may
+    # put more on this line, as AstroMap its Distance(%) rows, their titles level with the page title
+    global TITLE_SLOT
+    line = st.container(horizontal=True, vertical_alignment="top", gap="large")
+    line.container(width="content").html(
+        f'<div style="display:flex; align-items:baseline; justify-content:flex-start; gap:24px; '
+        f'flex-wrap:nowrap; font-weight:600">'
+        f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
+        f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
+        f'</div>')
+    TITLE_SLOT = line.container(width="content")
+
+
+TITLE_SLOT = None                                             # set by top_line for the page being shown
 
 
 def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
@@ -335,8 +343,12 @@ def page_map():
         d_birth=prep.d_birth, d_now=d_now, show_birth=show_birth, show_now=show_now, major=major, minor=minor,
         show_map="Map" in shown)
     key = mapchart.key_html(m)
-    if key:                                                   # Distance(%) from earth (DOB+Now)/2, then DOB: beside the buttons
-        head.markdown(key, unsafe_allow_html=True, width="content")
+    if key:                       # Distance(%) from earth (DOB+Now)/2, then on DOB: on the page title's line
+        if TITLE_SLOT is not None:            # lowered a little: the rows' titles level with the page title's text
+            TITLE_SLOT.markdown(f'<div style="padding-top:4px; padding-bottom:8px">{key}</div>',
+                                unsafe_allow_html=True, width="content")     # (and clear of the buttons below)
+        else:
+            head.markdown(key, unsafe_allow_html=True, width="content")
     # Laid out at its own fixed size (every label is spaced for it) and scaled down whole to fit a narrower column:
     # st.plotly_chart would re-lay it out narrower and bring the labels back on top of each other
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
