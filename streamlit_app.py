@@ -441,19 +441,19 @@ def page_globe():
         return [n for n in names if box.pills(n, [n], default=n if n in default else None, key=f"globe_{n}",
                                               label_visibility="collapsed")]
 
-    def bodies_under(title: str, key: str) -> tuple:
+    def bodies_under(title: str, key: str, default: list) -> tuple:
         """A button with the Sun, Moon and planets listed below it to pick from; those picked, none with the button off."""
         box = head.container(width="content", gap="xxsmall")
         if not box.pills(title, [title], default=title, key=f"globe_{key}_on", label_visibility="collapsed"):
             return ()
         names = list(globechart.BODY_CHOICES)
-        return tuple(box.pills(f"Which {title}", names, selection_mode="multi", default=names, key=f"globe_{key}",
+        return tuple(box.pills(f"Which {title}", names, selection_mode="multi", default=default, key=f"globe_{key}",
                                label_visibility="collapsed", width=42))    # (room for one a line: one below another)
 
     shown = stacked(("DOB", "Now"), ("DOB",), title="Time")
-    bodies = bodies_under("Planets", "bodies")
-    shown += stacked(("RA", "Dec", "Lati", "Long"), ("RA", "Dec"), title="Coordi")
-    paths = bodies_under("Paths", "paths")
+    bodies = bodies_under("Planets", "bodies", ["Su", "Mo"])
+    shown += stacked(("RA", "Dec", "Lati", "Long"), (), title="Coordi")
+    paths = bodies_under("Paths", "paths", ["Su"])
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds = None
     if spin.pills("Rotate", ["Rotate"], default="Rotate", key="globe_rotate", label_visibility="collapsed"):
