@@ -363,9 +363,9 @@ _MOTION_JS = r"""
     const ms = (s.jd + t - 2440587.5) * 86400000 + off * 3600000 + 30000;     // to the nearest minute
     return s.clock + " " + new Date(ms).toISOString().slice(0, 16).replace("T", " ") + (known ? " UTC" + pad2(off) : " UT");
   };
-  const showClocks = (t) => {                      // in the page's clock, at the end of the row of buttons
+  const showClocks = (t) => {                      // in the page's clock, beside the customer's name
     const box = document.querySelector(".globe-clock");
-    if (box) box.textContent = D.sets.map((s) => clockLine(s, t)).join("\n");
+    if (box) box.textContent = D.sets.map((s) => clockLine(s, t)).join("    ");
   };
   const boxOf = (x, y, text) => {
     const w = text.length * D.text_w;

@@ -115,7 +115,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "AstroGlobe": "Time, with DOB and Now below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the celestial poles. "
                   "Rotate: the Earth turns about that fixed axis, west to east, while the sphere stands still, and time "
-                  "runs from each moment, until Rotate is turned off: the clock at the top right gives the date and time, and the Sun, "
+                  "runs from each moment, until Rotate is turned off: the clock beside the name gives the date and time, and the Sun, "
                   "Moon and planets move over the sphere as they really did (time starts again after 4 years; refresh the page to go back "
                   "to the start). The speed below it sets how long one day takes: 1 minute or 1 second. The Earth starts as it was at that "
                   "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth then (a "
@@ -179,6 +179,7 @@ def top_line(title: str, row: pd.Series | None):
         f'flex-wrap:nowrap; font-weight:600">'
         f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
+        + ('<span class="globe-clock" style="white-space:pre"></span>' if title == "AstroGlobe" else "") +   # its script writes it
         f'</div>')
     # the slot fills the rest of the line, its content at the right end: on AstroMap the rows then start after the
     # buttons below (Map ... Minor Aspects), never above them
@@ -452,17 +453,14 @@ def page_globe():
 
     shown = stacked(("DOB", "Now"), ("DOB",), title="Time")
     bodies = bodies_under("Planets", "bodies", ["Su", "Mo"])
-    shown += stacked(("RA", "Dec", "Lati", "Long"), (), title="Coordi")
     paths = bodies_under("Paths", "paths", ["Su"])
+    shown += stacked(("RA", "Dec", "Lati", "Long"), (), title="Coordi")
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds = None
     if spin.pills("Rotate", ["Rotate"], default="Rotate", key="globe_rotate", label_visibility="collapsed"):
         speed = spin.pills("Rotate speed", list(globechart.SPEEDS), default=globechart.DEFAULT_SPEED, key="globe_speed",
                            label_visibility="collapsed", width=60)    # (just room for one button a line: one below the other)
         day_seconds = globechart.SPEEDS[speed or globechart.DEFAULT_SPEED]
-    # the date and time clock, at the top right, on the buttons' line: the chart's script writes it as time runs
-    head.container(width="stretch", horizontal_alignment="right").html(
-        '<div class="globe-clock" style="white-space:pre-line; text-align:right; font-weight:600"></div>')
     jd_now = core.now_jd()
     now_pts, _ = now_values(jd_now)
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
