@@ -334,7 +334,7 @@ def need_chart(prep: Prepared | None) -> bool:
 # ---------------------------------------------------------------- pages
 def page_map():
     row, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="center", gap="small")    # buttons, then the key
+    head = st.container(horizontal=True, vertical_alignment="top", gap="small")       # buttons, then the key
     if not need_chart(prep):
         return
     shown = head.pills("Show", ["Map", "DOB", "Now", "Major Aspects", "Minor Aspects"],
@@ -349,12 +349,10 @@ def page_map():
         d_birth=prep.d_birth, d_now=d_now, show_birth=show_birth, show_now=show_now, major=major, minor=minor,
         show_map="Map" in shown)
     key = mapchart.key_html(m)
-    if key:                       # Distance(%) from earth (DOB+Now)/2, then on DOB: on the page title's line
-        if TITLE_SLOT is not None:            # lowered a little: the rows' titles level with the page title's text
-            TITLE_SLOT.markdown(f'<div style="padding-top:4px; padding-bottom:8px">{key}</div>',
-                                unsafe_allow_html=True, width="content")     # (and clear of the buttons below)
-        else:
-            head.markdown(key, unsafe_allow_html=True, width="content")
+    if key:     # Distance(%) from earth (DOB+Now)/2, then on DOB: one line below the page title, on the buttons' line,
+        # at its right end (after Minor Aspects), their titles level with the buttons' top
+        head.container(width="stretch", horizontal_alignment="right").markdown(
+            key, unsafe_allow_html=True, width="content")
     # Laid out at its own fixed size (every label is spaced for it) and scaled down whole to fit a narrower column:
     # st.plotly_chart would re-lay it out narrower and bring the labels back on top of each other
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
