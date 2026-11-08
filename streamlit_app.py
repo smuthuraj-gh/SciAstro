@@ -255,7 +255,7 @@ def details_form(row: pd.Series | None):
         city_n = c1.text_input("City", value=txt("city_n"), max_chars=500, key="city_n")
         state_n = c2.text_input("State / region", value=txt("state_n"), max_chars=120, key="state_n")
         country_n = c3.text_input("Country", value=txt("country_n"), max_chars=120, key="country_n")
-        other_n = c4.text_input("District/Others", value=txt("other_n"), max_chars=500, key="other_n",
+        other_n = c4.text_input("District/Other-N", value=txt("other_n"), max_chars=500, key="other_n",
                                 help="The district, or anything else about where you live now (optional; not used "
                                      "in the charts).")
         sent = st.form_submit_button("Save my details" if row is None else "Save changes", type="primary")
