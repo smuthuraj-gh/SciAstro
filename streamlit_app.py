@@ -112,7 +112,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "AstroGlobe": "The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the celestial poles. "
+    "AstroGlobe": "Time, with DOB and Now below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the celestial poles. "
                   "Rotate: the Earth turns about that fixed axis, west to east, while the sphere stands still (point at "
                   "the chart to pause); the speed beside it sets how long one day's turn takes: 1 minute or "
                   "1 second. The Earth starts as it was at that moment, so a planet is straight above the place "
@@ -431,9 +431,11 @@ def page_globe():
     if not need_chart(prep):
         return
 
-    def stacked(names: tuple, default: tuple) -> list:
-        """Buttons one below another; those on."""
+    def stacked(names: tuple, default: tuple, title: str | None = None) -> list:
+        """Buttons one below another; those on. Under a title button, shown only with that on."""
         box = head.container(width="content", gap="xxsmall")
+        if title and not box.pills(title, [title], default=title, key=f"globe_{title}_on", label_visibility="collapsed"):
+            return []
         return [n for n in names if box.pills(n, [n], default=n if n in default else None, key=f"globe_{n}",
                                               label_visibility="collapsed")]
 
@@ -446,7 +448,7 @@ def page_globe():
         return tuple(box.pills(f"Which {title}", names, selection_mode="multi", default=names, key=f"globe_{key}",
                                label_visibility="collapsed", width=42))    # (room for one a line: one below another)
 
-    shown = stacked(("DOB", "Now"), ("DOB",))
+    shown = stacked(("DOB", "Now"), ("DOB",), title="Time")
     bodies = bodies_under("Planets", "bodies")
     shown += stacked(("RA", "Dec", "Lati", "Long"), ("RA", "Dec"))
     paths = bodies_under("Paths", "paths")
