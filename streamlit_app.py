@@ -454,7 +454,7 @@ def page_globe():
 
     shown = stacked(("DOB", "Now"), ("DOB",), title="Time")
     bodies = bodies_under("Planets", "bodies", list(globechart.BODY_CHOICES))
-    paths = bodies_under("Paths", "paths", ["Su"])
+    paths = bodies_under("Paths", "paths", [])
     shown += stacked(("RA", "Dec", "Lati", "Long"), (), title="Coordi")
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds = None
