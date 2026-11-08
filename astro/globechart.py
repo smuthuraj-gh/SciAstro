@@ -454,8 +454,8 @@ _MOTION_JS = r"""
       const s = sample(b, t), gap = s.dec - pl.lat, rate = s.dec_speed * (gap >= 0 ? 1 : -1);
       if (rate) (rate < 0 ? near : away).push([p, Math.abs(gap)]);
     });
-    return tag("b") + pl.label + tag("/b") + " " + pl.title + NL + "Dec/Lati: " + signed(pl.lat) +
-      NL + "RA: " + (((pl.ra + D.spin * t) % 360 + 360) % 360).toFixed(2) + NL + "Long: " + signed(pl.lon) +
+    return tag("b") + pl.label + tag("/b") + " " + pl.title + NL + "Long: " + signed(pl.lon) + NL + "Dec/Lati: " + signed(pl.lat) +
+      NL + "RA: " + (((pl.ra + D.spin * t) % 360 + 360) % 360).toFixed(2) +
       NL + "Approaching Planets: " + names(near) + NL + "Leaving Planets: " + names(away);
   };
   const placeTraces = D.places.map((pl) => gd.data.findIndex((d) =>
