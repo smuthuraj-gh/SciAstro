@@ -115,9 +115,9 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "the chart to pause); the speed beside it sets how long one day's turn takes: 1 minute or "
                   "1 second. The Earth starts as it was at that moment, so a planet is straight above the place "
                   "it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth on that date (a "
-                  "logarithmic scale, as to true scale the planets would not show; point at one for its angular size), the far side of the sphere is "
+                  "logarithmic scale, as to true scale the planets would not show; point at one for its angular size). The far side of the sphere is "
                   "fainter, and hidden behind the Earth. RA/Dec: the RA and Dec lines of each planet on the sphere, and "
-                  "of CB and CN on the Earth. Planets Paths: the Sun's over a year, and the others' over one trip round "
+                  "of CB and CN on the Earth. Paths: the Sun's over a year, and the others' over one trip round "
                   "the sky around that moment (Moon 27.32 days; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now (-N), dashed lines, with CN at the place now.",
     "AstroMap": "The planets at birth (DOB) and now (Now) on a world map turned by the sky, in RA (along) and "
@@ -428,8 +428,8 @@ def page_globe():
     head = st.container(horizontal=True, vertical_alignment="top", gap="small")
     if not need_chart(prep):
         return
-    shown = head.pills("Show", ["DOB", "Now", "RA/Dec", "Planets Paths"], selection_mode="multi",
-                       default=["DOB", "RA/Dec", "Planets Paths"], key="globe_show_v6", label_visibility="collapsed")
+    shown = head.pills("Show", ["DOB", "Now", "RA/Dec", "Paths"], selection_mode="multi",
+                       default=["DOB", "RA/Dec", "Paths"], key="globe_show_v7", label_visibility="collapsed")
     spin = head.container(width="content", gap="small")       # Rotate, with how fast below it
     day_seconds = None
     if spin.pills("Rotate", ["Rotate"], default="Rotate", key="globe_rotate", label_visibility="collapsed"):
@@ -441,7 +441,7 @@ def page_globe():
     g = globechart.GlobeInput(
         birth=prep.birth, now=now_pts, jd_birth=prep.jd_birth, jd_now=jd_now,
         cb=(prep.birth_lat, prep.birth_lon), cn=prep.cn, show_birth="DOB" in shown, show_now="Now" in shown,
-        show_lines="RA/Dec" in shown, show_paths="Planets Paths" in shown)
+        show_lines="RA/Dec" in shown, show_paths="Paths" in shown)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
                               after_js=globechart.globe_js(g, day_seconds)),
