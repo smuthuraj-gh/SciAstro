@@ -3,6 +3,7 @@ its RA less the sidereal time at Greenwich), its RA line (the meridian through i
 through it), and CB / CN at the birth place and the place now. Equatorial only (RA / Dec)."""
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import plotly.graph_objects as go
@@ -11,6 +12,11 @@ from . import core
 from .mapchart import CHART_TEXT, FONT
 
 WIDTH, HEIGHT = 1100, 720
+MARGIN = 10
+TILT = 15                         # degrees the globe first leans its north pole toward the viewer
+GLOBE_BOTTOM, GLOBE_TOP = 0.10, 0.90      # the globe's part of the chart's height, with room for the axis above, below
+AXIS_BOTTOM, AXIS_TOP = 0.035, 0.965      # where the axis lines end (their labels just beyond)
+AXIS_COLOUR = "rgb(60,60,60)"
 
 
 @dataclass
@@ -30,6 +36,14 @@ def _lon(ra: float, jd: float) -> float:
     """Where on the Earth a body of this RA is on the meridian at jd: longitude -180..180."""
     x = core.norm360(ra - core.lst(jd, 0.0))
     return x - 360.0 if x > 180.0 else x
+
+
+def _pole_starts(tilt: float) -> tuple[float, float]:
+    """Where the north and south axis lines start, as a part of the chart's height: at the pole when it faces the
+    viewer (the globe's radius x cos(tilt) from its middle), else at the globe's edge, as the pole is behind it."""
+    middle, radius = (GLOBE_TOP + GLOBE_BOTTOM) / 2, (GLOBE_TOP - GLOBE_BOTTOM) / 2
+    seen = radius * math.cos(math.radians(tilt))
+    return (middle + (seen if tilt >= 0 else radius), middle - (seen if tilt <= 0 else radius))
 
 
 def globe_figure(g: GlobeInput) -> go.Figure:
@@ -82,15 +96,42 @@ def globe_figure(g: GlobeInput) -> go.Figure:
                           f"latitude {lat:+.2f}, longitude {lon:+.2f}"))
 
     start = g.cb[1] if g.cb else 0.0                          # first facing the birth place
+    # The Earth's axis, out of the globe at both poles: fixed lines, as the globe turns about this axis. Each starts at
+    # its pole when that is on the near side, else at the globe's edge (poles_js keeps this when the globe is tilted)
+    n_y, s_y = _pole_starts(TILT)
+    axis = dict(type="line", xref="paper", yref="paper", x0=0.5, x1=0.5, line=dict(color=AXIS_COLOUR, width=2.5))
+    pole = dict(xref="paper", yref="paper", x=0.5, xanchor="center", showarrow=False,
+                font=dict(size=FONT, color=AXIS_COLOUR))
     fig.update_layout(
-        width=WIDTH, height=HEIGHT, autosize=False, margin=dict(l=10, r=10, t=10, b=10),
+        width=WIDTH, height=HEIGHT, autosize=False, margin=dict(l=MARGIN, r=MARGIN, t=MARGIN, b=MARGIN),
         paper_bgcolor="white", font=dict(size=FONT, color=CHART_TEXT), hoverlabel=dict(font_size=FONT),
-        geo=dict(projection=dict(type="orthographic", rotation=dict(lon=start, lat=15)),
+        shapes=[dict(axis, y0=n_y, y1=AXIS_TOP), dict(axis, y0=s_y, y1=AXIS_BOTTOM)],
+        annotations=[dict(pole, y=AXIS_TOP, yanchor="bottom", text="<b>North Pole</b>"),
+                     dict(pole, y=AXIS_BOTTOM, yanchor="top", text="<b>South Pole</b>")],
+        geo=dict(domain=dict(y=[GLOBE_BOTTOM, GLOBE_TOP]),
+                 projection=dict(type="orthographic", rotation=dict(lon=start, lat=TILT)),
                  showland=True, landcolor="rgb(236,236,230)", showocean=True, oceancolor="rgb(220,232,245)",
                  showcoastlines=True, coastlinecolor="rgb(150,150,150)", showcountries=True,
                  countrycolor="rgb(200,200,200)", showframe=False, bgcolor="white",
                  lataxis=dict(showgrid=False), lonaxis=dict(showgrid=False)))
     return fig
+
+
+def poles_js() -> str:
+    """Keeps the axis lines on the poles when the globe is dragged to another tilt (see _pole_starts)."""
+    return f"""
+      const middle = {(GLOBE_TOP + GLOBE_BOTTOM) / 2}, radius = {(GLOBE_TOP - GLOBE_BOTTOM) / 2};
+      let tilt = {TILT};
+      gd.on("plotly_relayout", () => {{
+        const r = gd.layout.geo.projection.rotation || {{}};
+        const lat = (r.lat === undefined) ? tilt : r.lat;
+        if (Math.abs(lat - tilt) < 0.01) return;
+        tilt = lat;
+        const seen = radius * Math.cos(lat * Math.PI / 180);
+        Plotly.relayout(gd, {{"shapes[0].y0": middle + (lat >= 0 ? seen : radius),
+                              "shapes[1].y0": middle - (lat <= 0 ? seen : radius)}});
+      }});
+    """
 
 
 def rotate_js(on: bool) -> str:

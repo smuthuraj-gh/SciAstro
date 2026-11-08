@@ -432,7 +432,8 @@ def page_globe():
         cb=(prep.birth_lat, prep.birth_lon), cn=prep.cn, show_birth="DOB" in shown, show_now="Now" in shown,
         show_lines="RA/Dec" in shown)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
-    st.html(mapchart.fit_html(globechart.globe_figure(g), after_js=globechart.rotate_js("Rotate" in shown)),
+    st.html(mapchart.fit_html(globechart.globe_figure(g),
+                              after_js=globechart.poles_js() + globechart.rotate_js("Rotate" in shown)),
             unsafe_allow_javascript=True)
 
 
