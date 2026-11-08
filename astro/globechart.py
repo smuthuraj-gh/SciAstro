@@ -321,7 +321,8 @@ _MOTION_JS = r"""
     const u = t / b.step, i = Math.min(Math.floor(u), b.ra.length - 2), f = u - i;
     const turn = ((b.ra[i + 1] - b.ra[i] + 540) % 360) - 180;
     return {ra: (b.ra[i] + turn * f + 360) % 360, dec: b.dec[i] + (b.dec[i + 1] - b.dec[i]) * f,
-            dist: b.dist[i] + (b.dist[i + 1] - b.dist[i]) * f};
+            dist: b.dist[i] + (b.dist[i + 1] - b.dist[i]) * f,
+            dec_speed: b.dec_speed[i] + (b.dec_speed[i + 1] - b.dec_speed[i]) * f};
   };
   const curve = (pts) => {                         // the path data of a line's near side and of its far side
     let near = "", far = "", side = null, last = "";
@@ -351,7 +352,7 @@ _MOTION_JS = r"""
   const bodies = [];
   D.sets.forEach((s) => s.shown.forEach((p) => {
     const b = s.tables[p];
-    const body = {name: p, tipName: p + " " + s.clock, b, now: s.clock === "Now"};   // Now: hollow, dashed
+    const body = {name: p, tipName: p + " " + s.clock, b, set: s, now: s.clock === "Now"};   // Now: hollow, dashed
     if (D.show_ra) body.raLine = line(b.colour, body.now);
     if (D.show_dec) body.decLine = line(b.colour, body.now);
     bodies.push(body);
@@ -394,6 +395,16 @@ _MOTION_JS = r"""
     }
     return at(0, 0);
   };
+  const names = (list) => list.sort((a, b) => a[1] - b[1]).map(([p, gap]) => p + " " + gap.toFixed(1) + "°").join(", ") || "none";
+  const moving = (body, s, t) => {                 // the others approaching and leaving it: the gap in Dec closing or opening
+    const near = [], away = [];
+    Object.entries(body.set.tables).forEach(([q, b]) => {
+      if (q === body.name) return;
+      const o = sample(b, t), gap = o.dec - s.dec, rate = (o.dec_speed - s.dec_speed) * (gap >= 0 ? 1 : -1);
+      if (rate) (rate < 0 ? near : away).push([q, Math.abs(gap)]);
+    });
+    return "\nApproach: " + names(near) + "\nLeave: " + names(away);
+  };
   const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
   const place = (t) => {
     const taken = D.taken.slice();
@@ -422,7 +433,7 @@ _MOTION_JS = r"""
       body.mark.style.display = hidden ? "none" : ""; body.label.style.display = hidden ? "none" : "";
       body.tip.textContent = body.tipName + " (" + (z >= 0 ? "near" : "far") + " side of the sphere)\nRA: " + s.ra.toFixed(2) +
         "\nDec/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2) + "\nAngular Size: " + size +
-        "\nDistance from earth: " + String(Math.max(0, Math.round(pct))).padStart(3, "0") + "%";
+        "\nDistance from earth: " + String(Math.max(0, Math.round(pct))).padStart(3, "0") + "%" + moving(body, s, t);
       if (!hidden) taken.push([x - r - 1, y - r - 1, x + r + 1, y + r + 1]);   // no label may cover a marker
     });
     bodies.forEach((body) => {
@@ -440,11 +451,9 @@ _MOTION_JS = r"""
   const placeBox = (pl, t) => {                    // CB's or CN's box: approaching = the gap in Dec to its latitude is closing
     const near = [], away = [];
     Object.entries(D.sets[pl.set].tables).forEach(([p, b]) => {
-      const u = t / b.step, i = Math.min(Math.floor(u), b.dec.length - 2), gap = sample(b, t).dec - pl.lat;
-      const rate = (b.dec_speed[i] + (b.dec_speed[i + 1] - b.dec_speed[i]) * (u - i)) * (gap >= 0 ? 1 : -1);
+      const s = sample(b, t), gap = s.dec - pl.lat, rate = s.dec_speed * (gap >= 0 ? 1 : -1);
       if (rate) (rate < 0 ? near : away).push([p, Math.abs(gap)]);
     });
-    const names = (list) => list.sort((a, b) => a[1] - b[1]).map(([p, gap]) => p + " " + gap.toFixed(1) + "°").join(", ") || "none";
     return tag("b") + pl.label + tag("/b") + " " + pl.title + NL + "Dec/Lati: " + signed(pl.lat) +
       NL + "RA: " + (((pl.ra + D.spin * t) % 360 + 360) % 360).toFixed(2) + NL + "Long: " + signed(pl.lon) +
       NL + "Approaching Planets: " + names(near) + NL + "Leaving Planets: " + names(away);
