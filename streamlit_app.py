@@ -541,6 +541,16 @@ def page_customers():
     # Added / Updated / Accessed are shown at the end, set by the app, not typed
     shown_fields = [f for f in db.FIELDS if f != "utc"]
     show = df[["id"] + shown_fields + list(db.STAMPS)].rename(columns={**db.LABELS, **db.STAMPS})
+    # Sort by any column (the editable table cannot sort by its headers while rows can be added); saving matches rows
+    # by their record, so the order shown does not matter
+    sort_row = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
+    cols = [c for c in show.columns if c != "id"]
+    by = sort_row.selectbox("Sort by", cols, index=cols.index(db.LABELS["name"]), key="cust_sort_by", width=220)
+    order = sort_row.segmented_control("Order", ["Ascending", "Descending"], default="Ascending",
+                                       key="cust_sort_order", label_visibility="collapsed")
+    key = show[by].map(lambda v: v.strip().lower() if isinstance(v, str) else v)   # words: A-Z, ignoring case
+    show = show.iloc[key.sort_values(ascending=order != "Descending", na_position="last", kind="stable").index
+                     .map(show.index.get_loc)].reset_index(drop=True)
     stamp_cols = {label: st.column_config.DatetimeColumn(label, format="YYYY-MM-DD HH:mm", disabled=True,
                                                          help=help_text)
                   for label, help_text in (("Added", "When the customer was added (UT)."),
@@ -553,15 +563,19 @@ def page_customers():
                                 "First Name": st.column_config.TextColumn("First Name *", help="Required."),
                                 "Last Name": st.column_config.TextColumn("Last Name *", help="Required."),
                                 "Hr24": st.column_config.NumberColumn("Hr24 *", help="Birth time, hour 0-23: required.",
-                                                                      format="%d", step=1, min_value=0, max_value=23),
+                                                                      format="%d", step=1, min_value=0, max_value=23,
+                                                                      width="small"),
                                 "Min": st.column_config.NumberColumn("Min *", help="Birth time, minute 0-59: required.",
-                                                                     format="%d", step=1, min_value=0, max_value=59),
+                                                                     format="%d", step=1, min_value=0, max_value=59,
+                                                                     width="small"),
                                 "Year": st.column_config.NumberColumn("Year *", help="Birth date: required.",
-                                                                      format="%d", step=1),
+                                                                      format="%d", step=1, width="small"),
                                 "Mon": st.column_config.NumberColumn("Mon *", help="Birth date: required.",
-                                                                     format="%d", step=1, min_value=1, max_value=12),
+                                                                     format="%d", step=1, min_value=1, max_value=12,
+                                                                     width="small"),
                                 "Date": st.column_config.NumberColumn("Date *", help="Birth date: required.",
-                                                                      format="%d", step=1, min_value=1, max_value=31),
+                                                                      format="%d", step=1, min_value=1, max_value=31,
+                                                                      width="small"),
                                 "Email (login)": st.column_config.TextColumn("Email (login) *",
                                 help="Required. The Google account email this customer signs in with (they see only "
                                      "their own). Each email can belong to one customer only."),
