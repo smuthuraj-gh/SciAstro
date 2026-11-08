@@ -19,7 +19,8 @@ WIDTH, HEIGHT = 1100, 720
 MARGIN = 10
 TILT = 23.44                      # degrees the Earth's axis leans from upright (its obliquity)
 LEAN_TOWARD = 45.0                # the way the axis leans: 0 = toward the viewer, 90 = to the right; here between them
-SPEEDS = {"1d=1min": 60.0, "1d=1sec": 1.0}   # the seconds one turn of the Earth takes
+# the seconds one day of the clock takes: a day to a minute; an hour, a week, a month (30.44 days) to a second
+SPEEDS = {"1d=1min": 60.0, "1h=1sec": 24.0, "1w=1sec": 1.0 / 7.0, "1m=1sec": 1.0 / 30.44}
 DEFAULT_SPEED = "1d=1min"
 EARTH_RADIUS = 165.0              # pixels, in the chart's own layout
 SKY_RADIUS = 315.0                # the celestial sphere, pixels (it fits the chart's height with its pole labels)
