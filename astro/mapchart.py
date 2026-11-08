@@ -282,7 +282,8 @@ def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str
         # as in the row under the map (Distance(%) from earth at Now): each planet's name and its value the same size,
         # both solid, in the chart's text gray
         value = f"{v:.1f}" if v is not None else "&nbsp;"
-        return (f'<span style="display:inline-block; text-align:center; margin-right:5px; line-height:1.4">'
+        return (f'<span style="display:inline-block; text-align:center; margin-right:{KEY_GAP_HTML}px; '
+                f'line-height:1.4">'
                 f'<span style="white-space:nowrap"><span style="color:{core.colour(n)}">{sym}</span>&nbsp;{n}</span>'
                 f'<br><span style="font-size:{FONT}px">{value}</span></span>')
     head = (f'<div style="font-size:{FONT}px; line-height:1.2; margin-bottom:3px"><b style="font-weight:700">{label}</b>'
@@ -294,6 +295,10 @@ def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str
 
 CHART_FONT_FAMILY = "'Open Sans', verdana, arial, sans-serif"     # Plotly's default, which the charts are drawn in
 CHART_TEXT = "#444"                                              # Plotly's text colour
+# The space between one planet and the next in the three Distance(%) rows, about 20 px in each: under the map each
+# planet's room is its widest-text estimate (text_px, a little over) + KEY_GAP; beside the buttons a plain margin
+KEY_GAP = 12
+KEY_GAP_HTML = 20
 
 
 def key_html(m: MapInput) -> str:
@@ -319,7 +324,7 @@ def _now_key(fig: go.Figure, m: MapInput) -> float:
     planets now (-N), each with its D-N beneath, ending at the grid's right edge. Returns where the row starts (pixels
     from the grid's left edge)."""
     items = [(n + "-N", "&#9675;", m.d_now.get(n)) for n in m.now]
-    widths = [max(text_px(f"o {n}"), text_px(f"{d:.1f}" if d is not None else "")) + 4 for n, _, d in items]
+    widths = [max(text_px(f"o {n}"), text_px(f"{d:.1f}" if d is not None else "")) + KEY_GAP for n, _, d in items]
     label = "<b>Distance(%) from earth at Now</b>"
     start = x = PLOT_W - max(sum(widths), text_px(label) + 4)
     fig.add_annotation(xref="paper", x=start / PLOT_W, xanchor="left", yref="paper", y=0, yanchor="middle",
