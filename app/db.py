@@ -122,6 +122,25 @@ def planet_problems(df: pd.DataFrame) -> list[str]:
     return out
 
 
+def new_planet_problems(s_name: str, l_name: str, color: str) -> list[str]:
+    """What is wrong with a planet to insert: as planet_problems, and an S_Name of up to 8 characters not yet in the table."""
+    s_name = s_name.strip()
+    row = pd.DataFrame([{"S_Name": s_name or "New", "L_Name": l_name, "Color": color}])
+    out = planet_problems(row)
+    if not s_name:
+        out.insert(0, "S_Name is empty")
+    elif len(s_name) > 8:
+        out.insert(0, "S_Name can be at most 8 characters")
+    elif s_name.lower() in all_planets()["S_Name"].str.lower().values:
+        out.insert(0, f"{s_name} is already in the table")
+    return out
+
+
+def insert_planet(s_name: str, l_name: str, color: str) -> None:
+    with engine().begin() as c:
+        c.execute(planets.insert().values(s_name=s_name.strip(), l_name=l_name.strip(), color=color.strip()))
+
+
 def save_planets(df: pd.DataFrame) -> None:
     """Keeps an edited planets table's L_Name and Color (S_Name is the key and stays)."""
     with engine().begin() as c:

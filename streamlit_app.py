@@ -145,7 +145,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Planets": "The planets table: each planet's short name (S_Name), long name (L_Name) and colour. Seen by admins only, who can "
-               "change L_Name and Color and press Save. Color is rgb(r,g,b) or #rrggbb. The charts do not use these colours yet.",
+               "change L_Name and Color and press Update, or fill in S_Name, L_Name and Color below and press Insert for a new row. Color is rgb(r,g,b) or #rrggbb. The charts do not use these colours yet.",
     "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",
@@ -580,15 +580,33 @@ def page_planets():
         st.stop()
     table = db.all_planets()
     edited = st.data_editor(table, hide_index=True, width="content", num_rows="fixed", disabled=["S_Name"], key="planets_table")
-    if st.button("Save", key="planets_save", disabled=edited.equals(table)):
+    if st.button("Update", key="planets_save", disabled=edited.equals(table)):
         problems = db.planet_problems(edited)
         if problems:
-            st.error("Not saved. " + "; ".join(problems))
+            st.error("Not updated. " + "; ".join(problems))
         else:
             db.save_planets(edited)
-            st.toast("Saved")
+            st.toast("Updated")
             st.session_state.pop("planets_table", None)        # the table starts again from what is now kept
             st.rerun()
+    if st.session_state.pop("planets_clear", False):          # after an insert: empty boxes (only before they are drawn)
+        for key in ("planets_new_s", "planets_new_l", "planets_new_c"):
+            st.session_state[key] = ""
+    with st.form("planets_insert", clear_on_submit=False):
+        boxes = st.container(horizontal=True)
+        s_name = boxes.text_input("S_Name", key="planets_new_s", max_chars=8, width=110)
+        l_name = boxes.text_input("L_Name", key="planets_new_l", max_chars=60, width=200)
+        color = boxes.text_input("Color", key="planets_new_c", max_chars=40, placeholder="rgb(0,112,192)", width=200)
+        if st.form_submit_button("Insert"):
+            problems = db.new_planet_problems(s_name, l_name, color)
+            if problems:
+                st.error("Not inserted. " + "; ".join(problems))
+            else:
+                db.insert_planet(s_name, l_name, color)
+                st.session_state.pop("planets_table", None)
+                st.session_state["planets_clear"] = True
+                st.toast(f"Inserted {s_name.strip()}")
+                st.rerun()
 
 
 def page_aspects():
