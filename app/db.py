@@ -49,8 +49,8 @@ sa.Index(EMAIL_INDEX, customers.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
 planets = sa.Table(                                           # seen by admins only (the Planets page)
     "planets", meta,
-    sa.Column("s_name", sa.String(8), primary_key=True),
-    sa.Column("l_name", sa.String(60)),
+    sa.Column("sn", sa.String(8), primary_key=True),
+    sa.Column("name", sa.String(60)),
     sa.Column("color", sa.String(40)),
 )
 PLANET_NAMES = {"Su": "Sun", "Mo": "Moon", "Me": "Mercury", "Ve": "Venus", "Ma": "Mars", "Ju": "Jupiter", "Sa": "Saturn"}
@@ -84,10 +84,10 @@ def engine() -> sa.Engine:
 
 
 def _rename_planet_columns(eng: sa.Engine):
-    """A planets table made with the columns planet and desc gets their new names; its rows stay."""
+    """A planets table made with earlier column names gets the new ones; its rows stay."""
     have = {c["name"] for c in sa.inspect(eng).get_columns("planets")}
     with eng.begin() as c:
-        for old, new in (("planet", "s_name"), ("desc", "l_name")):
+        for old, new in (("planet", "sn"), ("desc", "name"), ("s_name", "sn"), ("l_name", "name")):
             if old in have:
                 c.execute(sa.text(f'ALTER TABLE planets RENAME COLUMN "{old}" TO {new}'))
 
@@ -96,57 +96,57 @@ def _seed_planets(eng: sa.Engine):
     """The planets table, when empty, starts with the Sun, Moon and planets in the colours the charts use."""
     with eng.begin() as c:
         if not c.execute(sa.select(sa.func.count()).select_from(planets)).scalar():
-            c.execute(planets.insert(), [{"s_name": p, "l_name": d, "color": core.colour(p)} for p, d in PLANET_NAMES.items()])
+            c.execute(planets.insert(), [{"sn": p, "name": d, "color": core.colour(p)} for p, d in PLANET_NAMES.items()])
 
 
 def all_planets() -> pd.DataFrame:
-    """The planets table: S_Name, L_Name, Color, Sun first."""
+    """The planets table: SN, Name, Color, Sun first."""
     with engine().connect() as c:
         rows = c.execute(sa.select(planets)).mappings().all()
     order = {p: i for i, p in enumerate(PLANET_NAMES)}
-    rows = sorted(rows, key=lambda r: order.get(r["s_name"], len(order)))
-    return pd.DataFrame([{"S_Name": r["s_name"], "L_Name": r["l_name"], "Color": r["color"]} for r in rows],
-                        columns=["S_Name", "L_Name", "Color"])
+    rows = sorted(rows, key=lambda r: order.get(r["sn"], len(order)))
+    return pd.DataFrame([{"SN": r["sn"], "Name": r["name"], "Color": r["color"]} for r in rows],
+                        columns=["SN", "Name", "Color"])
 
 
 def planet_problems(df: pd.DataFrame) -> list[str]:
-    """What is wrong with an edited planets table: each needs an L_Name and a colour as rgb(r,g,b) or #rrggbb."""
+    """What is wrong with an edited planets table: each needs a Name and a colour as rgb(r,g,b) or #rrggbb."""
     out = []
     for _, r in df.iterrows():
-        name, colour = str(r["L_Name"] if pd.notna(r["L_Name"]) else "").strip(), str(r["Color"] if pd.notna(r["Color"]) else "").strip()
+        name, colour = str(r["Name"] if pd.notna(r["Name"]) else "").strip(), str(r["Color"] if pd.notna(r["Color"]) else "").strip()
         if not name:
-            out.append(f"{r['S_Name']}: L_Name is empty")
+            out.append(f"{r['SN']}: Name is empty")
         rgb = re.fullmatch(r"rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)", colour)
         if not (re.fullmatch(r"#[0-9a-fA-F]{6}", colour) or (rgb and all(int(v) <= 255 for v in rgb.groups()))):
-            out.append(f"{r['S_Name']}: Color must look like rgb(0,112,192) or #0070c0")
+            out.append(f"{r['SN']}: Color must look like rgb(0,112,192) or #0070c0")
     return out
 
 
-def new_planet_problems(s_name: str, l_name: str, color: str) -> list[str]:
-    """What is wrong with a planet to insert: as planet_problems, and an S_Name of up to 8 characters not yet in the table."""
-    s_name = s_name.strip()
-    row = pd.DataFrame([{"S_Name": s_name or "New", "L_Name": l_name, "Color": color}])
+def new_planet_problems(sn: str, name: str, color: str) -> list[str]:
+    """What is wrong with a planet to insert: as planet_problems, and an SN of up to 8 characters not yet in the table."""
+    sn = sn.strip()
+    row = pd.DataFrame([{"SN": sn or "New", "Name": name, "Color": color}])
     out = planet_problems(row)
-    if not s_name:
-        out.insert(0, "S_Name is empty")
-    elif len(s_name) > 8:
-        out.insert(0, "S_Name can be at most 8 characters")
-    elif s_name.lower() in all_planets()["S_Name"].str.lower().values:
-        out.insert(0, f"{s_name} is already in the table")
+    if not sn:
+        out.insert(0, "SN is empty")
+    elif len(sn) > 8:
+        out.insert(0, "SN can be at most 8 characters")
+    elif sn.lower() in all_planets()["SN"].str.lower().values:
+        out.insert(0, f"{sn} is already in the table")
     return out
 
 
-def insert_planet(s_name: str, l_name: str, color: str) -> None:
+def insert_planet(sn: str, name: str, color: str) -> None:
     with engine().begin() as c:
-        c.execute(planets.insert().values(s_name=s_name.strip(), l_name=l_name.strip(), color=color.strip()))
+        c.execute(planets.insert().values(sn=sn.strip(), name=name.strip(), color=color.strip()))
 
 
 def save_planets(df: pd.DataFrame) -> None:
-    """Keeps an edited planets table's L_Name and Color (S_Name is the key and stays)."""
+    """Keeps an edited planets table's Name and Color (SN is the key and stays)."""
     with engine().begin() as c:
         for _, r in df.iterrows():
-            c.execute(planets.update().where(planets.c.s_name == r["S_Name"])
-                      .values(l_name=str(r["L_Name"]).strip(), color=str(r["Color"]).strip()))
+            c.execute(planets.update().where(planets.c.sn == r["SN"])
+                      .values(name=str(r["Name"]).strip(), color=str(r["Color"]).strip()))
 
 
 def _add_missing_columns(eng: sa.Engine):

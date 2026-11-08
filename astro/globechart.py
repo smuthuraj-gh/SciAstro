@@ -20,7 +20,7 @@ MARGIN = 10
 TILT = 23.44                      # degrees the Earth's axis leans from upright (its obliquity)
 LEAN_TOWARD = 45.0                # the way the axis leans: 0 = toward the viewer, 90 = to the right; here between them
 # the seconds one day of the clock takes: an hour, a day, a week or a month (30.44 days) to a second
-SPEEDS = {"1h=1sec": 24.0, "1d=1sec": 1.0, "1w=1sec": 1.0 / 7.0, "1m=1sec": 1.0 / 30.44}
+SPEEDS = {"1h": 24.0, "1d": 1.0, "1w": 1.0 / 7.0, "1m": 1.0 / 30.44}
 EARTH_RADIUS = 165.0              # pixels, in the chart's own layout
 SKY_RADIUS = 315.0                # the celestial sphere, pixels (it fits the chart's height with its pole labels)
 AXIS_COLOUR = "rgb(60,60,60)"
@@ -38,6 +38,7 @@ PATH_SPAN = {"Mo": (27.32, 110, "Path of the Moon"), "Me": (365.25, 365, "Path o
 BODY_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
 MANUAL = "Manual"                 # Rotate's option to drag the Earth round by hand
 HOUSE_COLOUR = "rgb(0,0,0)"
+ASPECT_COLOURS = {False: "rgb(0,0,0)", True: "rgb(110,110,110)"}     # major, minor: as on AstroMap
 HOUSE_LABEL_DEC = {"CB": 55.0, "CN": -55.0}   # where on the sphere their names go, out of the planets' way
 EARTH_DEGREES_A_DAY = 360.98565  # the Earth's turn against the still sky in one day of the clock
 MOTION_DAYS = 1461                # how far time runs (4 years) before it starts again, and the tables' reach ...
@@ -60,6 +61,8 @@ class GlobeInput:
     show_dec: bool = True
     show_latitude: bool = False       # the Earth's lines of latitude and of longitude, which turn with it
     show_longitude: bool = False
+    aspects: tuple = ()               # the angles of the aspects to draw between the bodies shown
+    orbs: object = None               # core.Orbs, with aspects
     show_houses: bool = False         # the twelve house lines from CB and CN, on the sphere, turning with the Earth
     bodies: tuple = BODY_CHOICES      # the bodies to show, with their RA and Dec lines
     paths: tuple = BODY_CHOICES       # the bodies whose paths to draw
@@ -241,8 +244,12 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                                    set=len(sets)))
             sets.append(dict(clock=name, jd=when, offset=offset, shown=[p for p in core.BUTTON_ORDER if p in g.bodies],
                              tables={p: _motion_table(p, when) for p in core.BUTTON_ORDER}))
+    aspects = [dict(angle=a, colour=ASPECT_COLOURS[a in core.MINOR], width=1.0 if a in core.MINOR else 1.5,
+                    orbs={f"{p}|{q}": [g.orbs.pair(a, p, q, False), g.orbs.pair(a, p, q, True)]
+                          for i, p in enumerate(core.BUTTON_ORDER) for q in core.BUTTON_ORDER[i + 1:]})
+               for a in g.aspects] if g.orbs is not None else []
     svg, taken = sky_svg(g)
-    return dict(svg=svg, taken=[[round(v, 1) for v in box] for box in taken], sets=sets, places=places,
+    return dict(svg=svg, aspects=aspects, taken=[[round(v, 1) for v in box] for box in taken], sets=sets, places=places,
                 key=f"{g.jd_birth}|{g.cb}", ra_facing=core.lst(jd, facing), lon0=facing, tilt=math.radians(lat0),
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
@@ -345,13 +352,16 @@ _MOTION_JS = r"""
   const line = (colour, dashed) => {               // a near part and a far part, each with its hover title
     const parts = [nearG, farG].map((g) => {
       const attrs = {fill: "none", stroke: colour, "stroke-width": 1.4, style: "pointer-events:stroke"};
-      if (dashed) attrs["stroke-dasharray"] = "6 4";
+      if (dashed) attrs["stroke-dasharray"] = dashed === true ? "6 4" : dashed;
       const e = make("path", g, attrs);
       return [e, make("title", e)];
     });
-    return (pts, tip) => {
+    return (pts, tip, paint, width) => {
       const c = curve(pts);
-      parts.forEach(([e, title], i) => { e.setAttribute("d", c[i]); title.textContent = tip; });
+      parts.forEach(([e, title], i) => {
+        e.setAttribute("d", c[i]); title.textContent = tip;
+        if (paint) { e.setAttribute("stroke", paint); e.setAttribute("stroke-width", width); }
+      });
     };
   };
   const bodies = [];
@@ -377,6 +387,17 @@ _MOTION_JS = r"""
       houses.push({pl, k, label, draw: line(D.house_colour, pl.label === "CN")});
     }
   });
+  const aspectLines = [];                          // each pair of the bodies shown, at each moment: its line when in aspect
+  if (D.aspects.length) D.sets.forEach((s) => s.shown.forEach((p, i) => s.shown.slice(i + 1).forEach((q) =>
+    aspectLines.push({s, p, q, draw: line("black", s.clock === "Now" ? "2 3" : false)}))));
+  const inAspect = (angle, a, b, orb) => {         // the rules of core.hit: within the RA orb of the angle, and the Dec orb
+    let sep = Math.abs(a.ra - b.ra);               // of equal (0), mirrored (180) or either (the others)
+    if (sep > 180) sep = 360 - sep;
+    const same = Math.abs(a.dec - b.dec) <= orb[1], mirrored = Math.abs(a.dec + b.dec) <= orb[1];
+    if (angle === 0) return sep <= orb[0] && same;
+    if (angle === 180) return Math.abs(sep - 180) <= orb[0] && mirrored;
+    return Math.abs(sep - angle) <= orb[0] && (same || mirrored);
+  };
   const pad2 = (n) => (n >= 0 ? "+" : "-") + Math.abs(n).toFixed(2);
   const clockLine = (s, t) => {                    // its date and time, at its place's UTC offset
     const known = s.offset !== null && s.offset !== undefined, off = known ? s.offset : 0;
@@ -432,6 +453,14 @@ _MOTION_JS = r"""
         h.label.setAttribute("x", x.toFixed(1)); h.label.setAttribute("y", (y + 4).toFixed(1));
         taken.push(box);
       }
+    });
+    aspectLines.forEach((l) => {                   // the short way round between the two, straight in RA and Dec as on AstroMap
+      const a = sample(l.s.tables[l.p], t), b = sample(l.s.tables[l.q], t);
+      const on = D.aspects.filter((d) => inAspect(d.angle, a, b, d.orbs[l.p + "|" + l.q]));
+      if (!on.length) return l.draw([], "");
+      const turn = ((b.ra - a.ra + 540) % 360) - 180, pts = [];
+      for (let v = 0; v !== 21; v++) pts.push([a.ra + turn * v / 20, a.dec + (b.dec - a.dec) * v / 20]);
+      l.draw(pts, on.map((d) => d.angle + "-" + l.p + "-" + l.q + " " + l.s.clock).join(", "), on[0].colour, on[0].width);
     });
     bodies.forEach((body) => {
       const b = body.b, s = sample(b, t);
