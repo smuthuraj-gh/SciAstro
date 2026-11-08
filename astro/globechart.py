@@ -17,7 +17,7 @@ WIDTH, HEIGHT = 1100, 720
 MARGIN = 10
 TILT = 23.44                      # degrees the Earth's axis leans from upright (its obliquity)
 LEAN_TOWARD = 45.0                # the way the axis leans: 0 = toward the viewer, 90 = to the right; here between them
-SPEEDS = {"1 day = 1 hr": 3600.0, "1 day = 1 min": 60.0, "1 day = 1 sec": 1.0}   # the seconds one turn of the Earth takes
+SPEEDS = {"1 day = 1 min": 60.0, "1 day = 1 sec": 1.0}   # the seconds one turn of the Earth takes
 DEFAULT_SPEED = "1 day = 1 min"
 EARTH_RADIUS = 165.0              # pixels, in the chart's own layout
 SKY_RADIUS = 315.0                # the celestial sphere, pixels (it fits the chart's height with its pole labels)
@@ -248,7 +248,7 @@ def globe_js(g: GlobeInput, day_seconds: float | None) -> str:
     the Earth inside it about its fixed axis, west to east only, while the pointer is not on it: the surface moves
     eastward, so the longitude facing the viewer falls. By the clock, so the speed holds however long a redraw takes.
     Run with the chart drawn as gd."""
-    step = max(40, min(1000, int((day_seconds or 60.0) * 2.5)))   # milliseconds: about 0.9 degree a step, within reason
+    step = max(40, int((day_seconds or 60.0) * 2.5))          # milliseconds: about 0.9 degree a step, within reason
     return f"""
       const holder = document.createElement("div");
       holder.innerHTML = {json.dumps(sky_svg(g)).replace("<", chr(92) + "u003c")};  // (the page drops a script with tags in)
