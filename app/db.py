@@ -15,7 +15,8 @@ import streamlit as st
 from astro import core
 
 ROOT = Path(__file__).resolve().parent.parent
-FIELDS = ["name", "last_name", "email", "country", "state", "city", "other", "year", "mon", "day", "hr", "mn",
+# the customer columns in table order; Email (login) first, as it is the key
+FIELDS = ["email", "name", "last_name", "country", "state", "city", "other", "year", "mon", "day", "hr", "mn",
           "country_n", "state_n", "city_n", "other_n", "utc"]
 LABELS = {"name": "First Name", "last_name": "Last Name", "email": "Email (login)", "country": "Country", "state": "State",
           "other": "Other", "city": "City",
