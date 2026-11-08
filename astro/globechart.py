@@ -202,17 +202,16 @@ def sky_svg(g: GlobeInput) -> tuple[str, list]:
         path_label(path, "Path of the Sun", core.colour("Su"))
 
     # the others, which shift over the years: one trip round the sky around the birth and, dashed, around now
-    for show, when, suffix, what, dash in ((g.show_birth, g.jd_birth, "", "birth", False),
-                                           (g.show_now, g.jd_now, "-N", "now", True)):
+    for show, when, what, dash in ((g.show_birth, g.jd_birth, "birth", False), (g.show_now, g.jd_now, "now", True)):
         if show and when is not None:
             for p, (days, _steps, name) in PATH_SPAN.items():
                 if p not in g.paths:
                     continue
                 path = _planet_path(p, when)
                 _sky_line(path, ra_facing, core.colour(p), 2.4 if p == "Mo" else 1.8, dash,
-                          f"{name}{suffix}: {days:g} days around {what} "
+                          f"{name}: {days:g} days around {what} "
                           f"(Dec between {min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})", near, far)
-                path_label(path, name + suffix, core.colour(p))
+                path_label(path, name, core.colour(p))
 
     hole =f"M{CX - E} {CY}a{E} {E} 0 1 0 {2 * E} 0a{E} {E} 0 1 0 {-2 * E} 0Z"     # the Earth's disc
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}" '
@@ -228,10 +227,10 @@ def _motion_data(g: GlobeInput, day_seconds: float | None) -> dict:
     jd, facing = _start(g)
     lat0, roll0 = _view()
     sets = []
-    for show, when, name, suffix, offset in ((g.show_birth, g.jd_birth, "DOB", "", g.utc_birth),
-                                             (g.show_now, g.jd_now, "Now", "-N", g.utc_now)):
+    for show, when, name, offset in ((g.show_birth, g.jd_birth, "DOB", g.utc_birth),
+                                     (g.show_now, g.jd_now, "Now", g.utc_now)):
         if show and when is not None:
-            sets.append(dict(clock=name, suffix=suffix, jd=when, offset=offset,
+            sets.append(dict(clock=name, jd=when, offset=offset,
                              bodies={p: _motion_table(p, when) for p in core.BUTTON_ORDER if p in g.bodies}))
     svg, taken = sky_svg(g)
     return dict(svg=svg, taken=[[round(v, 1) for v in box] for box in taken], sets=sets,
@@ -346,8 +345,7 @@ _MOTION_JS = r"""
   };
   const bodies = [];
   D.sets.forEach((s) => Object.entries(s.bodies).forEach(([p, b]) => {
-    const name = p + s.suffix;
-    const body = {name, b, now: !!s.suffix};
+    const body = {name: p, tipName: p + " " + s.clock, b, now: s.clock === "Now"};   // Now: hollow, dashed
     if (D.show_ra) body.raLine = line(b.colour, body.now);
     if (D.show_dec) body.decLine = line(b.colour, body.now);
     bodies.push(body);
@@ -399,12 +397,12 @@ _MOTION_JS = r"""
       if (body.raLine) {
         const pts = [];
         for (let v = -90; v !== 93; v += 3) pts.push([s.ra, v]);
-        body.raLine(pts, body.name + " RA " + s.ra.toFixed(2));
+        body.raLine(pts, body.tipName + " RA " + s.ra.toFixed(2));
       }
       if (body.decLine) {
         const pts = [];
         for (let v = -180; v !== 183; v += 3) pts.push([D.ra_facing + v, s.dec]);
-        body.decLine(pts, body.name + " Dec " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2));
+        body.decLine(pts, body.tipName + " Dec " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2));
       }
       const arcsec = 2 * Math.atan(b.km / (s.dist * D.au_km)) / RAD * 3600;
       const share = Math.max(0, Math.min(1, (Math.log(arcsec) - LOW) / (HIGH - LOW)));
@@ -416,7 +414,7 @@ _MOTION_JS = r"""
       body.mark.setAttribute("cx", x.toFixed(1)); body.mark.setAttribute("cy", y.toFixed(1));
       body.mark.setAttribute("r", r.toFixed(1)); body.mark.setAttribute("opacity", fade);
       body.mark.style.display = hidden ? "none" : ""; body.label.style.display = hidden ? "none" : "";
-      body.tip.textContent = body.name + " (" + (z >= 0 ? "near" : "far") + " side of the sphere)\nRA " + s.ra.toFixed(2) +
+      body.tip.textContent = body.tipName + " (" + (z >= 0 ? "near" : "far") + " side of the sphere)\nRA " + s.ra.toFixed(2) +
         "\nDec " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2) + "\nAngular size " + size +
         "\nDistance(%) from earth " + pct.toFixed(2);
       if (!hidden) taken.push([x - r - 1, y - r - 1, x + r + 1, y + r + 1]);   // no label may cover a marker
