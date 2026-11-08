@@ -314,7 +314,7 @@ def globe_figure(g: GlobeInput) -> go.Figure:
 
 def globe_js(g: GlobeInput, day_seconds: float | None) -> str:
     """Puts the celestial sphere over the chart (under Plotly's hover boxes) and, given the seconds one turn takes, turns
-    the Earth inside it about its fixed axis, west to east only, while the pointer is not on it: the surface moves
+    the Earth inside it about its fixed axis, west to east only, until Rotate is turned off: the surface moves
     eastward, so the longitude facing the viewer falls. By the clock, so the speed holds however long a redraw takes.
     Run with the chart drawn as gd."""
     step = max(40, int((day_seconds or 60.0) * 2.5))          # milliseconds: about 0.9 degree a step, within reason
@@ -326,15 +326,12 @@ def globe_js(g: GlobeInput, day_seconds: float | None) -> str:
       tops[tops.length - 1].before(holder.firstChild);
       if ({str(day_seconds is not None).lower()}) {{
         const RATE = 360 / {day_seconds or 60.0};             // degrees a second
-        let paused = false, busy = false, last = performance.now();
-        gd.addEventListener("mouseenter", () => {{ paused = true; }});
-        gd.addEventListener("mouseleave", () => {{ paused = false; }});
+        let busy = false, last = performance.now();
         const timer = setInterval(() => {{
           if (!document.body.contains(gd)) return clearInterval(timer);
           if (busy) return;
           const t = performance.now(), passed = (t - last) / 1000;
           last = t;
-          if (paused) return;
           const lon = (gd.layout.geo.projection.rotation || {{}}).lon || 0;
           busy = true;
           Plotly.relayout(gd, {{"geo.projection.rotation.lon": ((lon - RATE * passed + 540) % 360 + 360) % 360 - 180}})

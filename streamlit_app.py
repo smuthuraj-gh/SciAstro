@@ -113,8 +113,8 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "AstroGlobe": "Time, with DOB and Now below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the celestial poles. "
-                  "Rotate: the Earth turns about that fixed axis, west to east, while the sphere stands still (point at "
-                  "the chart to pause); the speed beside it sets how long one day's turn takes: 1 minute or "
+                  "Rotate: the Earth turns about that fixed axis, west to east, while the sphere stands still, "
+                  "until Rotate is turned off; the speed beside it sets how long one day's turn takes: 1 minute or "
                   "1 second. The Earth starts as it was at that moment, so a planet is straight above the place "
                   "it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth on that date (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its angular size and Distance(%) from earth). The far side of the sphere is "
