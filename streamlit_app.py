@@ -124,9 +124,9 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "Moon and planets move over the sphere as they really did (time starts again after 4 years; refresh the page to go back "
                   "to the start). Below it, Manual: drag the chart sideways to turn the Earth and run time by hand, forward from the start and back to it. Or pick a speed to start: an hour (h), a day (d), a week (w) or a month (m) to a second; with none picked it holds still. The Earth starts as it was at that "
                   "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth then (a "
-                  "logarithmic scale, as to true scale the planets would not show; point at one for its Dec/Lati, RA, Angular Size, Distance from earth and the others approaching and leaving it in Dec/Lati; at CB or CN for its Long, Dec/Lati, RA and the planets approaching and leaving its Dec/Lati). The far side of the sphere is "
-                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Coordinates, with Houses, RA, Dec, Lati and Long below it: which lines to show. Houses: twelve lines on the sphere, 30 degrees apart from the RA of CB (solid) and of CN (dashed), named H01 to H12 as on AstroMap, turning with the Earth. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
-                  "of CB and CN on the Earth. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Pla Paths, picking from the list below it: the Sun's over a year, and the others' over one trip round "
+                  "logarithmic scale, as to true scale the planets would not show; point at one for its Dec/Lati, RA, Angular Size, Distance from earth and the others approaching and leaving it in Dec/Lati; at CB or CN for its Longi, Dec/Lati, RA and the planets approaching and leaving its Dec/Lati). The far side of the sphere is "
+                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Coordinates, with Houses, RA, Dec, Lati and Longi below it: which lines to show. Houses: twelve lines on the sphere, 30 degrees apart from the RA of CB (solid) and of CN (dashed), named H01 to H12 as on AstroMap, turning with the Earth. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
+                  "of CB and CN on the Earth. Lati, Longi: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Pla Paths, picking from the list below it: the Sun's over a year, and the others' over one trip round "
                   "the sky around that moment (Moon 27.32 days; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now, hollow, dashed lines, with CN at the place now.",
     "AstroMap": "The planets at birth (DOB) and now (Now) on a world map turned by the sky, in RA (along) and "
@@ -462,7 +462,7 @@ def page_globe():
     all_bodies = list(globechart.BODY_CHOICES)
     bodies = options_under("Planets", "bodies", all_bodies, all_bodies)
     paths = options_under("Pla Paths", "paths", all_bodies, [])
-    shown += options_under("Coordinates", "coords", ["Houses", "RA", "Dec", "Lati", "Long"], [], width=108)
+    shown += options_under("Coordinates", "coords", ["Houses", "RA", "Dec", "Lati", "Longi"], [], width=108)
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds, manual = None, False
     if spin.pills("Rotate", ["Rotate"], default="Rotate", key="globe_rotate", label_visibility="collapsed"):
@@ -477,7 +477,7 @@ def page_globe():
         birth=prep.birth, now=now_pts, jd_birth=prep.jd_birth, jd_now=jd_now,
         cb=(prep.birth_lat, prep.birth_lon), cn=prep.cn, show_birth="DOB" in shown, show_now="Now" in shown,
         show_ra="RA" in shown, show_dec="Dec" in shown, show_latitude="Lati" in shown,
-        show_longitude="Long" in shown, show_houses="Houses" in shown, bodies=bodies, paths=paths,
+        show_longitude="Longi" in shown, show_houses="Houses" in shown, bodies=bodies, paths=paths,
         utc_birth=prep.utc, utc_now=utc_now)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
