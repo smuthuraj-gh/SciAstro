@@ -36,7 +36,10 @@ PATH_SPAN = {"Mo": (27.32, 110, "Path of the Moon"), "Me": (365.25, 365, "Path o
              "Ve": (365.25, 365, "Path of Venus"), "Ma": (687.0, 400, "Path of Mars"),
              "Ju": (4333.0, 400, "Path of Jupiter"), "Sa": (10759.0, 400, "Path of Saturn")}
 BODY_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
-EARTH_DEGREES_A_DAY = 360.98565   # the Earth's turn against the still sky in one day of the clock
+MANUAL = "Manual"                 # Rotate's option to drag the Earth round by hand
+HOUSE_COLOUR = "rgb(0,0,0)"
+HOUSE_LABEL_DEC = {"CB": 55.0, "CN": -55.0}   # where on the sphere their names go, out of the planets' way
+EARTH_DEGREES_A_DAY = 360.98565  # the Earth's turn against the still sky in one day of the clock
 MOTION_DAYS = 1461                # how far time runs (4 years) before it starts again, and the tables' reach ...
 MOTION_STEP_DAYS = {"Mo": 0.5, "Me": 2.0, "Ve": 4.0, "Su": 5.0, "Ma": 5.0, "Ju": 20.0, "Sa": 20.0}    # ... and their steps
 CX, CY = WIDTH / 2.0, HEIGHT / 2.0
@@ -57,6 +60,7 @@ class GlobeInput:
     show_dec: bool = True
     show_latitude: bool = False       # the Earth's lines of latitude and of longitude, which turn with it
     show_longitude: bool = False
+    show_houses: bool = False         # the twelve house lines from CB and CN, on the sphere, turning with the Earth
     bodies: tuple = BODY_CHOICES      # the bodies to show, with their RA and Dec lines
     paths: tuple = BODY_CHOICES       # the bodies whose paths to draw
     utc_birth: float | None = None    # the UTC offsets the clocks show their moments in, hours (None: in UT)
@@ -223,7 +227,7 @@ def sky_svg(g: GlobeInput) -> tuple[str, list]:
             f'{axis}{"".join(near)}<g class="sky-near"></g>{"".join(marks)}<g class="sky-marks"></g></svg>'), taken
 
 
-def _motion_data(g: GlobeInput, day_seconds: float | None) -> dict:
+def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False) -> dict:
     """All the page needs to place the bodies at any moment after the start."""
     jd, facing = _start(g)
     lat0, roll0 = _view()
@@ -243,7 +247,8 @@ def _motion_data(g: GlobeInput, day_seconds: float | None) -> dict:
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
-                family=CHART_FONT_FAMILY, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
+                family=CHART_FONT_FAMILY, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
+                house_dec=HOUSE_LABEL_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
 
 
 def globe_figure(g: GlobeInput) -> go.Figure:
@@ -364,6 +369,14 @@ _MOTION_JS = r"""
     body.label = words(markG, {"text-anchor": "middle", fill: c});
     body.label.textContent = body.name;
   });
+  const houses = [];                               // each of CB's and CN's twelve: its line and its name, in the middle of its span
+  if (D.show_houses) D.places.forEach((pl) => {
+    for (let k = 0; k !== 12; k++) {
+      const label = words(markG, {"text-anchor": "middle", fill: D.house_colour});
+      label.textContent = "H" + String((9 + k) % 12 + 1).padStart(2, "0");
+      houses.push({pl, k, label, draw: line(D.house_colour, pl.label === "CN")});
+    }
+  });
   const pad2 = (n) => (n >= 0 ? "+" : "-") + Math.abs(n).toFixed(2);
   const clockLine = (s, t) => {                    // its date and time, at its place's UTC offset
     const known = s.offset !== null && s.offset !== undefined, off = known ? s.offset : 0;
@@ -408,6 +421,18 @@ _MOTION_JS = r"""
   const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
   const place = (t) => {
     const taken = D.taken.slice();
+    houses.forEach((h) => {                        // named on the near side only, and not where a fixed label is
+      const ra = (h.pl.ra + D.spin * t + 30 * h.k) % 360, pts = [];
+      for (let v = -90; v !== 93; v += 3) pts.push([ra, v]);
+      h.draw(pts, h.label.textContent + " " + h.pl.label + " RA: " + ra.toFixed(2));
+      const [x, y, z] = point(ra + 15, D.house_dec[h.pl.label]), box = boxOf(x, y + 4, h.label.textContent);
+      const seen = z >= 0 && clear(box, taken);
+      h.label.style.display = seen ? "" : "none";
+      if (seen) {
+        h.label.setAttribute("x", x.toFixed(1)); h.label.setAttribute("y", (y + 4).toFixed(1));
+        taken.push(box);
+      }
+    });
     bodies.forEach((body) => {
       const b = body.b, s = sample(b, t);
       const [x, y, z] = point(s.ra, s.dec);
@@ -488,10 +513,42 @@ _MOTION_JS = r"""
       redraw(clock.t);
     }, D.step_ms);
   }
+  if (D.manual) {                                  // dragged sideways, the surface follows the pointer and time runs with it
+    let from = null, moved = false;
+    gd.style.cursor = "grab";
+    const follow = (e) => {
+      if (!document.body.contains(gd)) {
+        window.removeEventListener("pointermove", follow);
+        window.removeEventListener("pointerup", letGo);
+        return;
+      }
+      if (from === null) return;
+      const scale = gd.getBoundingClientRect().width / D.width;
+      const degrees = (e.clientX - from) / scale / D.earth / RAD;
+      from = e.clientX;
+      clock.t = Math.max(0, Math.min(D.days - 0.001, clock.t + degrees / D.spin));
+      moved = true;
+      if (!busy) { moved = false; place(clock.t); redraw(clock.t); }
+    };
+    const letGo = () => {
+      from = null;
+      gd.style.cursor = "grab";
+      if (moved) { moved = false; place(clock.t); Plotly.relayout(gd, {"geo.projection.rotation.lon": facing(clock.t)}); }
+    };
+    gd.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || e.target.closest(".modebar-container")) return;
+      from = e.clientX;
+      gd.style.cursor = "grabbing";
+      e.preventDefault();
+    });
+    window.addEventListener("pointermove", follow);
+    window.addEventListener("pointerup", letGo);
+  }
 """
 
 
-def globe_js(g: GlobeInput, day_seconds: float | None) -> str:
+def globe_js(g: GlobeInput, day_seconds: float | None, manual: bool = False) -> str:
     """Puts the celestial sphere over the chart, under Plotly's hover boxes, and moves what is on it; day_seconds is how many
-    seconds a day takes, None with Rotate off."""
-    return _MOTION_JS.replace("__DATA__", json.dumps(_motion_data(g, day_seconds)).replace("<", chr(92) + "u003c"))
+    seconds a day takes, None with no speed picked; with manual, dragging the chart runs time instead."""
+    data = json.dumps(_motion_data(g, day_seconds, manual)).replace("<", chr(92) + "u003c")
+    return _MOTION_JS.replace("__DATA__", data)

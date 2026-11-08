@@ -6,6 +6,7 @@ whose own disk is wiped on every restart). Without it, a local SQLite file priva
 from __future__ import annotations
 
 import io
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -106,6 +107,27 @@ def all_planets() -> pd.DataFrame:
     rows = sorted(rows, key=lambda r: order.get(r["s_name"], len(order)))
     return pd.DataFrame([{"S_Name": r["s_name"], "L_Name": r["l_name"], "Color": r["color"]} for r in rows],
                         columns=["S_Name", "L_Name", "Color"])
+
+
+def planet_problems(df: pd.DataFrame) -> list[str]:
+    """What is wrong with an edited planets table: each needs an L_Name and a colour as rgb(r,g,b) or #rrggbb."""
+    out = []
+    for _, r in df.iterrows():
+        name, colour = str(r["L_Name"] if pd.notna(r["L_Name"]) else "").strip(), str(r["Color"] if pd.notna(r["Color"]) else "").strip()
+        if not name:
+            out.append(f"{r['S_Name']}: L_Name is empty")
+        rgb = re.fullmatch(r"rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)", colour)
+        if not (re.fullmatch(r"#[0-9a-fA-F]{6}", colour) or (rgb and all(int(v) <= 255 for v in rgb.groups()))):
+            out.append(f"{r['S_Name']}: Color must look like rgb(0,112,192) or #0070c0")
+    return out
+
+
+def save_planets(df: pd.DataFrame) -> None:
+    """Keeps an edited planets table's L_Name and Color (S_Name is the key and stays)."""
+    with engine().begin() as c:
+        for _, r in df.iterrows():
+            c.execute(planets.update().where(planets.c.s_name == r["S_Name"])
+                      .values(l_name=str(r["L_Name"]).strip(), color=str(r["Color"]).strip()))
 
 
 def _add_missing_columns(eng: sa.Engine):

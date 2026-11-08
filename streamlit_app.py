@@ -29,6 +29,10 @@ st.html("""<style>
 [data-testid="stTooltipContent"] * { font-size: 13px !important; }
 /* except the planet dots in AstroMap's Distance(%) rows, bigger (mapchart.DOT_SCALE) */
 .stApp span.key-dot { font-size: """ + str(round(mapchart.FONT * mapchart.DOT_SCALE)) + """px !important; }
+/* an editable table's cell editor opens outside the table: it undoes the page's zoom, as the table does, to open on its cell */
+#portal { zoom: calc(1 / var(--app-zoom, 1)); }
+/* AstroGlobe's Planets and Paths lists: two a line, the last alone not stretched across */
+.st-key-globe_bodies button, .st-key-globe_paths button { flex: 0 0 auto !important; width: auto !important; }
 /* AstroGlobe's speed buttons, as small as their text allows */
 .st-key-globe_speed button { padding-left: 4px !important; padding-right: 4px !important; }
 /* the button that opens the sidebar (pages, customer) is titled Menu, so it is clear what it opens */
@@ -113,14 +117,14 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "AstroGlobe": "Time, with DOB and Now below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the celestial poles. "
+    "AstroGlobe": "Time, with Now and DOB below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the celestial poles. "
                   "Rotate: the Earth turns about that fixed axis, west to east, while the sphere stands still, and time "
                   "runs from each moment, until Rotate is turned off: the clock beside the name gives the date and time, and the Sun, "
                   "Moon and planets move over the sphere as they really did (time starts again after 4 years; refresh the page to go back "
-                  "to the start). Pick a speed below it to start: an hour (h), a day (d), a week (w) or a month (m) to a second; with none picked it holds still. The Earth starts as it was at that "
+                  "to the start). Below it, Manual: drag the chart sideways to turn the Earth and run time by hand, forward from the start and back to it. Or pick a speed to start: an hour (h), a day (d), a week (w) or a month (m) to a second; with none picked it holds still. The Earth starts as it was at that "
                   "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth then (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its Dec/Lati, RA, Angular Size, Distance from earth and the others approaching and leaving it in Dec/Lati; at CB or CN for its Long, Dec/Lati, RA and the planets approaching and leaving its Dec/Lati). The far side of the sphere is "
-                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Coordi, with RA, Dec, Lati and Long below it: which coordinate lines to show. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
+                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Coordinates, with Houses, RA, Dec, Lati and Long below it: which lines to show. Houses: twelve lines on the sphere, 30 degrees apart from the RA of CB (solid) and of CN (dashed), named H01 to H12 as on AstroMap, turning with the Earth. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
                   "of CB and CN on the Earth. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Paths, picking from the list below it: the Sun's over a year, and the others' over one trip round "
                   "the sky around that moment (Moon 27.32 days; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now, hollow, dashed lines, with CN at the place now.",
@@ -140,7 +144,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                       "its dot to see it. Dates and times are UT.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
-    "Planets": "The planets table: each planet's short name (S_Name), long name (L_Name) and colour. Seen by admins only.",
+    "Planets": "The planets table: each planet's short name (S_Name), long name (L_Name) and colour. Seen by admins only, who can "
+               "change L_Name and Color and press Save. Color is rgb(r,g,b) or #rrggbb. The charts do not use these colours yet.",
     "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",
@@ -450,18 +455,19 @@ def page_globe():
             return ()
         names = list(globechart.BODY_CHOICES)
         return tuple(box.pills(f"Which {title}", names, selection_mode="multi", default=default, key=f"globe_{key}",
-                               label_visibility="collapsed", width=42))    # (room for one a line: one below another)
+                               label_visibility="collapsed", width=84))    # (room for two a line)
 
-    shown = stacked(("DOB", "Now"), ("DOB",), title="Time")
+    shown = stacked(("Now", "DOB"), ("DOB",), title="Time")
     bodies = bodies_under("Planets", "bodies", list(globechart.BODY_CHOICES))
     paths = bodies_under("Paths", "paths", [])
-    shown += stacked(("RA", "Dec", "Lati", "Long"), (), title="Coordi")
+    shown += stacked(("Houses", "RA", "Dec", "Lati", "Long"), (), title="Coordinates")
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
-    day_seconds = None
+    day_seconds, manual = None, False
     if spin.pills("Rotate", ["Rotate"], default="Rotate", key="globe_rotate", label_visibility="collapsed"):
-        speed = spin.pills("Rotate speed", list(globechart.SPEEDS), default=None, key="globe_speed",
+        speed = spin.pills("Rotate speed", [globechart.MANUAL] + list(globechart.SPEEDS), default=None, key="globe_speed",
                            label_visibility="collapsed", width=60)    # (just room for one button a line: one below the other)
-        day_seconds = globechart.SPEEDS[speed] if speed else None     # no speed picked: it holds still
+        manual = speed == globechart.MANUAL                           # the Earth is dragged round by hand
+        day_seconds = globechart.SPEEDS.get(speed)                    # nothing picked: it holds still
     jd_now = core.now_jd()
     now_pts, _ = now_values(jd_now)
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
@@ -469,10 +475,11 @@ def page_globe():
         birth=prep.birth, now=now_pts, jd_birth=prep.jd_birth, jd_now=jd_now,
         cb=(prep.birth_lat, prep.birth_lon), cn=prep.cn, show_birth="DOB" in shown, show_now="Now" in shown,
         show_ra="RA" in shown, show_dec="Dec" in shown, show_latitude="Lati" in shown,
-        show_longitude="Long" in shown, bodies=bodies, paths=paths, utc_birth=prep.utc, utc_now=utc_now)
+        show_longitude="Long" in shown, show_houses="Houses" in shown, bodies=bodies, paths=paths,
+        utc_birth=prep.utc, utc_now=utc_now)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
-                              after_js=globechart.globe_js(g, day_seconds)),
+                              after_js=globechart.globe_js(g, day_seconds, manual)),
             unsafe_allow_javascript=True)
 
 
@@ -571,7 +578,17 @@ def _distance_cached(dist_on, jd_from, jd_to):
 def page_planets():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
-    st.dataframe(db.all_planets(), hide_index=True, width="content")
+    table = db.all_planets()
+    edited = st.data_editor(table, hide_index=True, width="content", num_rows="fixed", disabled=["S_Name"], key="planets_table")
+    if st.button("Save", key="planets_save", disabled=edited.equals(table)):
+        problems = db.planet_problems(edited)
+        if problems:
+            st.error("Not saved. " + "; ".join(problems))
+        else:
+            db.save_planets(edited)
+            st.toast("Saved")
+            st.session_state.pop("planets_table", None)        # the table starts again from what is now kept
+            st.rerun()
 
 
 def page_aspects():
