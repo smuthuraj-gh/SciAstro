@@ -67,6 +67,14 @@ def _sky_point(ra: float, dec: float, ra_facing: float) -> tuple[float, float, f
     return CX + SKY_RADIUS * x, CY - SKY_RADIUS * y, z
 
 
+def _sun_path(angle: float) -> tuple[float, float]:
+    """The (RA, Dec) a given angle round the Sun's yearly path, counted from where it crosses the celestial equator going
+    north. Only the circle is drawn: the angle itself is never shown."""
+    a, t = math.radians(angle), math.radians(TILT)
+    return (math.degrees(math.atan2(math.cos(t) * math.sin(a), math.cos(a))) % 360.0,
+            math.degrees(math.asin(math.sin(t) * math.sin(a))))
+
+
 def _sky_line(pts: list[tuple[float, float]], ra_facing: float, colour: str, width: float, dash: bool, tip: str,
               near: list[str], far: list[str]) -> None:
     """A line along the sphere, cut where it passes between the near side and the far side."""
@@ -148,6 +156,14 @@ def sky_svg(g: GlobeInput) -> str:
                     key=lambda p: p[0])
     marks.append(_text(ex + 8, ey + 4, "Celestial Equator", AXIS_COLOUR, "start"))
     taken.append(_box(ex + 8, ey + 4, "Celestial Equator", "start"))
+
+    # the Sun's path over a year: the circle tilted TILT to the celestial equator, named at its near side's left-hand end
+    path = [_sun_path(v) for v in range(0, 361, 2)]
+    _sky_line(path, ra_facing, core.colour("Su"), 2.4, False,
+              f"Path of the Sun over a year (Dec between {-TILT:+.2f} and {TILT:+.2f})", near, far)
+    sx, sy, _ = min((p for p in (_sky_point(a, d, ra_facing) for a, d in path) if p[2] >= 0), key=lambda p: p[0])
+    marks.append(_text(sx - 8, sy + 4, "Path of the Sun", core.colour("Su"), "end"))
+    taken.append(_box(sx - 8, sy + 4, "Path of the Sun", "end"))
 
     bodies = []
     if g.show_birth and g.birth:
