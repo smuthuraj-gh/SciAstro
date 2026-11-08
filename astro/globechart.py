@@ -403,7 +403,7 @@ _MOTION_JS = r"""
       const o = sample(b, t), gap = o.dec - s.dec, rate = (o.dec_speed - s.dec_speed) * (gap >= 0 ? 1 : -1);
       if (rate) (rate < 0 ? near : away).push([q, Math.abs(gap)]);
     });
-    return "\nApproach: " + names(near) + "\nLeave: " + names(away);
+    return "\nApproaching: " + names(near) + "\nLeaving: " + names(away);
   };
   const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
   const place = (t) => {
