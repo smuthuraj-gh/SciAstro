@@ -112,8 +112,8 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "AstroGlobe": "The Earth as a turning globe (point at it to pause, drag to spin). Each planet is marked where it "
                   "was overhead: latitude = its Declination, longitude = its RA less the sidereal time at Greenwich. "
-                  "RA/Dec: each planet's RA line (the meridian through it) and Dec line (the circle of latitude "
-                  "through it). DOB: at birth, solid lines, with CB at the birth place. Now: the planets now (-N), "
+                  "RA/Dec: the RA line (the meridian through it) and Dec line (the circle of latitude through it) of "
+                  "each planet, CB and CN. DOB: at birth, solid lines, with CB at the birth place. Now: the planets now (-N), "
                   "dashed lines, with CN at the place now.",
     "AstroMap": "The planets at birth (DOB) and now (Now) on a world map turned by the sky, in RA (along) and "
                 "Declination (up). Map: the coastlines. DOB: the planets at birth, with house lines from CB. "

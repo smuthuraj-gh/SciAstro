@@ -62,9 +62,18 @@ def globe_figure(g: GlobeInput) -> go.Figure:
         planets({k: v for k, v in g.birth.items() if k != "CB"}, g.jd_birth, False)
     if g.show_now and g.now:
         planets(g.now, g.jd_now, True)
-    for label, place, symbol, show in (("CB", g.cb, "diamond", g.show_birth), ("CN", g.cn, "triangle-up", g.show_now)):
+    for label, place, symbol, show, jd in (("CB", g.cb, "diamond", g.show_birth, g.jd_birth),
+                                           ("CN", g.cn, "triangle-up", g.show_now, g.jd_now)):
         if show and place:
             lat, lon = place
+            if g.show_lines and jd is not None:               # its RA (the sidereal time there) and Dec (its latitude)
+                ra = core.lst(jd, lon)
+                for text, line_lon, line_lat in ((f"{label} RA {ra:.2f}", [lon] * len(lats), lats),
+                                                 (f"{label} Dec {lat:+.2f}", lons, [lat] * len(lons))):
+                    fig.add_trace(go.Scattergeo(
+                        lon=line_lon, lat=line_lat, mode="lines", showlegend=False,
+                        line=dict(color="black", width=1.4, dash="dash" if label == "CN" else "solid"),
+                        hoverinfo="text", text=text, opacity=0.7 if label == "CN" else 0.9))
             fig.add_trace(go.Scattergeo(
                 lon=[lon], lat=[lat], mode="markers+text", showlegend=False, text=[f"<b>{label}</b>"],
                 textposition="bottom center", textfont=dict(size=FONT, color="black"),
