@@ -1,7 +1,7 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
-Pages: AstroMap, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only); Aspects Details and
-Customers for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
+Pages: AstroMap, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only); Aspects Details,
+Customers and Planets for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
 
@@ -140,6 +140,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                       "its dot to see it. Dates and times are UT.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
+    "Planets": "The planets table: each planet's short name, description and colour. Seen by admins only.",
     "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",
@@ -567,6 +568,12 @@ def _distance_cached(dist_on, jd_from, jd_to):
 
 
 
+def page_planets():
+    if not user.is_admin:                                     # admins only (not in a user's menu either)
+        st.stop()
+    st.dataframe(db.all_planets(), hide_index=True, width="content")
+
+
 def page_aspects():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
@@ -692,9 +699,10 @@ pages = [st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
-if user.is_admin:                                             # the Aspects Details and Customers pages: admins only
+if user.is_admin:                                             # the Aspects Details, Customers, Planets pages: admins only
     pages += [st.Page(page_aspects, title="Aspects Details", icon=":material/tune:", url_path="aspects-details"),
-              st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers")]
+              st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers"),
+              st.Page(page_planets, title="Planets", icon=":material/planet:", url_path="planets")]
 else:
     pages.append(st.Page(page_my_details, title="My details", icon=":material/person:", url_path="me"))
 nav = st.navigation(pages)

@@ -12,6 +12,7 @@ zodiac), with the same rules.
 | Planets Distance(%) | everyone | distance (-D) lines from birth to now: D, the % between each planet's nearest and farthest |
 | Aspects Details | admins | the orbs per aspect and planet; a pair uses the larger of its two planets' orbs |
 | Customers | admins | add, edit, delete customers; import the workbook's Customers tab as CSV |
+| Planets | admins | the planets table in the database: Planet, Desc, Color |
 | My details | users | their own birth details, with Edit my details to change them (the login email stays) |
 
 Users sign in with Google and see only the customers whose **Email (login)** is theirs. A new member (no customer

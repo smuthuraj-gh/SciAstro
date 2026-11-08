@@ -46,6 +46,13 @@ STAMPS = {"added_at": "Added", "updated_at": "Updated", "accessed_at": "Accessed
 EMAIL_INDEX = "ux_customers_email"
 sa.Index(EMAIL_INDEX, customers.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
+planets = sa.Table(                                           # seen by admins only (the Planets page)
+    "planets", meta,
+    sa.Column("planet", sa.String(8), primary_key=True),
+    sa.Column("desc", sa.String(60)),
+    sa.Column("color", sa.String(40)),
+)
+PLANET_NAMES = {"Su": "Sun", "Mo": "Moon", "Me": "Mercury", "Ve": "Venus", "Ma": "Mars", "Ju": "Jupiter", "Sa": "Saturn"}
 
 
 def _now():
@@ -70,7 +77,25 @@ def engine() -> sa.Engine:
     eng = sa.create_engine(url, pool_pre_ping=True)
     meta.create_all(eng)
     _add_missing_columns(eng)
+    _seed_planets(eng)
     return eng
+
+
+def _seed_planets(eng: sa.Engine):
+    """The planets table, when empty, starts with the Sun, Moon and planets in the colours the charts use."""
+    with eng.begin() as c:
+        if not c.execute(sa.select(sa.func.count()).select_from(planets)).scalar():
+            c.execute(planets.insert(), [{"planet": p, "desc": d, "color": core.colour(p)} for p, d in PLANET_NAMES.items()])
+
+
+def all_planets() -> pd.DataFrame:
+    """The planets table: Planet, Desc, Color, Sun first."""
+    with engine().connect() as c:
+        rows = c.execute(sa.select(planets)).mappings().all()
+    order = {p: i for i, p in enumerate(PLANET_NAMES)}
+    rows = sorted(rows, key=lambda r: order.get(r["planet"], len(order)))
+    return pd.DataFrame([{"Planet": r["planet"], "Desc": r["desc"], "Color": r["color"]} for r in rows],
+                        columns=["Planet", "Desc", "Color"])
 
 
 def _add_missing_columns(eng: sa.Engine):
