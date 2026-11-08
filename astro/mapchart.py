@@ -295,10 +295,11 @@ def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str
 
 CHART_FONT_FAMILY = "'Open Sans', verdana, arial, sans-serif"     # Plotly's default, which the charts are drawn in
 CHART_TEXT = "#444"                                              # Plotly's text colour
-# The space between one planet and the next in the three Distance(%) rows, about 20 px in each: under the map each
-# planet's room is its widest-text estimate (text_px, a little over) + KEY_GAP; beside the buttons a plain margin
-KEY_GAP = 12
-KEY_GAP_HTML = 20
+# The space between one planet and the next in the three Distance(%) rows, about 14 px in each (so the two rows fit on
+# the buttons' line): under the map each planet's room is its widest-text estimate (text_px, a little over) + KEY_GAP;
+# beside the buttons a plain margin
+KEY_GAP = 6
+KEY_GAP_HTML = 14
 
 
 def key_html(m: MapInput) -> str:
