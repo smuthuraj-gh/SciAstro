@@ -17,8 +17,8 @@ WIDTH, HEIGHT = 1100, 720
 MARGIN = 10
 TILT = 23.44                      # degrees the Earth's axis leans from upright (its obliquity)
 LEAN_TOWARD = 45.0                # the way the axis leans: 0 = toward the viewer, 90 = to the right; here between them
-SPEEDS = {"1 day = 1 min": 60.0, "1 day = 1 sec": 1.0}   # the seconds one turn of the Earth takes
-DEFAULT_SPEED = "1 day = 1 min"
+SPEEDS = {"1d=1min": 60.0, "1d=1sec": 1.0}   # the seconds one turn of the Earth takes
+DEFAULT_SPEED = "1d=1min"
 EARTH_RADIUS = 165.0              # pixels, in the chart's own layout
 SKY_RADIUS = 315.0                # the celestial sphere, pixels (it fits the chart's height with its pole labels)
 AXIS_COLOUR = "rgb(60,60,60)"
@@ -46,7 +46,8 @@ class GlobeInput:
     cn: tuple[float, float] | None    # place now (lat, lon)
     show_birth: bool = True
     show_now: bool = False
-    show_lines: bool = True
+    show_ra: bool = True
+    show_dec: bool = True
     paths: tuple = PATH_CHOICES       # the bodies whose paths to draw
 
 
@@ -189,10 +190,11 @@ def sky_svg(g: GlobeInput) -> str:
         bodies += [(p, g.birth[p], False) for p in core.BUTTON_ORDER if p in g.birth]
     if g.show_now and g.now:
         bodies += [(p, g.now[p], True) for p in core.BUTTON_ORDER if p in g.now]
-    if g.show_lines:
-        for p, (ra, de), now in bodies:
-            name, c = p + ("-N" if now else ""), core.colour(p)
+    for p, (ra, de), now in bodies:
+        name, c = p + ("-N" if now else ""), core.colour(p)
+        if g.show_ra:
             _sky_line([(ra, v) for v in range(-90, 91, 2)], ra_facing, c, 1.4, now, f"{name} RA {ra:.2f}", near, far)
+        if g.show_dec:
             _sky_line([(ra_facing + v, de) for v in range(-180, 181, 2)], ra_facing, c, 1.4, now,
                       f"{name} Dec {de:+.2f}", near, far)
     shown = []
@@ -244,9 +246,11 @@ def sky_svg(g: GlobeInput) -> str:
         name, c = p + ("-N" if now else ""), core.colour(p)
         opacity = 1.0 if z >= 0 else 0.55
         side = "near side" if z >= 0 else "far side"
+        distance = core.distance_pct(p, core.position(p, g.jd_now if now else g.jd_birth).dist_au)
         marks.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{"white" if now else c}" stroke="{c}" '
                      f'stroke-width="2" opacity="{opacity}" style="pointer-events:auto"><title>{name} ({side} of the '
-                     f'sphere)\nRA {ra:.2f}\nDec {de:+.2f}\nAngular size {_size_text(size)}</title></circle>')
+                     f'sphere)\nRA {ra:.2f}\nDec {de:+.2f}\nAngular size {_size_text(size)}\n'
+                     f'Distance(%) from earth {distance:.2f}</title></circle>')
         lx, ly = _label_spot(x, y, name, taken, r)
         taken.append(_box(lx, ly, name))
         marks.append(_text(lx, ly, name, c, opacity=opacity))
@@ -269,10 +273,12 @@ def globe_figure(g: GlobeInput) -> go.Figure:
                                            ("CN", g.cn, "triangle-up", g.show_now, g.jd_now)):
         if show and place:
             lat, lon = place
-            if g.show_lines and jd is not None:               # its RA (the sidereal time there) and Dec (its latitude)
+            if jd is not None:                                # its RA (the sidereal time there) and Dec (its latitude)
                 ra = core.lst(jd, lon)
-                for text, line_lon, line_lat in ((f"{label} RA {ra:.2f}", [lon] * len(lats), lats),
-                                                 (f"{label} Dec {lat:+.2f}", lons, [lat] * len(lons))):
+                for on, text, line_lon, line_lat in ((g.show_ra, f"{label} RA {ra:.2f}", [lon] * len(lats), lats),
+                                                     (g.show_dec, f"{label} Dec {lat:+.2f}", lons, [lat] * len(lons))):
+                    if not on:
+                        continue
                     fig.add_trace(go.Scattergeo(
                         lon=line_lon, lat=line_lat, mode="lines", showlegend=False,
                         line=dict(color="black", width=1.4, dash="dash" if label == "CN" else "solid"),
