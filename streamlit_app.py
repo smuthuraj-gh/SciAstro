@@ -14,7 +14,7 @@ import streamlit as st
 
 from app import auth, db
 from app.chartdata import Prepared, locate_cached, now_local_text, now_values, prepare
-from astro import core, distancechart, mapchart, rangechart, se
+from astro import core, distancechart, globechart, mapchart, rangechart, se
 
 # wide pages, the sidebar (menu, customer) starting closed so the charts get the whole window; » opens it
 st.set_page_config(page_title="Equatorial charts", page_icon=":material/public:", layout="wide",
@@ -110,6 +110,11 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
+    "AstroGlobe": "The Earth as a turning globe (point at it to pause, drag to spin). Each planet is marked where it "
+                  "was overhead: latitude = its Declination, longitude = its RA less the sidereal time at Greenwich. "
+                  "RA/Dec: each planet's RA line (the meridian through it) and Dec line (the circle of latitude "
+                  "through it). DOB: at birth, solid lines, with CB at the birth place. Now: the planets now (-N), "
+                  "dashed lines, with CN at the place now.",
     "AstroMap": "The planets at birth (DOB) and now (Now) on a world map turned by the sky, in RA (along) and "
                 "Declination (up). Map: the coastlines. DOB: the planets at birth, with house lines from CB. "
                 "Now: the planets now (-N), with house lines from CN. Major Aspects: 0, 60, 90, 120, 180 degrees. "
@@ -412,6 +417,25 @@ def cycles_inputs(title: str, keys: str, aspect_buttons: bool = True):
     return jds, dec_on, [ea_names[e] for e in ea], minor
 
 
+def page_globe():
+    """The turning globe: the planets where they were overhead, their RA and Dec lines, CB and CN."""
+    row, prep = pick_customer()
+    head = st.container(horizontal=True, vertical_alignment="center", gap="small")
+    if not need_chart(prep):
+        return
+    shown = head.pills("Show", ["DOB", "Now", "RA/Dec", "Rotate"], selection_mode="multi",
+                       default=["DOB", "RA/Dec", "Rotate"], key="globe_show_v2", label_visibility="collapsed")
+    jd_now = core.now_jd()
+    now_pts, _ = now_values(jd_now)
+    g = globechart.GlobeInput(
+        birth=prep.birth, now=now_pts, jd_birth=prep.jd_birth, jd_now=jd_now,
+        cb=(prep.birth_lat, prep.birth_lon), cn=prep.cn, show_birth="DOB" in shown, show_now="Now" in shown,
+        show_lines="RA/Dec" in shown)
+    # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
+    st.html(mapchart.fit_html(globechart.globe_figure(g), after_js=globechart.rotate_js("Rotate" in shown)),
+            unsafe_allow_javascript=True)
+
+
 def page_range():
     got = cycles_inputs("Planets Cycles", "")
     if got is None:
@@ -625,6 +649,7 @@ def page_my_details():
 
 
 pages = [st.Page(page_map, title="AstroMap", icon=":material/public:", url_path="astromap", default=True),
+         st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe"),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]

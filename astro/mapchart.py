@@ -229,7 +229,7 @@ def _aspect_line(fig: go.Figure, a: core.AspectLine, is_now: bool, minor: bool, 
 INSET_L, INSET_R = 15, 11
 
 
-def fit_html(fig: go.Figure) -> str:
+def fit_html(fig: go.Figure, after_js: str = "") -> str:
     """The chart as HTML scaled as a whole to the page's zoom, exactly as laid out (so no label can come to overlap
     another), reaching INSET_L / INSET_R past the text column. Any chart with a fixed layout width and height."""
     import uuid
@@ -270,7 +270,9 @@ def fit_html(fig: go.Figure) -> str:
   const fig = {fig.to_json()};
   (function draw() {{
     if (!window.Plotly) return setTimeout(draw, 50);
-    Plotly.newPlot(inner, fig.data, fig.layout, {{displaylogo: false, responsive: false}});
+    Plotly.newPlot(inner, fig.data, fig.layout, {{displaylogo: false, responsive: false}}).then(function (gd) {{
+      {after_js}
+    }});
   }})();
 }})();
 </script>"""
