@@ -80,8 +80,7 @@ def globe_figure(g: GlobeInput) -> go.Figure:
                  showland=True, landcolor="rgb(236,236,230)", showocean=True, oceancolor="rgb(220,232,245)",
                  showcoastlines=True, coastlinecolor="rgb(150,150,150)", showcountries=True,
                  countrycolor="rgb(200,200,200)", showframe=False, bgcolor="white",
-                 lataxis=dict(showgrid=True, dtick=15, gridcolor="rgb(205,205,205)"),
-                 lonaxis=dict(showgrid=True, dtick=30, gridcolor="rgb(205,205,205)")))
+                 lataxis=dict(showgrid=False), lonaxis=dict(showgrid=False)))
     return fig
 
 
