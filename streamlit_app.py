@@ -1,6 +1,6 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
-Pages: AstroGlobe, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only); Aspects Details,
+Pages: AstroGlobe, Planets 3D, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only); Aspects Details,
 Customers and Planets for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
@@ -16,7 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app import auth, db
 from app.chartdata import Prepared, locate_cached, now_values, prepare
-from astro import core, distancechart, globechart, mapchart, places, rangechart, se
+from astro import core, distancechart, globechart, mapchart, places, rangechart, se, space3d
 
 # wide pages, the sidebar (menu, customer) starting closed so the charts get the whole window; » opens it
 st.set_page_config(page_title="Equatorial charts", page_icon=":material/public:", layout="wide",
@@ -135,6 +135,11 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "of CB and CN on the Earth. Distance(%) from earth (DOB+Now)/2, at the end of the buttons' line: the average of each planet's Distance(%) at birth and now, whatever time the clock shows; below it, with DOB chosen, Distance(%) from earth on DOB. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Planet Path, picking from the list below it: the Sun's over a year, and the others' over one trip round "
                   "the sky around that moment (Moon 27.32 days around the clock's date, moving as time runs, tagged NN and SN at its north and south nodes where it crosses the Sun's path; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now, hollow, dashed lines, with CN at the place now.",
+    "Planets 3D": "The paths of the Sun, Moon and planets around the Earth, each at its own distance from the Earth (on AstroGlobe all are on one sphere). "
+                  "Each point is placed by its RA, Dec and distance. North is up, and the rings lie on the plane of the Earth's equator, with their distances from the Earth in AU (1 AU is about the Sun's distance). "
+                  "Drag the drawing to turn it; what is behind is fainter. Point at a planet for its Dec/Lati, RA and distance, or at a path for its span and distances. "
+                  "Time: Now is hollow with dashed paths, DOB solid; each path is one trip round the sky around that moment (Sun, Mercury and Venus a year; Moon 27.32 days; Mars 687; Jupiter 4333; Saturn 10759). "
+                  "Distance scale: on Log each ring is ten times the distance of the one inside it, so the Moon's path and Saturn's can be seen together; True is to scale, where the Moon's path is too small to tell from the Earth (pick Mo alone to see it). A label with no room is left off: point at its mark.",
     "Aspects": "The aspects between the chosen planets over the period, as tables, newest first: one table per "
                "angle, a row each time two planets came into it (RA within the angle's RA orb, Declination within "
                "its Dec orb). Major Aspects: 0, 60, 90, 120, 180 degrees. Minor Aspects: 30, 45, 72, 135, 144, "
@@ -477,6 +482,23 @@ def page_globe():
             unsafe_allow_javascript=True)
 
 
+def page_space():
+    """The paths at their real distances, in 3D."""
+    _, prep = pick_customer()
+    head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
+    if not need_chart(prep):
+        return
+    shown = head.pills("Time", ["Now", "DOB"], selection_mode="multi", default=["Now"], key="space_time") or []
+    bodies = head.pills("Planets", list(globechart.BODY_CHOICES), selection_mode="multi", default=list(globechart.BODY_CHOICES),
+                        key="space_bodies") or []
+    scale = head.pills("Distance scale", space3d.SCALES, default=space3d.SCALES[0], key="space_scale") or space3d.SCALES[0]
+    if not shown or not bodies:
+        st.info("Choose a time and at least one planet.")
+        return
+    moments = [(c, jd) for c, jd in (("Now", core.now_jd()), ("DOB", prep.jd_birth)) if c in shown]
+    st.html(space3d.space_html(bodies, moments, scale), unsafe_allow_javascript=True)
+
+
 def page_range():
     got = cycles_inputs("")
     if got is None:
@@ -757,6 +779,7 @@ def page_my_details():
 
 core.COLOURS.update(db.planet_colours())                      # every chart's colours are the planets table's
 pages = [st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe", default=True),
+         st.Page(page_space, title="Planets 3D", icon=":material/orbit:", url_path="planets-3d"),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
