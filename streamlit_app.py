@@ -453,7 +453,7 @@ def page_globe():
     coords = head.container(width="content", gap="xxsmall")   # Coordinates, with its options below it in fixed rows
     if coords.pills("Coordinates", ["Coordinates"], default="Coordinates", key="globe_coords_on", label_visibility="collapsed"):
         for row_of in (["House", "Celes"], ["RA", "Dec"], ["Lati", "Long"]):
-            shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[],
+            shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[n for n in row_of if n == "Celes"],
                                   key=f"globe_coords_{row_of[0]}", label_visibility="collapsed")
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds, manual = None, False
