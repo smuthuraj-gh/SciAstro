@@ -53,6 +53,7 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("name", sa.String(60)),
     sa.Column("color", sa.String(40)),
     sa.Column("color_name", sa.String(40)),                   # free text, for people; the charts use color
+    sa.Column("size", sa.Float),                              # a number, for reference; blank until an admin fills it in
 )
 # The Aspects Details table: a row per aspect, with its RA and Dec orbs per planet; pos keeps the order shown
 ORB_COLUMNS = [c for c in core.default_orb_table().columns if c not in ("Aspect", "Angle")]
@@ -96,6 +97,7 @@ def engine() -> sa.Engine:
     _add_missing_columns(eng)
     _rename_planet_columns(eng)
     _add_planet_color_name(eng)
+    _add_planet_size(eng)
     _seed_planets(eng)
     _seed_aspect_details(eng)
     return eng
@@ -152,6 +154,13 @@ def _add_planet_color_name(eng: sa.Engine):
             c.execute(planets.update().where(planets.c.color == colour).values(color_name=name))
 
 
+def _add_planet_size(eng: sa.Engine):
+    """A table made before Size gets it, blank."""
+    if "size" not in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
+        with eng.begin() as c:
+            c.execute(sa.text(f"ALTER TABLE naming_conventions ADD COLUMN size {planets.c.size.type.compile(dialect=eng.dialect)}"))
+
+
 def _seed_planets(eng: sa.Engine):
     """The table, when empty, starts with every row in the colours the charts use. A table made earlier gets the
     rows it lacks of Ea, NN, SN (in its Moon's colour, as they were drawn), CN and CB."""
@@ -168,19 +177,27 @@ def _seed_planets(eng: sa.Engine):
 
 
 def all_planets() -> pd.DataFrame:
-    """The Naming Conventions table: SN, Name, Color, Color_Name, Sun first."""
+    """The Naming Conventions table: SN, Name, Color, Color_Name, Size, Sun first."""
     with engine().connect() as c:
         rows = c.execute(sa.select(planets)).mappings().all()
     order = {p: i for i, p in enumerate(PLANET_NAMES)}
     rows = sorted(rows, key=lambda r: order.get(r["sn"], len(order)))
-    return pd.DataFrame([{"SN": r["sn"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"]} for r in rows],
-                        columns=["SN", "Name", "Color", "Color_Name"])
+    table = pd.DataFrame([{"SN": r["sn"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"], "Size": r["size"]}
+                          for r in rows], columns=["SN", "Name", "Color", "Color_Name", "Size"])
+    table["Size"] = pd.to_numeric(table["Size"], errors="coerce")   # a number column even while all are blank
+    return table
 
 
 def planet_colours() -> dict[str, str]:
     """The Color of each row of the Naming Conventions table, by its SN."""
     with engine().connect() as c:
         return {sn: color for sn, color in c.execute(sa.select(planets.c.sn, planets.c.color)) if color}
+
+
+def _size(value) -> float | None:
+    """A Size as a number, or None when blank or not a number."""
+    number = pd.to_numeric(value, errors="coerce")
+    return None if pd.isna(number) else float(number)
 
 
 def _cell(value) -> str:
@@ -190,12 +207,12 @@ def _cell(value) -> str:
 def planet_problems(rows: pd.DataFrame) -> list[str]:
     """What is wrong with the Naming Conventions table's rows (_sn: the SN a row is kept under; blank on a new one, and a wholly empty
     new one does not count). Each needs a Name and a colour as rgb(r,g,b) or #rrggbb and an SN of up to 8 characters, unique;
-    the SN of a row already in the table stays. Color_Name may be blank, up to 40 characters."""
+    the SN of a row already in the table stays. Color_Name may be blank, up to 40 characters; Size may be blank, or a number of 0 or more."""
     out, seen = [], set()
     for _, r in rows.iterrows():
         sn, name, colour, kept = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
         colour_name = _cell(r["Color_Name"])
-        if not (kept or sn or name or colour or colour_name):
+        if not (kept or sn or name or colour or colour_name or _cell(r["Size"])):
             continue
         label = sn or kept or "New row"
         if kept and sn != kept:
@@ -214,12 +231,14 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
             out.append(f"{label}: Color must look like rgb(0,112,192) or #0070c0")
         if len(colour_name) > 40:
             out.append(f"{label}: Color_Name can be at most 40 characters")
+        if _cell(r["Size"]) and (_size(r["Size"]) is None or _size(r["Size"]) < 0):
+            out.append(f"{label}: Size must be a number of 0 or more")
     return out
 
 
 def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
     """Makes the Naming Conventions table these rows: (added, changed, deleted)."""
-    old = {r["SN"]: (_cell(r["Name"]), _cell(r["Color"]), _cell(r["Color_Name"])) for _, r in all_planets().iterrows()}
+    old = {r["SN"]: (_cell(r["Name"]), _cell(r["Color"]), _cell(r["Color_Name"]), _size(r["Size"])) for _, r in all_planets().iterrows()}
     added = changed = 0
     kept = {_cell(v) for v in rows["_sn"]} - {""}
     with engine().begin() as c:
@@ -228,12 +247,13 @@ def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
         for _, r in rows.iterrows():
             sn, name, colour, was = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
             colour_name = _cell(r["Color_Name"])
-            values = dict(name=name, color=colour, color_name=colour_name or None)
+            size = _size(r["Size"])
+            values = dict(name=name, color=colour, color_name=colour_name or None, size=size)
             if was:
-                if old.get(was) != (name, colour, colour_name):
+                if old.get(was) != (name, colour, colour_name, size):
                     c.execute(planets.update().where(planets.c.sn == was).values(**values))
                     changed += 1
-            elif sn or name or colour or colour_name:
+            elif sn or name or colour or colour_name or size is not None:
                 c.execute(planets.insert().values(sn=sn, **values))
                 added += 1
     return added, changed, len(set(old) - kept)
