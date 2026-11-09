@@ -202,25 +202,6 @@ def sky_svg(g: GlobeInput) -> tuple[str, list]:
     _sky_line(circle, ra_facing, AXIS_COLOUR, 1.4, False, "Celestial equator (Dec 0)", near, far)
     path_label(circle, "Celestial Equator", AXIS_COLOUR, right=True)
 
-    if "Su" in g.paths:
-        # the Sun's path over a year: the circle tilted TILT to the celestial equator
-        path = [_sun_path(v) for v in range(0, 361, 2)]
-        _sky_line(path, ra_facing, core.colour("Su"), 2.4, False,
-                  f"Path of the Sun over a year (Dec between {-TILT:+.2f} and {TILT:+.2f})", near, far)
-        path_label(path, "Path of the Sun", core.colour("Su"))
-
-    # the others, which shift over the years: one trip round the sky around the birth and, dashed, around now
-    for show, when, what, dash in ((g.show_birth, g.jd_birth, "birth", False), (g.show_now, g.jd_now, "now", True)):
-        if show and when is not None:
-            for p, (days, _steps, name) in PATH_SPAN.items():
-                if p not in g.paths:
-                    continue
-                path = _planet_path(p, when)
-                _sky_line(path, ra_facing, core.colour(p), 2.4 if p == "Mo" else 1.8, dash,
-                          f"{name}: {days:g} days around {what} "
-                          f"(Dec between {min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})", near, far)
-                path_label(path, name, core.colour(p))
-
     hole =f"M{CX - E} {CY}a{E} {E} 0 1 0 {2 * E} 0a{E} {E} 0 1 0 {-2 * E} 0Z"     # the Earth's disc
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}" '
             f'style="position:absolute;left:0;top:0;pointer-events:none">'
@@ -228,6 +209,27 @@ def sky_svg(g: GlobeInput) -> tuple[str, list]:
             f'<g clip-path="url(#off-earth)"><circle cx="{CX}" cy="{CY}" r="{R}" fill="{SKY_FILL}" stroke="{AXIS_COLOUR}" '
             f'stroke-width="1"/><g opacity="{BACK_OPACITY}">{"".join(far)}<g class="sky-far"></g></g></g>'
             f'{axis}{"".join(near)}<g class="sky-near"></g>{"".join(marks)}<g class="sky-marks"></g></svg>'), taken
+
+
+def _paths(g: GlobeInput) -> list[dict]:
+    """The paths to draw, for the page, which draws them again whenever the view turns."""
+    out = []
+    if "Su" in g.paths:
+        # the Sun's path over a year: the circle tilted TILT to the celestial equator
+        out.append(dict(name="Path of the Sun", colour=core.colour("Su"), width=2.4, dash=False,
+                        tip=f"Path of the Sun over a year (Dec between {-TILT:+.2f} and {TILT:+.2f})",
+                        pts=[_sun_path(v) for v in range(0, 361, 2)]))
+    # the others, which shift over the years: one trip round the sky around the birth and, dashed, around now
+    for show, when, what, dash in ((g.show_birth, g.jd_birth, "birth", False), (g.show_now, g.jd_now, "now", True)):
+        if show and when is not None:
+            for p, (days, _steps, name) in PATH_SPAN.items():
+                if p in g.paths:
+                    path = _planet_path(p, when)
+                    out.append(dict(name=name, colour=core.colour(p), width=2.4 if p == "Mo" else 1.8, dash=dash,
+                                    tip=f"{name}: {days:g} days around {what} (Dec between "
+                                        f"{min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})",
+                                    pts=[[round(a, 2), round(d, 2)] for a, d in path]))
+    return out
 
 
 def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False) -> dict:
@@ -249,7 +251,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                           for i, p in enumerate(core.BUTTON_ORDER) for q in core.BUTTON_ORDER[i + 1:]})
                for a in g.aspects] if g.orbs is not None else []
     svg, taken = sky_svg(g)
-    return dict(svg=svg, aspects=aspects, taken=[[round(v, 1) for v in box] for box in taken], sets=sets, places=places,
+    return dict(svg=svg, aspects=aspects, paths=_paths(g), taken=[[round(v, 1) for v in box] for box in taken], sets=sets, places=places,
                 key=f"{g.jd_birth}|{g.cb}", ra_facing=core.lst(jd, facing), lon0=facing, tilt=math.radians(lat0),
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
@@ -323,8 +325,9 @@ _MOTION_JS = r"""
   const words = (parent, attrs) => make("text", parent, Object.assign({"font-weight": "bold", "font-size": D.font,
     "font-family": D.family, stroke: "white", "stroke-width": 3, "paint-order": "stroke"}, attrs));
   const cp = Math.cos(D.tilt), sp = Math.sin(D.tilt), cr = Math.cos(D.roll), sr = Math.sin(D.roll);
+  let raFacing = D.ra_facing;                      // the RA facing the viewer: the view can be turned by hand (Manual)
   const point = (ra, dec) => {                     // on the chart: x, y, and z above 0 on the side toward the viewer
-    const d = (ra - D.ra_facing) * RAD, e = dec * RAD, ce = Math.cos(e);
+    const d = (ra - raFacing) * RAD, e = dec * RAD, ce = Math.cos(e);
     const x = ce * Math.sin(d), y = Math.sin(e), z = ce * Math.cos(d);
     const y1 = y * cp - z * sp, z1 = y * sp + z * cp;
     return [D.cx + D.sky * (x * cr + y1 * sr), D.cy - D.sky * (-x * sr + y1 * cr), z1];
@@ -440,8 +443,35 @@ _MOTION_JS = r"""
     return "\nApproaching: " + names(near) + "\nLeaving: " + names(away);
   };
   const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
+  const paths = D.paths.map((p) => Object.assign({}, p, {draw: line(p.colour, p.dash), label: words(markG, {"text-anchor": "end", fill: p.colour})}));
+  paths.forEach((p) => { p.label.textContent = p.name; });
+  let pathBoxes = [], pathsFacing = null;
+  const drawPaths = () => {                        // each named at its near side's left-hand end, or as near there as is free
+    pathBoxes = [];
+    paths.forEach((p) => {
+      p.draw(p.pts, p.tip, p.colour, p.width);
+      let left = null;
+      p.pts.forEach(([ra, dec]) => { const q = point(ra, dec); if (q[2] >= 0 && (!left || q[0] < left[0])) left = q; });
+      p.label.style.display = left ? "" : "none";
+      if (!left) return;
+      const w = p.name.length * D.text_w, x = left[0] - 8;
+      const boxAt = (y) => [x - w - 3, y - D.text_h + 3, x + 3, y + 3];
+      for (let v = 0; v !== 90; v++) for (const s of [1, -1]) {
+        const y = left[1] + 4 + v * 19 * s;
+        if (y > 16 && y < D.height - 4 && x - w - 3 > 0 && clear(boxAt(y), D.taken.concat(pathBoxes))) {
+          p.label.setAttribute("x", x.toFixed(1)); p.label.setAttribute("y", y.toFixed(1));
+          pathBoxes.push(boxAt(y));
+          return;
+        }
+      }
+      p.label.style.display = "none";
+    });
+    pathsFacing = raFacing;
+  };
   const place = (t) => {
-    const taken = D.taken.slice();
+    raFacing = D.ra_facing - clock.view;
+    if (pathsFacing !== raFacing) drawPaths();
+    const taken = D.taken.concat(pathBoxes);
     houses.forEach((h) => {                        // named on the near side only, and not where a fixed label is
       const ra = (h.pl.ra + D.spin * t + 30 * h.k) % 360, pts = [];
       for (let v = -90; v !== 93; v += 3) pts.push([ra, v]);
@@ -472,7 +502,7 @@ _MOTION_JS = r"""
       }
       if (body.decLine) {
         const pts = [];
-        for (let v = -180; v !== 183; v += 3) pts.push([D.ra_facing + v, s.dec]);
+        for (let v = -180; v !== 183; v += 3) pts.push([raFacing + v, s.dec]);
         body.decLine(pts, body.tipName + " Dec/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2));
       }
       const arcsec = 2 * Math.atan(b.km / (s.dist * D.au_km)) / RAD * 3600;
@@ -523,8 +553,8 @@ _MOTION_JS = r"""
       Plotly.update(gd, {hovertext: D.places.map((pl) => placeBox(pl, t))}, turn, placeTraces).then(done);
     } else Plotly.relayout(gd, turn).then(done);
   };
-  const facing = (t) => (((D.lon0 - D.spin * t + 540) % 360) + 360) % 360 - 180;
-  if (!window.globeClock || window.globeClock.key !== D.key) window.globeClock = {key: D.key, t: 0};
+  const facing = (t) => (((D.lon0 - D.spin * t - clock.view + 540) % 360) + 360) % 360 - 180;
+  if (!window.globeClock || window.globeClock.key !== D.key) window.globeClock = {key: D.key, t: 0, view: 0};
   const clock = window.globeClock;
   place(clock.t);
   let busy = false;
@@ -542,7 +572,8 @@ _MOTION_JS = r"""
       redraw(clock.t);
     }, D.step_ms);
   }
-  if (D.manual) {                                  // dragged sideways, the surface follows the pointer and time runs with it
+  if (D.manual) {                                  // dragged sideways, the Earth and the sphere turn together to show their
+                                                   // hidden sides, about the axis; time stands still, so the clock and all positions hold
     let from = null, moved = false;
     gd.style.cursor = "grab";
     const follow = (e) => {
@@ -555,7 +586,7 @@ _MOTION_JS = r"""
       const scale = gd.getBoundingClientRect().width / D.width;
       const degrees = (e.clientX - from) / scale / D.earth / RAD;
       from = e.clientX;
-      clock.t = Math.max(0, Math.min(D.days - 0.001, clock.t + degrees / D.spin));
+      clock.view += degrees;
       moved = true;
       if (!busy) { moved = false; place(clock.t); redraw(clock.t); }
     };
@@ -578,6 +609,6 @@ _MOTION_JS = r"""
 
 def globe_js(g: GlobeInput, day_seconds: float | None, manual: bool = False) -> str:
     """Puts the celestial sphere over the chart, under Plotly's hover boxes, and moves what is on it; day_seconds is how many
-    seconds a day takes, None with no speed picked; with manual, dragging the chart runs time instead."""
+    seconds a day takes, None with no speed picked; with manual, dragging the chart turns the view, time standing still."""
     data = json.dumps(_motion_data(g, day_seconds, manual)).replace("<", chr(92) + "u003c")
     return _MOTION_JS.replace("__DATA__", data)
