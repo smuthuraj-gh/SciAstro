@@ -38,8 +38,9 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
 
 
 def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
-               day_seconds: float | None = None, manual: bool = False, show_au: bool = False) -> dict:
-    """For each moment and body: its path, and its table to move it by. moments: (Now or DOB, Julian day, UTC offset)."""
+               day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None) -> dict:
+    """For each moment and body: its path (those in with_paths; all with None), and its table to move it by.
+    moments: (Now or DOB, Julian day, UTC offset). The drawing's size does not change with the paths shown."""
     paths, marks, tables = [], [], {}
     outer = 0.0
     if scale == MO_LOG and set(bodies) == {"Mo"}:             # nothing to be true to: as Log
@@ -53,14 +54,17 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                 outer = max(outer, _reach(max(whole["dist"]), scale))
             marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock, rule=core.size_rule(p)))
             days, steps, name = SPANS[p]
+            drawn = with_paths is None or p in with_paths
             if p == "Mo":                                     # the page works it out as time runs, from the Moon's table
-                paths.append(dict(colour=core.colour(p), dash=clock == "Now", pts=[], tip="", name=name, moon=clock))
+                if drawn:
+                    paths.append(dict(colour=core.colour(p), dash=clock == "Now", pts=[], tip="", name=name, moon=clock))
                 continue
             pts = [core.position(p, jd + days * (v / steps - 0.5)) for v in range(steps + 1)]
             reach = [_reach(q.dist_au, scale) for q in pts]
             outer = max(outer, *reach)
             near, far = min(q.dist_au for q in pts), max(q.dist_au for q in pts)
-            paths.append(dict(colour=core.colour(p), dash=clock == "Now", pts=[_xyz(q.ra, q.dec, r) for q, r in zip(pts, reach)],
+            if drawn:
+                paths.append(dict(colour=core.colour(p), dash=clock == "Now", pts=[_xyz(q.ra, q.dec, r) for q, r in zip(pts, reach)],
                               tip=f"{name} {clock}: {days:g} days around {clock} (distance from earth {near:.4g} to {far:.4g} AU)"))
     # what the sizes are measured from (Bigger than Moon needs the Moon's table, shown or not)
     earth_rule = core.size_rule("Ea")
@@ -325,7 +329,7 @@ __SYMBOL_JS__
 
 
 def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
-               day_seconds: float | None = None, manual: bool = False, show_au: bool = False) -> str:
+               day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None) -> str:
     uid = "space-" + uuid.uuid4().hex[:8]
-    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au)).replace("<", chr(92) + "u003c")
+    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths)).replace("<", chr(92) + "u003c")
     return f'<div id="{uid}"></div><script>{_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data).replace("__ID__", uid)}</script>'
