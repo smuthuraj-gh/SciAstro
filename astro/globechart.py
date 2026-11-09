@@ -68,7 +68,7 @@ class GlobeInput:
     show_longitude: bool = False
     aspects: tuple = ()               # the angles of the aspects to draw between the bodies shown
     orbs: object = None               # core.Orbs, with aspects
-    show_celes: bool = True           # the names NCP, SCP, WCE and ECE, and the dots at the poles
+    show_celes: bool = True           # the names NCP, SCP, WCE and ECE, the dots at the poles, the axis and the celestial equator
     show_houses: bool = False         # the twelve house lines from CB and CN, on the sphere, turning with the Earth
     bodies: tuple = BODY_CHOICES      # the bodies to show, with their RA and Dec lines
     paths: tuple = BODY_CHOICES       # the bodies whose paths to draw
@@ -255,7 +255,7 @@ def sky_svg(g: GlobeInput) -> tuple[str, list]:
     axis = "".join(
         f'<line x1="{CX + s * a * ux:.1f}" y1="{CY - s * a * uy:.1f}" x2="{CX + s * (R + 4) * ux:.1f}" '
         f'y2="{CY - s * (R + 4) * uy:.1f}" stroke="{AXIS_COLOUR}" stroke-width="2.5"/>'
-        for s, a in ((1, E * tilt_up), (-1, E)))
+        for s, a in ((1, E * tilt_up), (-1, E))) if g.show_celes else ""
     for s, name, dy in ((1, "NCP", -6), (-1, "SCP", 16)) if g.show_celes else ():
         lx, ly = CX + s * (R + 8) * ux, CY - s * (R + 8) * uy + dy
         marks.append(_text(lx, ly, name, AXIS_COLOUR))
@@ -272,7 +272,8 @@ def sky_svg(g: GlobeInput) -> tuple[str, list]:
 
     # the celestial equator
     circle = [(ra_facing + v, 0.0) for v in range(-180, 181, 2)]
-    _sky_line(circle, ra_facing, AXIS_COLOUR, 1.4, False, "Celestial equator (Dec 0)", near, far)
+    if g.show_celes:
+        _sky_line(circle, ra_facing, AXIS_COLOUR, 1.4, False, "Celestial equator (Dec 0)", near, far)
 
     hole =f"M{CX - E} {CY}a{E} {E} 0 1 0 {2 * E} 0a{E} {E} 0 1 0 {-2 * E} 0Z"     # the Earth's disc
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}" '
