@@ -35,7 +35,7 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
 
 
 def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
-               day_seconds: float | None = None, manual: bool = False) -> dict:
+               day_seconds: float | None = None, manual: bool = False, show_au: bool = False) -> dict:
     """For each moment and body: its path, and its table to move it by. moments: (Now or DOB, Julian day, UTC offset)."""
     paths, marks, tables = [], [], {}
     outer = 0.0
@@ -61,7 +61,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                show_au=show_au, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer)) for ra in RA_MARKS])
 
@@ -231,6 +231,7 @@ _JS = r"""
       put(g.label, around(x, y, 2, 24), taken);
     });
     rings.forEach((g) => {                         // on the side of the ring nearest the viewer
+      if (!D.show_au) { g.label.style.display = "none"; return; }
       let best = null;
       g.r.pts.forEach((q) => { const p = point(q); if (!best || p[1] > best[1]) best = p; });
       put(g.label, around(best[0], best[1], 0, 20), taken);
@@ -276,7 +277,7 @@ _JS = r"""
 
 
 def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
-               day_seconds: float | None = None, manual: bool = False) -> str:
+               day_seconds: float | None = None, manual: bool = False, show_au: bool = False) -> str:
     uid = "space-" + uuid.uuid4().hex[:8]
-    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual)).replace("<", chr(92) + "u003c")
+    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au)).replace("<", chr(92) + "u003c")
     return f'<div id="{uid}"></div><script>{_JS.replace("__DATA__", data).replace("__ID__", uid)}</script>'

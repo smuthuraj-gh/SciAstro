@@ -136,7 +136,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "the sky around that moment (Moon 27.32 days around the clock's date, moving as time runs, tagged NN and SN at its north and south nodes where it crosses the Sun's path; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now, hollow, dashed lines, with CN at the place now.",
     "Planets 3D": "The paths of the Sun, Moon and planets around the Earth, each at its own distance from the Earth (on AstroGlobe all are on one sphere). "
-                  "Each point is placed by its RA, Dec and distance. North is up, and the rings lie on the plane of the Earth's equator, with their distances from the Earth in AU (1 AU is about the Sun's distance). "
+                  "Each point is placed by its RA, Dec and distance. North is up, and the rings lie on the plane of the Earth's equator. AU values: each ring's distance from the Earth in AU (1 AU is about the Sun's distance); pointing at a ring also gives it. "
                   "Rotate in 1s: Manual: time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second: 1h an hour, 1d a day, 1w a week, 1m a month: the clock beside the name gives the date and time, and the Sun, Moon and planets move as they really did, nearer and farther, the Moon's path going with it (time starts again after 4 years; refresh the page to go back to the start). With none picked it holds still. Point at a planet for its Dec/Lati, RA and distance, or at a path for its span and distances. "
                   "Time: Now is hollow with dashed paths, DOB solid; each path is one trip round the sky around that moment (Sun, Mercury and Venus a year; Moon 27.32 days; Mars 687; Jupiter 4333; Saturn 10759). "
                   "Distance scale: on Log each ring is ten times the distance of the one inside it, so the Moon's path and Saturn's can be seen together; True is to scale, where the Moon's path is too small to tell from the Earth (pick Mo alone to see it). A label with no room is left off: point at its mark.",
@@ -495,12 +495,13 @@ def page_space():
     speed = head.pills("Rotate in 1s", [globechart.MANUAL] + list(globechart.SPEEDS), default=globechart.MANUAL, key="space_speed")
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
+    show_au = bool(head.pills("AU values", ["AU values"], key="space_au", label_visibility="collapsed"))
     if not shown or not bodies:
         st.info("Choose a time and at least one planet.")
         return
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
     moments = [m for m in (("Now", core.now_jd(), utc_now), ("DOB", prep.jd_birth, prep.utc)) if m[0] in shown]
-    st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual), unsafe_allow_javascript=True)
+    st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual, show_au), unsafe_allow_javascript=True)
 
 
 def page_range():
