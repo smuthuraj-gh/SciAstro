@@ -32,9 +32,9 @@ BODY_RADIUS_KM = {"Su": 695700.0, "Mo": 1737.4, "Me": 2439.7, "Ve": 6051.8, "Ma"
 SIZE_RANGE_ARCSEC = (3.5, 2040.0)     # the smallest (Mars at its farthest) to the largest (the Moon at its nearest) ...
 MARKER_RANGE = (3.0, 11.0)            # ... drawn with these marker radii, in pixels
 # A path's days (one trip round the sky seen from the Earth: Mercury and Venus keep with the Sun, so a year), points drawn, name
-PATH_SPAN = {"Mo": (27.32, 110, "Path of the Moon"), "Me": (365.25, 365, "Path of Mercury"),
-             "Ve": (365.25, 365, "Path of Venus"), "Ma": (687.0, 400, "Path of Mars"),
-             "Ju": (4333.0, 400, "Path of Jupiter"), "Sa": (10759.0, 400, "Path of Saturn")}
+PATH_SPAN = {"Mo": (27.32, 110, "Moon Path"), "Me": (365.25, 365, "Mercury Path"),
+             "Ve": (365.25, 365, "Venus Path"), "Ma": (687.0, 400, "Mars Path"),
+             "Ju": (4333.0, 400, "Jupiter Path"), "Sa": (10759.0, 400, "Saturn Path")}
 BODY_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
 MANUAL = "Manual"                 # Rotate's option to drag the Earth round by hand
 HOUSE_COLOUR = "rgb(0,0,0)"
@@ -216,8 +216,8 @@ def _paths(g: GlobeInput) -> list[dict]:
     out = []
     if "Su" in g.paths:
         # the Sun's path over a year: the circle tilted TILT to the celestial equator
-        out.append(dict(name="Path of the Sun", colour=core.colour("Su"), width=2.4, dash=False,
-                        tip=f"Path of the Sun over a year (Dec between {-TILT:+.2f} and {TILT:+.2f})",
+        out.append(dict(name="Sun Path", colour=core.colour("Su"), width=2.4, dash=False,
+                        tip=f"Sun Path over a year (Dec between {-TILT:+.2f} and {TILT:+.2f})",
                         pts=[_sun_path(v) for v in range(0, 361, 2)]))
     # the others, which shift over the years: one trip round the sky around the birth and, dashed, around now
     for show, when, what, dash in ((g.show_birth, g.jd_birth, "birth", False), (g.show_now, g.jd_now, "now", True)):
