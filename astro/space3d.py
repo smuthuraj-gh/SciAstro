@@ -40,7 +40,7 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
 def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None) -> dict:
     """For each moment and body: its table to move it by, and (those in with_paths; all with None) its path, which the page draws
-    as a trail behind it, where it has really been since the moment, up to one trip round the sky.
+    as a trail behind it, where it has really been since the moment, kept for the whole run (30 years).
     moments: (Now or DOB, Julian day, UTC offset). The drawing's size does not change with the paths shown."""
     paths, marks, tables = [], [], {}
     outer = 0.0
@@ -205,13 +205,16 @@ __SYMBOL_JS__
     for (const i of order) if (free(i)) return;
     label.style.display = "none";
   };
-  const trail = (p, t) => {                        // where the body has really been since the moment, up to one trip round the sky
-    const b = D.tables[p.clock][p.body], first = Math.max(0, t - p.days), gap = p.days / p.steps, samples = [];
-    for (let s = first; s < t; s += gap) samples.push(sample(b, s));
+  const TRAIL_MOST = 2000;                         // the most points a trail is drawn with: a long one is thinned, evenly
+  const trail = (p, t) => {                        // where the body has really been since the moment, all of it
+    const b = D.tables[p.clock][p.body], samples = [];
+    let gap = p.days / p.steps;
+    while (t / gap > TRAIL_MOST) gap *= 2;           // (by doubling, so that the points stay where they were as it grows)
+    for (let n = 0; n * gap < t; n++) samples.push(sample(b, n * gap));
     if (t > 0) samples.push(sample(b, t));          // to the body itself
     p.pts = samples.map((s) => xyz(s, p.body === "Mo"));
-    const dists = samples.map((s) => s.dist), days = Math.round(t - first);
-    p.tip = p.name + " " + p.clock + ": where it has been, the last " + days + (days === 1 ? " day" : " days") +
+    const dists = samples.map((s) => s.dist), days = Math.round(t);
+    p.tip = p.name + " " + p.clock + ": where it has been since the moment, " + days + (days === 1 ? " day" : " days") +
       (samples.length ? " (distance from earth " + Math.min(...dists).toPrecision(4) + " to " + Math.max(...dists).toPrecision(4) + " AU)" : "");
   };
   const WAYS = 8;                                  // the places round a mark, at each reach
