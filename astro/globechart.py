@@ -43,7 +43,7 @@ HOUSE_COLOUR = "rgb(0,0,0)"
 ASPECT_COLOURS = {False: "rgb(0,0,0)", True: "rgb(110,110,110)"}     # major, minor
 HOUSE_VALUE_DEC = (-32.0, -44.0)  # the Dec of each house line's RA value, first and second place shown: low on the line
 HOUSE_LABEL_DEC = (55.0, 40.0)    # the Dec of the house names, first and second place shown: on the side tilted toward the viewer, off the planets' way
-PLACE_APART = 8.0                 # degrees of latitude and longitude within which CB and CN would overlap on the Earth
+PLACE_APART = 24.0                # pixels within which the icons of CB and CN would overlap on the Earth, and are moved apart
 EARTH_DEGREES_A_DAY = 360.98565  # the Earth's turn against the still sky in one day of the clock
 MOTION_DAYS = 1461                # how far time runs (4 years) before it starts again, and the tables' reach ...
 NODE_STEP_DAYS = 2.0              # the Moon's true node wobbles over days
@@ -88,7 +88,10 @@ SYMBOLS = {"Su": _ring(0, 0, 6.5) + _ring(0, 0, 0.8),
            "Ma": _ring(-1.8, 1.8, 4.4) + "M1.3 -1.3L6.5 -6.5M2.3 -6.5H6.5V-2.3",
            "Ju": "M-5.5 -3.5C-5.5 -8 1 -8 .5 -2.5C.2 .5 -3 2.5 -6 2.5H6M3 -7V7.5",
            "Sa": "M-4 -5.5H1.2M-1.4 -8V1.8C.5 -2.5 6 -2.5 5.6 1.5C5.3 4.5 1.5 5.5 2.8 8",
-           "Ea": _ring(0, 3.2, 4.2) + "M0 -1V-8M-3 -4.5H3"}
+           "Ea": _ring(0, 3.2, 4.2) + "M0 -1V-8M-3 -4.5H3",
+           # the birth place, a baby's face with a curl; the place now, a house with a door
+           "CB": _ring(0, 1.5, 7) + "M0 -5.5C-2.5 -9 2.5 -10.5 3 -7.5" + _ring(-2.6, 0.5, 0.5) + _ring(2.6, 0.5, 0.5) + "M-2.6 4C-1.2 5.6 1.2 5.6 2.6 4",
+           "CN": "M-8.5 0L0 -8L8.5 0M-6 -2V8H6V-2M-1.8 8V3H1.8V8"}
 
 
 # The page's part, for both pages: a marker's symbol, in black or white, whichever shows on its colour, or in its colour on a hollow one
@@ -297,7 +300,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
         if show and when is not None:
             if place:                                         # its box: the planets moving to and from it are all seven
                 places.append(dict(label=label, title=title, lat=place[0], lon=place[1], ra=core.lst(when, place[1]),
-                                   set=len(sets)))
+                                   colour=core.colour(label), set=len(sets)))
             sets.append(dict(clock=name, jd=when, offset=offset, shown=[p for p in core.BUTTON_ORDER if p in g.bodies],
                              tables={p: {**_motion_table(p, when), "colour": core.colour(p)} for p in core.BUTTON_ORDER},
                              node=_node_table(when) if set(NODE_CHOICES) & set(g.bodies) else None))
@@ -311,7 +314,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
-                node_names=[n for n in NODE_CHOICES if n in g.bodies], symbols=SYMBOLS, size_rules={p: core.size_rule(p) for p in core.BUTTON_ORDER}, family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
+                node_names=[n for n in NODE_CHOICES if n in g.bodies], symbols=SYMBOLS, place_apart=PLACE_APART, size_rules={p: core.size_rule(p) for p in core.BUTTON_ORDER}, family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
 
 
@@ -320,8 +323,6 @@ def globe_figure(g: GlobeInput) -> go.Figure:
     fig = go.Figure()
     lats = [v / 2.0 for v in range(-180, 181)]           # a meridian, pole to pole, every half degree
     lons = [v / 2.0 for v in range(-360, 361)]           # a circle of latitude, right round, every half degree
-    # (two places close together on the Earth, or the same: their names one above the other, not on each other)
-    close = g.show_birth and g.show_now and g.cb and g.cn and abs(g.cb[0] - g.cn[0]) < PLACE_APART and abs(g.cb[1] - g.cn[1]) < PLACE_APART
     for label, place, show, jd in (("CB", g.cb, g.show_birth, g.jd_birth), ("CN", g.cn, g.show_now, g.jd_now)):
         if show and place:
             lat, lon = place
@@ -336,10 +337,8 @@ def globe_figure(g: GlobeInput) -> go.Figure:
                         line=dict(color=core.colour(label), width=1.4, dash="dash" if label == "CN" else "solid"),
                         hoverinfo="text", text=text, opacity=0.7 if label == "CN" else 0.9))
             fig.add_trace(go.Scattergeo(
-                lon=[lon], lat=[lat], mode="markers+text", showlegend=False, text=[f"<b>{label}</b>"],
-                textposition=("bottom center" if label == "CB" else "top center") if close else "middle center",
-                textfont=dict(size=FONT, color=core.colour(label)),
-                marker=dict(size=12, color=core.colour(label), opacity=0), hoverinfo="text",   # not seen: there to point at
+                lon=[lon], lat=[lat], mode="markers", showlegend=False, text=[label],
+                marker=dict(size=18, color=core.colour(label), opacity=0), hoverinfo="text",   # not seen: there to point at; the page draws its icon
                 hovertext=f"<b>{label}</b> {'birth place' if label == 'CB' else 'place now'}<br>"
                           f"latitude {lat:+.2f}, longitude {lon:+.2f}"))
 
@@ -505,6 +504,16 @@ __SYMBOL_JS__
     const change = ((n.ra[i + 1] - n.ra[i] + 540) % 360) - 180;
     return {ra: (n.ra[i] + change * f + node.turn + 720) % 360, dec: node.sign * (n.dec[i] + (n.dec[i + 1] - n.dec[i]) * f)};
   };
+  const placeIcons = D.places.map((pl) => {        // the baby at the birth place, the house at the place now, on the Earth
+    const tag = make("g", markG, {style: "pointer-events:none"});
+    [["white", 3.6], [pl.colour, 1.7]].forEach(([stroke, width]) => make("path", tag, {d: D.symbols[pl.label], fill: "none", stroke, "stroke-width": width,
+      "stroke-linecap": "round", "stroke-linejoin": "round"}));
+    return {pl, tag};
+  });
+  const placeOnEarth = (pl, t) => {                // as the Earth is turned: the place's RA by its longitude, on a sphere of the Earth's size
+    const [x, y, z] = point(D.ra_facing + pl.lon - D.lon0 + D.spin * t, pl.lat), k = D.earth / D.sky;
+    return [D.cx + (x - D.cx) * k, D.cy + (y - D.cy) * k, z];
+  };
   const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
   const radiusAt = (rule, tables, t) => {          // by the Size in the Naming Conventions table: a fixed radius, or a planet's angular size and more
     if (rule.px !== undefined) return rule.px;
@@ -591,6 +600,17 @@ __SYMBOL_JS__
         " side of the sphere)\nDec/Lati: " + (at.dec >= 0 ? "+" : "") + at.dec.toFixed(2) + "\nRA: " + at.ra.toFixed(2);
       if (!hidden) taken.push([x - 9, y - 9, x + 9, y + 9]);
     });
+    const icons = placeIcons.map((i) => ({i, at: placeOnEarth(i.pl, t)})).filter((q) => {
+      const seen = q.at[2] >= 0;
+      q.i.tag.style.display = seen ? "" : "none";
+      return seen;
+    });
+    const apart = icons.length === 2 && Math.hypot(icons[0].at[0] - icons[1].at[0], icons[0].at[1] - icons[1].at[1]) < D.place_apart;
+    icons.forEach((q, n) => {                      // close together, side by side
+      const x = q.at[0] + (apart ? (n ? 11 : -11) : 0), y = q.at[1];
+      q.i.tag.setAttribute("transform", "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ")");
+      taken.push([x - 10, y - 10, x + 10, y + 10]);
+    });
     houses.forEach((h) => {                        // named on the near side only, and not where a fixed label is
       const ra = (h.pl.ra + D.spin * t + 30 * h.k) % 360, pts = [];
       for (let v = -90; v !== 93; v += 3) pts.push([ra, v]);
@@ -650,7 +670,7 @@ __SYMBOL_JS__
       NL + "Approaching: " + names(near) + NL + "Leaving: " + names(away);
   };
   const placeTraces = D.places.map((pl) => gd.data.findIndex((d) =>
-    d.mode === "markers+text" && String(d.text[0]).includes(pl.label)));
+    d.mode === "markers" && String(d.text[0]) === pl.label));
   let textsDue = 0;
   const redraw = (t) => {                          // the Earth's turn and, each second, CB's and CN's boxes
     const now = performance.now(), turn = {"geo.projection.rotation.lon": facing(t)}, done = () => { busy = false; };
