@@ -67,7 +67,7 @@ aspect_details = sa.Table(
 )
 PLANET_NAMES = {"Su": "Sun", "Mo": "Moon", "Me": "Mercury", "Ve": "Venus", "Ma": "Mars", "Ju": "Jupiter", "Sa": "Saturn",
                 "Ea": "Earth", "NN": "Moon's North Node", "SN": "Moon's South Node", "CN": "Place Now", "CB": "Birth Place"}
-SYMBOLS = {"Su": "☉", "Mo": "☽", "Me": "☿", "Ve": "♀", "Ma": "♂", "Ju": "♃", "Sa": "♄", "Ea": "♁",
+SYMBOLS = {"Su": "☉", "Mo": "☽", "Me": "☿", "Ve": "♀", "Ma": "♂", "Ju": "♃", "Sa": "♄", "Ea": "⊕",
            "NN": "☊", "SN": "☋", "CB": "👶", "CN": "🏠"}
 POINT_ROWS = ("Ea", "NN", "SN", "CN", "CB")                         # the rows that are not bodies; always in the table
 COLOUR_NAMES = {"rgb(255,0,0)": "Red", "rgb(112,48,160)": "Purple", "rgb(255,165,0)": "Orange", "rgb(0,176,80)": "Green",
@@ -102,6 +102,7 @@ def engine() -> sa.Engine:
     _add_planet_color_name(eng)
     _add_planet_size(eng)
     _add_planet_symbol(eng)
+    _update_earth_symbol(eng)
     _seed_planets(eng)
     _seed_aspect_details(eng)
     return eng
@@ -182,6 +183,12 @@ def _add_planet_symbol(eng: sa.Engine):
         c.execute(sa.text(f"ALTER TABLE naming_conventions ADD COLUMN symbol {planets.c.symbol.type.compile(dialect=eng.dialect)}"))
         for sn, symbol in SYMBOLS.items():
             c.execute(planets.update().where(planets.c.sn == sn).values(symbol=symbol))
+
+
+def _update_earth_symbol(eng: sa.Engine):
+    """The Earth's symbol is now the circled plus: a table still with the earlier one (U+2641) gets it; one an admin has changed keeps theirs."""
+    with eng.begin() as c:
+        c.execute(planets.update().where(planets.c.sn == "Ea", planets.c.symbol == chr(0x2641)).values(symbol=SYMBOLS["Ea"]))
 
 
 def _seed_planets(eng: sa.Engine):

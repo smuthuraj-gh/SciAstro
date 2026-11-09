@@ -88,7 +88,7 @@ SYMBOLS = {"Su": _ring(0, 0, 6.5) + _ring(0, 0, 0.8),
            "Ma": _ring(-1.8, 1.8, 4.4) + "M1.3 -1.3L6.5 -6.5M2.3 -6.5H6.5V-2.3",
            "Ju": "M-5.5 -3.5C-5.5 -8 1 -8 .5 -2.5C.2 .5 -3 2.5 -6 2.5H6M3 -7V7.5",
            "Sa": "M-4 -5.5H1.2M-1.4 -8V1.8C.5 -2.5 6 -2.5 5.6 1.5C5.3 4.5 1.5 5.5 2.8 8",
-           "Ea": _ring(0, 3.2, 4.2) + "M0 -1V-8M-3 -4.5H3",
+           "Ea": _ring(0, 0, 7) + "M-7 0H7M0 -7V7",
            # the birth place, a baby's face with a curl; the place now, a house with a door
            "CB": _ring(0, 1.5, 7) + "M0 -5.5C-2.5 -9 2.5 -10.5 3 -7.5" + _ring(-2.6, 0.5, 0.5) + _ring(2.6, 0.5, 0.5) + "M-2.6 4C-1.2 5.6 1.2 5.6 2.6 4",
            "CN": "M-8.5 0L0 -8L8.5 0M-6 -2V8H6V-2M-1.8 8V3H1.8V8",
@@ -96,7 +96,7 @@ SYMBOLS = {"Su": _ring(0, 0, 6.5) + _ring(0, 0, 0.8),
            "NN": "M-3.6 4.2C-8.4 -0.8 -6 -7 0 -7C6 -7 8.4 -0.8 3.6 4.2" + _ring(-4.6, 5.4, 1.7) + _ring(4.6, 5.4, 1.7),
            "SN": "M-3.6 -4.2C-8.4 0.8 -6 7 0 7C6 7 8.4 0.8 3.6 -4.2" + _ring(-4.6, -5.4, 1.7) + _ring(4.6, -5.4, 1.7)}
 # Which shape each symbol is drawn with, so that the Symbol column of the Naming Conventions table says what is drawn
-GLYPHS = {"\u2609": "Su", "\u263d": "Mo", "\u263f": "Me", "\u2640": "Ve", "\u2642": "Ma", "\u2643": "Ju", "\u2644": "Sa", "\u2641": "Ea",
+GLYPHS = {"\u2609": "Su", "\u263d": "Mo", "\u263f": "Me", "\u2640": "Ve", "\u2642": "Ma", "\u2643": "Ju", "\u2644": "Sa", "\u2295": "Ea", "\u2641": "Ea",
           "\u260a": "NN", "\u260b": "SN", "\U0001f476": "CB", "\U0001f3e0": "CN"}
 
 
