@@ -13,13 +13,12 @@ from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
 RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
-SCALES = ("True", "Log", TRUE_LOG := "True-Log")   # True-Log: as Log, without the empty space between the Moon and the planets
-GAP = (0.003, 0.25, 0.08)         # True-Log: from just past the Moon's farthest (AU) to inside any planet's nearest (Venus about 0.26),
-                                  # drawn as only this much of the Log scale (a fifth of a doubling: a thin space)
-LOG_FROM_AU = 0.001               # on the Log scale, the distance drawn at the Earth: each ring then ten times the last
+SCALES = ("True", FIT := "Fit")   # Fit: each tenfold distance the same room, without the empty space between the Moon and the planets
+GAP = (0.003, 0.25, 0.08)         # Fit: from just past the Moon's farthest (AU) to inside any planet's nearest (Venus about 0.26),
+                                  # drawn as only this much (a fifth of a doubling: a thin space)
+LOG_FROM_AU = 0.001               # on Fit, the distance drawn at the Earth
 SPANS = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN}     # days, points, name: one trip round the sky
-RINGS = {"Log": (0.002, 0.01, 0.1, 1.0, 10.0),
-         TRUE_LOG: (0.002, 0.5, 1.0, 10.0),            # none in the space taken out
+RINGS = {FIT: (0.002, 0.5, 1.0, 10.0),            # none in the space taken out
          "True": (0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)}   # AU; at most RINGS_SHOWN of them
 RINGS_SHOWN = 4
 RA_MARKS = (0, 90, 180, 270)
@@ -33,8 +32,6 @@ def _reach(au: float, scale: str) -> float:
     if scale == "True":
         return au
     log = max(math.log10(au / LOG_FROM_AU), 0.0)
-    if scale == "Log":
-        return log
     a, b = math.log10(GAP[0] / LOG_FROM_AU), math.log10(GAP[1] / LOG_FROM_AU)
     return log if log <= a else log - (b - a) + GAP[2] if log >= b else a + (log - a) / (b - a) * GAP[2]
 
@@ -104,7 +101,7 @@ __SYMBOL_JS__
   };
   const xyz = (s) => {                             // as space3d._xyz, at the distance as the scale draws it
     const log = Math.max(Math.log10(s.dist / D.log_from), 0), lo = Math.log10(D.gap[0] / D.log_from), hi = Math.log10(D.gap[1] / D.log_from);
-    const r = D.scale === "True" ? s.dist : D.scale === "Log" || log <= lo ? log :      // True-Log: the gap past the Moon closed up
+    const r = D.scale === "True" ? s.dist : log <= lo ? log :      // Fit: the gap past the Moon closed up
       log >= hi ? log - (hi - lo) + D.gap[2] : lo + (log - lo) / (hi - lo) * D.gap[2], a = s.ra * RAD, d = s.dec * RAD;
     return [r * Math.cos(d) * Math.cos(a), r * Math.cos(d) * Math.sin(a), r * Math.sin(d)];
   };
