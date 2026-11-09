@@ -38,7 +38,7 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 [data-testid="stSelectboxVirtualDropdown"] * { font-size: calc(13px * var(--app-zoom, 1)) !important; }
 /* AstroGlobe's lists: two a line, the last alone not stretched across */
 .st-key-globe_bodies button, .st-key-globe_paths button, .st-key-globe_coords button, .st-key-globe_speed button,
-.st-key-globe_major button, .st-key-globe_minor button, .st-key-globe_bodies_row button, .st-key-space_speed button
+.st-key-globe_major button, .st-key-globe_minor button, .st-key-space_speed button
   { flex: 0 0 auto !important; width: auto !important; }
 /* AstroGlobe's speed buttons, as small as their text allows */
 .st-key-globe_speed button, .st-key-space_speed button { padding-left: 4px !important; padding-right: 4px !important; }
@@ -436,21 +436,19 @@ def page_globe():
         return [n for n in names if box.pills(n, [n], default=n if n in default else None, key=f"globe_{n}",
                                               label_visibility="collapsed")]
 
-    def options_under(title: str, key: str, names: list, default: list, width: int = 84, row: tuple = ()) -> tuple:
+    def options_under(title: str, key: str, names: list, default: list, width: int = 84) -> tuple:
         """A button with options listed below it, two a line (width: room for two), to pick from; those picked, none with
-        the button off. row: more options, all on, on a line of their own below those."""
+        the button off."""
         box = head.container(width="content", gap="xxsmall")
         if not box.pills(title, [title], default=title, key=f"globe_{key}_on", label_visibility="collapsed"):
             return ()
-        picked = box.pills(f"Which {title}", names, selection_mode="multi", default=default, key=f"globe_{key}",
-                           label_visibility="collapsed", width=width)
-        more = box.pills(f"More {title}", list(row), selection_mode="multi", default=list(row), key=f"globe_{key}_row",
-                         label_visibility="collapsed", width=width) if row else []
-        return tuple(picked) + tuple(more)
+        return tuple(box.pills(f"Which {title}", names, selection_mode="multi", default=default, key=f"globe_{key}",
+                               label_visibility="collapsed", width=width))
 
     shown = stacked(("Now", "DOB"), ("DOB",), title="Time")
     all_bodies = list(globechart.BODY_CHOICES)
-    bodies = options_under("Planets", "bodies", all_bodies, all_bodies, row=globechart.NODE_CHOICES)
+    with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # (Sa and NN on a line, SN below)
+    bodies = options_under("Planets", "bodies", with_nodes, with_nodes)
     paths = options_under("Planet Path", "paths", all_bodies, [])
     major = options_under("Ma Aspects", "major", [str(a) for a in sorted(core.MAJOR)], [str(a) for a in sorted(core.MAJOR)], width=90)
     minor = options_under("Mi Aspects", "minor", [str(a) for a in core.MINOR], [str(a) for a in core.MINOR], width=90)
