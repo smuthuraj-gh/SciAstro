@@ -188,26 +188,15 @@ def sky_svg(g: GlobeInput) -> tuple[str, list]:
         marks.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="4" fill="{AXIS_COLOUR}"/>')
         taken.append((px - 5, py - 5, px + 5, py + 5))
 
-    # East and West, at the two ends of the line across the axis: the Earth turns toward E
-    for s, name in ((1, "E"), (-1, "W")):
-        lx, ly = CX + s * (R + 14) * uy, CY + s * (R + 14) * ux + 4
+    # East and West on the celestial equator, at the two ends of the line across the axis: the Earth turns toward ECE
+    for s, name in ((1, "ECE"), (-1, "WCE")):
+        lx, ly = CX + s * (R + 24) * uy, CY + s * (R + 24) * ux + 4
         marks.append(_text(lx, ly, name, AXIS_COLOUR))
         taken.append(_box(lx, ly, name))
-
-    def path_label(points: list, name: str, colour: str, right: bool = False) -> None:
-        """Names a line at its near side's left-hand (or right-hand) end, or as near there as is free."""
-        px, py, _ = (max if right else min)((p for p in (_sky_point(a, d, ra_facing) for a, d in points) if p[2] >= 0),
-                                            key=lambda p: p[0])
-        lx, anchor = (px + 8, "start") if right else (px - 8, "end")
-        ly = next(y for y in (py + 4 + v * 19 * s for v in range(90) for s in (1, -1))
-                  if 16 < y < HEIGHT - 4 and _clear(_box(lx, y, name, anchor), taken))
-        marks.append(_text(lx, ly, name, colour, anchor))
-        taken.append(_box(lx, ly, name, anchor))
 
     # the celestial equator
     circle = [(ra_facing + v, 0.0) for v in range(-180, 181, 2)]
     _sky_line(circle, ra_facing, AXIS_COLOUR, 1.4, False, "Celestial equator (Dec 0)", near, far)
-    path_label(circle, "CE", AXIS_COLOUR, right=True)
 
     hole =f"M{CX - E} {CY}a{E} {E} 0 1 0 {2 * E} 0a{E} {E} 0 1 0 {-2 * E} 0Z"     # the Earth's disc
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}" '
