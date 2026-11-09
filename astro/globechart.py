@@ -431,9 +431,16 @@ _MOTION_JS = r"""
     };
     const ok = (p) => { const a = boxOf(p[0], p[1], body.name); return inChart(a) && clear(a, taken); };
     if (body.way !== undefined && ok(at(body.way, 0))) return at(body.way, 0);
-    for (let reach = 0; reach !== 40; reach++) for (let w = 0; w !== 8; w++) {
-      const p = at(w, reach);
-      if (ok(p)) { body.way = w; return p; }
+    // blocked: the free way the least distance from its last place, so that it moves as little as it can
+    const had = body.way === undefined ? null : at(body.way, 0);
+    const near = (p) => (had ? Math.hypot(p[0] - had[0], p[1] - had[1]) : 0);
+    for (let reach = 0; reach !== 40; reach++) {
+      let best = null;
+      for (let w = 0; w !== 8; w++) {
+        const p = at(w, reach);
+        if (ok(p) && (best === null || near(p) < near(at(best, reach)))) best = w;
+      }
+      if (best !== null) { body.way = best; return at(best, reach); }
     }
     return at(0, 0);
   };
@@ -515,28 +522,7 @@ _MOTION_JS = r"""
       drawPaths();
       namedAt = t;
     } else turning.forEach((p) => p.draw(p.pts, p.tip, p.colour, p.width));
-    const taken = D.taken.concat(pathBoxes);
-    houses.forEach((h) => {                        // named on the near side only, and not where a fixed label is
-      const ra = (h.pl.ra + D.spin * t + 30 * h.k) % 360, pts = [];
-      for (let v = -90; v !== 93; v += 3) pts.push([ra, v]);
-      h.draw(pts, h.label.textContent + " " + h.pl.label + " RA: " + ra.toFixed(2));
-      const [x, y, z] = point(ra + 15, D.house_dec[D.places.indexOf(h.pl)]), box = boxOf(x, y + 4, h.label.textContent);
-      const seen = z >= 0 && clear(box, taken);
-      h.label.style.display = seen ? "" : "none";
-      if (seen) {
-        h.label.setAttribute("x", x.toFixed(1)); h.label.setAttribute("y", (y + 4).toFixed(1));
-        taken.push(box);
-      }
-      // its RA, to the right of its line low on the near side
-      const text = ra.toFixed(2), [vx, vy, vz] = point(ra, D.house_value_dec[D.places.indexOf(h.pl)]);
-      const vBox = boxOf(vx + 5 + text.length * D.text_w / 2, vy + 4, text), show = vz >= 0 && inChart(vBox) && clear(vBox, taken);
-      h.value.style.display = show ? "" : "none";
-      if (show) {
-        h.value.textContent = text;
-        h.value.setAttribute("x", (vx + 5).toFixed(1)); h.value.setAttribute("y", (vy + 4).toFixed(1));
-        taken.push(vBox);
-      }
-    });
+    const taken = D.taken.concat(pathBoxes);       // in the order of who keeps their place: the planets' tags before the houses', which spin past
     aspectLines.forEach((l) => {                   // the short way round between the two, straight in RA and Dec
       const a = sample(l.s.tables[l.p], t), b = sample(l.s.tables[l.q], t);
       const on = D.aspects.filter((d) => inAspect(d.angle, a, b, d.orbs[l.p + "|" + l.q]));
@@ -600,19 +586,44 @@ _MOTION_JS = r"""
       node.label.setAttribute("x", lx.toFixed(1)); node.label.setAttribute("y", ly.toFixed(1));
       node.label.setAttribute("opacity", node.fade);
     });
+    houses.forEach((h) => {                        // named on the near side only, and not where a fixed label is
+      const ra = (h.pl.ra + D.spin * t + 30 * h.k) % 360, pts = [];
+      for (let v = -90; v !== 93; v += 3) pts.push([ra, v]);
+      h.draw(pts, h.label.textContent + " " + h.pl.label + " RA: " + ra.toFixed(2));
+      const [x, y, z] = point(ra + 15, D.house_dec[D.places.indexOf(h.pl)]), box = boxOf(x, y + 4, h.label.textContent);
+      const seen = z >= 0 && clear(box, taken);
+      h.label.style.display = seen ? "" : "none";
+      if (seen) {
+        h.label.setAttribute("x", x.toFixed(1)); h.label.setAttribute("y", (y + 4).toFixed(1));
+        taken.push(box);
+      }
+      // its RA, to the right of its line low on the near side
+      const text = ra.toFixed(2), [vx, vy, vz] = point(ra, D.house_value_dec[D.places.indexOf(h.pl)]);
+      const vBox = boxOf(vx + 5 + text.length * D.text_w / 2, vy + 4, text), show = vz >= 0 && inChart(vBox) && clear(vBox, taken);
+      h.value.style.display = show ? "" : "none";
+      if (show) {
+        h.value.textContent = text;
+        h.value.setAttribute("x", (vx + 5).toFixed(1)); h.value.setAttribute("y", (vy + 4).toFixed(1));
+        taken.push(vBox);
+      }
+    });
     aspectLines.forEach((l) => {                   // each its tag, as 0-Ju-Ma, in the first free place along its line; none if none
       l.tag.style.display = "none";
       if (!l.tagged) return;
       const text = l.tagged.angle + "-" + l.p + "-" + l.q;
       l.tag.textContent = text;
       l.tag.setAttribute("fill", l.tagged.colour);
-      for (const v of [10, 7, 13, 4, 16, 2, 18]) {
+      // its last place along the line while that stays free, then the nearest to that
+      const had = l.tagAt === undefined ? 10 : l.tagAt;
+      const along = [10, 7, 13, 4, 16, 2, 18].sort((a, b) => Math.abs(a - had) - Math.abs(b - had));
+      for (const v of along) {
         const [x, y, z] = point(l.pts[v][0], l.pts[v][1]);
         const box = boxOf(x, y + 4, text);
         if ((z >= 0 || Math.hypot(x - D.cx, y - D.cy) >= D.earth) && inChart(box) && clear(box, taken)) {
           l.tag.setAttribute("x", x.toFixed(1)); l.tag.setAttribute("y", (y + 4).toFixed(1));
           l.tag.setAttribute("opacity", z >= 0 ? 1 : 0.55);
           l.tag.style.display = "";
+          l.tagAt = v;
           taken.push(box);
           break;
         }

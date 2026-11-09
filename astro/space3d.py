@@ -175,8 +175,15 @@ _JS = r"""
       taken.push(a);
       return true;
     };
-    if (label.lastPlace !== undefined && free(label.lastPlace)) return;
-    for (let i = 0; i !== spots.length; i++) if (free(i)) return;
+    const last = label.lastPlace;
+    if (last !== undefined && free(last)) return;
+    // blocked: the free place the least way from where it was beside its mark
+    const order = spots.map((_, i) => i);
+    if (last !== undefined) {
+      const away = (i) => Math.hypot(spots[i][0] - spots[last][0], spots[i][1] - spots[last][1]);
+      order.sort((a, b) => away(a) - away(b));
+    }
+    for (const i of order) if (free(i)) return;
     label.style.display = "none";
   };
   const moonPath = (p, t) => {                     // the Moon's month around the clock's date
@@ -197,6 +204,7 @@ _JS = r"""
     }
     return out;
   };
+  let lastStack = "";
   const draw = () => {
     angles();
     rings.forEach((g) => g.draw(g.r.pts));
@@ -223,11 +231,20 @@ _JS = r"""
     }).sort((a, b) => a.z - b.z);
     const [ex, ey] = point([0, 0, 0]);
     earth.setAttribute("cx", ex.toFixed(1)); earth.setAttribute("cy", ey.toFixed(1));
-    // in the order of depth, what is nearest on top; every label kept off every mark and every other label
-    placed.forEach((q) => { svg.appendChild(q.g.e); svg.appendChild(q.g.label); });
+    // in the order of depth, what is nearest on top (only when that changes: moving a mark would lose its hover box);
+    // every label kept off every mark and every other label
+    const stack = placed.map((q) => q.g.m.name + q.g.m.clock).join();
+    if (stack !== lastStack) {
+      placed.forEach((q) => { svg.appendChild(q.g.e); svg.appendChild(q.g.label); });
+      lastStack = stack;
+    }
     const taken = placed.map((q) => [q.x - q.r - 2, q.y - q.r - 2, q.x + q.r + 2, q.y + q.r + 2]).concat([[ex - 9, ey - 9, ex + 9, ey + 9]]);
     put(earthLabel, around(ex, ey, 8, 20), taken);
-    placed.slice().reverse().forEach((q) => put(q.g.label, around(q.x, q.y, q.r, 8), taken));
+    // always in the same order, so that a tag does not lose its place to another as the drawing turns
+    marks.forEach((g) => {
+      const q = placed.find((p) => p.g === g);
+      put(g.label, around(q.x, q.y, q.r, 8), taken);
+    });
     poles.forEach((g) => {
       const [x, y] = point(g.at);
       put(g.label, around(x, y, 4, 12), taken);
