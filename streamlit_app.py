@@ -445,7 +445,7 @@ def page_globe():
         return tuple(box.pills(f"Which {title}", names, selection_mode="multi", default=default, key=f"globe_{key}",
                                label_visibility="collapsed", width=width))
 
-    shown = stacked(("Now", "DOB"), ("Now",), title="Time")
+    shown = stacked(("Now", "DOB"), ("DOB",), title="Time")
     all_bodies = list(globechart.BODY_CHOICES)
     bodies = options_under("Planets", "bodies", all_bodies, all_bodies)
     paths = options_under("Planet Path", "paths", all_bodies, [])
@@ -488,10 +488,10 @@ def page_space():
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
     if not need_chart(prep):
         return
-    shown = head.pills("Time", ["Now", "DOB"], selection_mode="multi", default=["Now"], key="space_time") or []
+    shown = head.pills("Time", ["Now", "DOB"], selection_mode="multi", default=["DOB"], key="space_time") or []
     bodies = head.pills("Planets", list(globechart.BODY_CHOICES), selection_mode="multi", default=["Su", "Mo"],
                         key="space_bodies") or []
-    scale = head.pills("Distance scale", space3d.SCALES, default=space3d.SCALES[0], key="space_scale") or space3d.SCALES[0]
+    scale = head.pills("Distance scale", space3d.SCALES, default=space3d.MO_LOG, key="space_scale") or space3d.MO_LOG
     show_au = bool(head.pills("AU values", ["AU values"], key="space_au", label_visibility="collapsed"))
     speed = head.pills("Rotate in 1s", [globechart.MANUAL] + list(globechart.SPEEDS), default=globechart.MANUAL, key="space_speed")
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round

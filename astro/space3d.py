@@ -11,8 +11,8 @@ from . import core
 from .globechart import MARKER_RANGE, MOTION_DAYS, PATH_SPAN, SIZE_RANGE_ARCSEC, TILT, _motion_table
 from .mapchart import CHART_FONT_FAMILY, FONT
 
-WIDTH, HEIGHT = 1100, 720
-RADIUS = 330.0                    # pixels from the Earth to the farthest thing drawn
+WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
+RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
 SCALES = ("Log", "True", MO_LOG := "Mo Log")   # Mo Log: the Moon as on Log, at the same place on the page; the others as on True
 LOG_FROM_AU = 0.001               # on the Log scale, the distance drawn at the Earth: each ring then ten times the last
 SPANS = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN}     # days, points, name: one trip round the sky
@@ -22,6 +22,7 @@ RINGS[MO_LOG] = RINGS["True"]
 LOG_FULL_AU = 11.1                # about the farthest Saturn comes: all the Log scale's page
 RINGS_SHOWN = 4
 RA_MARKS = (0, 90, 180, 270)
+RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
 SIDES = 96                        # a ring is drawn with this many straight pieces
 
 
@@ -75,7 +76,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
                 tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
-                family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer)) for ra in RA_MARKS])
+                family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
 
 # (Spaces after every less-than: the page drops a script that seems to have tags in it.)
@@ -92,7 +93,7 @@ _JS = r"""
                                 style: "display:block; cursor:grab; touch-action:none; user-select:none"});
   const words = (fill) => make("text", svg, {"font-weight": "bold", "font-size": D.font, "font-family": D.family, stroke: "white",
                                              "stroke-width": 3, "paint-order": "stroke", "text-anchor": "middle", fill});
-  const view = window.space3dView || (window.space3dView = {yaw: 30, pitch: 25});
+  const view = window.space3dView || (window.space3dView = {yaw: 90, pitch: 45});
   if (!window.space3dClock || window.space3dClock.key !== D.key) window.space3dClock = {key: D.key, t: 0};
   const clock = window.space3dClock;              // the days run since each moment: kept when a button is pressed
   const sample = (b, t) => {                       // between its two nearest table rows
