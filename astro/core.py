@@ -43,6 +43,7 @@ def colour(name: str) -> str:
 SIZE_TEXTS: dict[str, str] = {}
 SIZE_WORDS: dict[str, str] = {}
 SIZE_STEP = 1.5                   # pixels of radius that "bigger than" and "smaller than" add or take away
+TINY_PX = 3.0                     # a Tiny body's radius, in pixels
 MARK_PX = 9.0                     # the usual half-size of the nodes' symbols and the places' icons, in pixels
 SIZE_PX = (1.0, 40.0)             # the smallest and largest radius a number in Size can ask for
 
@@ -65,9 +66,11 @@ def with_symbols(text: str) -> str:
 
 def size_rule(name: str, _seen: tuple = ()) -> dict:
     """How a body is sized, from its Size text: {"px": radius}, or {"of": a planet, "add": pixels}, meaning that planet's angular size
-    drawn, plus add. "Angular Size"; a number (pixels of radius); "Bigger than X", "Smaller than X" or "Same as X", X an SN or a Name.
+    drawn, plus add. "Angular Size"; "Tiny" (a dot); a number (pixels of radius); "Bigger than X", "Smaller than X" or "Same as X", X an SN or a Name.
     Anything else, or blank: as they have always been drawn, a planet by its angular size and the Earth a little bigger than the Moon."""
     low = SIZE_TEXTS.get(name, "").strip().lower()
+    if low == "tiny":                                  # a dot, too small to hold a symbol
+        return {"px": TINY_PX}
     number = re.fullmatch(r"(\d+(?:\.\d+)?)\s*(?:px)?", low)
     if number:
         return {"px": min(max(float(number[1]), SIZE_PX[0]), SIZE_PX[1])}

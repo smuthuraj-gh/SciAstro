@@ -109,6 +109,7 @@ def engine() -> sa.Engine:
     _add_planet_symbol(eng)
     _update_earth_symbol(eng)
     _set_recommended_colours(eng)
+    _make_earth_tiny(eng)
     _seed_planets(eng)
     _seed_aspect_details(eng)
     return eng
@@ -191,6 +192,12 @@ def _add_planet_symbol(eng: sa.Engine):
             c.execute(planets.update().where(planets.c.sn == sn).values(symbol=symbol))
 
 
+def _make_earth_tiny(eng: sa.Engine):
+    """The Earth is drawn Tiny: a table still with the earlier Size (Bigger than Moon) gets it; one an admin has changed keeps theirs."""
+    with eng.begin() as c:
+        c.execute(planets.update().where(planets.c.sn == "Ea", sa.func.lower(planets.c.size) == "bigger than moon").values(size="Tiny"))
+
+
 def _set_recommended_colours(eng: sa.Engine):
     """Once (marked among the settings): every row the charts colour gets the recommended Color and its Color_Name. Any change an
     admin makes afterwards stays."""
@@ -220,7 +227,7 @@ def _seed_planets(eng: sa.Engine):
         for row in new:
             row["color_name"] = COLOUR_NAMES.get(row["color"])
             row["symbol"] = SYMBOLS.get(row["sn"])
-            row["size"] = "Bigger than Moon" if row["sn"] == "Ea" else "Angular Size" if row["sn"] in core.PLANET_ID else None
+            row["size"] = "Tiny" if row["sn"] == "Ea" else "Angular Size" if row["sn"] in core.PLANET_ID else None
         if new:
             c.execute(planets.insert(), new)
 

@@ -133,6 +133,7 @@ SYMBOL_JS = r"""
   };
   const fitSymbol = (tag, x, y, r) => {            // inside its marker, and as thick whatever the size
     const k = r / 9.5;
+    tag.style.display = r < 5 ? "none" : "";       // too small to read: a dot alone
     tag.setAttribute("transform", "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ") scale(" + k.toFixed(3) + ")");
     tag.line.setAttribute("stroke-width", (1.5 / k).toFixed(2));
   };
