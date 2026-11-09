@@ -489,7 +489,7 @@ def page_space():
     if not need_chart(prep):
         return
     shown = head.pills("Time", ["Now", "DOB"], selection_mode="multi", default=["Now"], key="space_time") or []
-    bodies = head.pills("Planets", list(globechart.BODY_CHOICES), selection_mode="multi", default=list(globechart.BODY_CHOICES),
+    bodies = head.pills("Planets", list(globechart.BODY_CHOICES), selection_mode="multi", default=["Su", "Mo"],
                         key="space_bodies") or []
     scale = head.pills("Distance scale", space3d.SCALES, default=space3d.SCALES[0], key="space_scale") or space3d.SCALES[0]
     speed = head.pills("Rotate in 1s", [globechart.MANUAL] + list(globechart.SPEEDS), default=globechart.MANUAL, key="space_speed")
