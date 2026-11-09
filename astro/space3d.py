@@ -15,7 +15,7 @@ WIDTH, HEIGHT = 1100, 720
 RADIUS = 330.0                    # pixels from the Earth to the farthest thing drawn
 SCALES = ("Log", "True", MO_LOG := "Mo Log")   # Mo Log: the Moon as on Log, at the same place on the page; the others as on True
 LOG_FROM_AU = 0.001               # on the Log scale, the distance drawn at the Earth: each ring then ten times the last
-EARTH_KM = 6371.0                 # the Earth's radius: sized as it looks from 1 AU, on the same scale as the others
+EARTH_RADIUS = 12.0               # pixels: fixed, a little bigger than the Sun and Moon drawn (to true scale it would not show)
 SPANS = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN}     # days, points, name: one trip round the sky
 RINGS = {"Log": (0.002, 0.01, 0.1, 1.0, 10.0),
          "True": (0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)}   # AU; at most RINGS_SHOWN of them
@@ -67,7 +67,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                tilt=TILT, earth_km=EARTH_KM, earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                tilt=TILT, earth_radius=EARTH_RADIUS, earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer)) for ra in RA_MARKS])
 
@@ -160,9 +160,9 @@ _JS = r"""
     label.textContent = name;
     return {at, label};
   });
-  const earthAt1Au = arcsecOf(D.earth_km, 1), earthR = radiusOf(earthAt1Au);
+  const earthR = D.earth_radius;
   const earth = make("circle", svg, {r: earthR.toFixed(1), fill: D.earth_colour, stroke: DARK, "stroke-width": 1});
-  make("title", earth).textContent = "Ea, at the centre\nAngular Size: " + earthAt1Au.toFixed(1) + " arcsec, as seen from 1 AU";
+  make("title", earth).textContent = "Ea, at the centre (its size is not to scale)";
   const earthLabel = words(D.earth_colour);
   earthLabel.textContent = "Ea";
   const marks = D.marks.map((m) => {
