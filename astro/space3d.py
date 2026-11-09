@@ -8,7 +8,7 @@ import math
 import uuid
 
 from . import core
-from .globechart import MARKER_RANGE, MOTION_DAYS, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_table, symbol_shapes
+from .globechart import MARKER_RANGE, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_table, symbol_shapes
 from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
@@ -22,6 +22,7 @@ RINGS[MO_LOG] = RINGS["True"]
 LOG_FULL_AU = 11.1                # about the farthest Saturn comes: all the Log scale's page
 RINGS_SHOWN = 4
 RA_MARKS = (0, 90, 180, 270)
+RUN_DAYS = 21915                  # how far time runs here (60 years) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
 SIDES = 96                        # a ring is drawn with this many straight pieces
 
@@ -49,7 +50,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     for clock, jd, _ in moments:
         tables[clock] = {}
         for p in bodies:
-            whole = _motion_table(p, jd)
+            whole = _motion_table(p, jd, RUN_DAYS)
             tables[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
             if p != "Mo" or scale != MO_LOG:
                 outer = max(outer, _reach(max(whole["dist"]), scale))
@@ -62,14 +63,14 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     for clock, jd, _ in moments:
         for rule in [earth_rule] + [m["rule"] for m in marks]:
             if "of" in rule and rule["of"] not in tables[clock]:
-                whole = _motion_table(rule["of"], jd)
+                whole = _motion_table(rule["of"], jd, RUN_DAYS)
                 tables[clock][rule["of"]] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
     outer = outer or 1.0
     wanted = [au for au in RINGS[scale] if _reach(au, scale) <= outer][-RINGS_SHOWN:] if show_au else []
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=LOG_FROM_AU, key=key, days=RUN_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 

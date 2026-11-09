@@ -165,12 +165,12 @@ def _sky_point(ra: float, dec: float, ra_facing: float) -> tuple[float, float, f
 
 
 @lru_cache(maxsize=24)
-def _motion_table(planet: str, jd: float) -> dict:
+def _motion_table(planet: str, jd: float, days: int = MOTION_DAYS) -> dict:
     """A body's RA, Dec and distance from jd on, for the page to move it by: what it needs to size it and name its Distance(%)
     too. (To true scale the Sun and Moon would be about 3 px wide and the planets far less than 1 px, so the page sizes the
     markers on a logarithmic scale of how wide they look from the Earth: bigger always means looks bigger.)"""
     step = MOTION_STEP_DAYS[planet]
-    pts = [core.position(planet, jd + i * step) for i in range(int(MOTION_DAYS / step) + 2)]
+    pts = [core.position(planet, jd + i * step) for i in range(int(days / step) + 2)]
     return {"step": step, "ra": [round(p.ra, 3) for p in pts], "dec": [round(p.dec, 3) for p in pts],
             "dist": [round(p.dist_au, 6) for p in pts], "dec_speed": [round(p.dec_speed, 4) for p in pts],
             "km": BODY_RADIUS_KM[planet],
