@@ -492,10 +492,10 @@ def page_space():
     bodies = head.pills("Planets", list(globechart.BODY_CHOICES), selection_mode="multi", default=["Su", "Mo"],
                         key="space_bodies") or []
     scale = head.pills("Distance scale", space3d.SCALES, default=space3d.SCALES[0], key="space_scale") or space3d.SCALES[0]
+    show_au = bool(head.pills("AU values", ["AU values"], key="space_au", label_visibility="collapsed"))
     speed = head.pills("Rotate in 1s", [globechart.MANUAL] + list(globechart.SPEEDS), default=globechart.MANUAL, key="space_speed")
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
-    show_au = bool(head.pills("AU values", ["AU values"], key="space_au", label_visibility="collapsed"))
     if not shown or not bodies:
         st.info("Choose a time and at least one planet.")
         return
