@@ -47,6 +47,7 @@ def colour(name: str) -> str:
 SIZE_TEXTS: dict[str, str] = {}
 SIZE_WORDS: dict[str, str] = {}
 SIZE_TEXTS_HELIO: dict[str, str] = {}   # the Size_Helio column: how the HelioCentric chart sizes each row
+SIZE_TEXTS_GLOBE: dict[str, str] = {}   # the Size_Globe column: how the AstroGlobe chart sizes each row
 SIZE_STEP = 1.5                   # pixels of radius that "bigger than" and "smaller than" add or take away
 TINY_PX = 3.0                     # a Tiny body's radius, in pixels
 MARK_PX = 9.0                     # the usual half-size of the nodes' symbols and the places' icons, in pixels
@@ -74,7 +75,7 @@ def size_rule(name: str, _seen: tuple = (), texts: dict[str, str] | None = None)
     """How a body is sized, from its Size text: {"px": radius}, or {"of": a planet, "add": pixels}, meaning that planet's angular size
     drawn, plus add. "Angular Size"; "Tiny" (a dot) or "Small" (9 pixels); a number (pixels of radius); "Bigger than X", "Smaller than X" or "Same as X", X an SN or a Name.
     Anything else, or blank: a planet by its angular size, the Earth a dot (it has no size of its own to go by)."""
-    texts = SIZE_TEXTS if texts is None else texts             # Size_Geo, or another Size column (SIZE_TEXTS_HELIO)
+    texts = SIZE_TEXTS if texts is None else texts             # Size_Geo, or another Size column (SIZE_TEXTS_HELIO, _GLOBE)
     low = texts.get(name, "").strip().lower()
     if low in SIZE_NAMES:                              # Tiny: a dot, too small to hold a symbol; Small: the usual mark
         return {"px": SIZE_NAMES[low]}

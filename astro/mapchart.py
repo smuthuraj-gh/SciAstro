@@ -111,9 +111,9 @@ def fit_html(fig: go.Figure, after_js: str = "") -> str:
 
 
 def _marker_radius(name: str, pcts: dict) -> float:
-    """A planet's marker radius, as the charts draw it, by its Size in the Naming Conventions table, at the distances (%) of this row."""
+    """A planet's marker radius, as AstroGlobe draws it, by its Size_Globe in the Naming Conventions table, at the distances (%) of this row."""
     from .globechart import BODY_RADIUS_KM, MARKER_RANGE, SIZE_RANGE_ARCSEC
-    rule = core.size_rule(name)
+    rule = core.size_rule(name, texts=core.SIZE_TEXTS_GLOBE)
     if "px" in rule:
         return rule["px"]
     low, high = core.DIST_RANGE[rule["of"]]
