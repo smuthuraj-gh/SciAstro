@@ -280,7 +280,7 @@ def sky_svg(g: GlobeInput) -> tuple[str, list]:
             f'style="position:absolute;left:0;top:0;pointer-events:none">'
             f'<defs><clipPath id="off-earth"><path clip-rule="evenodd" d="M0 0H{WIDTH}V{HEIGHT}H0Z{hole}"/></clipPath></defs>'
             f'<g clip-path="url(#off-earth)"><circle cx="{CX}" cy="{CY}" r="{R}" fill="{SKY_FILL}" stroke="{AXIS_COLOUR}" '
-            f'stroke-width="1"/><g opacity="{BACK_OPACITY}">{"".join(far)}<g class="sky-far"></g></g></g>'
+            f'stroke-width="1"/><g opacity="{BACK_OPACITY}">{"".join(far)}<g class="sky-far"></g></g><g class="sky-far-full"></g></g>'
             f'{axis}{"".join(near)}<g class="sky-near"></g>{"".join(marks)}<g class="sky-marks"></g></svg>'), taken
 
 
@@ -396,7 +396,7 @@ _MOTION_JS = r"""
   const tops = gd.querySelector(".svg-container").querySelectorAll(":scope > svg.main-svg");
   tops[tops.length - 1].before(sky);
   const NS = "http://www.w3.org/2000/svg", RAD = Math.PI / 180;
-  const farG = sky.querySelector(".sky-far"), nearG = sky.querySelector(".sky-near"), markG = sky.querySelector(".sky-marks");
+  const farG = sky.querySelector(".sky-far"), farFullG = sky.querySelector(".sky-far-full"), nearG = sky.querySelector(".sky-near"), markG = sky.querySelector(".sky-marks");
   const make = (tag, parent, attrs) => {
     const e = document.createElementNS(NS, tag);
     Object.entries(attrs || {}).forEach(([k, v]) => e.setAttribute(k, v));
@@ -434,8 +434,8 @@ __SYMBOL_JS__
     });
     return [near, far];
   };
-  const line = (colour, dashed) => {               // a near part and a far part, each with its hover title
-    const parts = [nearG, farG].map((g) => {
+  const line = (colour, dashed, full) => {         // a near part and a far part (faint, unless full), each with its hover title
+    const parts = [nearG, full ? farFullG : farG].map((g) => {
       const attrs = {fill: "none", stroke: colour, "stroke-width": 1.4, style: "pointer-events:stroke"};
       if (dashed) attrs["stroke-dasharray"] = dashed === true ? "6 4" : dashed;
       const e = make("path", g, attrs);
@@ -545,7 +545,7 @@ __SYMBOL_JS__
     const share = Math.max(0, Math.min(1, (Math.log(arcsec) - LOW) / (HIGH - LOW)));
     return Math.max(1, D.radii[0] + (D.radii[1] - D.radii[0]) * share + rule.add);
   };
-  const paths = D.paths.map((p) => Object.assign({}, p, {draw: line(p.colour, p.dash)}));
+  const paths = D.paths.map((p) => Object.assign({}, p, {draw: line(p.colour, p.dash, true)}));   // a path is one colour all round
   let pathsFacing = null, pathsAt = null;
   const moonPath = (p, t) => {                     // the Moon's month around the clock's date: it turns and changes its reach over the years
     const b = D.sets.find((s) => s.clock === p.moving).tables.Mo;

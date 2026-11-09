@@ -125,8 +125,8 @@ __SYMBOL_JS__
     const across = X * LEAN_C + up * LEAN_S, high = up * LEAN_C - X * LEAN_S;
     return [D.width / 2 + across * D.fit * grow, D.height / 2 - high * D.fit * grow, Z];
   };
-  const line = (colour, width, dashed, tip) => {   // the near part full, the far part faint
-    const parts = [1, 0.35].map((opacity) => {
+  const line = (colour, width, dashed, tip, full) => {   // the near part full, the far part faint (unless full)
+    const parts = [1, full ? 1 : 0.35].map((opacity) => {
       const attrs = {fill: "none", stroke: colour, "stroke-width": width, opacity, style: "pointer-events:stroke"};
       if (dashed) attrs["stroke-dasharray"] = "6 4";
       const e = make("path", svg, attrs);
@@ -161,7 +161,7 @@ __SYMBOL_JS__
   const spokes = D.ra_marks.map((m) => ({m, draw: line("rgb(205,205,205)", 1, false, m.text), label: words("rgb(110,110,110)")}));
   spokes.forEach((g) => { g.label.textContent = g.m.text; });
   const axis = line(DARK, 2, false, "The Earth's axis: north celestial pole to south");
-  const paths = D.paths.map((p) => ({p, draw: line(p.colour, 1.8, p.dash, "")}));
+  const paths = D.paths.map((p) => ({p, draw: line(p.colour, 1.8, p.dash, "", true)}));   // a path is one colour all round
   const poles = [["NCP", [0, 0, D.outer]], ["SCP", [0, 0, -D.outer]]].map(([name, at]) => {
     const label = words(DARK);
     label.textContent = name;
