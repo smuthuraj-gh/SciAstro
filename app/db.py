@@ -53,7 +53,7 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("name", sa.String(60)),
     sa.Column("color", sa.String(40)),
     sa.Column("color_name", sa.String(40)),                   # free text, for people; the charts use color
-    sa.Column("size", sa.Float),                              # a number, for reference; blank until an admin fills it in
+    sa.Column("size", sa.String(40)),                         # free text, for reference; blank until an admin fills it in
 )
 # The Aspects Details table: a row per aspect, with its RA and Dec orbs per planet; pos keeps the order shown
 ORB_COLUMNS = [c for c in core.default_orb_table().columns if c not in ("Aspect", "Angle")]
@@ -155,10 +155,19 @@ def _add_planet_color_name(eng: sa.Engine):
 
 
 def _add_planet_size(eng: sa.Engine):
-    """A table made before Size gets it, blank."""
-    if "size" not in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
+    """A table made before Size gets it, blank. One where Size was a number has it as text, its values kept (5.0 as 5)."""
+    kind = planets.c.size.type.compile(dialect=eng.dialect)
+    have = {c["name"]: c["type"] for c in sa.inspect(eng).get_columns("naming_conventions")}
+    if "size" not in have:
         with eng.begin() as c:
-            c.execute(sa.text(f"ALTER TABLE naming_conventions ADD COLUMN size {planets.c.size.type.compile(dialect=eng.dialect)}"))
+            c.execute(sa.text(f"ALTER TABLE naming_conventions ADD COLUMN size {kind}"))
+    elif not isinstance(have["size"], sa.String):
+        with eng.begin() as c:
+            c.execute(sa.text("ALTER TABLE naming_conventions RENAME COLUMN size TO size_number"))
+            c.execute(sa.text(f"ALTER TABLE naming_conventions ADD COLUMN size {kind}"))
+            for sn, number in c.execute(sa.text("SELECT sn, size_number FROM naming_conventions WHERE size_number IS NOT NULL")).all():
+                c.execute(planets.update().where(planets.c.sn == sn).values(size=f"{number:g}"))
+            c.execute(sa.text("ALTER TABLE naming_conventions DROP COLUMN size_number"))
 
 
 def _seed_planets(eng: sa.Engine):
@@ -182,22 +191,14 @@ def all_planets() -> pd.DataFrame:
         rows = c.execute(sa.select(planets)).mappings().all()
     order = {p: i for i, p in enumerate(PLANET_NAMES)}
     rows = sorted(rows, key=lambda r: order.get(r["sn"], len(order)))
-    table = pd.DataFrame([{"SN": r["sn"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"], "Size": r["size"]}
-                          for r in rows], columns=["SN", "Name", "Color", "Color_Name", "Size"])
-    table["Size"] = pd.to_numeric(table["Size"], errors="coerce")   # a number column even while all are blank
-    return table
+    return pd.DataFrame([{"SN": r["sn"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"], "Size": r["size"]}
+                         for r in rows], columns=["SN", "Name", "Color", "Color_Name", "Size"])
 
 
 def planet_colours() -> dict[str, str]:
     """The Color of each row of the Naming Conventions table, by its SN."""
     with engine().connect() as c:
         return {sn: color for sn, color in c.execute(sa.select(planets.c.sn, planets.c.color)) if color}
-
-
-def _size(value) -> float | None:
-    """A Size as a number, or None when blank or not a number."""
-    number = pd.to_numeric(value, errors="coerce")
-    return None if pd.isna(number) else float(number)
 
 
 def _cell(value) -> str:
@@ -207,7 +208,7 @@ def _cell(value) -> str:
 def planet_problems(rows: pd.DataFrame) -> list[str]:
     """What is wrong with the Naming Conventions table's rows (_sn: the SN a row is kept under; blank on a new one, and a wholly empty
     new one does not count). Each needs a Name and a colour as rgb(r,g,b) or #rrggbb and an SN of up to 8 characters, unique;
-    the SN of a row already in the table stays. Color_Name may be blank, up to 40 characters; Size may be blank, or a number of 0 or more."""
+    the SN of a row already in the table stays. Color_Name and Size may be blank, up to 40 characters each."""
     out, seen = [], set()
     for _, r in rows.iterrows():
         sn, name, colour, kept = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
@@ -231,14 +232,14 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
             out.append(f"{label}: Color must look like rgb(0,112,192) or #0070c0")
         if len(colour_name) > 40:
             out.append(f"{label}: Color_Name can be at most 40 characters")
-        if _cell(r["Size"]) and (_size(r["Size"]) is None or _size(r["Size"]) < 0):
-            out.append(f"{label}: Size must be a number of 0 or more")
+        if len(_cell(r["Size"])) > 40:
+            out.append(f"{label}: Size can be at most 40 characters")
     return out
 
 
 def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
     """Makes the Naming Conventions table these rows: (added, changed, deleted)."""
-    old = {r["SN"]: (_cell(r["Name"]), _cell(r["Color"]), _cell(r["Color_Name"]), _size(r["Size"])) for _, r in all_planets().iterrows()}
+    old = {r["SN"]: (_cell(r["Name"]), _cell(r["Color"]), _cell(r["Color_Name"]), _cell(r["Size"])) for _, r in all_planets().iterrows()}
     added = changed = 0
     kept = {_cell(v) for v in rows["_sn"]} - {""}
     with engine().begin() as c:
@@ -247,13 +248,13 @@ def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
         for _, r in rows.iterrows():
             sn, name, colour, was = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
             colour_name = _cell(r["Color_Name"])
-            size = _size(r["Size"])
-            values = dict(name=name, color=colour, color_name=colour_name or None, size=size)
+            size = _cell(r["Size"])
+            values = dict(name=name, color=colour, color_name=colour_name or None, size=size or None)
             if was:
                 if old.get(was) != (name, colour, colour_name, size):
                     c.execute(planets.update().where(planets.c.sn == was).values(**values))
                     changed += 1
-            elif sn or name or colour or colour_name or size is not None:
+            elif sn or name or colour or colour_name or size:
                 c.execute(planets.insert().values(sn=sn, **values))
                 added += 1
     return added, changed, len(set(old) - kept)
