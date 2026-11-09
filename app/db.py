@@ -1,4 +1,4 @@
-"""The private store: customers and the orb table.
+"""The private store: customers, the planets and the orbs (Aspects Details).
 
 The database URL comes from the secret `db_url` (e.g. a Neon or Supabase Postgres URL on Streamlit Community Cloud,
 whose own disk is wiped on every restart). Without it, a local SQLite file private/app.db is used.
@@ -53,6 +53,15 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("name", sa.String(60)),
     sa.Column("color", sa.String(40)),
 )
+# The Aspects Details table: a row per aspect, with its RA and Dec orbs per planet; pos keeps the order shown
+ORB_COLUMNS = [c for c in core.default_orb_table().columns if c not in ("Aspect", "Angle")]
+aspect_details = sa.Table(
+    "aspect_details", meta,
+    sa.Column("angle", sa.Float, primary_key=True),
+    sa.Column("pos", sa.Integer, nullable=False),
+    sa.Column("aspect", sa.String(60), nullable=False),
+    *[sa.Column(c.lower().replace("-", "_"), sa.Float) for c in ORB_COLUMNS],
+)
 PLANET_NAMES = {"Su": "Sun", "Mo": "Moon", "Me": "Mercury", "Ve": "Venus", "Ma": "Mars", "Ju": "Jupiter", "Sa": "Saturn"}
 
 
@@ -80,7 +89,32 @@ def engine() -> sa.Engine:
     _add_missing_columns(eng)
     _rename_planet_columns(eng)
     _seed_planets(eng)
+    _seed_aspect_details(eng)
     return eng
+
+
+def _seed_aspect_details(eng: sa.Engine):
+    """The Aspects Details table, when empty, starts from the orbs kept as text among the settings before it existed
+    (that text stays until the table is next saved), or else from the defaults."""
+    with eng.begin() as c:
+        if c.execute(sa.select(sa.func.count()).select_from(aspect_details)).scalar():
+            return
+        kept = c.execute(sa.select(settings.c.value).where(settings.c.key == "orbs")).scalar()
+        table = pd.read_csv(io.StringIO(kept)) if kept else core.default_orb_table()
+        rows = _orb_rows(table.dropna(subset=["Angle"]).drop_duplicates("Angle"))
+        if rows:
+            c.execute(aspect_details.insert(), rows)
+
+
+def _orb_rows(table: pd.DataFrame) -> list[dict]:
+    rows = []
+    for pos, (_, r) in enumerate(table.iterrows()):
+        row = {"angle": float(r["Angle"]), "pos": pos, "aspect": str(r["Aspect"]).strip()}
+        for c in ORB_COLUMNS:
+            v = pd.to_numeric(r.get(c), errors="coerce")
+            row[c.lower().replace("-", "_")] = None if pd.isna(v) else float(v)
+        rows.append(row)
+    return rows
 
 
 def _rename_planet_columns(eng: sa.Engine):
@@ -426,13 +460,18 @@ def import_workbook_csv(raw: bytes) -> int:
 
 # ---------------------------------------------------------------- the orb table
 def orb_table() -> pd.DataFrame:
+    """The Aspects Details table, with the columns the charts read: Aspect, Angle, Su-RA .. Ju-De."""
     with engine().connect() as c:
-        v = c.execute(sa.select(settings.c.value).where(settings.c.key == "orbs")).scalar()
-    return pd.read_csv(io.StringIO(v)) if v else core.default_orb_table()
+        rows = c.execute(sa.select(aspect_details).order_by(aspect_details.c.pos)).mappings().all()
+    return pd.DataFrame([{"Aspect": r["aspect"], "Angle": r["angle"],
+                          **{k: r[k.lower().replace("-", "_")] for k in ORB_COLUMNS}} for r in rows],
+                        columns=["Aspect", "Angle"] + ORB_COLUMNS)
 
 
 def save_orb_table(df: pd.DataFrame):
-    text = df.to_csv(index=False)
     with engine().begin() as c:
-        c.execute(sa.delete(settings).where(settings.c.key == "orbs"))
-        c.execute(sa.insert(settings).values(key="orbs", value=text))
+        c.execute(sa.delete(settings).where(settings.c.key == "orbs"))   # the old text, now out of date
+        c.execute(sa.delete(aspect_details))
+        rows = _orb_rows(df)
+        if rows:
+            c.execute(aspect_details.insert(), rows)
