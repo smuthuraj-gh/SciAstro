@@ -288,9 +288,9 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
         if len(colour_name) > 40:
             out.append(f"{label}: Color can be at most 40 characters")
         if len(_cell(r["Size"])) > 40:
-            out.append(f"{label}: Size can be at most 40 characters")
+            out.append(f"{label}: Size_Geo can be at most 40 characters")
         elif not core.size_readable(_cell(r["Size"]), words):    # it would not change how anything is drawn
-            out.append(f"{label}: Size '{_cell(r['Size'])}' is not one the app can use: Angular Size, Tiny, Small, a number of pixels, "
+            out.append(f"{label}: Size_Geo '{_cell(r['Size'])}' is not one the app can use: Angular Size, Tiny, Small, a number of pixels, "
                        "or Bigger than, Smaller than or Same as another row's SAbr or SDesc")
         if len(_cell(r["Symbol"])) > 8:
             out.append(f"{label}: Symb can be at most 8 characters")
