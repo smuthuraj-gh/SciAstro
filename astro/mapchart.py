@@ -1,6 +1,8 @@
 """What the charts share: the text size, keeping labels apart (Spots), the page's chart holder (fit_html) and the Distance(%) rows."""
 from __future__ import annotations
 
+import html
+import math
 import re
 
 import plotly.graph_objects as go
@@ -108,19 +110,51 @@ def fit_html(fig: go.Figure, after_js: str = "") -> str:
 </script>"""
 
 
-def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str:
-    """One row of the key: the row's title above, then each mark (in its colour and shape) and name, with a value
-    beneath (blank for none)."""
-    def item(n: str, sym: str, v: float | None) -> str:
-        # each planet's name and its value the same size, both solid, in the chart's text gray
+def _marker_radius(name: str, pcts: dict) -> float:
+    """A planet's marker radius, as the charts draw it, by its Size in the Naming Conventions table, at the distances (%) of this row."""
+    from .globechart import BODY_RADIUS_KM, MARKER_RANGE, SIZE_RANGE_ARCSEC
+    rule = core.size_rule(name)
+    if "px" in rule:
+        return rule["px"]
+    low, high = core.DIST_RANGE[rule["of"]]
+    km = low + (high - low) * pcts[rule["of"]] / 100.0
+    arcsec = math.degrees(2 * math.atan(BODY_RADIUS_KM[rule["of"]] / km)) * 3600
+    share = (math.log(arcsec) - math.log(SIZE_RANGE_ARCSEC[0])) / (math.log(SIZE_RANGE_ARCSEC[1]) - math.log(SIZE_RANGE_ARCSEC[0]))
+    return max(1.0, MARKER_RANGE[0] + (MARKER_RANGE[1] - MARKER_RANGE[0]) * min(max(share, 0.0), 1.0) + rule["add"])
+
+
+def _ink_on(colour: str) -> str:
+    """Black or white, whichever shows on a colour (as the pages' symbols are)."""
+    if colour.startswith("#"):
+        r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
+    else:
+        r, g, b = map(int, re.findall(r"[0-9]+", colour)[:3])
+    return "black" if 0.299 * r + 0.587 * g + 0.114 * b > 150 else "white"
+
+
+def _marker_svg(name: str, pcts: dict, shape: dict) -> str:
+    """A planet's round marker, in its colour and sized as on the charts, with its symbol inside."""
+    r = _marker_radius(name, pcts)
+    k, half, colour = r / 9.5, r + 1, core.colour(name)
+    ink = _ink_on(colour)
+    inside = (f'<path d="{shape["d"]}" fill="none" stroke="{ink}" stroke-width="{1.5 / k:.2f}" stroke-linecap="round" stroke-linejoin="round"/>'
+              if "d" in shape else
+              f'<text y="4.5" text-anchor="middle" font-size="13" font-weight="bold" fill="{ink}">{html.escape(shape["text"])}</text>')
+    return (f'<svg width="{2 * half:.1f}" height="{2 * half:.1f}" viewBox="{-half:.1f} {-half:.1f} {2 * half:.1f} {2 * half:.1f}" style="display:block">'
+            f'<circle r="{r:.1f}" fill="{colour}"/><g transform="scale({k:.3f})">{inside}</g></svg>')
+
+
+def _key_row(items: list[tuple[str, float | None]], label: str = "") -> str:
+    """One row of the key: the row's title above, then each planet's marker, with a value beneath (blank for none)."""
+    from .globechart import symbol_shapes
+    shapes, pcts = symbol_shapes(), {n: v for n, v in items if v is not None}
+
+    def item(n: str, v: float | None) -> str:
         value = f"{v:.1f}" if v is not None else "&nbsp;"
-        return (f'<span style="display:inline-block; text-align:center; margin-right:{KEY_GAP_HTML}px; '
-                f'line-height:1.4">'
-                f'<span style="white-space:nowrap"><span class="key-dot" style="color:{core.colour(n)}; '
-                f'font-size:{round(FONT * DOT_SCALE)}px; line-height:0; vertical-align:0.05em">{sym}</span>'
-                f'&nbsp;<span style="color:{core.colour(n)}">{core.symbol_of(n)}</span></span>'
-                f'<br><span style="font-size:{FONT}px">{value}</span></span>')
-    head = (f'<div style="font-size:{FONT}px; line-height:1.2; margin-bottom:{3 + DOT_ROOM}px">'
+        return (f'<span style="display:inline-block; text-align:center; margin-right:{KEY_GAP_HTML}px; vertical-align:top; line-height:1.4">'
+                f'<span style="display:flex; height:{MARKER_ROOM}px; align-items:center; justify-content:center">{_marker_svg(n, pcts, shapes[n])}</span>'
+                f'<span style="font-size:{FONT}px">{value}</span></span>')
+    head = (f'<div style="font-size:{FONT}px; line-height:1.2; margin-bottom:3px">'
             f'<b style="font-weight:700">{label}</b>'
             f'</div>' if label else "")
     # in the charts' own font (Plotly's) and text colour
@@ -130,21 +164,20 @@ def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str
 
 CHART_FONT_FAMILY = "'Open Sans', verdana, arial, sans-serif"     # Plotly's default, which the charts are drawn in
 CHART_TEXT = "#444"                                              # Plotly's text colour
-DOT_SCALE = 1.5                  # the planet dots (● ○) in the Distance(%) rows, this many times the text's size
-DOT_ROOM = 5                     # extra pixels under a row's title for the bigger dots' line
+MARKER_ROOM = 30                 # pixels high for the markers in the Distance(%) rows, the biggest fitting
 # The space between one planet and the next in the Distance(%) rows, so that they fit on the buttons' line
 KEY_GAP_HTML = 14
 
 
 def average_key_html(d_birth: dict, d_now: dict) -> str:
     """Each planet's Distance(%) from earth (DOB+Now)/2: the average of D at birth and D-N now. Empty if none has both."""
-    da = [(n, "&#9679;", round((d_birth[n] + d_now[n]) / 2, 2)) for n in core.PLANETS
+    da = [(n, round((d_birth[n] + d_now[n]) / 2, 2)) for n in core.PLANETS
           if d_birth.get(n) is not None and d_now.get(n) is not None]
     return _key_row(da, "Distance(%) from earth (DOB+Now)/2") if da else ""
 
 
 def globe_key_html(d_birth: dict, d_now: dict, show_dob: bool) -> str:
     """AstroGlobe's rows, one below the other: Distance(%) from earth (DOB+Now)/2, then with DOB chosen on DOB."""
-    dob = [(n, "&#9679;", d_birth[n]) for n in core.PLANETS if d_birth.get(n) is not None]
+    dob = [(n, d_birth[n]) for n in core.PLANETS if d_birth.get(n) is not None]
     rows = [average_key_html(d_birth, d_now), _key_row(dob, "Distance(%) from earth on DOB") if dob and show_dob else ""]
     return '<div style="display:flex; flex-direction:column; row-gap:6px">' + "".join(rows) + "</div>"
