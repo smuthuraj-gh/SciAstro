@@ -36,6 +36,7 @@ PATH_SPAN = {"Mo": (27.32, 110, "Moon Path"), "Me": (365.25, 365, "Mercury Path"
              "Ve": (365.25, 365, "Venus Path"), "Ma": (687.0, 400, "Mars Path"),
              "Ju": (4333.0, 400, "Jupiter Path"), "Sa": (10759.0, 400, "Saturn Path")}
 BODY_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
+TRAIL_SPAN = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN, "NN": (6793.5, 400, "NN Path"), "SN": (6793.5, 400, "SN Path")}
 NODE_CHOICES = ("NN", "SN")       # the Moon's north and south nodes, picked with the planets
 NODE_PATH = (6793.5, 400)         # days (18.6 years, the nodes' one trip round the sky) and points of a node's path
 MANUAL = "Manual"                 # Rotate's option to drag the Earth round by hand
@@ -184,29 +185,6 @@ def _node_table(jd: float) -> dict:
     return {"step": NODE_STEP_DAYS, "ra": [round(p[0], 3) for p in pts], "dec": [round(p[1], 3) for p in pts]}
 
 
-def _sun_path(angle: float) -> tuple[float, float]:
-    """The (RA, Dec) a given angle round the Sun's yearly path, counted from where it crosses the celestial equator going
-    north. Only the circle is drawn: the angle itself is never shown."""
-    a, t = math.radians(angle), math.radians(TILT)
-    return (math.degrees(math.atan2(math.cos(t) * math.sin(a), math.cos(a))) % 360.0,
-            math.degrees(math.asin(math.sin(t) * math.sin(a))))
-
-
-def _planet_path(planet: str, jd: float) -> list[tuple[float, float]]:
-    """The (RA, Dec) of a planet from the Earth over one trip round the sky with jd in the middle, loops included. It does not
-    quite meet, as a planet comes back to a different place. (The page works out the Moon's as time runs.)"""
-    days, steps, _ = PATH_SPAN[planet]
-    pts = [core.position(planet, jd + days * (v / steps - 0.5)) for v in range(steps + 1)]
-    return [(p.ra, p.dec) for p in pts]
-
-
-def _node_path(name: str, jd: float) -> list[tuple[float, float]]:
-    """The (RA, Dec) of a Moon's node over its one trip round the sky with jd in the middle. The south node is opposite the north."""
-    days, steps = NODE_PATH
-    pts = [core.moon_north_node(jd + days * (v / steps - 0.5)) for v in range(steps + 1)]
-    return pts if name == "NN" else [((ra + 180.0) % 360.0, -dec) for ra, dec in pts]
-
-
 def _sky_line(pts: list[tuple[float, float]], ra_facing: float, colour: str, width: float, dash: bool, tip: str,
               near: list[str], far: list[str]) -> None:
     """A line along the sphere, cut where it passes between the near side and the far side."""
@@ -285,33 +263,16 @@ def sky_svg(g: GlobeInput) -> tuple[str, list]:
 
 
 def _paths(g: GlobeInput) -> list[dict]:
-    """The paths to draw, for the page, which draws them again whenever the view turns."""
+    """The paths to draw, for the page, which draws each as a trail behind its body while time runs: where it has really been
+    since time started running (solid at birth, dashed now)."""
     out = []
-    if "Su" in g.paths:
-        # the Sun's path over a year: the circle tilted TILT to the celestial equator
-        out.append(dict(name="Sun Path", colour=core.colour("Su"), width=2.4, dash=False,
-                        tip=f"Sun Path over a year (Dec between {-TILT:+.2f} and {TILT:+.2f})",
-                        pts=[_sun_path(v) for v in range(0, 361, 2)]))
-    # the others, which shift over the years: one trip round the sky around the birth and, dashed, around now
-    for show, when, what, dash, clock in ((g.show_birth, g.jd_birth, "birth", False, "DOB"),
-                                          (g.show_now, g.jd_now, "now", True, "Now")):
+    for show, when, dash, clock in ((g.show_birth, g.jd_birth, False, "DOB"), (g.show_now, g.jd_now, True, "Now")):
         if show and when is not None:
-            for p, (days, _steps, name) in PATH_SPAN.items():
-                if p == "Mo" and p in g.paths:          # the page works it out as time runs, from the Moon's own table
-                    out.append(dict(name=name, colour=core.colour(p), width=2.4, dash=dash, tip="", pts=[], moving=clock))
-                elif p in g.paths:
-                    path = _planet_path(p, when)
-                    out.append(dict(name=name, colour=core.colour(p), width=1.8, dash=dash,
-                                    tip=f"{name}: {days:g} days around {what} (Dec between "
-                                        f"{min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})",
-                                    pts=[[round(a, 2), round(d, 2)] for a, d in path]))
-            for node in NODE_CHOICES:
-                if node in g.paths:
-                    path = _node_path(node, when)
-                    out.append(dict(name=f"{core.symbol_of(node)} Path", colour=core.colour(node), width=1.8, dash=dash,
-                                    tip=f"{core.symbol_of(node)} Path: {NODE_PATH[0]:g} days around {what} (Dec between "
-                                        f"{min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})",
-                                    pts=[[round(a, 2), round(d, 2)] for a, d in path]))
+            for p in BODY_CHOICES + NODE_CHOICES:
+                if p in g.paths:
+                    days, steps, name = TRAIL_SPAN[p]
+                    out.append(dict(name=name, body=p, clock=clock, colour=core.colour(p), width=2.4 if p in ("Su", "Mo") else 1.8,
+                                    dash=dash, days=days, steps=steps, tip="", pts=[]))
     return out
 
 
@@ -329,7 +290,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                                    colour=core.colour(label), set=len(sets)))
             sets.append(dict(clock=name, jd=when, offset=offset, shown=[p for p in core.BUTTON_ORDER if p in g.bodies],
                              tables={p: {**_motion_table(p, when), "colour": core.colour(p)} for p in core.BUTTON_ORDER},
-                             node=_node_table(when) if set(NODE_CHOICES) & set(g.bodies) else None))
+                             node=_node_table(when) if set(NODE_CHOICES) & (set(g.bodies) | set(g.paths)) else None))
     aspects = [dict(angle=a, colour=ASPECT_COLOURS[a in core.MINOR], width=1.0 if a in core.MINOR else 1.5,
                     orbs={f"{p}|{q}": [g.orbs.pair(a, p, q, False), g.orbs.pair(a, p, q, True)]
                           for i, p in enumerate(core.BUTTON_ORDER) for q in core.BUTTON_ORDER[i + 1:]})
@@ -545,20 +506,29 @@ __SYMBOL_JS__
     const share = Math.max(0, Math.min(1, (Math.log(arcsec) - LOW) / (HIGH - LOW)));
     return Math.max(1, D.radii[0] + (D.radii[1] - D.radii[0]) * share + rule.add);
   };
-  const paths = D.paths.map((p) => Object.assign({}, p, {draw: line(p.colour, p.dash, true)}));   // a path is one colour all round
-  let pathsFacing = null, pathsAt = null;
-  const moonPath = (p, t) => {                     // the Moon's month around the clock's date: it turns and changes its reach over the years
-    const b = D.sets.find((s) => s.clock === p.moving).tables.Mo;
-    const first = Math.max(0, Math.min(t - D.moon_month / 2, D.days - D.moon_month));
+  const paths = D.paths.map((p) => {               // a path is one colour all round
+    const set = D.sets.find((s) => s.clock === p.clock), node = p.body === "NN" || p.body === "SN";
+    return Object.assign({}, p, {draw: line(p.colour, p.dash, true), set, table: node ? null : set.tables[p.body], node,
+                                 turn: p.body === "SN" ? 180 : 0, sign: p.body === "SN" ? -1 : 1});
+  });
+  let pathsFacing = null, pathsAt = null, trailFrom = null;
+  const TRAIL_MOST = 1500;                         // the most points a trail is drawn with: a long one is thinned, evenly
+  const trailAt = (p, s) => {                      // where the body was, s days on
+    if (!p.node) { const q = sample(p.table, s); return [q.ra, q.dec]; }
+    const n = p.set.node, u = s / n.step, i = Math.min(Math.floor(u), n.ra.length - 2), f = u - i;
+    const change = ((n.ra[i + 1] - n.ra[i] + 540) % 360) - 180;
+    return [(n.ra[i] + change * f + p.turn + 720) % 360, p.sign * (n.dec[i] + (n.dec[i + 1] - n.dec[i]) * f)];
+  };
+  const trail = (p, t) => {                        // where the body has really been since time started running
+    const run = trailFrom === null ? 0 : t - trailFrom;
+    let gap = p.days / p.steps;
+    while (run / gap > TRAIL_MOST) gap *= 2;         // (by doubling, so that the points stay where they were as it grows)
     p.pts = [];
-    for (let v = 0; v !== 55; v++) {
-      const s = sample(b, first + v * D.moon_month / 55);
-      p.pts.push([s.ra, s.dec]);
-    }
-    p.pts.push(p.pts[0]);
-    const decs = p.pts.map((q) => q[1]), show = (v) => (v >= 0 ? "+" : "") + v.toFixed(2);
-    p.tip = p.name + " " + p.moving + ": the month around the clock's date (Dec between " + show(Math.min(...decs)) +
-      " and " + show(Math.max(...decs)) + ")";
+    for (let n = 0; n * gap < run; n++) p.pts.push(trailAt(p, trailFrom + n * gap));
+    if (run > 0) p.pts.push(trailAt(p, t));         // to the body itself
+    const decs = p.pts.map((q) => q[1]), show = (v) => (v >= 0 ? "+" : "") + v.toFixed(2), days = Math.round(run);
+    p.tip = p.name + " " + p.clock + ": where it has been since time started running, " + days + (days === 1 ? " day" : " days") +
+      (decs.length ? " (Dec between " + show(Math.min(...decs)) + " and " + show(Math.max(...decs)) + ")" : "");
   };
   const drawPaths = () => {                        // named only on pointing at them
     paths.forEach((p) => p.draw(p.pts, p.tip, p.colour, p.width));
@@ -566,13 +536,11 @@ __SYMBOL_JS__
   };
   const place = (t) => {
     raFacing = D.ra_facing - clock.view;
-    const turning = paths.filter((p) => p.moving);
     if (t !== pathsAt) {
-      turning.forEach((p) => moonPath(p, t));
+      paths.forEach((p) => trail(p, t));
       pathsAt = t;
-    }
-    if (pathsFacing !== raFacing) drawPaths();
-    else turning.forEach((p) => p.draw(p.pts, p.tip, p.colour, p.width));
+      drawPaths();
+    } else if (pathsFacing !== raFacing) drawPaths();
     const taken = D.taken.slice();       // in the order of who keeps their place: the planets' tags before the houses', which spin past
     aspectLines.forEach((l) => {                   // the short way round between the two, straight in RA and Dec
       const a = sample(l.s.tables[l.p], t), b = sample(l.s.tables[l.q], t);
@@ -707,6 +675,11 @@ __SYMBOL_JS__
   const facing = (t) => (((D.lon0 - D.spin * t - clock.view + 540) % 360) + 360) % 360 - 180;
   if (!window.globeClock || window.globeClock.key !== D.key) window.globeClock = {key: D.key, t: 0, view: 0};
   const clock = window.globeClock;
+  // trails only while time runs: from where it started running, kept across the page's redraws while it runs (so pressing
+  // another button does not clear them); none while it stands still, and each start begins new ones
+  if (!D.day_seconds) clock.trailFrom = null;
+  else if (clock.trailFrom === null || clock.trailFrom === undefined || clock.trailFrom > clock.t) clock.trailFrom = clock.t;
+  trailFrom = D.day_seconds ? clock.trailFrom : null;
   place(clock.t);
   let busy = false;
   redraw(clock.t);
@@ -718,7 +691,7 @@ __SYMBOL_JS__
       const now = performance.now();
       clock.t += (now - last) / 1000 / D.day_seconds;
       last = now;
-      if (clock.t >= D.days) clock.t = 0;           // the end of the tables: from the start again
+      if (clock.t >= D.days) { clock.t = 0; trailFrom = clock.trailFrom = 0; }   // the end of the tables: from the start again, the trails too
       place(clock.t);
       redraw(clock.t);
     }, D.step_ms);
