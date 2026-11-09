@@ -188,6 +188,12 @@ def sky_svg(g: GlobeInput) -> tuple[str, list]:
         marks.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="4" fill="{AXIS_COLOUR}"/>')
         taken.append((px - 5, py - 5, px + 5, py + 5))
 
+    # East and West, at the two ends of the line across the axis: the Earth turns toward E
+    for s, name in ((1, "E"), (-1, "W")):
+        lx, ly = CX + s * (R + 14) * uy, CY + s * (R + 14) * ux + 4
+        marks.append(_text(lx, ly, name, AXIS_COLOUR))
+        taken.append(_box(lx, ly, name))
+
     def path_label(points: list, name: str, colour: str, right: bool = False) -> None:
         """Names a line at its near side's left-hand (or right-hand) end, or as near there as is free."""
         px, py, _ = (max if right else min)((p for p in (_sky_point(a, d, ra_facing) for a, d in points) if p[2] >= 0),
