@@ -259,7 +259,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
-                family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
+                family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
 
 
@@ -280,13 +280,13 @@ def globe_figure(g: GlobeInput) -> go.Figure:
                         continue
                     fig.add_trace(go.Scattergeo(
                         lon=line_lon, lat=line_lat, mode="lines", showlegend=False,
-                        line=dict(color="black", width=1.4, dash="dash" if label == "CN" else "solid"),
+                        line=dict(color=core.colour(label), width=1.4, dash="dash" if label == "CN" else "solid"),
                         hoverinfo="text", text=text, opacity=0.7 if label == "CN" else 0.9))
             fig.add_trace(go.Scattergeo(
                 lon=[lon], lat=[lat], mode="markers+text", showlegend=False, text=[f"<b>{label}</b>"],
                 textposition="bottom center" if label == "CB" else "top center",   # apart even in the same place
-                textfont=dict(size=FONT, color="black"),
-                marker=dict(size=12, color="black", symbol=symbol), hoverinfo="text",
+                textfont=dict(size=FONT, color=core.colour(label)),
+                marker=dict(size=12, color=core.colour(label), symbol=symbol), hoverinfo="text",
                 hovertext=f"<b>{label}</b> {'birth place' if label == 'CB' else 'place now'}<br>"
                           f"latitude {lat:+.2f}, longitude {lon:+.2f}"))
 
@@ -450,8 +450,9 @@ _MOTION_JS = r"""
   const nodes = [];                                // with the Moon's path: where it crosses the Sun's, north (NN) and south (SN)
   D.sets.forEach((s) => {
     if (!s.node) return;
-    const colour = s.tables.Mo.colour, now = s.clock === "Now";
+    const now = s.clock === "Now";
     [["NN", 0, 1, "north"], ["SN", 180, -1, "south"]].forEach(([name, turn, sign, pole]) => {
+      const colour = D.node_colours[name];
       const mark = make("rect", markG, {width: 8, height: 8, fill: now ? "white" : colour, stroke: colour, "stroke-width": 2,
                                         style: "pointer-events:auto"});
       const label = words(markG, {"text-anchor": "middle", fill: colour});

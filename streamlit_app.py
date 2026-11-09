@@ -144,8 +144,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                       "its dot to see it. Dates and times are UT.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
-    "Planets": "The planets table: each planet's short name (SN), long name (Name) and colour. Seen by admins only, who can "
-               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SN is unique, and stays once a row is in the table. Color is rgb(r,g,b) or #rrggbb. The charts take each planet's colour from here: its marker, RA and Dec lines and path.",
+    "Planets": "The planets table: the short name (SN), long name (Name) and colour of each planet, the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
+               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SN is unique, and stays once a row is in the table. Color is rgb(r,g,b) or #rrggbb. The charts take the colours from here: a planet's marker, RA and Dec lines and path; NN's and SN's mark and name; CN's and CB's mark, name, RA and Dec lines. The NN, SN, CN and CB rows come back if deleted.",
     "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",

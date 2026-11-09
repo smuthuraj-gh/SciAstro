@@ -62,7 +62,9 @@ aspect_details = sa.Table(
     sa.Column("aspect", sa.String(60), nullable=False),
     *[sa.Column(c.lower().replace("-", "_"), sa.Float) for c in ORB_COLUMNS],
 )
-PLANET_NAMES = {"Su": "Sun", "Mo": "Moon", "Me": "Mercury", "Ve": "Venus", "Ma": "Mars", "Ju": "Jupiter", "Sa": "Saturn"}
+PLANET_NAMES = {"Su": "Sun", "Mo": "Moon", "Me": "Mercury", "Ve": "Venus", "Ma": "Mars", "Ju": "Jupiter", "Sa": "Saturn",
+                "NN": "Moon's North Node", "SN": "Moon's South Node", "CN": "Place Now", "CB": "Birth Place"}
+POINT_ROWS = ("NN", "SN", "CN", "CB")                         # the rows that are not bodies; always in the table
 
 
 def _now():
@@ -127,10 +129,16 @@ def _rename_planet_columns(eng: sa.Engine):
 
 
 def _seed_planets(eng: sa.Engine):
-    """The planets table, when empty, starts with the Sun, Moon and planets in the colours the charts use."""
+    """The planets table, when empty, starts with every row in the colours the charts use. A table made earlier gets the
+    rows it lacks of NN, SN (in its Moon's colour, as they were drawn), CN and CB."""
     with eng.begin() as c:
-        if not c.execute(sa.select(sa.func.count()).select_from(planets)).scalar():
-            c.execute(planets.insert(), [{"sn": p, "name": d, "color": core.colour(p)} for p, d in PLANET_NAMES.items()])
+        rows = dict(c.execute(sa.select(planets.c.sn, planets.c.color)).all())
+        wanted = PLANET_NAMES if not rows else POINT_ROWS
+        new = [{"sn": p, "name": PLANET_NAMES[p],
+                "color": (rows.get("Mo") or core.colour(p)) if p in ("NN", "SN") else core.colour(p)}
+               for p in wanted if p not in rows]
+        if new:
+            c.execute(planets.insert(), new)
 
 
 def all_planets() -> pd.DataFrame:

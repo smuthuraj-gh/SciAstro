@@ -22,8 +22,8 @@ AU_KM = 149597870.7
 TRUE_NODE = 11                                                # Swiss Ephemeris number of the Moon's true node
 
 COLOURS = {"Sa": "rgb(255,0,0)", "Ju": "rgb(112,48,160)", "Ma": "rgb(255,165,0)", "Ve": "rgb(0,176,80)",
-           "Me": "rgb(146,208,80)", "Su": "rgb(0,112,192)", "Mo": "rgb(0,176,240)", "CN": "rgb(192,0,128)",
-           "CB": "rgb(0,0,0)"}
+           "Me": "rgb(146,208,80)", "Su": "rgb(0,112,192)", "Mo": "rgb(0,176,240)", "NN": "rgb(0,176,240)",
+           "SN": "rgb(0,176,240)", "CN": "rgb(0,0,0)", "CB": "rgb(0,0,0)"}
 
 # geocentric minimum / maximum distance (km) over 1800-2400, as the workbook uses for D
 DIST_RANGE = {"Su": (147079476.4, 152116857.5), "Mo": (356371.3, 406720.6), "Me": (82110762.7, 217176258.7),
