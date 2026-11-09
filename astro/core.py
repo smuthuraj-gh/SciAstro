@@ -67,7 +67,7 @@ def with_symbols(text: str) -> str:
 def size_rule(name: str, _seen: tuple = ()) -> dict:
     """How a body is sized, from its Size text: {"px": radius}, or {"of": a planet, "add": pixels}, meaning that planet's angular size
     drawn, plus add. "Angular Size"; "Tiny" (a dot); a number (pixels of radius); "Bigger than X", "Smaller than X" or "Same as X", X an SN or a Name.
-    Anything else, or blank: as they have always been drawn, a planet by its angular size and the Earth a little bigger than the Moon."""
+    Anything else, or blank: a planet by its angular size, the Earth a dot (it has no size of its own to go by)."""
     low = SIZE_TEXTS.get(name, "").strip().lower()
     if low == "tiny":                                  # a dot, too small to hold a symbol
         return {"px": TINY_PX}
@@ -82,7 +82,8 @@ def size_rule(name: str, _seen: tuple = ()) -> dict:
         return {"px": max(rule["px"] + add, SIZE_PX[0])} if "px" in rule else {"of": rule["of"], "add": rule["add"] + add}
     if name in PLANET_ID:
         return {"of": name, "add": 0.0}
-    return {"of": "Mo", "add": SIZE_STEP} if name == "Ea" else {"px": MARK_PX}   # the nodes and the places: a fixed size
+    # the Earth with no readable Size: the smallest, a dot; the nodes and the places: their usual fixed size
+    return {"px": TINY_PX} if name == "Ea" else {"px": MARK_PX}
 
 
 def tag(angle: int) -> str:
