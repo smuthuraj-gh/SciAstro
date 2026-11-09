@@ -46,6 +46,7 @@ def colour(name: str) -> str:
 # The Size column of the Naming Conventions table (set each run from the table), and its names and SNs, in lower case, to their SN
 SIZE_TEXTS: dict[str, str] = {}
 SIZE_WORDS: dict[str, str] = {}
+SIZE_TEXTS_HELIO: dict[str, str] = {}   # the Size_Helio column: how the HelioCentric chart sizes each row
 SIZE_STEP = 1.5                   # pixels of radius that "bigger than" and "smaller than" add or take away
 TINY_PX = 3.0                     # a Tiny body's radius, in pixels
 MARK_PX = 9.0                     # the usual half-size of the nodes' symbols and the places' icons, in pixels
@@ -69,11 +70,12 @@ def with_symbols(text: str) -> str:
     return _ANY_SN.sub(lambda m: symbol_of(m[1]), text)
 
 
-def size_rule(name: str, _seen: tuple = ()) -> dict:
+def size_rule(name: str, _seen: tuple = (), texts: dict[str, str] | None = None) -> dict:
     """How a body is sized, from its Size text: {"px": radius}, or {"of": a planet, "add": pixels}, meaning that planet's angular size
     drawn, plus add. "Angular Size"; "Tiny" (a dot) or "Small" (9 pixels); a number (pixels of radius); "Bigger than X", "Smaller than X" or "Same as X", X an SN or a Name.
     Anything else, or blank: a planet by its angular size, the Earth a dot (it has no size of its own to go by)."""
-    low = SIZE_TEXTS.get(name, "").strip().lower()
+    texts = SIZE_TEXTS if texts is None else texts             # Size_Geo, or another Size column (SIZE_TEXTS_HELIO)
+    low = texts.get(name, "").strip().lower()
     if low in SIZE_NAMES:                              # Tiny: a dot, too small to hold a symbol; Small: the usual mark
         return {"px": SIZE_NAMES[low]}
     number = re.fullmatch(r"(\d+(?:\.\d+)?)\s*(?:px)?", low)
@@ -82,7 +84,7 @@ def size_rule(name: str, _seen: tuple = ()) -> dict:
     relative = re.fullmatch(r"(bigger than|smaller than|same as)\s+(.+)", low)
     target = SIZE_WORDS.get(relative[2].strip()) if relative else None
     if target and target != name and target not in _seen:
-        rule = size_rule(target, _seen + (name,))
+        rule = size_rule(target, _seen + (name,), texts)
         add = {"bigger than": SIZE_STEP, "smaller than": -SIZE_STEP, "same as": 0.0}[relative[1]]
         return {"px": max(rule["px"] + add, SIZE_PX[0])} if "px" in rule else {"of": rule["of"], "add": rule["add"] + add}
     if name in PLANET_ID:

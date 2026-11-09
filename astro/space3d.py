@@ -31,7 +31,7 @@ SIDES = 96                        # a ring is drawn with this many straight piec
 # where the Earth is, so it is drawn round the Earth's mark, larger than to scale: in its real direction from the Earth, at
 # MOON_AROUND_PX pixels at its mean distance, nearer and farther with its real distance)
 HELIO_BODIES = ("Me", "Ve", "Ea", "Mo", "Ma", "Ju", "Sa")
-MOON_AROUND_PX = 17.0            # just clear of the Earth's mark; the Moon itself Tiny there, a dot
+MOON_AROUND_PX = 17.0            # just clear of the Earth's mark, when the Moon is Tiny (its Size_Helio, as it starts)
 MOON_MEAN_AU = 0.00257
 HELIO_LOG_FROM_AU = 0.12          # on Fit, the distance drawn at the Sun (Mercury, about 0.31-0.47, close by)
 HELIO_SPANS = {"Mo": (27.32, 110, "Moon Path"), "Me": (87.97, 200, "Mercury Path"), "Ve": (224.7, 200, "Venus Path"), "Ea": (365.25, 200, "Earth Path"),
@@ -76,6 +76,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     moments: (Now or DOB, Julian day, UTC offset). centre: Ea (GeoCentric) or Su (HelioCentric). The drawing's size does not
     change with the paths shown. The sizes are always by how big a body looks from the Earth (the tables seen from the Earth)."""
     at = CENTRES[centre]
+    sizes = core.SIZE_TEXTS if centre == "Ea" else core.SIZE_TEXTS_HELIO      # the Size_Geo or the Size_Helio column
     reach = lambda au: _reach(au, scale, at["log_from"], at["gap"])
     paths, marks, tables, sizing = [], [], {}, {}
     outer = 0.0
@@ -91,13 +92,13 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
             tables[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
             if not around:
                 outer = max(outer, reach(max(whole["dist"])))
-            rule = {"px": core.TINY_PX} if around else core.size_rule(p)     # round the Earth on HelioCentric: Tiny
+            rule = core.size_rule(p, texts=sizes)
             marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock, rule=rule))
             days, steps, name = at["spans"][p]
             if with_paths is None or p in with_paths:         # the page draws it as time runs, from the body's own table
                 paths.append(dict(colour=core.colour(p), dash=clock == "Now", name=name, body=p, clock=clock, days=days, steps=steps, pts=[]))
     # what the sizes are measured from: each body as seen from the Earth (Bigger than Moon needs the Moon's table, shown or not)
-    centre_rule = core.size_rule(centre)
+    centre_rule = core.size_rule(centre, texts=sizes)
     for clock, jd, _ in moments:
         for p in bodies:
             if p in core.PLANET_ID:
@@ -117,7 +118,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
-                centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=core.SIZE_TEXTS.get(centre, ""), centre_colour=core.colour(centre),
+                centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=at["log_from"], gap=at["gap"],
                 key=centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],

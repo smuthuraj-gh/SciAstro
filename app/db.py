@@ -54,7 +54,8 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("name", sa.String(60)),
     sa.Column("color", sa.String(40)),
     sa.Column("color_name", sa.String(40)),                   # free text, for people; the charts use color
-    sa.Column("size", sa.String(40)),                         # free text, for reference; blank until an admin fills it in
+    sa.Column("size", sa.String(40)),                         # how the GeoCentric (and AstroGlobe) charts size it: Size_Geo
+    sa.Column("size_helio", sa.String(40)),                   # how the HelioCentric chart sizes it: Size_Helio
 )
 # The Aspects Details table: a row per aspect, with its RA and Dec orbs per planet; pos keeps the order shown
 ORB_COLUMNS = [c for c in core.default_orb_table().columns if c not in ("Aspect", "Angle")]
@@ -106,6 +107,7 @@ def engine() -> sa.Engine:
     _rename_planet_columns(eng)
     _add_planet_color_name(eng)
     _add_planet_size(eng)
+    _add_planet_size_helio(eng)
     _add_planet_symbol(eng)
     _update_earth_symbol(eng)
     _set_recommended_colours(eng)
@@ -181,6 +183,17 @@ def _add_planet_size(eng: sa.Engine):
             c.execute(sa.text("ALTER TABLE naming_conventions DROP COLUMN size_number"))
 
 
+def _add_planet_size_helio(eng: sa.Engine):
+    """A table made before Size_Helio gets it, each row as its Size_Geo, the Moon Tiny (as HelioCentric drew them then)."""
+    if "size_helio" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
+        return
+    kind = planets.c.size_helio.type.compile(dialect=eng.dialect)
+    with eng.begin() as c:
+        c.execute(sa.text(f"ALTER TABLE naming_conventions ADD COLUMN size_helio {kind}"))
+        c.execute(sa.text("UPDATE naming_conventions SET size_helio = size"))
+        c.execute(planets.update().where(planets.c.sn == "Mo").values(size_helio="Tiny"))
+
+
 def _add_planet_symbol(eng: sa.Engine):
     """A table made before Symbol gets it, filled in for the rows that have a conventional one; others stay blank."""
     if "symbol" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
@@ -221,18 +234,20 @@ def _seed_planets(eng: sa.Engine):
             row["color_name"] = COLOUR_NAMES.get(row["color"])
             row["symbol"] = SYMBOLS.get(row["sn"])
             row["size"] = "Angular Size" if row["sn"] in core.PLANET_ID else None   # the Earth: as its Size says, none given
+            row["size_helio"] = "Tiny" if row["sn"] == "Mo" else row["size"]         # the Moon round the Earth: a dot
         if new:
             c.execute(planets.insert(), new)
 
 
 def all_planets() -> pd.DataFrame:
-    """The Naming Conventions table: SN, Symbol, Name, Color, Color_Name, Size, Sun first."""
+    """The Naming Conventions table: SN, Symbol, Name, Color, Color_Name, Size, Size_Helio, Sun first."""
     with engine().connect() as c:
         rows = c.execute(sa.select(planets)).mappings().all()
     order = {p: i for i, p in enumerate(PLANET_NAMES)}
     rows = sorted(rows, key=lambda r: order.get(r["sn"], len(order)))
-    return pd.DataFrame([{"SN": r["sn"], "Symbol": r["symbol"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"], "Size": r["size"]}
-                         for r in rows], columns=["SN", "Symbol", "Name", "Color", "Color_Name", "Size"])
+    return pd.DataFrame([{"SN": r["sn"], "Symbol": r["symbol"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"], "Size": r["size"],
+                          "Size_Helio": r["size_helio"]}
+                         for r in rows], columns=["SN", "Symbol", "Name", "Color", "Color_Name", "Size", "Size_Helio"])
 
 
 def planet_colours() -> dict[str, str]:
@@ -241,12 +256,13 @@ def planet_colours() -> dict[str, str]:
         return {sn: color for sn, color in c.execute(sa.select(planets.c.sn, planets.c.color)) if color}
 
 
-def planet_sizes() -> tuple[dict[str, str], dict[str, str]]:
-    """The Size of each row by its SN; and its SN and Name, in lower case, to its SN (for "Bigger than Moon")."""
+def planet_sizes() -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    """The Size (Size_Geo) of each row by its SN; its SN and Name, in lower case, to its SN (for "Bigger than Moon"); and its
+    Size_Helio by its SN."""
     with engine().connect() as c:
-        rows = c.execute(sa.select(planets.c.sn, planets.c.name, planets.c.size)).all()
-    words = {w.strip().lower(): sn for sn, name, _ in rows for w in (name, sn) if w}
-    return {sn: size or "" for sn, _, size in rows}, words
+        rows = c.execute(sa.select(planets.c.sn, planets.c.name, planets.c.size, planets.c.size_helio)).all()
+    words = {w.strip().lower(): sn for sn, name, _, _ in rows for w in (name, sn) if w}
+    return {sn: size or "" for sn, _, size, _ in rows}, words, {sn: helio or "" for sn, _, _, helio in rows}
 
 
 def planet_symbols() -> dict[str, str]:
@@ -268,7 +284,7 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
     for _, r in rows.iterrows():
         sn, name, colour, kept = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
         colour_name = _cell(r["Color_Name"])
-        if not (kept or sn or name or colour or colour_name or _cell(r["Size"]) or _cell(r["Symbol"])):
+        if not (kept or sn or name or colour or colour_name or _cell(r["Size"]) or _cell(r["Size_Helio"]) or _cell(r["Symbol"])):
             continue
         label = sn or kept or "New row"
         if kept and sn != kept:
@@ -287,11 +303,12 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
             out.append(f"{label}: RGB must look like rgb(0,112,192) or #0070c0")
         if len(colour_name) > 40:
             out.append(f"{label}: Color can be at most 40 characters")
-        if len(_cell(r["Size"])) > 40:
-            out.append(f"{label}: Size_Geo can be at most 40 characters")
-        elif not core.size_readable(_cell(r["Size"]), words):    # it would not change how anything is drawn
-            out.append(f"{label}: Size_Geo '{_cell(r['Size'])}' is not one the app can use: Angular Size, Tiny, Small, a number of pixels, "
-                       "or Bigger than, Smaller than or Same as another row's SAbr or SDesc")
+        for column, shown in (("Size", "Size_Geo"), ("Size_Helio", "Size_Helio")):
+            if len(_cell(r[column])) > 40:
+                out.append(f"{label}: {shown} can be at most 40 characters")
+            elif not core.size_readable(_cell(r[column]), words):    # it would not change how anything is drawn
+                out.append(f"{label}: {shown} '{_cell(r[column])}' is not one the app can use: Angular Size, Tiny, Small, a number of pixels, "
+                           "or Bigger than, Smaller than or Same as another row's SAbr or SDesc")
         if len(_cell(r["Symbol"])) > 8:
             out.append(f"{label}: Symb can be at most 8 characters")
     return out
@@ -299,7 +316,8 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
 
 def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
     """Makes the Naming Conventions table these rows: (added, changed, deleted)."""
-    old = {r["SN"]: (_cell(r["Name"]), _cell(r["Color"]), _cell(r["Color_Name"]), _cell(r["Size"]), _cell(r["Symbol"])) for _, r in all_planets().iterrows()}
+    old = {r["SN"]: (_cell(r["Name"]), _cell(r["Color"]), _cell(r["Color_Name"]), _cell(r["Size"]), _cell(r["Size_Helio"]), _cell(r["Symbol"]))
+           for _, r in all_planets().iterrows()}
     added = changed = 0
     kept = {_cell(v) for v in rows["_sn"]} - {""}
     with engine().begin() as c:
@@ -308,13 +326,14 @@ def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
         for _, r in rows.iterrows():
             sn, name, colour, was = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
             colour_name = _cell(r["Color_Name"])
-            size, symbol = _cell(r["Size"]), _cell(r["Symbol"])
-            values = dict(name=name, color=colour, color_name=colour_name or None, size=size or None, symbol=symbol or None)
+            size, size_helio, symbol = _cell(r["Size"]), _cell(r["Size_Helio"]), _cell(r["Symbol"])
+            values = dict(name=name, color=colour, color_name=colour_name or None, size=size or None, size_helio=size_helio or None,
+                          symbol=symbol or None)
             if was:
-                if old.get(was) != (name, colour, colour_name, size, symbol):
+                if old.get(was) != (name, colour, colour_name, size, size_helio, symbol):
                     c.execute(planets.update().where(planets.c.sn == was).values(**values))
                     changed += 1
-            elif sn or name or colour or colour_name or size or symbol:
+            elif sn or name or colour or colour_name or size or size_helio or symbol:
                 c.execute(planets.insert().values(sn=sn, **values))
                 added += 1
     return added, changed, len(set(old) - kept)
