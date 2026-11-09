@@ -224,12 +224,15 @@ def _paths(g: GlobeInput) -> list[dict]:
                         tip=f"Sun Path over a year (Dec between {-TILT:+.2f} and {TILT:+.2f})",
                         pts=[_sun_path(v) for v in range(0, 361, 2)]))
     # the others, which shift over the years: one trip round the sky around the birth and, dashed, around now
-    for show, when, what, dash in ((g.show_birth, g.jd_birth, "birth", False), (g.show_now, g.jd_now, "now", True)):
+    for show, when, what, dash, clock in ((g.show_birth, g.jd_birth, "birth", False, "DOB"),
+                                          (g.show_now, g.jd_now, "now", True, "Now")):
         if show and when is not None:
             for p, (days, _steps, name) in PATH_SPAN.items():
-                if p in g.paths:
+                if p == "Mo" and p in g.paths:          # the page works it out as time runs, from the Moon's own table
+                    out.append(dict(name=name, colour=core.colour(p), width=2.4, dash=dash, tip="", pts=[], moving=clock))
+                elif p in g.paths:
                     path = _planet_path(p, when)
-                    out.append(dict(name=name, colour=core.colour(p), width=2.4 if p == "Mo" else 1.8, dash=dash,
+                    out.append(dict(name=name, colour=core.colour(p), width=1.8, dash=dash,
                                     tip=f"{name}: {days:g} days around {what} (Dec between "
                                         f"{min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})",
                                     pts=[[round(a, 2), round(d, 2)] for a, d in path]))
@@ -261,7 +264,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
-                family=CHART_FONT_FAMILY, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
+                family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
 
 
@@ -469,7 +472,20 @@ _MOTION_JS = r"""
   const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
   const paths = D.paths.map((p) => Object.assign({}, p, {draw: line(p.colour, p.dash), label: words(markG, {"text-anchor": "end", fill: p.colour})}));
   paths.forEach((p) => { p.label.textContent = p.name; });
-  let pathBoxes = [], pathsFacing = null;
+  let pathBoxes = [], pathsFacing = null, pathsAt = null, namedAt = null;
+  const moonPath = (p, t) => {                     // the Moon's month around the clock's date: it turns and changes its reach over the years
+    const b = D.sets.find((s) => s.clock === p.moving).tables.Mo;
+    const first = Math.max(0, Math.min(t - D.moon_month / 2, D.days - D.moon_month));
+    p.pts = [];
+    for (let v = 0; v !== 55; v++) {
+      const s = sample(b, first + v * D.moon_month / 55);
+      p.pts.push([s.ra, s.dec]);
+    }
+    p.pts.push(p.pts[0]);
+    const decs = p.pts.map((q) => q[1]), show = (v) => (v >= 0 ? "+" : "") + v.toFixed(2);
+    p.tip = p.name + " " + p.moving + ": the month around the clock's date (Dec between " + show(Math.min(...decs)) +
+      " and " + show(Math.max(...decs)) + ")";
+  };
   const drawPaths = () => {                        // each named at its near side's left-hand end, or as near there as is free
     pathBoxes = [];
     paths.forEach((p) => {
@@ -494,7 +510,15 @@ _MOTION_JS = r"""
   };
   const place = (t) => {
     raFacing = D.ra_facing - clock.view;
-    if (pathsFacing !== raFacing) drawPaths();
+    const turning = paths.filter((p) => p.moving);
+    if (t !== pathsAt) {
+      turning.forEach((p) => moonPath(p, t));
+      pathsAt = t;
+    }
+    if (pathsFacing !== raFacing || (turning.length && Math.abs(t - namedAt) > 3)) {   // the names follow, not at every step
+      drawPaths();
+      namedAt = t;
+    } else turning.forEach((p) => p.draw(p.pts, p.tip, p.colour, p.width));
     const taken = D.taken.concat(pathBoxes);
     houses.forEach((h) => {                        // named on the near side only, and not where a fixed label is
       const ra = (h.pl.ra + D.spin * t + 30 * h.k) % 360, pts = [];
