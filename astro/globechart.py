@@ -39,7 +39,7 @@ BODY_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
 MANUAL = "Manual"                 # Rotate's option to drag the Earth round by hand
 HOUSE_COLOUR = "rgb(0,0,0)"
 ASPECT_COLOURS = {False: "rgb(0,0,0)", True: "rgb(110,110,110)"}     # major, minor: as on AstroMap
-HOUSE_LABEL_DEC = {"CB": 55.0, "CN": -55.0}   # where on the sphere their names go, out of the planets' way
+HOUSE_LABEL_DEC = (55.0, 40.0)    # the Dec of the house names, first and second place shown: on the side tilted toward the viewer, off the planets' way
 EARTH_DEGREES_A_DAY = 360.98565  # the Earth's turn against the still sky in one day of the clock
 MOTION_DAYS = 1461                # how far time runs (4 years) before it starts again, and the tables' reach ...
 MOTION_STEP_DAYS = {"Mo": 0.5, "Me": 2.0, "Ve": 4.0, "Su": 5.0, "Ma": 5.0, "Ju": 20.0, "Sa": 20.0}    # ... and their steps
@@ -179,7 +179,7 @@ def sky_svg(g: GlobeInput) -> tuple[str, list]:
         f'<line x1="{CX + s * a * ux:.1f}" y1="{CY - s * a * uy:.1f}" x2="{CX + s * (R + 4) * ux:.1f}" '
         f'y2="{CY - s * (R + 4) * uy:.1f}" stroke="{AXIS_COLOUR}" stroke-width="2.5"/>'
         for s, a in ((1, E * tilt_up), (-1, E)))
-    for s, name, dy in ((1, "North Celestial Pole", -6), (-1, "South Celestial Pole", 16)):
+    for s, name, dy in ((1, "NCP", -6), (-1, "SCP", 16)):
         lx, ly = CX + s * (R + 8) * ux, CY - s * (R + 8) * uy + dy
         marks.append(_text(lx, ly, name, AXIS_COLOUR))
         taken.append(_box(lx, ly, name))
@@ -476,7 +476,7 @@ _MOTION_JS = r"""
       const ra = (h.pl.ra + D.spin * t + 30 * h.k) % 360, pts = [];
       for (let v = -90; v !== 93; v += 3) pts.push([ra, v]);
       h.draw(pts, h.label.textContent + " " + h.pl.label + " RA: " + ra.toFixed(2));
-      const [x, y, z] = point(ra + 15, D.house_dec[h.pl.label]), box = boxOf(x, y + 4, h.label.textContent);
+      const [x, y, z] = point(ra + 15, D.house_dec[D.places.indexOf(h.pl)]), box = boxOf(x, y + 4, h.label.textContent);
       const seen = z >= 0 && clear(box, taken);
       h.label.style.display = seen ? "" : "none";
       if (seen) {

@@ -123,7 +123,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "AstroGlobe": "Time, with Now and DOB below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the celestial poles. "
+    "AstroGlobe": "Time, with Now and DOB below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the North and South Celestial Poles (NCP, SCP). "
                   "Rotate in 1s: the Earth turns about that fixed axis, west to east, while the sphere stands still, and time "
                   "runs from each moment, until it is turned off: the clock beside the name gives the date and time, and the Sun, "
                   "Moon and planets move over the sphere as they really did (time starts again after 4 years; refresh the page to go back "
@@ -463,21 +463,21 @@ def page_globe():
         return tuple(box.pills(f"Which {title}", names, selection_mode="multi", default=default, key=f"globe_{key}",
                                label_visibility="collapsed", width=width))
 
-    shown = stacked(("Now", "DOB"), ("DOB",), title="Time")
+    shown = stacked(("Now", "DOB"), ("Now",), title="Time")
     all_bodies = list(globechart.BODY_CHOICES)
     bodies = options_under("Planets", "bodies", all_bodies, all_bodies)
     paths = options_under("Pla Paths", "paths", all_bodies, [])
-    major = options_under("Ma Aspects", "major", [str(a) for a in sorted(core.MAJOR)], [], width=90)
-    minor = options_under("Mi Aspects", "minor", [str(a) for a in core.MINOR], [], width=90)
+    major = options_under("Ma Aspects", "major", [str(a) for a in sorted(core.MAJOR)], [str(a) for a in sorted(core.MAJOR)], width=90)
+    minor = options_under("Mi Aspects", "minor", [str(a) for a in core.MINOR], [str(a) for a in core.MINOR], width=90)
     coords = head.container(width="content", gap="xxsmall")   # Coordinates, with its options below it in fixed rows
     if coords.pills("Coordinates", ["Coordinates"], default="Coordinates", key="globe_coords_on", label_visibility="collapsed"):
         for row_of in (["Houses"], ["RA", "Dec"], ["Lati", "Long"]):
-            shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[],
+            shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[n for n in row_of if n == "Houses"],
                                   key=f"globe_coords_{row_of[0]}", label_visibility="collapsed")
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds, manual = None, False
     if spin.pills("Rotate in 1s", ["Rotate in 1s"], default="Rotate in 1s", key="globe_rotate", label_visibility="collapsed"):
-        speed = spin.pills("Rotate speed", [globechart.MANUAL] + list(globechart.SPEEDS), default=None, key="globe_speed",
+        speed = spin.pills("Rotate speed", [globechart.MANUAL] + list(globechart.SPEEDS), default=globechart.MANUAL, key="globe_speed",
                            label_visibility="collapsed", width=92)    # (Manual, 1h on a line; 1d, 1w, 1m on the next)
         manual = speed == globechart.MANUAL                           # the Earth is dragged round by hand
         day_seconds = globechart.SPEEDS.get(speed)                    # nothing picked: it holds still
