@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 
 import streamlit as st
 
@@ -66,11 +66,3 @@ def now_values(jd_now: float) -> tuple[dict, dict]:
     pts = core.now_points(jd_now)
     d = {p: core.distance_pct(p, core.position(p, jd_now).dist_au) for p in core.PLANETS}
     return pts, d
-
-
-def now_local_text(cn_tz: str | None) -> str:
-    utc_now = datetime.now(timezone.utc)
-    if cn_tz:
-        from zoneinfo import ZoneInfo
-        return utc_now.astimezone(ZoneInfo(cn_tz)).strftime("%Y-%m-%d %H:%M") + f" ({cn_tz})"
-    return utc_now.strftime("%Y-%m-%d %H:%M UT")

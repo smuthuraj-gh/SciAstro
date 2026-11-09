@@ -294,12 +294,6 @@ def customers_for(email: str) -> pd.DataFrame:
     return df
 
 
-def customer(cid: int) -> dict | None:
-    with engine().connect() as c:
-        row = c.execute(sa.select(customers).where(customers.c.id == cid)).mappings().first()
-    return dict(row) if row else None
-
-
 def _clean(rec: dict) -> dict:
     out = {}
     for f in FIELDS:
@@ -317,6 +311,7 @@ def _clean(rec: dict) -> dict:
     return out
 
 
+BIRTH_FIELDS = ("year", "mon", "day", "hr", "mn", "country", "state", "city")   # the UTC offset depends on these
 REQUIRED = {"email": "Email (login)", "name": "First Name", "last_name": "Last Name", "country": "Country",
             "state": "State", "city": "City", "country_n": "Country-N", "state_n": "State-N", "city_n": "City-N"}
 # (and the birth date and time: Year, Mon, Date, Hr24, Min)
@@ -359,8 +354,9 @@ def customer_problems(rows: pd.DataFrame) -> list[str]:
 
 
 def save_customers(edited: pd.DataFrame, original: pd.DataFrame) -> tuple[int, int, int]:
-    """Apply an edited copy of the customers table: (added, changed, deleted). Raises ValueError, saving nothing,
-    when two customers would share a login email."""
+    """Apply an edited copy of the customers table: (added, changed, deleted). original is what that copy started from,
+    so a customer who joined or changed their details since is left alone. A new birth date, time or place clears the
+    kept UTC offset, to be looked up again. Raises ValueError, saving nothing, when two customers would share a login email."""
     problems = customer_problems(edited)
     if problems:
         raise ValueError(" ".join(problems))
@@ -370,18 +366,33 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame) -> tuple[int, i
     with engine().begin() as c:
         for cid in set(original["id"].astype(int)) - keep_ids:
             c.execute(sa.delete(customers).where(customers.c.id == cid)); deleted += 1
+        new, updates = [], []
         for rec in edited.to_dict("records"):
             data = _clean(rec)
             if not data.get("name"):
                 continue
             cid = rec.get("id")
             if cid is None or pd.isna(cid):
-                c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now)); added += 1
-            else:
-                old = original[original["id"] == int(cid)]
-                if not old.empty and _clean(old.iloc[0].to_dict()) != data:
-                    c.execute(sa.update(customers).where(customers.c.id == int(cid)).values(**data, updated_at=now))
-                    changed += 1
+                new.append(data)
+                continue
+            old = original[original["id"] == int(cid)]
+            if old.empty:
+                continue
+            was = _clean(old.iloc[0].to_dict())
+            if was != data:
+                if any(was[f] != data[f] for f in BIRTH_FIELDS):
+                    data["utc"] = None
+                updates.append((int(cid), data, was["email"] != data["email"]))
+        # emails moving between customers (two swapped, say): each first let go, as an email can be on one customer only
+        for cid, _, moved in updates:
+            if moved:
+                c.execute(sa.update(customers).where(customers.c.id == cid).values(email=None))
+        for cid, data, _ in updates:
+            c.execute(sa.update(customers).where(customers.c.id == cid).values(**data, updated_at=now))
+            changed += 1
+        for data in new:
+            c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now))
+            added += 1
     return added, changed, deleted
 
 

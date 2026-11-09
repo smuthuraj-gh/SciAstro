@@ -46,10 +46,6 @@ def norm360(deg: float) -> float:
 
 
 # ---------------------------------------------------------------- time
-def julday(y: int, m: int, d: int, hour_ut: float) -> float:
-    return se.julday(y, m, d, hour_ut)
-
-
 def jd_of_datetime(t: datetime) -> float:
     """Julian day (UT) of a datetime; naive = UT."""
     if t.tzinfo is not None:
@@ -114,56 +110,12 @@ def birth_points(jd_b: float, lat: float, lon: float) -> dict[str, tuple[float, 
     return pts
 
 
-def approach_lists(jd_ut: float) -> dict[str, dict[str, list[tuple[str, float]]]]:
-    """For each planet at jd_ut, the other planets it is approaching and leaving, in RA and in Dec separately:
-    approaching = the gap between them (the shorter way round in RA) is getting smaller now, leaving = larger.
-    {planet: {"ra+": [(other, gap)], "ra-": [...], "dec+": [...], "dec-": [...]}} (+ approaching, - leaving)."""
-    pos = {p: position(p, jd_ut) for p in BUTTON_ORDER}
-    out = {}
-    for p, a in pos.items():
-        lists = {"ra+": [], "ra-": [], "dec+": [], "dec-": []}
-        for q, b in pos.items():
-            if q == p:
-                continue
-            d = (b.ra - a.ra + 180.0) % 360.0 - 180.0          # q's RA from p's, the shorter way round
-            rate = (b.ra_speed - a.ra_speed) * (1 if d >= 0 else -1)
-            if rate:
-                lists["ra+" if rate < 0 else "ra-"].append((q, abs(d)))
-            d = b.dec - a.dec
-            rate = (b.dec_speed - a.dec_speed) * (1 if d >= 0 else -1)
-            if rate:
-                lists["dec+" if rate < 0 else "dec-"].append((q, abs(d)))
-        out[p] = lists
-    return out
-
-
-def dec_approach_to(jd_ut: float, dec: float) -> dict[str, list[tuple[str, float]]]:
-    """The planets approaching and leaving a fixed Declination (as CB's or CN's: a place's latitude) at jd_ut:
-    approaching = the gap between the planet's Dec and dec is getting smaller now. {"dec+": [(planet, gap)],
-    "dec-": [...]}."""
-    out = {"dec+": [], "dec-": []}
-    for p in BUTTON_ORDER:
-        a = position(p, jd_ut)
-        d = a.dec - dec
-        rate = a.dec_speed * (1 if d >= 0 else -1)
-        if rate:
-            out["dec+" if rate < 0 else "dec-"].append((p, abs(d)))
-    return out
-
-
 def now_points(jd_now: float) -> dict[str, tuple[float, float]]:
     out = {}
     for p in BUTTON_ORDER:
         ps = position(p, jd_now)
         out[p] = (ps.ra, ps.dec)
     return out
-
-
-def ra_de_height(lat: float) -> float:
-    """Where a Dec or latitude sits on the chart: 30S..30N take two thirds of the height."""
-    if abs(lat) <= 30.0:
-        return lat * 2.0
-    return math.copysign(60.0 + (abs(lat) - 30.0) / 2.0, lat)
 
 
 # ---------------------------------------------------------------- orbs
@@ -199,7 +151,6 @@ class Orbs:
                         self._lookup[(ang, c[:2], c[2:].upper() == "-DE")] = float(v)
 
     def planet(self, angle: float, name: str, is_dec: bool) -> float:
-        name = name[:-2] if name.endswith("-N") else name
         return self._lookup.get((float(angle), name, is_dec), -1.0)
 
     def pair(self, angle: float, n1: str, n2: str, is_dec: bool) -> float:
@@ -210,91 +161,6 @@ class Orbs:
 def default_orb_table() -> pd.DataFrame:
     from pathlib import Path
     return pd.read_csv(Path(__file__).resolve().parent.parent / "data" / "orbs_default.csv")
-
-
-# ---------------------------------------------------------------- aspects among points
-def _sep(r1: float, r2: float) -> float:
-    s = abs(r1 - r2)
-    return 360.0 - s if s > 180.0 else s
-
-
-def hit(angle: int, p1: tuple[float, float], p2: tuple[float, float], ra_orb: float, de_orb: float) -> bool:
-    sep = _sep(p1[0], p2[0])
-    if angle == 0:
-        return sep <= ra_orb and abs(p1[1] - p2[1]) <= de_orb
-    if angle == 180:
-        return abs(sep - 180.0) <= ra_orb and abs(p1[1] + p2[1]) <= de_orb
-    return abs(sep - angle) <= ra_orb and (abs(p1[1] - p2[1]) <= de_orb or abs(p1[1] + p2[1]) <= de_orb)
-
-
-@dataclass
-class AspectLine:
-    angle: int
-    members: list[str]           # in title order (CB first, then nearest; else from the lowest RA)
-    title: str                   # e.g. 0-CB-Sa, 180-Mo-Ju, 30-Sa-Ma; now ones end in -N
-    xs: list[float]              # RA of each member, unwrapped so the line goes the short way
-    ys: list[float]              # Dec of each member
-
-
-def conjunctions(pts: dict[str, tuple[float, float]], orbs: Orbs, is_now: bool) -> list[AspectLine]:
-    names = list(pts)
-    grp = {n: i for i, n in enumerate(names)}
-    for i, a in enumerate(names):
-        for b in names[i + 1:]:
-            if hit(0, pts[a], pts[b], orbs.pair(0, a, b, False), orbs.pair(0, a, b, True)):
-                old = grp[b]
-                for n in names:
-                    if grp[n] == old:
-                        grp[n] = grp[a]
-    out = []
-    for g in sorted(set(grp.values())):
-        mem = [n for n in names if grp[n] == g]
-        if len(mem) < 2:
-            continue
-        x = {n: pts[n][0] for n in mem}
-        if max(x.values()) - min(x.values()) > 180.0:
-            x = {n: v + 360.0 if v < 180.0 else v for n, v in x.items()}
-        if "CB" in mem:
-            mem.sort(key=lambda n: -1.0 if n == "CB" else abs(x[n] - x["CB"]))
-        else:
-            mem.sort(key=lambda n: x[n])
-        title = tag(0) + "-".join(mem) + ("-N" if is_now else "")
-        out.append(AspectLine(0, mem, title, [x[n] for n in mem], [pts[n][1] for n in mem]))
-    return out
-
-
-def pair_lines(pts: dict[str, tuple[float, float]], angle: int, orbs: Orbs, is_now: bool) -> list[AspectLine]:
-    names = list(pts)
-    out = []
-    for i, a in enumerate(names):
-        for b in names[i + 1:]:
-            if not hit(angle, pts[a], pts[b], orbs.pair(angle, a, b, False), orbs.pair(angle, a, b, True)):
-                continue
-            first, second = a, b
-            if b == "CB" or (a != "CB" and pts[b][0] < pts[a][0]):
-                first, second = b, a
-            x0, x2 = pts[first][0], pts[second][0]
-            if angle != 180:
-                if x2 - x0 > 180.0:
-                    x2 -= 360.0
-                if x0 - x2 > 180.0:
-                    x2 += 360.0
-            title = tag(angle) + first + "-" + second + ("-N" if is_now else "")
-            out.append(AspectLine(angle, [first, second], title, [x0, x2], [pts[first][1], pts[second][1]]))
-    return out
-
-
-def all_aspects(pts: dict[str, tuple[float, float]], orbs: Orbs, is_now: bool, major: bool = True,
-                minor: bool = True) -> list[AspectLine]:
-    out: list[AspectLine] = []
-    if major:
-        out += conjunctions(pts, orbs, is_now)
-        for ang in (180, 90, 120, 60):
-            out += pair_lines(pts, ang, orbs, is_now)
-    if minor:
-        for ang in MINOR:
-            out += pair_lines(pts, ang, orbs, is_now)
-    return out
 
 
 # ---------------------------------------------------------------- the Range chart's rows and aspect events

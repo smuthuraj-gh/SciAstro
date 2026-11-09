@@ -38,7 +38,7 @@ PATH_SPAN = {"Mo": (27.32, 110, "Moon Path"), "Me": (365.25, 365, "Mercury Path"
 BODY_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
 MANUAL = "Manual"                 # Rotate's option to drag the Earth round by hand
 HOUSE_COLOUR = "rgb(0,0,0)"
-ASPECT_COLOURS = {False: "rgb(0,0,0)", True: "rgb(110,110,110)"}     # major, minor: as on AstroMap
+ASPECT_COLOURS = {False: "rgb(0,0,0)", True: "rgb(110,110,110)"}     # major, minor
 HOUSE_VALUE_DEC = (-32.0, -44.0)  # the Dec of each house line's RA value, first and second place shown: low on the line
 HOUSE_LABEL_DEC = (55.0, 40.0)    # the Dec of the house names, first and second place shown: on the side tilted toward the viewer, off the planets' way
 EARTH_DEGREES_A_DAY = 360.98565  # the Earth's turn against the still sky in one day of the clock
@@ -127,12 +127,11 @@ def _sun_path(angle: float) -> tuple[float, float]:
 
 
 def _planet_path(planet: str, jd: float) -> list[tuple[float, float]]:
-    """The (RA, Dec) of a body from the Earth over one trip round the sky with jd in the middle, loops included. The Moon's
-    is closed into a ring; a planet's does not quite meet, as a planet comes back to a different place."""
+    """The (RA, Dec) of a planet from the Earth over one trip round the sky with jd in the middle, loops included. It does not
+    quite meet, as a planet comes back to a different place. (The page works out the Moon's as time runs.)"""
     days, steps, _ = PATH_SPAN[planet]
     pts = [core.position(planet, jd + days * (v / steps - 0.5)) for v in range(steps + 1)]
-    pts = [(p.ra, p.dec) for p in pts]
-    return pts + pts[:1] if planet == "Mo" else pts
+    return [(p.ra, p.dec) for p in pts]
 
 
 def _sky_line(pts: list[tuple[float, float]], ra_facing: float, colour: str, width: float, dash: bool, tip: str,
@@ -162,10 +161,6 @@ def _box(x: float, y: float, text: str, anchor: str = "middle") -> tuple[float, 
     w = len(text) * TEXT_W
     left = x - w / 2 if anchor == "middle" else x if anchor == "start" else x - w
     return left - 3, y - TEXT_H + 3, left + w + 3, y + 3      # (a little to spare at each side)
-
-
-def _clear(box, taken) -> bool:
-    return all(box[2] < t[0] or t[2] < box[0] or box[3] < t[1] or t[3] < box[1] for t in taken)
 
 
 def sky_svg(g: GlobeInput) -> tuple[str, list]:
@@ -403,7 +398,7 @@ _MOTION_JS = r"""
   if (D.aspects.length) D.sets.forEach((s) => s.shown.forEach((p, i) => s.shown.slice(i + 1).forEach((q) =>
     aspectLines.push({s, p, q, draw: line("black", s.clock === "Now" ? "2 3" : false),
                       tag: words(markG, {"text-anchor": "middle"})}))));
-  const inAspect = (angle, a, b, orb) => {         // the rules of core.hit: within the RA orb of the angle, and the Dec orb
+  const inAspect = (angle, a, b, orb) => {         // the rules of core.aspect_events: within the RA orb of the angle, and the Dec orb
     let sep = Math.abs(a.ra - b.ra);               // of equal (0), mirrored (180) or either (the others)
     if (sep > 180) sep = 360 - sep;
     const same = Math.abs(a.dec - b.dec) <= orb[1], mirrored = Math.abs(a.dec + b.dec) <= orb[1];
@@ -541,7 +536,7 @@ _MOTION_JS = r"""
         taken.push(vBox);
       }
     });
-    aspectLines.forEach((l) => {                   // the short way round between the two, straight in RA and Dec as on AstroMap
+    aspectLines.forEach((l) => {                   // the short way round between the two, straight in RA and Dec
       const a = sample(l.s.tables[l.p], t), b = sample(l.s.tables[l.q], t);
       const on = D.aspects.filter((d) => inAspect(d.angle, a, b, d.orbs[l.p + "|" + l.q]));
       l.tagged = on[0] || null;

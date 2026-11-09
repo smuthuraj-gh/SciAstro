@@ -12,10 +12,11 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import streamlit as st
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import auth, db
-from app.chartdata import Prepared, locate_cached, now_local_text, now_values, prepare
-from astro import core, distancechart, globechart, mapchart, rangechart, se
+from app.chartdata import Prepared, locate_cached, now_values, prepare
+from astro import core, distancechart, globechart, mapchart, places, rangechart, se
 
 # wide pages, the sidebar (menu, customer) starting closed so the charts get the whole window; » opens it
 st.set_page_config(page_title="Equatorial charts", page_icon=":material/public:", layout="wide",
@@ -193,6 +194,9 @@ def top_line(title: str, row: pd.Series | None):
 TITLE_SLOT = None                                             # set by top_line for the page being shown
 
 
+PLACE_SEARCH_DOWN = "The place search is not answering just now. Please try again in a few minutes."
+
+
 def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     df = visible_customers()
     st.sidebar.markdown(f"**{user.name}**" + ("  \n:blue-badge[admin]" if user.is_admin else ""))
@@ -210,7 +214,10 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     idx = ids.index(prev) if prev in ids else 0
     cid = st.sidebar.selectbox("Customer", ids, index=idx, format_func=label.get, key="customer_id")
     row = df[df["id"] == cid].iloc[0]
-    prep = prepare(record_items(row))
+    try:
+        prep = prepare(record_items(row))
+    except places.LookupDown:
+        prep = Prepared(False, PLACE_SEARCH_DOWN)
     if not prep.ok:
         st.sidebar.error(prep.message)
     else:
@@ -221,7 +228,8 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
             at = f"{int(hr):02d}:{0 if mn is None or pd.isna(mn) else int(mn):02d}"
         st.sidebar.caption(f"{int(row['year'])}-{int(row['mon']):02d}-{int(row['day']):02d} {prep.weekday} "
                            f"{at}, UTC {prep.utc:+.2f}  \n"
-                           f"{row['city']}, {row['state'] or ''}, {row['country'] or ''} ({prep.birth_lat}, {prep.birth_lon})")
+                           + ", ".join(str(row[f]) for f in ("city", "state", "country") if pd.notna(row[f]))
+                           + f" ({prep.birth_lat}, {prep.birth_lon})")
     mark_accessed()
     return row, prep
 
@@ -311,11 +319,17 @@ def details_form(row: pd.Series | None):
     if missing:
         st.error("Please fill in: " + ", ".join(missing) + ".")
         return
-    if locate_cached(city.strip(), state.strip(), country.strip()) is None:   # caught here, before saving
+    try:
+        born_at = locate_cached(city.strip(), state.strip(), country.strip())
+        lives_at = locate_cached(city_n.strip(), state_n.strip(), country_n.strip())
+    except places.LookupDown:
+        st.error(PLACE_SEARCH_DOWN)
+        return
+    if born_at is None:                                       # caught here, before saving
         st.error(f"The birth place '{city}, {state}, {country}' was not found. Check the spelling, or try a larger "
                  "city nearby.")
         return
-    if locate_cached(city_n.strip(), state_n.strip(), country_n.strip()) is None:
+    if lives_at is None:
         st.error(f"The place where you live now, '{city_n}, {state_n}, {country_n}', was not found. Check the "
                  "spelling, or try a larger city nearby.")
         return
@@ -360,10 +374,10 @@ def period(prep: Prepared, row=None) -> tuple[float, float] | None:
     dw, tw = (125, 80) if row is not None else ("stretch", "stretch")
     d0 = c[0].date_input("Start Date (UT)", value=birth_dt.date(), min_value=datetime(1800, 1, 1),
                          max_value=datetime(2399, 12, 31), width=dw)
-    t0 = c[1].time_input("Time (UT)", key="start_time", value=time(birth_dt.hour, birth_dt.minute), width=tw)
+    t0 = c[1].time_input("Time (UT)", key=f"start_time_{prep.jd_birth}", value=time(birth_dt.hour, birth_dt.minute), width=tw)
     d1 = c[2].date_input("End Date (UT)", value=now_dt.date(), min_value=datetime(1800, 1, 1),
                          max_value=datetime(2399, 12, 31), width=dw)
-    t1 = c[3].time_input("Time (UT)", key="end_time", value=time(now_dt.hour, now_dt.minute), width=tw)
+    t1 = c[3].time_input("Time (UT)", key=f"end_time_{now_dt.date()}", value=time(now_dt.hour, now_dt.minute), width=tw)
     start, end = datetime.combine(d0, t0), datetime.combine(d1, t1)
     if end <= start:
         st.warning("The end must be after the start.")
@@ -374,12 +388,12 @@ def period(prep: Prepared, row=None) -> tuple[float, float] | None:
     return core.jd_of_datetime(start), core.jd_of_datetime(end)
 
 
-def cycles_inputs(title: str, keys: str, aspect_buttons: bool = True):
-    """The title and inputs of Planets Cycles (and Aspects, which shares them; keys keeps each page's buttons
+def cycles_inputs(keys: str, aspect_buttons: bool = True):
+    """The inputs of Planets Cycles (and Aspects, which shares them; keys keeps each page's buttons
     apart): (period as Julian days, planets, angles, minor on), or None when there is nothing to show yet.
     Planets Cycles has a button per major angle; Aspects (aspect_buttons False) has one Major Aspects and one
     Minor Aspects on / off button instead, and its angles are all five major ones when Major Aspects is on."""
-    row, prep = pick_customer()
+    _, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return None
@@ -404,7 +418,7 @@ def cycles_inputs(title: str, keys: str, aspect_buttons: bool = True):
 
 def page_globe():
     """The Earth turning inside the celestial sphere: the planets and their RA and Dec lines on the sphere, CB, CN on it."""
-    row, prep = pick_customer()
+    _, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="top", gap="small")
     if not need_chart(prep):
         return
@@ -464,7 +478,7 @@ def page_globe():
 
 
 def page_range():
-    got = cycles_inputs("Planets Cycles", "")
+    got = cycles_inputs("")
     if got is None:
         return
     jds, dec_on, angles, _ = got
@@ -479,7 +493,7 @@ def page_range():
 def page_aspects_view():
     """Planets Cycles' aspects as tables: one per chosen angle, one row per time two of the planets come into it,
     newest first; then, with the Minor Aspects switch on, one per minor angle too."""
-    got = cycles_inputs("Aspects", "asp_", aspect_buttons=False)   # Major / Minor Aspects on / off buttons
+    got = cycles_inputs("asp_", aspect_buttons=False)   # Major / Minor Aspects on / off buttons
     if got is None:
         return
     jds, dec_on, angles, minor = got
@@ -534,7 +548,7 @@ def _range_cached(dec_on, ea, jd_from, jd_to, orb_csv):
 
 
 def page_distance():
-    row, prep = pick_customer()
+    _, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return
@@ -580,6 +594,7 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
         st.caption("Changes not committed yet: press Commit to save them.")
 
     def stage(new_rows: pd.DataFrame, note: str) -> None:
+        st.session_state.setdefault(f"{key}_base", show)       # what the working copy started from (see page_customers)
         st.session_state[f"{key}_working"] = new_rows.reset_index(drop=True)
         st.session_state.pop(key, None)
         st.session_state[f"{key}_said"] = note
@@ -598,9 +613,14 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
         elif pressed == "Update":
             stage(rows, "Updated. Press Commit to save it to the database.")
         else:
-            report = commit(rows)
+            try:
+                report = commit(rows)
+            except SQLAlchemyError as exc:                     # nothing is saved: the working copy stays
+                st.error(f"Not committed. The database refused it: {getattr(exc, 'orig', exc)}")
+                return
             st.cache_data.clear()                              # charts kept with the old values
             st.session_state.pop(f"{key}_working", None)
+            st.session_state.pop(f"{key}_base", None)
             st.session_state.pop(key, None)
             st.session_state[f"{key}_said"] = report
             st.rerun()
@@ -617,24 +637,23 @@ def page_planets():
 def page_aspects():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
-    pick_customer()
     table = db.orb_table()
     st.caption("A pair is in aspect when RA is within the RA orb of the angle and Dec within the Dec orb of equal "
                "(conjunction), mirrored (opposition) or either (the others). A pair uses the larger of its two planets' "
                "orbs; CB and CN take the planet's.")
     crud_table("orb_editor", table.assign(_angle=table["Angle"]), db.orb_problems,
-               lambda rows: (db.save_orb_table(rows[rows["Aspect"].notna() | rows["_angle"].notna()].drop(columns="_angle")), "Committed.")[1],
+               lambda rows: (db.save_orb_table(rows[rows["Angle"].notna()].drop(columns="_angle")), "Committed.")[1],
                column_config={"_angle": None, "Angle": st.column_config.NumberColumn("Angle", format="%g", width="small")})
     if st.button("Reset to defaults"):
         db.save_orb_table(core.default_orb_table())
         st.session_state.pop("orb_editor_working", None)
+        st.session_state.pop("orb_editor_base", None)
         st.session_state.pop("orb_editor", None)
         st.cache_data.clear()
         st.rerun()
 
 
 def page_customers():
-    pick_customer()
     if db.is_local_sqlite() and not auth._secret("dev_user"):
         st.warning("Saved in a local SQLite file. On Streamlit Community Cloud that file is lost on every restart: "
                    "set the secret db_url to a hosted Postgres database (see README).")
@@ -646,7 +665,7 @@ def page_customers():
     # First Name, A-Z, to begin with; the column headers sort by any column. Saving matches rows by their record, so the
     # order shown does not matter
     by_name = show[db.LABELS["name"]].map(lambda v: v.strip().lower() if isinstance(v, str) else v)
-    show = show.iloc[by_name.sort_values(na_position="last", kind="stable").index.map(show.index.get_loc)].reset_index(drop=True)
+    show = show.loc[by_name.sort_values(na_position="last", kind="stable").index].reset_index(drop=True)
     stamp_cols = {label: st.column_config.DatetimeColumn(label, format="YYYY-MM-DD HH:mm", disabled=True,
                                                          help=help_text)
                   for label, help_text in (("Added", "When the customer was added (UT)."),
@@ -659,8 +678,13 @@ def page_customers():
         out["utc"] = out["id"].map(df.set_index("id")["utc"])   # each customer's kept UTC, unchanged (new: blank)
         return out
 
-    crud_table("cust_editor", show, lambda rows: db.customer_problems(for_store(rows)),
-               lambda rows: "Committed: {} added, {} changed, {} deleted.".format(*db.save_customers(for_store(rows), df)),
+    def commit(rows: pd.DataFrame) -> str:
+        # against what the working copy started from: a member who joined or changed their details since is left alone
+        base = st.session_state.get("cust_editor_base")
+        return "Committed: {} added, {} changed, {} deleted.".format(
+            *db.save_customers(for_store(rows), df if base is None else for_store(base)))
+
+    crud_table("cust_editor", show, lambda rows: db.customer_problems(for_store(rows)), commit,
                height=min(27 * (len(st.session_state.get("cust_editor_working", show)) + 2), 700),   # above its scroll bar
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The record's number, set by the app (blank on a new row until saved)."), **stamp_cols,
                                 "First Name": st.column_config.TextColumn("First Name *", help="Required."),
@@ -696,9 +720,15 @@ def page_customers():
                  "Names already here are skipped. Then add each customer's Email (login): it is required to save.")
         up = st.file_uploader("Customers CSV", type="csv")
         if up is not None and st.button("Import"):
-            n = db.import_workbook_csv(up.getvalue())
-            st.cache_data.clear()
-            st.success(f"Imported {n} customers. Add each one's login email to let them see their charts.")
+            try:
+                n = db.import_workbook_csv(up.getvalue())
+            except ValueError as exc:                          # nothing is saved
+                st.error(f"That file could not be imported, so nothing was added: {exc}")
+            else:
+                st.cache_data.clear()
+                st.session_state["cust_editor_said"] = (f"Imported {n} customers. Add each one's login email to let them "
+                                                        "see their charts.")
+                st.rerun()
 
 
 def page_my_details():
@@ -706,8 +736,13 @@ def page_my_details():
     if row is None:
         new_member_form()
         return
+    def shown(v) -> str:                                      # a blank stays blank, and a whole number has no .0
+        if pd.isna(v):
+            return ""
+        return str(int(v)) if isinstance(v, float) and v.is_integer() else str(v)
+
     st.dataframe(pd.DataFrame({"Field": [db.LABELS[f].split(" (")[0] for f in db.FIELDS if f not in ("email", "utc")],
-                               "Value": [row[f] for f in db.FIELDS if f not in ("email", "utc")]}).astype(str),
+                               "Value": [shown(row[f]) for f in db.FIELDS if f not in ("email", "utc")]}),
                  hide_index=True, width="content")
     if prep and prep.ok:
         st.write(f"Born on a {prep.weekday}; UTC offset {prep.utc:+.2f} ({prep.tz}); birth place "

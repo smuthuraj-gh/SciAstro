@@ -6,6 +6,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from functools import lru_cache
+from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 import requests
@@ -23,11 +24,16 @@ OLD_NAMES = {"bangalore": "Bengaluru", "bombay": "Mumbai", "madras": "Chennai", 
              "benares": "Varanasi", "pondicherry": "Puducherry", "peking": "Beijing", "saigon": "Ho Chi Minh City"}
 
 
+class LookupDown(Exception):
+    """The place search did not answer. Not the same as a place not found, and not kept: the next try asks again."""
+
+
 def maps_lat_lon(s: str) -> tuple[float, float] | None:
     """Coordinates from a Google Maps link (short links are followed) or a "lat, lon" pair; None otherwise."""
     if not s:
         return None
-    if "goo.gl" in s:
+    link = urlparse(s.strip())
+    if link.scheme in ("http", "https") and link.hostname in ("goo.gl", "maps.app.goo.gl"):   # Google's short links only
         try:
             s = requests.get(s, headers=UA, timeout=10, allow_redirects=True).url
         except requests.RequestException:
@@ -66,8 +72,8 @@ def _search(name: str) -> list[dict]:
                          headers=UA, timeout=15)
         r.raise_for_status()
         return r.json().get("results") or []
-    except (requests.RequestException, ValueError):
-        return []
+    except (requests.RequestException, ValueError) as exc:
+        raise LookupDown(str(exc)) from exc
 
 
 def _pick(results: list[dict], parts: list[str]) -> dict | None:
