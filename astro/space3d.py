@@ -27,10 +27,14 @@ RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on Astr
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
 SIDES = 96                        # a ring is drawn with this many straight pieces
 
-# HelioCentric: the Sun at the centre, the planets and the Earth round it (the Moon, seen from the Sun, is where the Earth is)
-HELIO_BODIES = ("Me", "Ve", "Ea", "Ma", "Ju", "Sa")
+# HelioCentric: the Sun at the centre, the planets and the Earth round it, and the Moon round the Earth (seen from the Sun it is
+# where the Earth is, so it is drawn round the Earth's mark, larger than to scale: in its real direction from the Earth, at
+# MOON_AROUND_PX pixels at its mean distance, nearer and farther with its real distance)
+HELIO_BODIES = ("Me", "Ve", "Ea", "Mo", "Ma", "Ju", "Sa")
+MOON_AROUND_PX = 30.0
+MOON_MEAN_AU = 0.00257
 HELIO_LOG_FROM_AU = 0.12          # on Fit, the distance drawn at the Sun (Mercury, about 0.31-0.47, close by)
-HELIO_SPANS = {"Me": (87.97, 200, "Mercury Path"), "Ve": (224.7, 200, "Venus Path"), "Ea": (365.25, 200, "Earth Path"),
+HELIO_SPANS = {"Mo": (27.32, 110, "Moon Path"), "Me": (87.97, 200, "Mercury Path"), "Ve": (224.7, 200, "Venus Path"), "Ea": (365.25, 200, "Earth Path"),
                "Ma": (687.0, 300, "Mars Path"), "Ju": (4333.0, 400, "Jupiter Path"), "Sa": (10759.0, 400, "Saturn Path")}   # a year each
 HELIO_STEP_DAYS = {"Me": 1.0, "Ve": 2.0, "Ea": 2.0, "Ma": 4.0, "Ju": 20.0, "Sa": 20.0}
 HELIO_RINGS = {FIT: (0.5, 1.0, 2.0, 5.0, 10.0), "True": RINGS["True"]}
@@ -77,10 +81,16 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     outer = 0.0
     for clock, jd, _ in moments:
         tables[clock], sizing[clock] = {}, {}
-        for p in bodies:
-            whole = _motion_table(p, jd, RUN_DAYS) if centre == "Ea" else _helio_table(p, jd, RUN_DAYS)
-            tables[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
+        if centre == "Su" and "Mo" in bodies:                 # the Moon goes round the Earth: the Earth's table, shown or not
+            whole = _helio_table("Ea", jd, RUN_DAYS)
+            tables[clock]["Ea"] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
             outer = max(outer, reach(max(whole["dist"])))
+        for p in bodies:
+            around = centre == "Su" and p == "Mo"                # its table as seen from the Earth
+            whole = _motion_table(p, jd, RUN_DAYS) if centre == "Ea" or around else _helio_table(p, jd, RUN_DAYS)
+            tables[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
+            if not around:
+                outer = max(outer, reach(max(whole["dist"])))
             marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock, rule=core.size_rule(p)))
             days, steps, name = at["spans"][p]
             if with_paths is None or p in with_paths:         # the page draws it as time runs, from the body's own table
@@ -108,7 +118,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=core.SIZE_TEXTS.get(centre, ""), centre_colour=core.colour(centre),
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=at["log_from"], gap=at["gap"],
-                key=centre + key, days=RUN_DAYS, manual=manual, day_seconds=day_seconds,
+                key=centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
@@ -142,6 +152,13 @@ __SYMBOL_JS__
       log >= hi ? log - (hi - lo) + D.gap[2] : lo + (log - lo) / (hi - lo) * D.gap[2], a = s.ra * RAD, d = s.dec * RAD;
     return [r * Math.cos(d) * Math.cos(a), r * Math.cos(d) * Math.sin(a), r * Math.sin(d)];
   };
+  const posAt = (clock, body, t) => {             // where a body is then, and where it is drawn
+    const s = sample(D.tables[clock][body], t);
+    if (!(D.around && body === "Mo")) return {s, p: xyz(s)};
+    const e = xyz(sample(D.tables[clock].Ea, t)), a = s.ra * RAD, d = s.dec * RAD, r = D.moon_reach * s.dist / D.moon_mean;
+    return {s, p: [e[0] + r * Math.cos(d) * Math.cos(a), e[1] + r * Math.cos(d) * Math.sin(a), e[2] + r * Math.sin(d)]};
+  };
+  const fromWord = (body) => (D.around && body === "Mo" ? "earth" : D.centre_word);   // the Moon's distance is from the Earth
   const signed = (v) => (v >= 0 ? "+" : "") + v.toFixed(2);
   const pad2 = (n) => (n >= 0 ? "+" : "-") + Math.abs(n).toFixed(2);
   const clockLine = (s, t) => {                    // its date and time, at its place's UTC offset
@@ -254,15 +271,16 @@ __SYMBOL_JS__
   else if (clock.trailFrom === null || clock.trailFrom === undefined || clock.trailFrom > clock.t) clock.trailFrom = clock.t;
   let trailFrom = D.day_seconds ? clock.trailFrom : null;
   const trail = (p, t) => {                        // where the body has really been since time started running
-    const b = D.tables[p.clock][p.body], samples = [], run = trailFrom === null ? 0 : t - trailFrom;
+    const times = [], run = trailFrom === null ? 0 : t - trailFrom;
     let gap = p.days / p.steps;
     while (run / gap > TRAIL_MOST) gap *= 2;         // (by doubling, so that the points stay where they were as it grows)
-    for (let n = 0; n * gap < run; n++) samples.push(sample(b, trailFrom + n * gap));
-    if (run > 0) samples.push(sample(b, t));        // to the body itself
-    p.pts = samples.map((s) => xyz(s));
+    for (let n = 0; n * gap < run; n++) times.push(trailFrom + n * gap);
+    if (run > 0) times.push(t);                     // to the body itself
+    const got = times.map((u) => posAt(p.clock, p.body, u)), samples = got.map((g) => g.s);
+    p.pts = got.map((g) => g.p);
     const dists = samples.map((s) => s.dist), days = Math.round(run);
     p.tip = p.name + " " + p.clock + ": where it has been since time started running, " + days + (days === 1 ? " day" : " days") +
-      (samples.length ? " (distance from " + D.centre_word + " " + Math.min(...dists).toPrecision(4) + " to " + Math.max(...dists).toPrecision(4) + " AU)" : "");
+      (samples.length ? " (distance from " + fromWord(p.body) + " " + Math.min(...dists).toPrecision(4) + " to " + Math.max(...dists).toPrecision(4) + " AU)" : "");
   };
   const WAYS = 8;                                  // the places round a mark, at each reach
   const around = (x, y, r, w) => {
@@ -286,14 +304,15 @@ __SYMBOL_JS__
       g.draw(g.p.pts, g.p.tip);
     });
     const placed = marks.map((g) => {
-      const s = sample(g.table, t), [x, y, z] = point(xyz(s));
+      const {s, p: at} = posAt(g.m.clock, g.m.name, t), [x, y, z] = point(at);
       // sized by how wide it looks from the Earth then, on AstroGlobe's logarithmic scale (to true scale the planets would not show)
       const seen = sizing(g.m.clock)[g.m.name], r = radiusAt(g.m.rule, sizing(g.m.clock), t);
       const arcsec = seen ? arcsecOf(seen.km, sample(seen, t).dist) : null;   // how big it looks from the Earth (not for the Earth itself)
       const size = arcsec === null ? "" : "\nAngular Size: " + (arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec");
       g.e.setAttribute("r", r.toFixed(1));
       g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDec/Lati: " + signed(s.dec) + "\nRA: " + s.ra.toFixed(2) + size +
-        "\nDistance from " + D.centre_word + ": " + s.dist.toPrecision(4) + " AU";
+        "\nDistance from " + fromWord(g.m.name) + ": " + s.dist.toPrecision(4) + " AU" +
+        (D.around && g.m.name === "Mo" ? "\n(drawn round the Earth, farther out than to scale)" : "");
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
       g.e.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       g.label.setAttribute("opacity", z >= 0 ? 1 : 0.6);
