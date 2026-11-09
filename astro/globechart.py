@@ -30,7 +30,7 @@ SKY_FILL = "rgb(244,246,252)"
 BACK_OPACITY = 0.3                # the far side of the sphere, seen through it
 BODY_RADIUS_KM = {"Su": 695700.0, "Mo": 1737.4, "Me": 2439.7, "Ve": 6051.8, "Ma": 3396.2, "Ju": 71492.0, "Sa": 60268.0}
 SIZE_RANGE_ARCSEC = (3.5, 2040.0)     # the smallest (Mars at its farthest) to the largest (the Moon at its nearest) ...
-MARKER_RANGE = (3.0, 11.0)            # ... drawn with these marker radii, in pixels
+MARKER_RANGE = (7.0, 14.0)            # ... drawn with these marker radii, in pixels (big enough to hold its symbol)
 # A path's days (one trip round the sky seen from the Earth: Mercury and Venus keep with the Sun, so a year), points drawn, name
 PATH_SPAN = {"Mo": (27.32, 110, "Moon Path"), "Me": (365.25, 365, "Mercury Path"),
              "Ve": (365.25, 365, "Venus Path"), "Ma": (687.0, 400, "Mars Path"),
@@ -78,7 +78,8 @@ def _ring(x: float, y: float, r: float) -> str:
     return f"M{x - r} {y}a{r} {r} 0 1 0 {2 * r} 0a{r} {r} 0 1 0 {-2 * r} 0"
 
 
-# The conventional symbols, as lines about the middle of a place 16 pixels wide: drawn, as not every font has them all
+# The conventional symbols, as lines about the middle of a place 16 pixels wide, scaled to go inside their markers: drawn, as not
+# every font has them all
 SYMBOLS = {"Su": _ring(0, 0, 6.5) + _ring(0, 0, 0.8),
            "Mo": "M3 -7A7.4 7.4 0 1 0 3 7A5.6 5.6 0 1 1 3 -7Z",
            "Me": _ring(0, -1.5, 3.2) + "M-3.4 -8A3.5 3.5 0 0 0 3.4 -8M0 1.7V8M-2.6 5H2.6",
@@ -87,6 +88,25 @@ SYMBOLS = {"Su": _ring(0, 0, 6.5) + _ring(0, 0, 0.8),
            "Ju": "M-5.5 -3.5C-5.5 -8 1 -8 .5 -2.5C.2 .5 -3 2.5 -6 2.5H6M3 -7V7.5",
            "Sa": "M-4 -5.5H1.2M-1.4 -8V1.8C.5 -2.5 6 -2.5 5.6 1.5C5.3 4.5 1.5 5.5 2.8 8",
            "Ea": _ring(0, 3.2, 4.2) + "M0 -1V-8M-3 -4.5H3"}
+
+
+# The page's part, for both pages: a marker's symbol, in black or white, whichever shows on its colour, or in its colour on a hollow one
+SYMBOL_JS = r"""
+  const inkOn = (colour) => {
+    const [r, g, b] = colour.startsWith("#") ? [1, 3, 5].map((i) => parseInt(colour.slice(i, i + 2), 16)) : colour.match(/[0-9]+/g).map(Number);
+    return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "black" : "white";
+  };
+  const symbolTag = (parent, name, colour, hollow) => {
+    const tag = make("g", parent, {style: "pointer-events:none"});
+    tag.line = make("path", tag, {d: D.symbols[name], fill: "none", stroke: hollow ? colour : inkOn(colour), "stroke-linecap": "round", "stroke-linejoin": "round"});
+    return tag;
+  };
+  const fitSymbol = (tag, x, y, r) => {            // inside its marker, and as thick whatever the size
+    const k = r / 9.5;
+    tag.setAttribute("transform", "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ") scale(" + k.toFixed(3) + ")");
+    tag.line.setAttribute("stroke-width", (1.5 / k).toFixed(2));
+  };
+"""
 
 
 def _view() -> tuple[float, float]:
@@ -358,14 +378,7 @@ _MOTION_JS = r"""
   };
   const words = (parent, attrs) => make("text", parent, Object.assign({"font-weight": "bold", "font-size": D.font,
     "font-family": D.family, stroke: "white", "stroke-width": 3, "paint-order": "stroke"}, attrs));
-  const symbolTag = (parent, name, colour) => {   // a planet's tag: placed by x and y, as a text would be, and named in its title
-    const tag = make("svg", parent, {overflow: "visible"});
-    make("title", tag).textContent = name;
-    const lines = make("g", tag, {transform: "translate(0 -5)"});
-    [["white", 4], [colour, 1.8]].forEach(([stroke, width]) => make("path", lines, {d: D.symbols[name], fill: "none", stroke, "stroke-width": width,
-      "stroke-linecap": "round", "stroke-linejoin": "round"}));
-    return tag;
-  };
+__SYMBOL_JS__
   const cp = Math.cos(D.tilt), sp = Math.sin(D.tilt), cr = Math.cos(D.roll), sr = Math.sin(D.roll);
   let raFacing = D.ra_facing;                      // the RA facing the viewer: the view can be turned by hand (Manual)
   const point = (ra, dec) => {                     // on the chart: x, y, and z above 0 on the side toward the viewer
@@ -421,7 +434,7 @@ _MOTION_JS = r"""
     const c = body.b.colour;
     body.mark = make("circle", markG, {fill: body.now ? "white" : c, stroke: c, "stroke-width": 2, style: "pointer-events:auto"});
     body.tip = make("title", body.mark);
-    body.label = symbolTag(markG, body.name, c);
+    body.label = symbolTag(markG, body.name, c, body.now);
   });
   const houses = [];                               // each of CB's and CN's twelve: its line and its name, in the middle of its span
   if (D.show_houses) D.places.forEach((pl) => {
@@ -460,28 +473,6 @@ _MOTION_JS = r"""
   };
   const clear = (a, taken) => taken.every((b) => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
   const inChart = (a) => a[0] > 0 && a[1] > 0 && a[2] < D.width && a[3] < D.height;
-  const spot = (body, x, y, r, taken) => {         // its last way round the marker while that stays free, else the nearest free
-    const side = body.name.length * D.text_w / 2 + r + 5;
-    const ways = [[0, -r - 6], [0, r + 15], [side, 5], [-side, 5], [side, -r - 4], [-side, -r - 4], [side, r + 13], [-side, r + 13]];
-    const at = (w, reach) => {
-      const [dx, dy] = ways[w];
-      return [x + dx + (dx > 0 ? reach * 12 : dx < 0 ? -reach * 12 : 0), y + dy + (dy > 5 ? reach * 14 : dy < 0 ? -reach * 14 : 0)];
-    };
-    const ok = (p) => { const a = boxOf(p[0], p[1], body.name); return inChart(a) && clear(a, taken); };
-    if (body.way !== undefined && ok(at(body.way, 0))) return at(body.way, 0);
-    // blocked: the free way the least distance from its last place, so that it moves as little as it can
-    const had = body.way === undefined ? null : at(body.way, 0);
-    const near = (p) => (had ? Math.hypot(p[0] - had[0], p[1] - had[1]) : 0);
-    for (let reach = 0; reach !== 40; reach++) {
-      let best = null;
-      for (let w = 0; w !== 8; w++) {
-        const p = at(w, reach);
-        if (ok(p) && (best === null || near(p) < near(at(best, reach)))) best = w;
-      }
-      if (best !== null) { body.way = best; return at(best, reach); }
-    }
-    return at(0, 0);
-  };
   const names = (list) => list.sort((a, b) => a[1] - b[1]).map(([p, gap]) => p + " " + gap.toFixed(1) + "°").join(", ") || "none";
   const moving = (body, s, t) => {                 // the others approaching and leaving it: the gap in Dec closing or opening
     const near = [], away = [];
@@ -519,9 +510,8 @@ _MOTION_JS = r"""
     const share = Math.max(0, Math.min(1, (Math.log(arcsec) - LOW) / (HIGH - LOW)));
     return Math.max(1, D.radii[0] + (D.radii[1] - D.radii[0]) * share + rule.add);
   };
-  const paths = D.paths.map((p) => Object.assign({}, p, {draw: line(p.colour, p.dash), label: words(markG, {"text-anchor": "end", fill: p.colour})}));
-  paths.forEach((p) => { p.label.textContent = p.name; });
-  let pathBoxes = [], pathsFacing = null, pathsAt = null, namedAt = null;
+  const paths = D.paths.map((p) => Object.assign({}, p, {draw: line(p.colour, p.dash)}));
+  let pathsFacing = null, pathsAt = null;
   const moonPath = (p, t) => {                     // the Moon's month around the clock's date: it turns and changes its reach over the years
     const b = D.sets.find((s) => s.clock === p.moving).tables.Mo;
     const first = Math.max(0, Math.min(t - D.moon_month / 2, D.days - D.moon_month));
@@ -535,26 +525,8 @@ _MOTION_JS = r"""
     p.tip = p.name + " " + p.moving + ": the month around the clock's date (Dec between " + show(Math.min(...decs)) +
       " and " + show(Math.max(...decs)) + ")";
   };
-  const drawPaths = () => {                        // each named at its near side's left-hand end, or as near there as is free
-    pathBoxes = [];
-    paths.forEach((p) => {
-      p.draw(p.pts, p.tip, p.colour, p.width);
-      let left = null;
-      p.pts.forEach(([ra, dec]) => { const q = point(ra, dec); if (q[2] >= 0 && (!left || q[0] < left[0])) left = q; });
-      p.label.style.display = left ? "" : "none";
-      if (!left) return;
-      const w = p.name.length * D.text_w, x = left[0] - 8;
-      const boxAt = (y) => [x - w - 3, y - D.text_h + 3, x + 3, y + 3];
-      for (let v = 0; v !== 90; v++) for (const s of [1, -1]) {
-        const y = left[1] + 4 + v * 19 * s;
-        if (y > 16 && y < D.height - 4 && x - w - 3 > 0 && clear(boxAt(y), D.taken.concat(pathBoxes))) {
-          p.label.setAttribute("x", x.toFixed(1)); p.label.setAttribute("y", y.toFixed(1));
-          pathBoxes.push(boxAt(y));
-          return;
-        }
-      }
-      p.label.style.display = "none";
-    });
+  const drawPaths = () => {                        // named only on pointing at them
+    paths.forEach((p) => p.draw(p.pts, p.tip, p.colour, p.width));
     pathsFacing = raFacing;
   };
   const place = (t) => {
@@ -564,11 +536,9 @@ _MOTION_JS = r"""
       turning.forEach((p) => moonPath(p, t));
       pathsAt = t;
     }
-    if (pathsFacing !== raFacing || (turning.length && Math.abs(t - namedAt) > 3)) {   // the names follow, not at every step
-      drawPaths();
-      namedAt = t;
-    } else turning.forEach((p) => p.draw(p.pts, p.tip, p.colour, p.width));
-    const taken = D.taken.concat(pathBoxes);       // in the order of who keeps their place: the planets' tags before the houses', which spin past
+    if (pathsFacing !== raFacing) drawPaths();
+    else turning.forEach((p) => p.draw(p.pts, p.tip, p.colour, p.width));
+    const taken = D.taken.slice();       // in the order of who keeps their place: the planets' tags before the houses', which spin past
     aspectLines.forEach((l) => {                   // the short way round between the two, straight in RA and Dec
       const a = sample(l.s.tables[l.p], t), b = sample(l.s.tables[l.q], t);
       const on = D.aspects.filter((d) => inAspect(d.angle, a, b, d.orbs[l.p + "|" + l.q]));
@@ -601,6 +571,8 @@ _MOTION_JS = r"""
       body.mark.setAttribute("cx", x.toFixed(1)); body.mark.setAttribute("cy", y.toFixed(1));
       body.mark.setAttribute("r", r.toFixed(1)); body.mark.setAttribute("opacity", fade);
       body.mark.style.display = hidden ? "none" : ""; body.label.style.display = hidden ? "none" : "";
+      fitSymbol(body.label, x, y, r);
+      body.label.setAttribute("opacity", fade);
       body.tip.textContent = body.tipName + " (" + (z >= 0 ? "near" : "far") + " side of the sphere)\nDec/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2) +
         "\nRA: " + s.ra.toFixed(2) + "\nAngular Size: " + size +
         "\nDistance from earth: " + Math.max(0, Math.round(pct)) + "%" + moving(body, s, t);
@@ -616,13 +588,6 @@ _MOTION_JS = r"""
       node.tip.textContent = node.name + " " + node.s.clock + ": the Moon's " + node.pole + " node (" + (z >= 0 ? "near" : "far") +
         " side of the sphere)\nDec/Lati: " + (at.dec >= 0 ? "+" : "") + at.dec.toFixed(2) + "\nRA: " + at.ra.toFixed(2);
       if (!hidden) taken.push([x - 9, y - 9, x + 9, y + 9]);
-    });
-    bodies.forEach((body) => {
-      if (body.hidden) return;
-      const [lx, ly] = spot(body, body.x, body.y, body.r, taken);
-      taken.push(boxOf(lx, ly, body.name));
-      body.label.setAttribute("x", lx.toFixed(1)); body.label.setAttribute("y", ly.toFixed(1));
-      body.label.setAttribute("opacity", body.fade);
     });
     houses.forEach((h) => {                        // named on the near side only, and not where a fixed label is
       const ra = (h.pl.ra + D.spin * t + 30 * h.k) % 360, pts = [];
@@ -760,4 +725,4 @@ def globe_js(g: GlobeInput, day_seconds: float | None, manual: bool = False) -> 
     """Puts the celestial sphere over the chart, under Plotly's hover boxes, and moves what is on it; day_seconds is how many
     seconds a day takes, None with no speed picked; with manual, dragging the chart turns the view, time standing still."""
     data = json.dumps(_motion_data(g, day_seconds, manual)).replace("<", chr(92) + "u003c")
-    return _MOTION_JS.replace("__DATA__", data)
+    return _MOTION_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data)

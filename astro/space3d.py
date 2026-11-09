@@ -8,7 +8,7 @@ import math
 import uuid
 
 from . import core
-from .globechart import MARKER_RANGE, MOTION_DAYS, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOLS, TILT, _motion_table
+from .globechart import MARKER_RANGE, MOTION_DAYS, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, SYMBOLS, TILT, _motion_table
 from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
@@ -93,14 +93,7 @@ _JS = r"""
                                 style: "display:block; cursor:grab; touch-action:none; user-select:none"});
   const words = (fill) => make("text", svg, {"font-weight": "bold", "font-size": D.font, "font-family": D.family, stroke: "white",
                                              "stroke-width": 3, "paint-order": "stroke", "text-anchor": "middle", fill});
-  const symbolTag = (name, colour) => {           // a planet's tag: placed by x and y, as a text would be, and named in its title
-    const tag = make("svg", svg, {overflow: "visible"});
-    make("title", tag).textContent = name;
-    const lines = make("g", tag, {transform: "translate(0 -5)"});
-    [["white", 4], [colour, 1.8]].forEach(([stroke, width]) => make("path", lines, {d: D.symbols[name], fill: "none", stroke, "stroke-width": width,
-      "stroke-linecap": "round", "stroke-linejoin": "round"}));
-    return tag;
-  };
+__SYMBOL_JS__
   const view = window.space3dView || (window.space3dView = {yaw: 90, pitch: 45});
   if (!window.space3dClock || window.space3dClock.key !== D.key) window.space3dClock = {key: D.key, t: 0};
   const clock = window.space3dClock;              // the days run since each moment: kept when a button is pressed
@@ -181,10 +174,10 @@ _JS = r"""
   });
   const earth = make("circle", svg, {fill: D.earth_colour, stroke: DARK, "stroke-width": 1});
   make("title", earth).textContent = "Ea, at the centre (its size is not to scale" + (D.earth_size ? ": " + D.earth_size : "") + ")";
-  const earthLabel = symbolTag("Ea", D.earth_colour);
+  const earthLabel = symbolTag(svg, "Ea", D.earth_colour, false);
   const marks = D.marks.map((m) => {
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
-    const tip = make("title", e), label = symbolTag(m.name, m.colour);
+    const tip = make("title", e), label = symbolTag(svg, m.name, m.colour, m.hollow);
     return {m, e, tip, label, table: D.tables[m.clock][m.name]};
   });
   const boxOf = (x, y, text) => {
@@ -258,10 +251,12 @@ _JS = r"""
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
       g.e.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       g.label.setAttribute("opacity", z >= 0 ? 1 : 0.6);
+      fitSymbol(g.label, x, y, r);
       return {g, x, y, z, r};
     }).sort((a, b) => a.z - b.z);
     const [ex, ey] = point([0, 0, 0]), earthR = radiusAt(D.earth_rule, D.tables[D.earth_clock], t);
     earth.setAttribute("r", earthR.toFixed(1));
+    fitSymbol(earthLabel, ex, ey, earthR);
     earth.setAttribute("cx", ex.toFixed(1)); earth.setAttribute("cy", ey.toFixed(1));
     // in the order of depth, what is nearest on top (only when that changes: moving a mark would lose its hover box);
     // every label kept off every mark and every other label
@@ -271,12 +266,6 @@ _JS = r"""
       lastStack = stack;
     }
     const taken = placed.map((q) => [q.x - q.r - 2, q.y - q.r - 2, q.x + q.r + 2, q.y + q.r + 2]).concat([[ex - earthR - 1, ey - earthR - 1, ex + earthR + 1, ey + earthR + 1]]);
-    put(earthLabel, around(ex, ey, earthR, 8), taken);
-    // always in the same order, so that a tag does not lose its place to another as the drawing turns
-    marks.forEach((g) => {
-      const q = placed.find((p) => p.g === g);
-      put(g.label, around(q.x, q.y, q.r, 8), taken);
-    });
     poles.forEach((g) => {
       const [x, y] = point(g.at);
       put(g.label, around(x, y, 4, 12), taken);
@@ -334,4 +323,4 @@ def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]]
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False) -> str:
     uid = "space-" + uuid.uuid4().hex[:8]
     data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au)).replace("<", chr(92) + "u003c")
-    return f'<div id="{uid}"></div><script>{_JS.replace("__DATA__", data).replace("__ID__", uid)}</script>'
+    return f'<div id="{uid}"></div><script>{_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data).replace("__ID__", uid)}</script>'
