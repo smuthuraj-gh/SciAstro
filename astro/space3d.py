@@ -13,10 +13,13 @@ from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
 RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
-SCALES = ("Log", "True")
+SCALES = ("Log", "True", TRUE_LOG := "True-Log")   # True-Log: as Log, without the empty space between the Moon and the planets
+GAP = (0.003, 0.25, 0.3)          # True-Log: from just past the Moon's farthest (AU) to inside any planet's nearest (Venus about 0.26),
+                                  # drawn as only this much of the Log scale (a ring there being twice the distance of the last)
 LOG_FROM_AU = 0.001               # on the Log scale, the distance drawn at the Earth: each ring then ten times the last
 SPANS = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN}     # days, points, name: one trip round the sky
 RINGS = {"Log": (0.002, 0.01, 0.1, 1.0, 10.0),
+         TRUE_LOG: (0.002, 0.5, 1.0, 10.0),            # none in the space taken out
          "True": (0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)}   # AU; at most RINGS_SHOWN of them
 RINGS_SHOWN = 4
 RA_MARKS = (0, 90, 180, 270)
@@ -27,7 +30,13 @@ SIDES = 96                        # a ring is drawn with this many straight piec
 
 def _reach(au: float, scale: str) -> float:
     """How far from the Earth a distance is drawn, before fitting to the page."""
-    return max(math.log10(au / LOG_FROM_AU), 0.0) if scale == "Log" else au
+    if scale == "True":
+        return au
+    log = max(math.log10(au / LOG_FROM_AU), 0.0)
+    if scale == "Log":
+        return log
+    a, b = math.log10(GAP[0] / LOG_FROM_AU), math.log10(GAP[1] / LOG_FROM_AU)
+    return log if log <= a else log - (b - a) + GAP[2] if log >= b else a + (log - a) / (b - a) * GAP[2]
 
 
 def _xyz(ra: float, dec: float, reach: float) -> list[float]:
@@ -65,7 +74,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=LOG_FROM_AU, key=key, days=RUN_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=LOG_FROM_AU, gap=GAP, key=key, days=RUN_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
@@ -94,7 +103,9 @@ __SYMBOL_JS__
     return {ra: (b.ra[i] + turn * f + 360) % 360, dec: b.dec[i] + (b.dec[i + 1] - b.dec[i]) * f, dist: b.dist[i] + (b.dist[i + 1] - b.dist[i]) * f};
   };
   const xyz = (s) => {                             // as space3d._xyz, at the distance as the scale draws it
-    const r = D.scale === "Log" ? Math.max(Math.log10(s.dist / D.log_from), 0) : s.dist, a = s.ra * RAD, d = s.dec * RAD;
+    const log = Math.max(Math.log10(s.dist / D.log_from), 0), lo = Math.log10(D.gap[0] / D.log_from), hi = Math.log10(D.gap[1] / D.log_from);
+    const r = D.scale === "True" ? s.dist : D.scale === "Log" || log <= lo ? log :      // True-Log: the gap past the Moon closed up
+      log >= hi ? log - (hi - lo) + D.gap[2] : lo + (log - lo) / (hi - lo) * D.gap[2], a = s.ra * RAD, d = s.dec * RAD;
     return [r * Math.cos(d) * Math.cos(a), r * Math.cos(d) * Math.sin(a), r * Math.sin(d)];
   };
   const signed = (v) => (v >= 0 ? "+" : "") + v.toFixed(2);
