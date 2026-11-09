@@ -8,7 +8,7 @@ import math
 import uuid
 
 from . import core
-from .globechart import PATH_SPAN
+from .globechart import MOTION_DAYS, PATH_SPAN, _motion_table
 from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 720
@@ -34,27 +34,35 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
     return [round(reach * math.cos(d) * math.cos(a), 5), round(reach * math.cos(d) * math.sin(a), 5), round(reach * math.sin(d), 5)]
 
 
-def space_data(bodies: list[str], moments: list[tuple[str, float]], scale: str) -> dict:
-    """For each moment and body: its path and where it is then. moments: (Now or DOB, Julian day)."""
-    paths, marks = [], []
+def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
+               day_seconds: float | None = None, manual: bool = False) -> dict:
+    """For each moment and body: its path, and its table to move it by. moments: (Now or DOB, Julian day, UTC offset)."""
+    paths, marks, tables = [], [], {}
     outer = 0.0
-    for clock, jd in moments:
+    for clock, jd, _ in moments:
+        tables[clock] = {}
         for p in bodies:
+            whole = _motion_table(p, jd)
+            tables[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist")}
+            outer = max(outer, _reach(max(whole["dist"]), scale))
+            marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock))
             days, steps, name = SPANS[p]
+            if p == "Mo":                                     # the page works it out as time runs, from the Moon's table
+                paths.append(dict(colour=core.colour(p), dash=clock == "Now", pts=[], tip="", name=name, moon=clock))
+                continue
             pts = [core.position(p, jd + days * (v / steps - 0.5)) for v in range(steps + 1)]
             reach = [_reach(q.dist_au, scale) for q in pts]
             outer = max(outer, *reach)
             near, far = min(q.dist_au for q in pts), max(q.dist_au for q in pts)
             paths.append(dict(colour=core.colour(p), dash=clock == "Now", pts=[_xyz(q.ra, q.dec, r) for q, r in zip(pts, reach)],
                               tip=f"{name} {clock}: {days:g} days around {clock} (distance from earth {near:.4g} to {far:.4g} AU)"))
-            at = core.position(p, jd)
-            marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", at=_xyz(at.ra, at.dec, _reach(at.dist_au, scale)),
-                              tip=f"{p} {clock}\nDec/Lati: {at.dec:+.2f}\nRA: {at.ra:.2f}\nDistance from earth: {at.dist_au:.4g} AU"))
     outer = outer or 1.0
     wanted = [au for au in RINGS[scale] if _reach(au, scale) <= outer][-RINGS_SHOWN:]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
-    return dict(paths=paths, marks=marks, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
+    return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
+                scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer)) for ra in RA_MARKS])
 
 
@@ -73,6 +81,28 @@ _JS = r"""
   const words = (fill) => make("text", svg, {"font-weight": "bold", "font-size": D.font, "font-family": D.family, stroke: "white",
                                              "stroke-width": 3, "paint-order": "stroke", "text-anchor": "middle", fill});
   const view = window.space3dView || (window.space3dView = {yaw: 30, pitch: 25});
+  if (!window.space3dClock || window.space3dClock.key !== D.key) window.space3dClock = {key: D.key, t: 0};
+  const clock = window.space3dClock;              // the days run since each moment: kept when a button is pressed
+  const sample = (b, t) => {                       // between its two nearest table rows
+    const u = t / b.step, i = Math.min(Math.floor(u), b.ra.length - 2), f = u - i;
+    const turn = ((b.ra[i + 1] - b.ra[i] + 540) % 360) - 180;
+    return {ra: (b.ra[i] + turn * f + 360) % 360, dec: b.dec[i] + (b.dec[i + 1] - b.dec[i]) * f, dist: b.dist[i] + (b.dist[i + 1] - b.dist[i]) * f};
+  };
+  const xyz = (s) => {                             // as space3d._xyz, at the distance as the scale draws it
+    const r = D.scale === "True" ? s.dist : Math.max(Math.log10(s.dist / D.log_from), 0), a = s.ra * RAD, d = s.dec * RAD;
+    return [r * Math.cos(d) * Math.cos(a), r * Math.cos(d) * Math.sin(a), r * Math.sin(d)];
+  };
+  const signed = (v) => (v >= 0 ? "+" : "") + v.toFixed(2);
+  const pad2 = (n) => (n >= 0 ? "+" : "-") + Math.abs(n).toFixed(2);
+  const clockLine = (s, t) => {                    // its date and time, at its place's UTC offset
+    const known = s.offset !== null && s.offset !== undefined, off = known ? s.offset : 0;
+    const ms = (s.jd + t - 2440587.5) * 86400000 + off * 3600000 + 30000;     // to the nearest minute
+    return s.clock + " " + new Date(ms).toISOString().slice(0, 16).replace("T", " ") + (known ? " UTC" + pad2(off) : " UT");
+  };
+  const showClocks = (t) => {                      // in the page's clock, beside the customer's name
+    const box = document.querySelector(".globe-clock");
+    if (box) box.textContent = D.clocks.map((s) => clockLine(s, t)).join("    ");
+  };
   let X = 0, Y = 0, Z = 0, S = 0, C = 0, s = 0, c = 0;
   const angles = () => { S = Math.sin(view.yaw * RAD); C = Math.cos(view.yaw * RAD); s = Math.sin(view.pitch * RAD); c = Math.cos(view.pitch * RAD); };
   const point = ([x, y, z]) => {                   // on the page: x, y, and how far toward the viewer (+ is near)
@@ -90,7 +120,8 @@ _JS = r"""
       if (tip) make("title", e).textContent = tip;
       return e;
     });
-    return (pts) => {
+    return (pts, newTip) => {
+      if (newTip) parts.forEach((e) => { (e.firstChild || make("title", e)).textContent = newTip; });
       let near = "", far = "", side = null, last = "";
       pts.forEach((q) => {
         const [x, y, z] = point(q), here = z >= 0, at = x.toFixed(1) + " " + y.toFixed(1);
@@ -122,10 +153,9 @@ _JS = r"""
   earthLabel.textContent = "Earth";
   const marks = D.marks.map((m) => {
     const e = make("circle", svg, {r: 5, fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
-    make("title", e).textContent = m.tip;
-    const label = words(m.colour);
+    const tip = make("title", e), label = words(m.colour);
     label.textContent = m.name;
-    return {m, e, label};
+    return {m, e, tip, label, table: D.tables[m.clock][m.name]};
   });
   const boxOf = (x, y, text) => {
     const w = text.length * 8;
@@ -133,18 +163,29 @@ _JS = r"""
   };
   const clear = (a, taken) => taken.every((b) => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
   const inside = (a) => a[0] > 0 && a[1] > 0 && a[2] < D.width && a[3] < D.height;
-  const put = (label, spots, taken) => {           // at the first free place near it; left off if there is none
+  const put = (label, spots, taken) => {           // its last place while that stays free, else the first free near it; left off if none
     const text = label.textContent;
-    for (const [x, y] of spots) {
-      const a = boxOf(x, y, text);
-      if (inside(a) && clear(a, taken)) {
-        label.setAttribute("x", x.toFixed(1)); label.setAttribute("y", y.toFixed(1));
-        label.style.display = "";
-        taken.push(a);
-        return;
-      }
-    }
+    const free = (i) => {
+      const [x, y] = spots[i], a = boxOf(x, y, text);
+      if (!inside(a) || !clear(a, taken)) return false;
+      label.setAttribute("x", x.toFixed(1)); label.setAttribute("y", y.toFixed(1));
+      label.style.display = "";
+      label.lastPlace = i;
+      taken.push(a);
+      return true;
+    };
+    if (label.lastPlace !== undefined && free(label.lastPlace)) return;
+    for (let i = 0; i !== spots.length; i++) if (free(i)) return;
     label.style.display = "none";
+  };
+  const moonPath = (p, t) => {                     // the Moon's month around the clock's date
+    const b = D.tables[p.moon].Mo, first = Math.max(0, Math.min(t - D.moon_month / 2, D.days - D.moon_month));
+    const samples = [];
+    for (let v = 0; v !== 56; v++) samples.push(sample(b, first + v * D.moon_month / 55));
+    p.pts = samples.map(xyz);
+    const dists = samples.map((s) => s.dist);
+    p.tip = p.name + " " + p.moon + ": the month around the clock's date (distance from earth " + Math.min(...dists).toPrecision(4) +
+      " to " + Math.max(...dists).toPrecision(4) + " AU)";
   };
   const around = (x, y, r, w) => {
     const out = [];
@@ -160,9 +201,15 @@ _JS = r"""
     rings.forEach((g) => g.draw(g.r.pts));
     spokes.forEach((g) => g.draw([[0, 0, 0], g.m.at]));
     axis([[0, 0, -D.outer], [0, 0, D.outer]]);
-    paths.forEach((g) => g.draw(g.p.pts));
+    const t = clock.t;
+    paths.forEach((g) => {
+      if (g.p.moon) moonPath(g.p, t);
+      g.draw(g.p.pts, g.p.moon ? g.p.tip : null);
+    });
     const placed = marks.map((g) => {
-      const [x, y, z] = point(g.m.at);
+      const s = sample(g.table, t), [x, y, z] = point(xyz(s));
+      g.tip.textContent = g.m.name + " " + g.m.clock + "\nDec/Lati: " + signed(s.dec) + "\nRA: " + s.ra.toFixed(2) +
+        "\nDistance from earth: " + s.dist.toPrecision(4) + " AU";
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
       g.e.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       g.label.setAttribute("opacity", z >= 0 ? 1 : 0.6);
@@ -188,9 +235,22 @@ _JS = r"""
       g.r.pts.forEach((q) => { const p = point(q); if (!best || p[1] > best[1]) best = p; });
       put(g.label, around(best[0], best[1], 0, 20), taken);
     });
+    showClocks(t);
   };
   draw();
-  let from = null, due = false;
+  if (D.day_seconds) {                             // time runs: the planets move along their paths
+    let last = performance.now();
+    const timer = setInterval(() => {
+      if (!document.body.contains(svg)) return clearInterval(timer);
+      const now = performance.now();
+      clock.t += (now - last) / 1000 / D.day_seconds;
+      last = now;
+      if (clock.t >= D.days) clock.t = 0;          // the end of the tables: from the start again
+      draw();
+    }, D.step_ms);
+  }
+  if (!D.manual) { svg.style.cursor = "default"; return; }
+  let from = null, due = false;                    // Manual: time stands still, and dragging turns the drawing
   svg.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
     from = [e.clientX, e.clientY];
@@ -215,7 +275,8 @@ _JS = r"""
 """
 
 
-def space_html(bodies: list[str], moments: list[tuple[str, float]], scale: str) -> str:
+def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
+               day_seconds: float | None = None, manual: bool = False) -> str:
     uid = "space-" + uuid.uuid4().hex[:8]
-    data = json.dumps(space_data(bodies, moments, scale)).replace("<", chr(92) + "u003c")
+    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual)).replace("<", chr(92) + "u003c")
     return f'<div id="{uid}"></div><script>{_JS.replace("__DATA__", data).replace("__ID__", uid)}</script>'

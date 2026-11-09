@@ -38,10 +38,10 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 [data-testid="stSelectboxVirtualDropdown"] * { font-size: calc(13px * var(--app-zoom, 1)) !important; }
 /* AstroGlobe's lists: two a line, the last alone not stretched across */
 .st-key-globe_bodies button, .st-key-globe_paths button, .st-key-globe_coords button, .st-key-globe_speed button,
-.st-key-globe_major button, .st-key-globe_minor button
+.st-key-globe_major button, .st-key-globe_minor button, .st-key-space_speed button
   { flex: 0 0 auto !important; width: auto !important; }
 /* AstroGlobe's speed buttons, as small as their text allows */
-.st-key-globe_speed button { padding-left: 4px !important; padding-right: 4px !important; }
+.st-key-globe_speed button, .st-key-space_speed button { padding-left: 4px !important; padding-right: 4px !important; }
 /* the button that opens the sidebar (pages, customer) is titled Menu, so it is clear what it opens */
 [data-testid="stExpandSidebarButton"] { width: auto !important; padding: 0 6px !important; gap: 4px;
   display: inline-flex !important; align-items: center; }
@@ -137,7 +137,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "now, hollow, dashed lines, with CN at the place now.",
     "Planets 3D": "The paths of the Sun, Moon and planets around the Earth, each at its own distance from the Earth (on AstroGlobe all are on one sphere). "
                   "Each point is placed by its RA, Dec and distance. North is up, and the rings lie on the plane of the Earth's equator, with their distances from the Earth in AU (1 AU is about the Sun's distance). "
-                  "Drag the drawing to turn it; what is behind is fainter. Point at a planet for its Dec/Lati, RA and distance, or at a path for its span and distances. "
+                  "Rotate in 1s: below it, Manual: time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second: 1h an hour, 1d a day, 1w a week, 1m a month: the clock beside the name gives the date and time, and the Sun, Moon and planets move as they really did, nearer and farther, the Moon's path going with it (time starts again after 4 years; refresh the page to go back to the start). With none picked it holds still. Point at a planet for its Dec/Lati, RA and distance, or at a path for its span and distances. "
                   "Time: Now is hollow with dashed paths, DOB solid; each path is one trip round the sky around that moment (Sun, Mercury and Venus a year; Moon 27.32 days; Mars 687; Jupiter 4333; Saturn 10759). "
                   "Distance scale: on Log each ring is ten times the distance of the one inside it, so the Moon's path and Saturn's can be seen together; True is to scale, where the Moon's path is too small to tell from the Earth (pick Mo alone to see it). A label with no room is left off: point at its mark.",
     "Aspects": "The aspects between the chosen planets over the period, as tables, newest first: one table per "
@@ -190,7 +190,7 @@ def top_line(title: str, row: pd.Series | None):
         f'flex-wrap:nowrap; font-weight:600">'
         f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
-        + ('<span class="globe-clock" style="white-space:pre"></span>' if title == "AstroGlobe" else "") +   # its script writes it
+        + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("AstroGlobe", "Planets 3D") else "") +   # its script writes it
         f'</div>')
     # the slot fills the rest of the line
     TITLE_SLOT = line.container(width="stretch", horizontal=True, gap="small")
@@ -485,18 +485,26 @@ def page_globe():
 def page_space():
     """The paths at their real distances, in 3D."""
     _, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
+    head = st.container(horizontal=True, vertical_alignment="top", gap="small")
     if not need_chart(prep):
         return
     shown = head.pills("Time", ["Now", "DOB"], selection_mode="multi", default=["Now"], key="space_time") or []
     bodies = head.pills("Planets", list(globechart.BODY_CHOICES), selection_mode="multi", default=list(globechart.BODY_CHOICES),
                         key="space_bodies") or []
     scale = head.pills("Distance scale", space3d.SCALES, default=space3d.SCALES[0], key="space_scale") or space3d.SCALES[0]
+    spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
+    day_seconds, manual = None, False
+    if spin.pills("Rotate in 1s", ["Rotate in 1s"], default="Rotate in 1s", key="space_rotate", label_visibility="collapsed"):
+        speed = spin.pills("Rotate speed", [globechart.MANUAL] + list(globechart.SPEEDS), default=globechart.MANUAL, key="space_speed",
+                           label_visibility="collapsed", width=92)    # (Manual, 1h on a line; 1d, 1w, 1m on the next)
+        manual = speed == globechart.MANUAL                           # time stands still, and the drawing is dragged round
+        day_seconds = globechart.SPEEDS.get(speed)                    # nothing picked: it holds still
     if not shown or not bodies:
         st.info("Choose a time and at least one planet.")
         return
-    moments = [(c, jd) for c, jd in (("Now", core.now_jd()), ("DOB", prep.jd_birth)) if c in shown]
-    st.html(space3d.space_html(bodies, moments, scale), unsafe_allow_javascript=True)
+    utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
+    moments = [m for m in (("Now", core.now_jd(), utc_now), ("DOB", prep.jd_birth, prep.utc)) if m[0] in shown]
+    st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual), unsafe_allow_javascript=True)
 
 
 def page_range():
