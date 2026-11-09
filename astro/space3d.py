@@ -39,7 +39,8 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
 
 def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None) -> dict:
-    """For each moment and body: its path (those in with_paths; all with None), and its table to move it by.
+    """For each moment and body: its table to move it by, and (those in with_paths; all with None) its path, which the page draws
+    as a trail behind it, where it has really been since the moment, up to one trip round the sky.
     moments: (Now or DOB, Julian day, UTC offset). The drawing's size does not change with the paths shown."""
     paths, marks, tables = [], [], {}
     outer = 0.0
@@ -54,18 +55,8 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                 outer = max(outer, _reach(max(whole["dist"]), scale))
             marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock, rule=core.size_rule(p)))
             days, steps, name = SPANS[p]
-            drawn = with_paths is None or p in with_paths
-            if p == "Mo":                                     # the page works it out as time runs, from the Moon's table
-                if drawn:
-                    paths.append(dict(colour=core.colour(p), dash=clock == "Now", pts=[], tip="", name=name, moon=clock))
-                continue
-            pts = [core.position(p, jd + days * (v / steps - 0.5)) for v in range(steps + 1)]
-            reach = [_reach(q.dist_au, scale) for q in pts]
-            outer = max(outer, *reach)
-            near, far = min(q.dist_au for q in pts), max(q.dist_au for q in pts)
-            if drawn:
-                paths.append(dict(colour=core.colour(p), dash=clock == "Now", pts=[_xyz(q.ra, q.dec, r) for q, r in zip(pts, reach)],
-                              tip=f"{name} {clock}: {days:g} days around {clock} (distance from earth {near:.4g} to {far:.4g} AU)"))
+            if with_paths is None or p in with_paths:         # the page draws it as time runs, from the body's own table
+                paths.append(dict(colour=core.colour(p), dash=clock == "Now", name=name, body=p, clock=clock, days=days, steps=steps, pts=[]))
     # what the sizes are measured from (Bigger than Moon needs the Moon's table, shown or not)
     earth_rule = core.size_rule("Ea")
     for clock, jd, _ in moments:
@@ -170,7 +161,7 @@ __SYMBOL_JS__
   const spokes = D.ra_marks.map((m) => ({m, draw: line("rgb(205,205,205)", 1, false, m.text), label: words("rgb(110,110,110)")}));
   spokes.forEach((g) => { g.label.textContent = g.m.text; });
   const axis = line(DARK, 2, false, "The Earth's axis: north celestial pole to south");
-  const paths = D.paths.map((p) => ({p, draw: line(p.colour, 1.8, p.dash, p.tip)}));
+  const paths = D.paths.map((p) => ({p, draw: line(p.colour, 1.8, p.dash, "")}));
   const poles = [["NCP", [0, 0, D.outer]], ["SCP", [0, 0, -D.outer]]].map(([name, at]) => {
     const label = words(DARK);
     label.textContent = name;
@@ -214,14 +205,14 @@ __SYMBOL_JS__
     for (const i of order) if (free(i)) return;
     label.style.display = "none";
   };
-  const moonPath = (p, t) => {                     // the Moon's month around the clock's date
-    const b = D.tables[p.moon].Mo, first = Math.max(0, Math.min(t - D.moon_month / 2, D.days - D.moon_month));
-    const samples = [];
-    for (let v = 0; v !== 56; v++) samples.push(sample(b, first + v * D.moon_month / 55));
-    p.pts = samples.map((s) => xyz(s, true));
-    const dists = samples.map((s) => s.dist);
-    p.tip = p.name + " " + p.moon + ": the month around the clock's date (distance from earth " + Math.min(...dists).toPrecision(4) +
-      " to " + Math.max(...dists).toPrecision(4) + " AU)";
+  const trail = (p, t) => {                        // where the body has really been since the moment, up to one trip round the sky
+    const b = D.tables[p.clock][p.body], first = Math.max(0, t - p.days), gap = p.days / p.steps, samples = [];
+    for (let s = first; s < t; s += gap) samples.push(sample(b, s));
+    if (t > 0) samples.push(sample(b, t));          // to the body itself
+    p.pts = samples.map((s) => xyz(s, p.body === "Mo"));
+    const dists = samples.map((s) => s.dist), days = Math.round(t - first);
+    p.tip = p.name + " " + p.clock + ": where it has been, the last " + days + (days === 1 ? " day" : " days") +
+      (samples.length ? " (distance from earth " + Math.min(...dists).toPrecision(4) + " to " + Math.max(...dists).toPrecision(4) + " AU)" : "");
   };
   const WAYS = 8;                                  // the places round a mark, at each reach
   const around = (x, y, r, w) => {
@@ -241,8 +232,8 @@ __SYMBOL_JS__
     axis([[0, 0, -D.outer], [0, 0, D.outer]]);
     const t = clock.t;
     paths.forEach((g) => {
-      if (g.p.moon) moonPath(g.p, t);
-      g.draw(g.p.pts, g.p.moon ? g.p.tip : null);
+      trail(g.p, t);
+      g.draw(g.p.pts, g.p.tip);
     });
     const placed = marks.map((g) => {
       const s = sample(g.table, t), [x, y, z] = point(xyz(s, g.m.name === "Mo"));
