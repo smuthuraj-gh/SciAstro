@@ -45,7 +45,7 @@ HOUSE_VALUE_DEC = (-32.0, -44.0)  # the Dec of each house line's RA value, first
 HOUSE_LABEL_DEC = (55.0, 40.0)    # the Dec of the house names, first and second place shown: on the side tilted toward the viewer, off the planets' way
 PLACE_APART = 24.0                # pixels within which the icons of CB and CN would overlap on the Earth, and are moved apart
 EARTH_DEGREES_A_DAY = 360.98565  # the Earth's turn against the still sky in one day of the clock
-MOTION_DAYS = 1461                # how far time runs (4 years) before it starts again, and the tables' reach ...
+MOTION_DAYS = 10957               # how far time runs (30 years, a whole round of Saturn) before it starts again, and the tables' reach ...
 NODE_STEP_DAYS = 2.0              # the Moon's true node wobbles over days
 MOTION_STEP_DAYS = {"Mo": 0.5, "Me": 2.0, "Ve": 4.0, "Su": 5.0, "Ma": 5.0, "Ju": 20.0, "Sa": 20.0}    # ... and their steps
 CX, CY = WIDTH / 2.0, HEIGHT / 2.0
@@ -89,22 +89,21 @@ SYMBOLS = {"Su": _ring(0, 0, 6.5) + _ring(0, 0, 0.8),
            "Ju": "M-5.5 -3.5C-5.5 -8 1 -8 .5 -2.5C.2 .5 -3 2.5 -6 2.5H6M3 -7V7.5",
            "Sa": "M-4 -5.5H1.2M-1.4 -8V1.8C.5 -2.5 6 -2.5 5.6 1.5C5.3 4.5 1.5 5.5 2.8 8",
            "Ea": _ring(0, 0, 7) + "M-7 0H7M0 -7V7",
-           # the birth place, a baby's face with a curl; the place now, a house with a door
-           "CB": _ring(0, 1.5, 7) + "M0 -5.5C-2.5 -9 2.5 -10.5 3 -7.5" + _ring(-2.6, 0.5, 0.5) + _ring(2.6, 0.5, 0.5) + "M-2.6 4C-1.2 5.6 1.2 5.6 2.6 4",
+           # the place now, a house with a door (the birth place shows its Symbol as it is: the baby emoji)
            "CN": "M-8.5 0L0 -8L8.5 0M-6 -2V8H6V-2M-1.8 8V3H1.8V8",
            # the Moon's nodes: north an arch on two small circles, south the same upside down
            "NN": "M-3.6 4.2C-8.4 -0.8 -6 -7 0 -7C6 -7 8.4 -0.8 3.6 4.2" + _ring(-4.6, 5.4, 1.7) + _ring(4.6, 5.4, 1.7),
            "SN": "M-3.6 -4.2C-8.4 0.8 -6 7 0 7C6 7 8.4 0.8 3.6 -4.2" + _ring(-4.6, -5.4, 1.7) + _ring(4.6, -5.4, 1.7)}
 # Which shape each symbol is drawn with, so that the Symbol column of the Naming Conventions table says what is drawn
 GLYPHS = {"\u2609": "Su", "\u263d": "Mo", "\u263f": "Me", "\u2640": "Ve", "\u2642": "Ma", "\u2643": "Ju", "\u2644": "Sa", "\u2295": "Ea", "\u2641": "Ea",
-          "\u260a": "NN", "\u260b": "SN", "\U0001f476": "CB", "\U0001f3e0": "CN"}
+          "\u260a": "NN", "\u260b": "SN", "\U0001f3e0": "CN"}
 
 
 def symbol_shapes() -> dict:
     """What to draw for each row: {"d": a shape} for a symbol above, in the row's colour, or {"text": ..} for anything else, or the SN
     where the Symbol is blank."""
     out = {}
-    for name in SYMBOLS:
+    for name in (*SYMBOLS, "CB"):
         text = core.SYMBOL_TEXTS.get(name, "") or name
         out[name] = {"d": SYMBOLS[GLYPHS[text]]} if text in GLYPHS else {"text": text}
     return out
@@ -120,7 +119,8 @@ SYMBOL_JS = r"""
   const drawShape = (parent, name, colour, width) => {   // as the Symbol column says: a shape in its colour, or a text
     const s = D.shapes[name];
     if (s.d) return make("path", parent, {d: s.d, fill: "none", stroke: colour, "stroke-width": width, "stroke-linecap": "round", "stroke-linejoin": "round"});
-    const text = make("text", parent, {x: 0, y: 4.5, "text-anchor": "middle", "font-size": 13, "font-weight": "bold", "font-family": D.family, fill: colour});
+    const emoji = s.text.codePointAt(0) >= 0x1f000;   // an emoji, as the table shows it, bigger to be seen
+    const text = make("text", parent, {x: 0, y: emoji ? 7 : 4.5, "text-anchor": "middle", "font-size": emoji ? 20 : 13, "font-weight": "bold", "font-family": D.family, fill: colour});
     text.textContent = s.text;
     return text;
   };
@@ -163,7 +163,7 @@ def _sky_point(ra: float, dec: float, ra_facing: float) -> tuple[float, float, f
     return CX + SKY_RADIUS * x, CY - SKY_RADIUS * y, z
 
 
-@lru_cache(maxsize=64)
+@lru_cache(maxsize=24)
 def _motion_table(planet: str, jd: float) -> dict:
     """A body's RA, Dec and distance from jd on, for the page to move it by: what it needs to size it and name its Distance(%)
     too. (To true scale the Sun and Moon would be about 3 px wide and the planets far less than 1 px, so the page sizes the
@@ -176,7 +176,7 @@ def _motion_table(planet: str, jd: float) -> dict:
             "lo": core.DIST_RANGE[planet][0], "hi": core.DIST_RANGE[planet][1]}
 
 
-@lru_cache(maxsize=64)
+@lru_cache(maxsize=24)
 def _node_table(jd: float) -> dict:
     """The Moon's north node from jd on, for the page to move NN and SN by (the south node is opposite it)."""
     pts = [core.moon_north_node(jd + i * NODE_STEP_DAYS) for i in range(int(MOTION_DAYS / NODE_STEP_DAYS) + 2)]
@@ -528,7 +528,7 @@ __SYMBOL_JS__
   const placeIcons = D.places.map((pl) => {        // the baby at the birth place, the house at the place now, on the Earth
     const tag = make("g", markG, {style: "pointer-events:none"});
     const under = drawShape(tag, pl.label, "white", 3.6);
-    if (under.tagName === "text") { under.setAttribute("stroke", "white"); under.setAttribute("stroke-width", 3); }
+    if (under.tagName === "text") { under.setAttribute("stroke", "white"); under.setAttribute("stroke-width", 3); under.setAttribute("paint-order", "stroke"); }
     drawShape(tag, pl.label, pl.colour, 1.7);
     return {pl, tag};
   });
