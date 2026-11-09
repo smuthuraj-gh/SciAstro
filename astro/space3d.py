@@ -22,7 +22,7 @@ RINGS[MO_LOG] = RINGS["True"]
 LOG_FULL_AU = 11.1                # about the farthest Saturn comes: all the Log scale's page
 RINGS_SHOWN = 4
 RA_MARKS = (0, 90, 180, 270)
-RUN_DAYS = MOTION_DAYS            # how far time runs here (60 years, as on AstroGlobe) before it starts again, with the trails
+RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroGlobe) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
 SIDES = 96                        # a ring is drawn with this many straight pieces
 
