@@ -37,6 +37,7 @@ PATH_SPAN = {"Mo": (27.32, 110, "Moon Path"), "Me": (365.25, 365, "Mercury Path"
              "Ju": (4333.0, 400, "Jupiter Path"), "Sa": (10759.0, 400, "Saturn Path")}
 BODY_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
 NODE_CHOICES = ("NN", "SN")       # the Moon's north and south nodes, picked with the planets
+NODE_PATH = (6793.5, 400)         # days (18.6 years, the nodes' one trip round the sky) and points of a node's path
 MANUAL = "Manual"                 # Rotate's option to drag the Earth round by hand
 HOUSE_COLOUR = "rgb(0,0,0)"
 ASPECT_COLOURS = {False: "rgb(0,0,0)", True: "rgb(110,110,110)"}     # major, minor
@@ -135,6 +136,13 @@ def _planet_path(planet: str, jd: float) -> list[tuple[float, float]]:
     return [(p.ra, p.dec) for p in pts]
 
 
+def _node_path(name: str, jd: float) -> list[tuple[float, float]]:
+    """The (RA, Dec) of a Moon's node over its one trip round the sky with jd in the middle. The south node is opposite the north."""
+    days, steps = NODE_PATH
+    pts = [core.moon_north_node(jd + days * (v / steps - 0.5)) for v in range(steps + 1)]
+    return pts if name == "NN" else [((ra + 180.0) % 360.0, -dec) for ra, dec in pts]
+
+
 def _sky_line(pts: list[tuple[float, float]], ra_facing: float, colour: str, width: float, dash: bool, tip: str,
               near: list[str], far: list[str]) -> None:
     """A line along the sphere, cut where it passes between the near side and the far side."""
@@ -230,6 +238,13 @@ def _paths(g: GlobeInput) -> list[dict]:
                     path = _planet_path(p, when)
                     out.append(dict(name=name, colour=core.colour(p), width=1.8, dash=dash,
                                     tip=f"{name}: {days:g} days around {what} (Dec between "
+                                        f"{min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})",
+                                    pts=[[round(a, 2), round(d, 2)] for a, d in path]))
+            for node in NODE_CHOICES:
+                if node in g.paths:
+                    path = _node_path(node, when)
+                    out.append(dict(name=f"{node} Path", colour=core.colour(node), width=1.8, dash=dash,
+                                    tip=f"{node} Path: {NODE_PATH[0]:g} days around {what} (Dec between "
                                         f"{min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})",
                                     pts=[[round(a, 2), round(d, 2)] for a, d in path]))
     return out
