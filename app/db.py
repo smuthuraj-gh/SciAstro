@@ -264,6 +264,7 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
     new one does not count). Each needs a Name and a colour as rgb(r,g,b) or #rrggbb and an SN of up to 8 characters, unique;
     the SN of a row already in the table stays. Color_Name and Size may be blank, up to 40 characters each; Symbol may be blank, up to 8."""
     out, seen = [], set()
+    words = {_cell(r[c]).lower() for _, r in rows.iterrows() for c in ("SN", "Name") if _cell(r[c])}   # what Bigger than may name
     for _, r in rows.iterrows():
         sn, name, colour, kept = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
         colour_name = _cell(r["Color_Name"])
@@ -288,6 +289,9 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
             out.append(f"{label}: Color can be at most 40 characters")
         if len(_cell(r["Size"])) > 40:
             out.append(f"{label}: Size can be at most 40 characters")
+        elif not core.size_readable(_cell(r["Size"]), words):    # it would not change how anything is drawn
+            out.append(f"{label}: Size '{_cell(r['Size'])}' is not one the app can use: Angular Size, Tiny, Small, a number of pixels, "
+                       "or Bigger than, Smaller than or Same as another row's SAbr or SDesc")
         if len(_cell(r["Symbol"])) > 8:
             out.append(f"{label}: Symb can be at most 8 characters")
     return out

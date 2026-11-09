@@ -35,6 +35,9 @@ DIST_RANGE = {"Su": (147079476.4, 152116857.5), "Mo": (356371.3, 406720.6), "Me"
 
 MAJOR = [0, 180, 90, 120, 60]
 MINOR = [30, 45, 72, 135, 144, 150]
+DEFAULT_COLOURS = dict(COLOURS)   # what a row's colour goes back to when the row is deleted
+
+
 def colour(name: str) -> str:
     return COLOURS.get(name[:2], "rgb(0,0,0)")
 
@@ -85,6 +88,16 @@ def size_rule(name: str, _seen: tuple = ()) -> dict:
         return {"of": name, "add": 0.0}
     # the Earth with no readable Size: the smallest, a dot; the nodes and the places: their usual fixed size
     return {"px": TINY_PX} if name == "Ea" else {"px": MARK_PX}
+
+
+def size_readable(text: str, words: set[str]) -> bool:
+    """Whether size_rule can read a Size text: blank, Angular Size, a size word, a number, or Bigger than / Smaller than / Same as one
+    of words (the SNs and Names, in lower case)."""
+    low = text.strip().lower()
+    if low in ("", "angular size") or low in SIZE_NAMES or re.fullmatch(r"\d+(?:\.\d+)?\s*(?:px)?", low):
+        return True
+    relative = re.fullmatch(r"(bigger than|smaller than|same as)\s+(.+)", low)
+    return bool(relative) and relative[2].strip() in words
 
 
 def tag(angle: int) -> str:
