@@ -52,7 +52,7 @@ _ANY_SN = re.compile(r"\b(Su|Mo|Me|Ve|Ma|Ju|Sa|Ea|NN|SN|CB|CN)\b")
 def symbol_of(name: str) -> str:
     """What the pages show for an SN: its Symbol, or the SN itself with none. (A single symbol is asked for as text, not as an emoji.)"""
     symbol = SYMBOL_TEXTS.get(name) or name
-    return symbol + "\ufe0e" if name in SYMBOL_TEXTS and len(symbol) == 1 and ord(symbol) < 0x2700 else symbol
+    return symbol + "\ufe0e" if name in SYMBOL_TEXTS and len(symbol) == 1 and 0x2600 <= ord(symbol) < 0x2700 else symbol
 
 
 def with_symbols(text: str) -> str:

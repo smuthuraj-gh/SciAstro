@@ -91,7 +91,23 @@ SYMBOLS = {"Su": _ring(0, 0, 6.5) + _ring(0, 0, 0.8),
            "Ea": _ring(0, 3.2, 4.2) + "M0 -1V-8M-3 -4.5H3",
            # the birth place, a baby's face with a curl; the place now, a house with a door
            "CB": _ring(0, 1.5, 7) + "M0 -5.5C-2.5 -9 2.5 -10.5 3 -7.5" + _ring(-2.6, 0.5, 0.5) + _ring(2.6, 0.5, 0.5) + "M-2.6 4C-1.2 5.6 1.2 5.6 2.6 4",
-           "CN": "M-8.5 0L0 -8L8.5 0M-6 -2V8H6V-2M-1.8 8V3H1.8V8"}
+           "CN": "M-8.5 0L0 -8L8.5 0M-6 -2V8H6V-2M-1.8 8V3H1.8V8",
+           # the Moon's nodes: north an arch on two small circles, south the same upside down
+           "NN": "M-3.6 4.2C-8.4 -0.8 -6 -7 0 -7C6 -7 8.4 -0.8 3.6 4.2" + _ring(-4.6, 5.4, 1.7) + _ring(4.6, 5.4, 1.7),
+           "SN": "M-3.6 -4.2C-8.4 0.8 -6 7 0 7C6 7 8.4 0.8 3.6 -4.2" + _ring(-4.6, -5.4, 1.7) + _ring(4.6, -5.4, 1.7)}
+# Which shape each symbol is drawn with, so that the Symbol column of the Naming Conventions table says what is drawn
+GLYPHS = {"\u2609": "Su", "\u263d": "Mo", "\u263f": "Me", "\u2640": "Ve", "\u2642": "Ma", "\u2643": "Ju", "\u2644": "Sa", "\u2641": "Ea",
+          "\u260a": "NN", "\u260b": "SN", "\U0001f476": "CB", "\U0001f3e0": "CN"}
+
+
+def symbol_shapes() -> dict:
+    """What to draw for each row: {"d": a shape} for a symbol above, in the row's colour, or {"text": ..} for anything else, or the SN
+    where the Symbol is blank."""
+    out = {}
+    for name in SYMBOLS:
+        text = core.SYMBOL_TEXTS.get(name, "") or name
+        out[name] = {"d": SYMBOLS[GLYPHS[text]]} if text in GLYPHS else {"text": text}
+    return out
 
 
 # The page's part, for both pages: a marker's symbol, in black or white, whichever shows on its colour, or in its colour on a hollow one
@@ -101,9 +117,16 @@ SYMBOL_JS = r"""
     const [r, g, b] = colour.startsWith("#") ? [1, 3, 5].map((i) => parseInt(colour.slice(i, i + 2), 16)) : colour.match(/[0-9]+/g).map(Number);
     return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "black" : "white";
   };
+  const drawShape = (parent, name, colour, width) => {   // as the Symbol column says: a shape in its colour, or a text
+    const s = D.shapes[name];
+    if (s.d) return make("path", parent, {d: s.d, fill: "none", stroke: colour, "stroke-width": width, "stroke-linecap": "round", "stroke-linejoin": "round"});
+    const text = make("text", parent, {x: 0, y: 4.5, "text-anchor": "middle", "font-size": 13, "font-weight": "bold", "font-family": D.family, fill: colour});
+    text.textContent = s.text;
+    return text;
+  };
   const symbolTag = (parent, name, colour, hollow) => {
     const tag = make("g", parent, {style: "pointer-events:none"});
-    tag.line = make("path", tag, {d: D.symbols[name], fill: "none", stroke: hollow ? colour : inkOn(colour), "stroke-linecap": "round", "stroke-linejoin": "round"});
+    tag.line = drawShape(tag, name, hollow ? colour : inkOn(colour), 1.5);
     return tag;
   };
   const fitSymbol = (tag, x, y, r) => {            // inside its marker, and as thick whatever the size
@@ -315,7 +338,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
-                node_names=[n for n in NODE_CHOICES if n in g.bodies], symbols=SYMBOLS, sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p) for p in core.BUTTON_ORDER}, family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
+                node_names=[n for n in NODE_CHOICES if n in g.bodies], shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p) for p in core.BUTTON_ORDER}, family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
 
 
@@ -491,12 +514,9 @@ __SYMBOL_JS__
     const now = s.clock === "Now";
     [["NN", 0, 1, "north"], ["SN", 180, -1, "south"]].filter(([name]) => D.node_names.includes(name)).forEach(([name, turn, sign, pole]) => {
       const colour = D.node_colours[name];
-      // the conventional symbols, north an arch on two small circles and south the same upside down: drawn, as not every font has them
       const mark = make("g", markG, {style: "pointer-events:auto"});
       make("rect", mark, {x: -9, y: -9, width: 18, height: 18, fill: "transparent"});   // to point at, the gaps too
-      const symbol = make("g", mark, {transform: name === "SN" ? "scale(1,-1)" : ""});
-      make("path", symbol, {d: "M-3.6 4.2C-8.4 -0.8 -6 -7 0 -7C6 -7 8.4 -0.8 3.6 4.2", fill: "none", stroke: colour, "stroke-width": 2});
-      [-1, 1].forEach((side) => make("circle", symbol, {cx: side * 4.6, cy: 5.4, r: 1.9, fill: now ? "white" : colour, stroke: colour, "stroke-width": 1.4}));
+      drawShape(mark, name, colour, now ? 1.2 : 2.2);   // thinner for now, as the planets are hollow
       nodes.push({name, turn, sign, pole, s, mark, tip: make("title", mark)});
     });
   });
@@ -507,8 +527,9 @@ __SYMBOL_JS__
   };
   const placeIcons = D.places.map((pl) => {        // the baby at the birth place, the house at the place now, on the Earth
     const tag = make("g", markG, {style: "pointer-events:none"});
-    [["white", 3.6], [pl.colour, 1.7]].forEach(([stroke, width]) => make("path", tag, {d: D.symbols[pl.label], fill: "none", stroke, "stroke-width": width,
-      "stroke-linecap": "round", "stroke-linejoin": "round"}));
+    const under = drawShape(tag, pl.label, "white", 3.6);
+    if (under.tagName === "text") { under.setAttribute("stroke", "white"); under.setAttribute("stroke-width", 3); }
+    drawShape(tag, pl.label, pl.colour, 1.7);
     return {pl, tag};
   });
   const placeOnEarth = (pl, t) => {                // as the Earth is turned: the place's RA by its longitude, on a sphere of the Earth's size

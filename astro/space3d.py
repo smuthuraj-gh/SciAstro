@@ -8,7 +8,7 @@ import math
 import uuid
 
 from . import core
-from .globechart import MARKER_RANGE, MOTION_DAYS, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, SYMBOLS, TILT, _motion_table
+from .globechart import MARKER_RANGE, MOTION_DAYS, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_table, symbol_shapes
 from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
@@ -74,7 +74,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                symbols=SYMBOLS, sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
