@@ -74,6 +74,21 @@ class GlobeInput:
     utc_now: float | None = None
 
 
+def _ring(x: float, y: float, r: float) -> str:
+    return f"M{x - r} {y}a{r} {r} 0 1 0 {2 * r} 0a{r} {r} 0 1 0 {-2 * r} 0"
+
+
+# The conventional symbols, as lines about the middle of a place 16 pixels wide: drawn, as not every font has them all
+SYMBOLS = {"Su": _ring(0, 0, 6.5) + _ring(0, 0, 0.8),
+           "Mo": "M3 -7A7.4 7.4 0 1 0 3 7A5.6 5.6 0 1 1 3 -7Z",
+           "Me": _ring(0, -1.5, 3.2) + "M-3.4 -8A3.5 3.5 0 0 0 3.4 -8M0 1.7V8M-2.6 5H2.6",
+           "Ve": _ring(0, -3, 4.2) + "M0 1.2V8M-3 4.8H3",
+           "Ma": _ring(-1.8, 1.8, 4.4) + "M1.3 -1.3L6.5 -6.5M2.3 -6.5H6.5V-2.3",
+           "Ju": "M-5.5 -3.5C-5.5 -8 1 -8 .5 -2.5C.2 .5 -3 2.5 -6 2.5H6M3 -7V7.5",
+           "Sa": "M-4 -5.5H1.2M-1.4 -8V1.8C.5 -2.5 6 -2.5 5.6 1.5C5.3 4.5 1.5 5.5 2.8 8",
+           "Ea": _ring(0, 3.2, 4.2) + "M0 -1V-8M-3 -4.5H3"}
+
+
 def _view() -> tuple[float, float]:
     """The fixed (lat, roll) rotation of the view: the axis leans TILT from upright, the way LEAN_TOWARD says. The north pole
     then points (sin TILT sin LEAN, cos TILT, sin TILT cos LEAN) = (right, up, toward the viewer)."""
@@ -275,7 +290,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
-                node_names=[n for n in NODE_CHOICES if n in g.bodies], size_rules={p: core.size_rule(p) for p in core.BUTTON_ORDER}, family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
+                node_names=[n for n in NODE_CHOICES if n in g.bodies], symbols=SYMBOLS, size_rules={p: core.size_rule(p) for p in core.BUTTON_ORDER}, family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
 
 
@@ -343,6 +358,14 @@ _MOTION_JS = r"""
   };
   const words = (parent, attrs) => make("text", parent, Object.assign({"font-weight": "bold", "font-size": D.font,
     "font-family": D.family, stroke: "white", "stroke-width": 3, "paint-order": "stroke"}, attrs));
+  const symbolTag = (parent, name, colour) => {   // a planet's tag: placed by x and y, as a text would be, and named in its title
+    const tag = make("svg", parent, {overflow: "visible"});
+    make("title", tag).textContent = name;
+    const lines = make("g", tag, {transform: "translate(0 -5)"});
+    [["white", 4], [colour, 1.8]].forEach(([stroke, width]) => make("path", lines, {d: D.symbols[name], fill: "none", stroke, "stroke-width": width,
+      "stroke-linecap": "round", "stroke-linejoin": "round"}));
+    return tag;
+  };
   const cp = Math.cos(D.tilt), sp = Math.sin(D.tilt), cr = Math.cos(D.roll), sr = Math.sin(D.roll);
   let raFacing = D.ra_facing;                      // the RA facing the viewer: the view can be turned by hand (Manual)
   const point = (ra, dec) => {                     // on the chart: x, y, and z above 0 on the side toward the viewer
@@ -398,8 +421,7 @@ _MOTION_JS = r"""
     const c = body.b.colour;
     body.mark = make("circle", markG, {fill: body.now ? "white" : c, stroke: c, "stroke-width": 2, style: "pointer-events:auto"});
     body.tip = make("title", body.mark);
-    body.label = words(markG, {"text-anchor": "middle", fill: c});
-    body.label.textContent = body.name;
+    body.label = symbolTag(markG, body.name, c);
   });
   const houses = [];                               // each of CB's and CN's twelve: its line and its name, in the middle of its span
   if (D.show_houses) D.places.forEach((pl) => {
