@@ -127,7 +127,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "Rotate in 1s: the Earth turns about that fixed axis, west to east, while the sphere stands still, and time "
                   "runs from each moment, until it is turned off: the clock beside the name gives the date and time, and the Sun, "
                   "Moon and planets move over the sphere as they really did (time starts again after 4 years; refresh the page to go back "
-                  "to the start). Below it, Manual: drag the chart sideways to turn the Earth and the sphere together and see their hidden sides, time standing still. Or pick a speed to start, how much time passes each second: 1h an hour, 1d a day, 1w a week, 1m a month; with none picked it holds still. The Earth starts as it was at that "
+                  "to the start). Below it, Manual: everything is frozen, the houses too; drag the chart sideways only to turn the AstroGlobe and see its other side. Or pick a speed to start, how much time passes each second: 1h an hour, 1d a day, 1w a week, 1m a month; with none picked it holds still. The Earth starts as it was at that "
                   "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth then (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its Dec/Lati, RA, Angular Size, Distance from earth and the others approaching and leaving it in Dec/Lati; at CB or CN for its Long, Dec/Lati, RA and the planets approaching and leaving its Dec/Lati). The far side of the sphere is "
                   "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Ma Aspects (0, 60, 90, 120, 180; black) and Mi Aspects (30, 45, 72, 135, 144, 150; grey): pick the angles to draw a line between any two planets shown that are in that aspect, by the orbs in Aspects Details, as time runs; dotted for Now; point at a line for its name. Coordinates, with Houses, RA, Dec, Lati and Long below it: which lines to show. Houses: twelve lines on the sphere, 30 degrees apart from the RA of CB (solid) and of CN (dashed), named H01 to H12 as on AstroMap, turning with the Earth. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
@@ -151,11 +151,11 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Planets": "The planets table: each planet's short name (SN), long name (Name) and colour. Seen by admins only, who can "
-               "change Name and Color and press Update, or fill in SN, Name and Color below and press Insert for a new row. Color is rgb(r,g,b) or #rrggbb. The charts do not use these colours yet.",
+               "change Name and Color, press Add row for a new row and type it in, and press Update. Click a column name to sort. SN is unique, and stays once a row is in the table. Color is rgb(r,g,b) or #rrggbb. The charts do not use these colours yet.",
     "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",
-    "Customers": "Add, change or delete customers, then Save changes. Required (*): Email (login), First Name, "
+    "Customers": "Add row for a new customer, change or delete rows, then Save changes. Click a column name to sort. ID is the record's number, set by the app. Required (*): Email (login), First Name, "
                  "Last Name, Country, State, City, the birth date and time (Year, Mon, Date, Hr24, Min), and where they "
                  "live now (Country-N, State-N, City-N). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
@@ -589,38 +589,41 @@ def _distance_cached(dist_on, jd_from, jd_to):
 
 
 
+# Editable tables sort by their column headers only while they cannot add rows themselves, so a button adds the rows: the
+# table goes on from what has been typed so far, with an empty row at the end.
+def with_new_rows(show: pd.DataFrame, key: str) -> pd.DataFrame:
+    return st.session_state.get(f"{key}_working", show)
+
+
+def add_row_button(where, key: str, edited: pd.DataFrame) -> None:
+    if where.button("Add row", key=f"{key}_add"):
+        st.session_state[f"{key}_working"] = edited.reset_index(drop=True).reindex(range(len(edited) + 1))
+        st.session_state.pop(key, None)
+        st.rerun()
+
+
+def forget_new_rows(key: str) -> None:
+    st.session_state.pop(f"{key}_working", None)
+    st.session_state.pop(key, None)
+
+
 def page_planets():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     table = db.all_planets()
-    edited = st.data_editor(table, hide_index=True, width="content", num_rows="fixed", disabled=["SN"], key="planets_table")
-    if st.button("Update", key="planets_save", disabled=edited.equals(table)):
-        problems = db.planet_problems(edited)
+    edited = st.data_editor(with_new_rows(table, "planets_table"), hide_index=True, width="content", num_rows="fixed",
+                            key="planets_table")
+    buttons = st.container(horizontal=True, gap="small")
+    add_row_button(buttons, "planets_table", edited)
+    if buttons.button("Update", key="planets_save"):
+        problems = db.planet_problems(edited, table)
         if problems:
             st.error("Not updated. " + "; ".join(problems))
         else:
-            db.save_planets(edited)
+            db.save_planets(edited, table)
             st.toast("Updated")
-            st.session_state.pop("planets_table", None)        # the table starts again from what is now kept
+            forget_new_rows("planets_table")                   # the table starts again from what is now kept
             st.rerun()
-    if st.session_state.pop("planets_clear", False):          # after an insert: empty boxes (only before they are drawn)
-        for key in ("planets_new_s", "planets_new_l", "planets_new_c"):
-            st.session_state[key] = ""
-    with st.form("planets_insert", clear_on_submit=False):
-        boxes = st.container(horizontal=True)
-        sn = boxes.text_input("SN", key="planets_new_s", max_chars=8, width=110)
-        pname = boxes.text_input("Name", key="planets_new_l", max_chars=60, width=200)
-        color = boxes.text_input("Color", key="planets_new_c", max_chars=40, placeholder="rgb(0,112,192)", width=200)
-        if st.form_submit_button("Insert"):
-            problems = db.new_planet_problems(sn, pname, color)
-            if problems:
-                st.error("Not inserted. " + "; ".join(problems))
-            else:
-                db.insert_planet(sn, pname, color)
-                st.session_state.pop("planets_table", None)
-                st.session_state["planets_clear"] = True
-                st.toast(f"Inserted {sn.strip()}")
-                st.rerun()
 
 
 def page_aspects():
@@ -658,25 +661,21 @@ def page_customers():
     # Added / Updated / Accessed are shown at the end, set by the app, not typed
     shown_fields = [f for f in db.FIELDS if f != "utc"]
     show = df[["id"] + shown_fields + list(db.STAMPS)].rename(columns={**db.LABELS, **db.STAMPS})
-    # Sort by any column (the editable table cannot sort by its headers while rows can be added); saving matches rows
-    # by their record, so the order shown does not matter
-    sort_row = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
-    cols = [c for c in show.columns if c != "id"]
-    by = sort_row.selectbox("Sort by", cols, index=cols.index(db.LABELS["name"]), key="cust_sort_by", width=220)
-    order = sort_row.segmented_control("Order", ["Ascending", "Descending"], default="Ascending",
-                                       key="cust_sort_order", label_visibility="collapsed")
-    key = show[by].map(lambda v: v.strip().lower() if isinstance(v, str) else v)   # words: A-Z, ignoring case
-    show = show.iloc[key.sort_values(ascending=order != "Descending", na_position="last", kind="stable").index
-                     .map(show.index.get_loc)].reset_index(drop=True)
+    # First Name, A-Z, to begin with; the column headers sort by any column. Saving matches rows by their record, so the
+    # order shown does not matter
+    by_name = show[db.LABELS["name"]].map(lambda v: v.strip().lower() if isinstance(v, str) else v)
+    show = show.iloc[by_name.sort_values(na_position="last", kind="stable").index.map(show.index.get_loc)].reset_index(drop=True)
     stamp_cols = {label: st.column_config.DatetimeColumn(label, format="YYYY-MM-DD HH:mm", disabled=True,
                                                          help=help_text)
                   for label, help_text in (("Added", "When the customer was added (UT)."),
                                            ("Updated", "When the details last changed (UT)."),
                                            ("Accessed", "When the customer last opened their charts (UT); "
                                                         "an admin looking does not count."))}
-    edited = st.data_editor(show, hide_index=True, width="stretch", num_rows="dynamic", key="cust_editor",
+    working = with_new_rows(show, "cust_editor")
+    edited = st.data_editor(working, hide_index=True, width="stretch", num_rows="delete", key="cust_editor",
+                            height=min(38 * (len(working) + 2), 700),   # every row in view, above the table's scroll bar
                             disabled=list(db.STAMPS.values()),
-                            column_config={"id": None, **stamp_cols,
+                            column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The record's number, set by the app (blank on a new row until saved)."), **stamp_cols,
                                 "First Name": st.column_config.TextColumn("First Name *", help="Required."),
                                 "Last Name": st.column_config.TextColumn("Last Name *", help="Required."),
                                 "Hr24": st.column_config.NumberColumn("Hr24 *", help="Birth time, hour 0-23: required.",
@@ -704,7 +703,9 @@ def page_customers():
                                 "State-N": st.column_config.TextColumn("State-N *", help="Place now: required."),
                                 "City-N": st.column_config.TextColumn("City-N *", help="Place now: required."),
                                 "Other-N": st.column_config.TextColumn(help="Anything else about the place now.")})
-    if st.button("Save changes", type="primary"):
+    buttons = st.container(horizontal=True, gap="small")
+    add_row_button(buttons, "cust_editor", edited)
+    if buttons.button("Save changes", type="primary"):
         back = {v: k for k, v in db.LABELS.items()}
         out = edited.rename(columns=back).drop(columns=list(db.STAMPS.values()), errors="ignore")
         out["utc"] = out["id"].map(df.set_index("id")["utc"])   # each customer's kept UTC, unchanged (new: blank)
@@ -714,6 +715,7 @@ def page_customers():
             st.error(f"{e}. Nothing was saved.")
         else:
             st.cache_data.clear()
+            forget_new_rows("cust_editor")
             st.success(f"Saved: {a} added, {ch} changed, {de} deleted.")
             st.rerun()
     with st.expander("Import from the workbook"):

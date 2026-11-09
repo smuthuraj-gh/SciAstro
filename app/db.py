@@ -109,44 +109,48 @@ def all_planets() -> pd.DataFrame:
                         columns=["SN", "Name", "Color"])
 
 
-def planet_problems(df: pd.DataFrame) -> list[str]:
-    """What is wrong with an edited planets table: each needs a Name and a colour as rgb(r,g,b) or #rrggbb."""
-    out = []
-    for _, r in df.iterrows():
-        name, colour = str(r["Name"] if pd.notna(r["Name"]) else "").strip(), str(r["Color"] if pd.notna(r["Color"]) else "").strip()
+def _cell(value) -> str:
+    return str(value).strip() if pd.notna(value) else ""
+
+
+def planet_problems(edited: pd.DataFrame, table: pd.DataFrame) -> list[str]:
+    """What is wrong with an edited planets table (table: as it is kept; rows after those are new, and wholly empty ones do
+    not count). Each needs a Name and a colour as rgb(r,g,b) or #rrggbb; a new one an SN of up to 8 characters not yet
+    in the table; the SN of a row already in the table, the key, stays."""
+    out, seen, kept = [], {v.lower() for v in table["SN"]}, len(table)
+    for i, (_, r) in enumerate(edited.iterrows()):
+        sn, name, colour = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"])
+        if i >= kept and not (sn or name or colour):
+            continue
+        label = sn or "New row"
+        if i < kept:
+            if sn != table["SN"].iloc[i]:
+                out.append(f"{table['SN'].iloc[i]}: the SN of a row already in the table cannot be changed")
+        elif not sn:
+            out.append("New row: SN is empty")
+        elif len(sn) > 8:
+            out.append(f"{sn}: SN can be at most 8 characters")
+        elif sn.lower() in seen:
+            out.append(f"{sn} is already in the table")
+        else:
+            seen.add(sn.lower())
         if not name:
-            out.append(f"{r['SN']}: Name is empty")
+            out.append(f"{label}: Name is empty")
         rgb = re.fullmatch(r"rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)", colour)
         if not (re.fullmatch(r"#[0-9a-fA-F]{6}", colour) or (rgb and all(int(v) <= 255 for v in rgb.groups()))):
-            out.append(f"{r['SN']}: Color must look like rgb(0,112,192) or #0070c0")
+            out.append(f"{label}: Color must look like rgb(0,112,192) or #0070c0")
     return out
 
 
-def new_planet_problems(sn: str, name: str, color: str) -> list[str]:
-    """What is wrong with a planet to insert: as planet_problems, and an SN of up to 8 characters not yet in the table."""
-    sn = sn.strip()
-    row = pd.DataFrame([{"SN": sn or "New", "Name": name, "Color": color}])
-    out = planet_problems(row)
-    if not sn:
-        out.insert(0, "SN is empty")
-    elif len(sn) > 8:
-        out.insert(0, "SN can be at most 8 characters")
-    elif sn.lower() in all_planets()["SN"].str.lower().values:
-        out.insert(0, f"{sn} is already in the table")
-    return out
-
-
-def insert_planet(sn: str, name: str, color: str) -> None:
+def save_planets(edited: pd.DataFrame, table: pd.DataFrame) -> None:
+    """Keeps an edited planets table: the Name and Color of the rows it had, and the new rows after them."""
     with engine().begin() as c:
-        c.execute(planets.insert().values(sn=sn.strip(), name=name.strip(), color=color.strip()))
-
-
-def save_planets(df: pd.DataFrame) -> None:
-    """Keeps an edited planets table's Name and Color (SN is the key and stays)."""
-    with engine().begin() as c:
-        for _, r in df.iterrows():
-            c.execute(planets.update().where(planets.c.sn == r["SN"])
-                      .values(name=str(r["Name"]).strip(), color=str(r["Color"]).strip()))
+        for i, (_, r) in enumerate(edited.iterrows()):
+            sn, name, colour = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"])
+            if i < len(table):
+                c.execute(planets.update().where(planets.c.sn == sn).values(name=name, color=colour))
+            elif sn or name or colour:
+                c.execute(planets.insert().values(sn=sn, name=name, color=colour))
 
 
 def _add_missing_columns(eng: sa.Engine):
