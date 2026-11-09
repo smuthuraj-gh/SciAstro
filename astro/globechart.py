@@ -301,7 +301,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
-                node_names=[n for n in NODE_CHOICES if n in g.bodies], shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p) for p in core.BUTTON_ORDER}, family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
+                node_names=[n for n in NODE_CHOICES if n in g.bodies], shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p) for p in core.BUTTON_ORDER + ["NN", "SN", "CB", "CN"]}, family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
 
 
@@ -585,12 +585,13 @@ __SYMBOL_JS__
       const at = nodeAt(node, t), [x, y, z] = point(at.ra, at.dec);
       const hidden = z < 0 && Math.hypot(x - D.cx, y - D.cy) < D.earth, fade = z >= 0 ? 1 : 0.55;
       Object.assign(node, {x, y, hidden, fade});
-      node.mark.setAttribute("transform", "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ")");
+      const nr = radiusAt(D.size_rules[node.name], node.s.tables, t);   // by its Size in the Naming Conventions table
+      node.mark.setAttribute("transform", "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ") scale(" + (nr / 9).toFixed(3) + ")");
       node.mark.setAttribute("opacity", fade);
       node.mark.style.display = hidden ? "none" : "";
       node.tip.textContent = symbolOf(node.name) + " " + node.s.clock + ": the Moon's " + node.pole + " node (" + (z >= 0 ? "near" : "far") +
         " side of the sphere)\nDec/Lati: " + (at.dec >= 0 ? "+" : "") + at.dec.toFixed(2) + "\nRA: " + at.ra.toFixed(2);
-      if (!hidden) taken.push([x - 9, y - 9, x + 9, y + 9]);
+      if (!hidden) taken.push([x - nr, y - nr, x + nr, y + nr]);
     });
     const icons = placeIcons.map((i) => ({i, at: placeOnEarth(i.pl, t)})).filter((q) => {
       const seen = q.at[2] >= 0;
@@ -599,9 +600,10 @@ __SYMBOL_JS__
     });
     const apart = icons.length === 2 && Math.hypot(icons[0].at[0] - icons[1].at[0], icons[0].at[1] - icons[1].at[1]) < D.place_apart;
     icons.forEach((q, n) => {                      // close together, side by side
-      const x = q.at[0] + (apart ? (n ? 11 : -11) : 0), y = q.at[1];
-      q.i.tag.setAttribute("transform", "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ")");
-      taken.push([x - 10, y - 10, x + 10, y + 10]);
+      const r = radiusAt(D.size_rules[q.i.pl.label], D.sets[q.i.pl.set].tables, t);   // by its Size in the Naming Conventions table
+      const x = q.at[0] + (apart ? (n ? 1 : -1) * (r + 2) : 0), y = q.at[1];
+      q.i.tag.setAttribute("transform", "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ") scale(" + (r / 9).toFixed(3) + ")");
+      taken.push([x - r - 1, y - r - 1, x + r + 1, y + r + 1]);
     });
     houses.forEach((h) => {                        // named on the near side only, and not where a fixed label is
       const ra = (h.pl.ra + D.spin * t + 30 * h.k) % 360, pts = [];

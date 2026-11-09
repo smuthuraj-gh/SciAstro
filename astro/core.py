@@ -43,6 +43,7 @@ def colour(name: str) -> str:
 SIZE_TEXTS: dict[str, str] = {}
 SIZE_WORDS: dict[str, str] = {}
 SIZE_STEP = 1.5                   # pixels of radius that "bigger than" and "smaller than" add or take away
+MARK_PX = 9.0                     # the usual half-size of the nodes' symbols and the places' icons, in pixels
 SIZE_PX = (1.0, 40.0)             # the smallest and largest radius a number in Size can ask for
 
 
@@ -76,7 +77,9 @@ def size_rule(name: str, _seen: tuple = ()) -> dict:
         rule = size_rule(target, _seen + (name,))
         add = {"bigger than": SIZE_STEP, "smaller than": -SIZE_STEP, "same as": 0.0}[relative[1]]
         return {"px": max(rule["px"] + add, SIZE_PX[0])} if "px" in rule else {"of": rule["of"], "add": rule["add"] + add}
-    return {"of": name, "add": 0.0} if name in PLANET_ID else {"of": "Mo", "add": SIZE_STEP}
+    if name in PLANET_ID:
+        return {"of": name, "add": 0.0}
+    return {"of": "Mo", "add": SIZE_STEP} if name == "Ea" else {"px": MARK_PX}   # the nodes and the places: a fixed size
 
 
 def tag(angle: int) -> str:
