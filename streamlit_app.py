@@ -487,7 +487,7 @@ def page_space():
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
     if not need_chart(prep):
         return
-    shown = head.pills("Time", ["Now", "DOB"], selection_mode="multi", default=["DOB"], key="space_time") or []
+    shown = head.pills("Time", ["Now", "DOB"], selection_mode="multi", default=["Now"], key="space_time") or []
     bodies = head.pills("Planets", list(globechart.BODY_CHOICES), selection_mode="multi", default=["Su", "Mo"], format_func=core.symbol_of,
                         key="space_bodies") or []
     with_paths = head.pills("Planet Path", list(globechart.BODY_CHOICES), selection_mode="multi", default=list(globechart.BODY_CHOICES),
