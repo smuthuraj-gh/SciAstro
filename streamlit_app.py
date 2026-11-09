@@ -513,9 +513,11 @@ def _aspect_tables(events: list, angles: list[int], where):
         for jd, _, title, de1, de2 in ev:
             p1, p2 = title.split("-")[1:3]
             rows.append({"Date / Time (UT)": core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M"), "Aspect": title,
-                         "Planet 1": p1, "Dec 1": f"{de1:+.2f}", "Planet 2": p2, "Dec 2": f"{de2:+.2f}"})
-        # a plain table (not st.dataframe, whose canvas draws its text smaller): all text on the pages is 13 px
-        where.table(pd.DataFrame(rows).style.hide(axis="index"), width="content")
+                         "Planet 1": p1, "Dec 1": de1, "Planet 2": p2, "Dec 2": de2})
+        # sorted by clicking a column's name; Dec as numbers, so that they sort as numbers
+        where.dataframe(pd.DataFrame(rows), hide_index=True, width="content",
+                        column_config={"Dec 1": st.column_config.NumberColumn(format="%+.2f"),
+                                       "Dec 2": st.column_config.NumberColumn(format="%+.2f")})
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
@@ -704,8 +706,9 @@ def page_my_details():
     if row is None:
         new_member_form()
         return
-    st.table(pd.DataFrame({"": [db.LABELS[f].split(" (")[0] for f in db.FIELDS if f not in ("email", "utc")],
-                           "Value": [row[f] for f in db.FIELDS if f not in ("email", "utc")]}).astype(str))
+    st.dataframe(pd.DataFrame({"Field": [db.LABELS[f].split(" (")[0] for f in db.FIELDS if f not in ("email", "utc")],
+                               "Value": [row[f] for f in db.FIELDS if f not in ("email", "utc")]}).astype(str),
+                 hide_index=True, width="content")
     if prep and prep.ok:
         st.write(f"Born on a {prep.weekday}; UTC offset {prep.utc:+.2f} ({prep.tz}); birth place "
                  f"{prep.birth_lat}, {prep.birth_lon}.")
