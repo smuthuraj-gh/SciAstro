@@ -57,11 +57,11 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
             paths.append(dict(colour=core.colour(p), dash=clock == "Now", pts=[_xyz(q.ra, q.dec, r) for q, r in zip(pts, reach)],
                               tip=f"{name} {clock}: {days:g} days around {clock} (distance from earth {near:.4g} to {far:.4g} AU)"))
     outer = outer or 1.0
-    wanted = [au for au in RINGS[scale] if _reach(au, scale) <= outer][-RINGS_SHOWN:]
+    wanted = [au for au in RINGS[scale] if _reach(au, scale) <= outer][-RINGS_SHOWN:] if show_au else []
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                show_au=show_au, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer)) for ra in RA_MARKS])
 
@@ -231,7 +231,6 @@ _JS = r"""
       put(g.label, around(x, y, 2, 24), taken);
     });
     rings.forEach((g) => {                         // on the side of the ring nearest the viewer
-      if (!D.show_au) { g.label.style.display = "none"; return; }
       let best = null;
       g.r.pts.forEach((q) => { const p = point(q); if (!best || p[1] > best[1]) best = p; });
       put(g.label, around(best[0], best[1], 0, 20), taken);
