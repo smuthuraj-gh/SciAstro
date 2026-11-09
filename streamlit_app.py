@@ -447,9 +447,9 @@ def page_globe():
 
     shown = stacked(("Now", "DOB"), ("DOB",), title="Time")
     all_bodies = list(globechart.BODY_CHOICES)
-    with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # (Sa and NN on a line, SN below)
-    bodies = options_under("Planets", "bodies", with_nodes, with_nodes)
-    paths = options_under("Planet Path", "paths", with_nodes, [])
+    with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # three a line: Su Mo Me, Ve Ma Ju, Sa NN SN
+    bodies = options_under("Planets", "bodies", with_nodes, with_nodes, width=132)
+    paths = options_under("Planet Path", "paths", with_nodes, [], width=132)
     major = options_under("Ma Aspects", "major", [str(a) for a in sorted(core.MAJOR)], [str(a) for a in sorted(core.MAJOR)], width=90)
     minor = options_under("Mi Aspects", "minor", [str(a) for a in core.MINOR], [str(a) for a in core.MINOR], width=90)
     coords = head.container(width="content", gap="xxsmall")   # Coordinates, with its options below it in fixed rows
