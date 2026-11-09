@@ -145,7 +145,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Planets": "The planets table: the short name (SN), long name (Name) and colour of each planet, the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
-               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SN is unique, and stays once a row is in the table. Color is rgb(r,g,b) or #rrggbb. The charts take the colours from here: a planet's marker, RA and Dec lines and path; NN's and SN's mark and name; CN's and CB's mark, name, RA and Dec lines. The NN, SN, CN and CB rows come back if deleted.",
+               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SN is unique, and stays once a row is in the table. Color is rgb(r,g,b) or #rrggbb; Color_Name is its name in words, for reference, and may be blank. The charts take the colours from here: a planet's marker, RA and Dec lines and path; NN's and SN's mark and name; CN's and CB's mark, name, RA and Dec lines. The NN, SN, CN and CB rows come back if deleted.",
     "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",
@@ -629,9 +629,11 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
 def page_planets():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
-    crud_table("planets_table", db.all_planets().assign(_sn=lambda d: d["SN"]), db.planet_problems,
+    table = db.all_planets().assign(_sn=lambda d: d["SN"])
+    crud_table("planets_table", table, db.planet_problems,
                lambda rows: "Committed: {} added, {} changed, {} deleted.".format(*db.save_planets(rows)),
-               column_config={"_sn": None}, width="content")
+               height=28 * (len(st.session_state.get("planets_table_working", table)) + 1) + 3,   # every row in view
+               column_config={"_sn": None, "Color": st.column_config.TextColumn(width=130)}, width="content")
 
 
 def page_aspects():

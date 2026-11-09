@@ -52,6 +52,7 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("sn", sa.String(8), primary_key=True),
     sa.Column("name", sa.String(60)),
     sa.Column("color", sa.String(40)),
+    sa.Column("color_name", sa.String(40)),                   # free text, for people; the charts use color
 )
 # The Aspects Details table: a row per aspect, with its RA and Dec orbs per planet; pos keeps the order shown
 ORB_COLUMNS = [c for c in core.default_orb_table().columns if c not in ("Aspect", "Angle")]
@@ -65,6 +66,9 @@ aspect_details = sa.Table(
 PLANET_NAMES = {"Su": "Sun", "Mo": "Moon", "Me": "Mercury", "Ve": "Venus", "Ma": "Mars", "Ju": "Jupiter", "Sa": "Saturn",
                 "NN": "Moon's North Node", "SN": "Moon's South Node", "CN": "Place Now", "CB": "Birth Place"}
 POINT_ROWS = ("NN", "SN", "CN", "CB")                         # the rows that are not bodies; always in the table
+COLOUR_NAMES = {"rgb(255,0,0)": "Red", "rgb(112,48,160)": "Purple", "rgb(255,165,0)": "Orange", "rgb(0,176,80)": "Green",
+                "rgb(146,208,80)": "Light Green", "rgb(0,112,192)": "Blue", "rgb(0,176,240)": "Light Blue",
+                "rgb(0,0,0)": "Black"}                        # the colours the charts start with
 
 
 def _now():
@@ -90,6 +94,7 @@ def engine() -> sa.Engine:
     meta.create_all(eng)
     _add_missing_columns(eng)
     _rename_planet_columns(eng)
+    _add_planet_color_name(eng)
     _seed_planets(eng)
     _seed_aspect_details(eng)
     return eng
@@ -128,6 +133,16 @@ def _rename_planet_columns(eng: sa.Engine):
                 c.execute(sa.text(f'ALTER TABLE planets RENAME COLUMN "{old}" TO {new}'))
 
 
+def _add_planet_color_name(eng: sa.Engine):
+    """A planets table made before Color_Name gets it, named for the colours the charts start with; others stay blank."""
+    if "color_name" in {c["name"] for c in sa.inspect(eng).get_columns("planets")}:
+        return
+    with eng.begin() as c:
+        c.execute(sa.text("ALTER TABLE planets ADD COLUMN color_name VARCHAR(40)"))
+        for colour, name in COLOUR_NAMES.items():
+            c.execute(planets.update().where(planets.c.color == colour).values(color_name=name))
+
+
 def _seed_planets(eng: sa.Engine):
     """The planets table, when empty, starts with every row in the colours the charts use. A table made earlier gets the
     rows it lacks of NN, SN (in its Moon's colour, as they were drawn), CN and CB."""
@@ -137,18 +152,20 @@ def _seed_planets(eng: sa.Engine):
         new = [{"sn": p, "name": PLANET_NAMES[p],
                 "color": (rows.get("Mo") or core.colour(p)) if p in ("NN", "SN") else core.colour(p)}
                for p in wanted if p not in rows]
+        for row in new:
+            row["color_name"] = COLOUR_NAMES.get(row["color"])
         if new:
             c.execute(planets.insert(), new)
 
 
 def all_planets() -> pd.DataFrame:
-    """The planets table: SN, Name, Color, Sun first."""
+    """The planets table: SN, Name, Color, Color_Name, Sun first."""
     with engine().connect() as c:
         rows = c.execute(sa.select(planets)).mappings().all()
     order = {p: i for i, p in enumerate(PLANET_NAMES)}
     rows = sorted(rows, key=lambda r: order.get(r["sn"], len(order)))
-    return pd.DataFrame([{"SN": r["sn"], "Name": r["name"], "Color": r["color"]} for r in rows],
-                        columns=["SN", "Name", "Color"])
+    return pd.DataFrame([{"SN": r["sn"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"]} for r in rows],
+                        columns=["SN", "Name", "Color", "Color_Name"])
 
 
 def planet_colours() -> dict[str, str]:
@@ -164,11 +181,12 @@ def _cell(value) -> str:
 def planet_problems(rows: pd.DataFrame) -> list[str]:
     """What is wrong with the planets table's rows (_sn: the SN a row is kept under; blank on a new one, and a wholly empty
     new one does not count). Each needs a Name and a colour as rgb(r,g,b) or #rrggbb and an SN of up to 8 characters, unique;
-    the SN of a row already in the table stays."""
+    the SN of a row already in the table stays. Color_Name may be blank, up to 40 characters."""
     out, seen = [], set()
     for _, r in rows.iterrows():
         sn, name, colour, kept = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
-        if not (kept or sn or name or colour):
+        colour_name = _cell(r["Color_Name"])
+        if not (kept or sn or name or colour or colour_name):
             continue
         label = sn or kept or "New row"
         if kept and sn != kept:
@@ -185,12 +203,14 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
         rgb = re.fullmatch(r"rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)", colour)
         if not (re.fullmatch(r"#[0-9a-fA-F]{6}", colour) or (rgb and all(int(v) <= 255 for v in rgb.groups()))):
             out.append(f"{label}: Color must look like rgb(0,112,192) or #0070c0")
+        if len(colour_name) > 40:
+            out.append(f"{label}: Color_Name can be at most 40 characters")
     return out
 
 
 def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
     """Makes the planets table these rows: (added, changed, deleted)."""
-    old = {r["SN"]: (r["Name"], r["Color"]) for _, r in all_planets().iterrows()}
+    old = {r["SN"]: (_cell(r["Name"]), _cell(r["Color"]), _cell(r["Color_Name"])) for _, r in all_planets().iterrows()}
     added = changed = 0
     kept = {_cell(v) for v in rows["_sn"]} - {""}
     with engine().begin() as c:
@@ -198,12 +218,14 @@ def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
             c.execute(planets.delete().where(planets.c.sn == sn))
         for _, r in rows.iterrows():
             sn, name, colour, was = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
+            colour_name = _cell(r["Color_Name"])
+            values = dict(name=name, color=colour, color_name=colour_name or None)
             if was:
-                if old.get(was) != (name, colour):
-                    c.execute(planets.update().where(planets.c.sn == was).values(name=name, color=colour))
+                if old.get(was) != (name, colour, colour_name):
+                    c.execute(planets.update().where(planets.c.sn == was).values(**values))
                     changed += 1
-            elif sn or name or colour:
-                c.execute(planets.insert().values(sn=sn, name=name, color=colour))
+            elif sn or name or colour or colour_name:
+                c.execute(planets.insert().values(sn=sn, **values))
                 added += 1
     return added, changed, len(set(old) - kept)
 
