@@ -50,6 +50,7 @@ settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_ke
 planets = sa.Table(                                           # seen by admins only (the Naming Conventions page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
+    sa.Column("symbol", sa.String(8)),                        # the conventional symbol, as text, for people; the charts draw their own
     sa.Column("name", sa.String(60)),
     sa.Column("color", sa.String(40)),
     sa.Column("color_name", sa.String(40)),                   # free text, for people; the charts use color
@@ -66,6 +67,8 @@ aspect_details = sa.Table(
 )
 PLANET_NAMES = {"Su": "Sun", "Mo": "Moon", "Me": "Mercury", "Ve": "Venus", "Ma": "Mars", "Ju": "Jupiter", "Sa": "Saturn",
                 "Ea": "Earth", "NN": "Moon's North Node", "SN": "Moon's South Node", "CN": "Place Now", "CB": "Birth Place"}
+SYMBOLS = {"Su": "☉", "Mo": "☽", "Me": "☿", "Ve": "♀", "Ma": "♂", "Ju": "♃", "Sa": "♄", "Ea": "♁",
+           "NN": "☊", "SN": "☋", "CB": "👶", "CN": "🏠"}
 POINT_ROWS = ("Ea", "NN", "SN", "CN", "CB")                         # the rows that are not bodies; always in the table
 COLOUR_NAMES = {"rgb(255,0,0)": "Red", "rgb(112,48,160)": "Purple", "rgb(255,165,0)": "Orange", "rgb(0,176,80)": "Green",
                 "rgb(146,208,80)": "Light Green", "rgb(0,112,192)": "Blue", "rgb(0,176,240)": "Light Blue",
@@ -98,6 +101,7 @@ def engine() -> sa.Engine:
     _rename_planet_columns(eng)
     _add_planet_color_name(eng)
     _add_planet_size(eng)
+    _add_planet_symbol(eng)
     _seed_planets(eng)
     _seed_aspect_details(eng)
     return eng
@@ -170,6 +174,16 @@ def _add_planet_size(eng: sa.Engine):
             c.execute(sa.text("ALTER TABLE naming_conventions DROP COLUMN size_number"))
 
 
+def _add_planet_symbol(eng: sa.Engine):
+    """A table made before Symbol gets it, filled in for the rows that have a conventional one; others stay blank."""
+    if "symbol" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
+        return
+    with eng.begin() as c:
+        c.execute(sa.text(f"ALTER TABLE naming_conventions ADD COLUMN symbol {planets.c.symbol.type.compile(dialect=eng.dialect)}"))
+        for sn, symbol in SYMBOLS.items():
+            c.execute(planets.update().where(planets.c.sn == sn).values(symbol=symbol))
+
+
 def _seed_planets(eng: sa.Engine):
     """The table, when empty, starts with every row in the colours the charts use. A table made earlier gets the
     rows it lacks of Ea, NN, SN (in its Moon's colour, as they were drawn), CN and CB."""
@@ -181,19 +195,20 @@ def _seed_planets(eng: sa.Engine):
                for p in wanted if p not in rows]
         for row in new:
             row["color_name"] = COLOUR_NAMES.get(row["color"])
+            row["symbol"] = SYMBOLS.get(row["sn"])
             row["size"] = "Bigger than Moon" if row["sn"] == "Ea" else "Angular Size" if row["sn"] in core.PLANET_ID else None
         if new:
             c.execute(planets.insert(), new)
 
 
 def all_planets() -> pd.DataFrame:
-    """The Naming Conventions table: SN, Name, Color, Color_Name, Size, Sun first."""
+    """The Naming Conventions table: SN, Symbol, Name, Color, Color_Name, Size, Sun first."""
     with engine().connect() as c:
         rows = c.execute(sa.select(planets)).mappings().all()
     order = {p: i for i, p in enumerate(PLANET_NAMES)}
     rows = sorted(rows, key=lambda r: order.get(r["sn"], len(order)))
-    return pd.DataFrame([{"SN": r["sn"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"], "Size": r["size"]}
-                         for r in rows], columns=["SN", "Name", "Color", "Color_Name", "Size"])
+    return pd.DataFrame([{"SN": r["sn"], "Symbol": r["symbol"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"], "Size": r["size"]}
+                         for r in rows], columns=["SN", "Symbol", "Name", "Color", "Color_Name", "Size"])
 
 
 def planet_colours() -> dict[str, str]:
@@ -217,12 +232,12 @@ def _cell(value) -> str:
 def planet_problems(rows: pd.DataFrame) -> list[str]:
     """What is wrong with the Naming Conventions table's rows (_sn: the SN a row is kept under; blank on a new one, and a wholly empty
     new one does not count). Each needs a Name and a colour as rgb(r,g,b) or #rrggbb and an SN of up to 8 characters, unique;
-    the SN of a row already in the table stays. Color_Name and Size may be blank, up to 40 characters each."""
+    the SN of a row already in the table stays. Color_Name and Size may be blank, up to 40 characters each; Symbol may be blank, up to 8."""
     out, seen = [], set()
     for _, r in rows.iterrows():
         sn, name, colour, kept = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
         colour_name = _cell(r["Color_Name"])
-        if not (kept or sn or name or colour or colour_name or _cell(r["Size"])):
+        if not (kept or sn or name or colour or colour_name or _cell(r["Size"]) or _cell(r["Symbol"])):
             continue
         label = sn or kept or "New row"
         if kept and sn != kept:
@@ -243,12 +258,14 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
             out.append(f"{label}: Color_Name can be at most 40 characters")
         if len(_cell(r["Size"])) > 40:
             out.append(f"{label}: Size can be at most 40 characters")
+        if len(_cell(r["Symbol"])) > 8:
+            out.append(f"{label}: Symbol can be at most 8 characters")
     return out
 
 
 def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
     """Makes the Naming Conventions table these rows: (added, changed, deleted)."""
-    old = {r["SN"]: (_cell(r["Name"]), _cell(r["Color"]), _cell(r["Color_Name"]), _cell(r["Size"])) for _, r in all_planets().iterrows()}
+    old = {r["SN"]: (_cell(r["Name"]), _cell(r["Color"]), _cell(r["Color_Name"]), _cell(r["Size"]), _cell(r["Symbol"])) for _, r in all_planets().iterrows()}
     added = changed = 0
     kept = {_cell(v) for v in rows["_sn"]} - {""}
     with engine().begin() as c:
@@ -257,13 +274,13 @@ def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
         for _, r in rows.iterrows():
             sn, name, colour, was = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
             colour_name = _cell(r["Color_Name"])
-            size = _cell(r["Size"])
-            values = dict(name=name, color=colour, color_name=colour_name or None, size=size or None)
+            size, symbol = _cell(r["Size"]), _cell(r["Symbol"])
+            values = dict(name=name, color=colour, color_name=colour_name or None, size=size or None, symbol=symbol or None)
             if was:
-                if old.get(was) != (name, colour, colour_name, size):
+                if old.get(was) != (name, colour, colour_name, size, symbol):
                     c.execute(planets.update().where(planets.c.sn == was).values(**values))
                     changed += 1
-            elif sn or name or colour or colour_name or size:
+            elif sn or name or colour or colour_name or size or symbol:
                 c.execute(planets.insert().values(sn=sn, **values))
                 added += 1
     return added, changed, len(set(old) - kept)

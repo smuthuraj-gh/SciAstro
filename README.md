@@ -12,7 +12,7 @@ zodiac), with the same rules.
 | Celestial Sphere 3D | everyone | the paths of the Sun, Moon and planets in 3D, each at its real distance from the Earth (Log, True, or Mo Log with only the Moon on Log); Rotate in 1s: Manual to drag it round, or a speed to run time |
 | Aspects Details | admins | the orbs per aspect and planet; a pair uses the larger of its two planets' orbs; Insert, Update, Delete, Commit |
 | Customers | admins | Insert, Update, Delete, Commit customers, click a column name to sort; import the workbook's Customers tab as CSV |
-| Naming Conventions | admins | the table in the database: SN (unique), Name, Color (the charts' colours for the planets, Ea, NN, SN, CN and CB), Color_Name (for reference), Size (how the charts size the planets and Ea); Insert, Update, Delete, Commit; click a column name to sort |
+| Naming Conventions | admins | the table in the database: SN (unique), Symbol (for reference), Name, Color (the charts' colours for the planets, Ea, NN, SN, CN and CB), Color_Name (for reference), Size (how the charts size the planets and Ea); Insert, Update, Delete, Commit; click a column name to sort |
 | My details | users | their own birth details, with Edit my details to change them (the login email stays) |
 
 Users sign in with Google and see only the customers whose **Email (login)** is theirs. A new member (no customer
