@@ -8,13 +8,14 @@ import math
 import uuid
 
 from . import core
-from .globechart import MARKER_RANGE, MOTION_DAYS, PATH_SPAN, SIZE_RANGE_ARCSEC, _motion_table
+from .globechart import MARKER_RANGE, MOTION_DAYS, PATH_SPAN, SIZE_RANGE_ARCSEC, TILT, _motion_table
 from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 720
 RADIUS = 330.0                    # pixels from the Earth to the farthest thing drawn
 SCALES = ("Log", "True", MO_LOG := "Mo Log")   # Mo Log: the Moon as on Log, at the same place on the page; the others as on True
 LOG_FROM_AU = 0.001               # on the Log scale, the distance drawn at the Earth: each ring then ten times the last
+EARTH_KM = 6371.0                 # the Earth's radius: sized as it looks from 1 AU, on the same scale as the others
 SPANS = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN}     # days, points, name: one trip round the sky
 RINGS = {"Log": (0.002, 0.01, 0.1, 1.0, 10.0),
          "True": (0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)}   # AU; at most RINGS_SHOWN of them
@@ -66,7 +67,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                tilt=TILT, earth_km=EARTH_KM, moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer)) for ra in RA_MARKS])
 
@@ -110,13 +111,16 @@ _JS = r"""
     if (box) box.textContent = D.clocks.map((s) => clockLine(s, t)).join("    ");
   };
   let X = 0, Y = 0, Z = 0, S = 0, C = 0, s = 0, c = 0;
+  const LEAN_S = Math.sin(D.tilt * RAD), LEAN_C = Math.cos(D.tilt * RAD);
   const angles = () => { S = Math.sin(view.yaw * RAD); C = Math.cos(view.yaw * RAD); s = Math.sin(view.pitch * RAD); c = Math.cos(view.pitch * RAD); };
   const point = ([x, y, z]) => {                   // on the page: x, y, and how far toward the viewer (+ is near)
     X = x * C - y * S;
     Y = -(x * S + y * C);
     Z = z * s + Y * c;
     const up = z * c - Y * s, grow = 1 / (1 - Z / D.outer / 4);   // a little perspective: nearer is bigger
-    return [D.width / 2 + X * D.fit * grow, D.height / 2 - up * D.fit * grow, Z];
+    // the whole drawing leans on the page, so that the axis from NCP to SCP is tilted
+    const across = X * LEAN_C + up * LEAN_S, high = up * LEAN_C - X * LEAN_S;
+    return [D.width / 2 + across * D.fit * grow, D.height / 2 - high * D.fit * grow, Z];
   };
   const line = (colour, width, dashed, tip) => {   // the near part full, the far part faint
     const parts = [1, 0.35].map((opacity) => {
@@ -142,6 +146,8 @@ _JS = r"""
     };
   };
   const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
+  const arcsecOf = (km, au) => 2 * Math.atan(km / (au * D.au_km)) / RAD * 3600;
+  const radiusOf = (arcsec) => D.radii[0] + (D.radii[1] - D.radii[0]) * Math.max(0, Math.min(1, (Math.log(arcsec) - LOW) / (HIGH - LOW)));
   const GREY = "rgb(150,150,150)", DARK = "rgb(60,60,60)";
   const rings = D.rings.map((r) => ({r, draw: line(GREY, 1, false, r.text + " from earth, on the plane of the Earth's equator"), label: words("rgb(110,110,110)")}));
   rings.forEach((g) => { g.label.textContent = g.r.text; });
@@ -154,8 +160,9 @@ _JS = r"""
     label.textContent = name;
     return {at, label};
   });
-  const earth = make("circle", svg, {r: 8, fill: "rgb(90,140,200)", stroke: DARK, "stroke-width": 1});
-  make("title", earth).textContent = "Earth, at the centre";
+  const earthAt1Au = arcsecOf(D.earth_km, 1), earthR = radiusOf(earthAt1Au);
+  const earth = make("circle", svg, {r: earthR.toFixed(1), fill: "rgb(90,140,200)", stroke: DARK, "stroke-width": 1});
+  make("title", earth).textContent = "Earth, at the centre\nAngular Size: " + earthAt1Au.toFixed(1) + " arcsec, as seen from 1 AU";
   const earthLabel = words(DARK);
   earthLabel.textContent = "Earth";
   const marks = D.marks.map((m) => {
@@ -182,13 +189,15 @@ _JS = r"""
       return true;
     };
     const last = label.lastPlace;
+    const away = (i) => Math.hypot(spots[i][0] - spots[last][0], spots[i][1] - spots[last][1]);
+    if (last >= WAYS) {                            // pushed out: back in beside its mark as soon as there is room, by the shortest way
+      const closer = spots.map((_, i) => i).slice(0, last - last % WAYS).sort((a, b) => away(a) - away(b));
+      for (const i of closer) if (free(i)) return;
+    }
     if (last !== undefined && free(last)) return;
     // blocked: the free place the least way from where it was beside its mark
     const order = spots.map((_, i) => i);
-    if (last !== undefined) {
-      const away = (i) => Math.hypot(spots[i][0] - spots[last][0], spots[i][1] - spots[last][1]);
-      order.sort((a, b) => away(a) - away(b));
-    }
+    if (last !== undefined) order.sort((a, b) => away(a) - away(b));
     for (const i of order) if (free(i)) return;
     label.style.display = "none";
   };
@@ -201,6 +210,7 @@ _JS = r"""
     p.tip = p.name + " " + p.moon + ": the month around the clock's date (distance from earth " + Math.min(...dists).toPrecision(4) +
       " to " + Math.max(...dists).toPrecision(4) + " AU)";
   };
+  const WAYS = 8;                                  // the places round a mark, at each reach
   const around = (x, y, r, w) => {
     const out = [];
     for (let reach = 0; reach !== 12; reach++) {
@@ -224,8 +234,7 @@ _JS = r"""
     const placed = marks.map((g) => {
       const s = sample(g.table, t), [x, y, z] = point(xyz(s, g.m.name === "Mo"));
       // sized by how wide it looks from the Earth then, on AstroGlobe's logarithmic scale (to true scale the planets would not show)
-      const arcsec = 2 * Math.atan(g.table.km / (s.dist * D.au_km)) / RAD * 3600;
-      const share = Math.max(0, Math.min(1, (Math.log(arcsec) - LOW) / (HIGH - LOW))), r = D.radii[0] + (D.radii[1] - D.radii[0]) * share;
+      const arcsec = arcsecOf(g.table.km, s.dist), r = radiusOf(arcsec);
       const size = arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec";
       g.e.setAttribute("r", r.toFixed(1));
       g.tip.textContent = g.m.name + " " + g.m.clock + "\nDec/Lati: " + signed(s.dec) + "\nRA: " + s.ra.toFixed(2) + "\nAngular Size: " + size +
@@ -244,8 +253,8 @@ _JS = r"""
       placed.forEach((q) => { svg.appendChild(q.g.e); svg.appendChild(q.g.label); });
       lastStack = stack;
     }
-    const taken = placed.map((q) => [q.x - q.r - 2, q.y - q.r - 2, q.x + q.r + 2, q.y + q.r + 2]).concat([[ex - 9, ey - 9, ex + 9, ey + 9]]);
-    put(earthLabel, around(ex, ey, 8, 20), taken);
+    const taken = placed.map((q) => [q.x - q.r - 2, q.y - q.r - 2, q.x + q.r + 2, q.y + q.r + 2]).concat([[ex - earthR - 1, ey - earthR - 1, ex + earthR + 1, ey + earthR + 1]]);
+    put(earthLabel, around(ex, ey, earthR, 20), taken);
     // always in the same order, so that a tag does not lose its place to another as the drawing turns
     marks.forEach((g) => {
       const q = placed.find((p) => p.g === g);
