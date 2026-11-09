@@ -448,12 +448,12 @@ def page_globe():
     with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # three a line: Su Mo Me, Ve Ma Ju, Sa NN SN
     bodies = options_under("Planets", "bodies", with_nodes, with_nodes, width=112)
     paths = options_under("Planet Path", "paths", with_nodes, [], width=112)
-    major = options_under("Maj Aspects", "major", [str(a) for a in sorted(core.MAJOR)], [str(a) for a in sorted(core.MAJOR)], width=90)
-    minor = options_under("Min Aspects", "minor", [str(a) for a in core.MINOR], [str(a) for a in core.MINOR], width=90)
+    major = options_under("Maj Aspects", "major", [str(a) for a in sorted(core.MAJOR)], [], width=90)
+    minor = options_under("Min Aspects", "minor", [str(a) for a in core.MINOR], [], width=90)
     coords = head.container(width="content", gap="xxsmall")   # Coordinates, with its options below it in fixed rows
     if coords.pills("Coordinates", ["Coordinates"], default="Coordinates", key="globe_coords_on", label_visibility="collapsed"):
         for row_of in (["Houses"], ["RA", "Dec"], ["Lati", "Long"]):
-            shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[n for n in row_of if n == "Houses"],
+            shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[n for n in row_of if n == "Dec"],
                                   key=f"globe_coords_{row_of[0]}", label_visibility="collapsed")
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds, manual = None, False
