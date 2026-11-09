@@ -181,6 +181,7 @@ def _seed_planets(eng: sa.Engine):
                for p in wanted if p not in rows]
         for row in new:
             row["color_name"] = COLOUR_NAMES.get(row["color"])
+            row["size"] = "Bigger than Moon" if row["sn"] == "Ea" else "Angular Size" if row["sn"] in core.PLANET_ID else None
         if new:
             c.execute(planets.insert(), new)
 
@@ -199,6 +200,14 @@ def planet_colours() -> dict[str, str]:
     """The Color of each row of the Naming Conventions table, by its SN."""
     with engine().connect() as c:
         return {sn: color for sn, color in c.execute(sa.select(planets.c.sn, planets.c.color)) if color}
+
+
+def planet_sizes() -> tuple[dict[str, str], dict[str, str]]:
+    """The Size of each row by its SN; and its SN and Name, in lower case, to its SN (for "Bigger than Moon")."""
+    with engine().connect() as c:
+        rows = c.execute(sa.select(planets.c.sn, planets.c.name, planets.c.size)).all()
+    words = {w.strip().lower(): sn for sn, name, _ in rows for w in (name, sn) if w}
+    return {sn: size or "" for sn, _, size in rows}, words
 
 
 def _cell(value) -> str:

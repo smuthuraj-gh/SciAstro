@@ -8,6 +8,7 @@ its two planets' orbs; a house point (CB, CN) takes the planet's.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -34,6 +35,30 @@ MAJOR = [0, 180, 90, 120, 60]
 MINOR = [30, 45, 72, 135, 144, 150]
 def colour(name: str) -> str:
     return COLOURS.get(name[:2], "rgb(0,0,0)")
+
+
+# The Size column of the Naming Conventions table (set each run from the table), and its names and SNs, in lower case, to their SN
+SIZE_TEXTS: dict[str, str] = {}
+SIZE_WORDS: dict[str, str] = {}
+SIZE_STEP = 1.5                   # pixels of radius that "bigger than" and "smaller than" add or take away
+SIZE_PX = (1.0, 40.0)             # the smallest and largest radius a number in Size can ask for
+
+
+def size_rule(name: str, _seen: tuple = ()) -> dict:
+    """How a body is sized, from its Size text: {"px": radius}, or {"of": a planet, "add": pixels}, meaning that planet's angular size
+    drawn, plus add. "Angular Size"; a number (pixels of radius); "Bigger than X", "Smaller than X" or "Same as X", X an SN or a Name.
+    Anything else, or blank: as they have always been drawn, a planet by its angular size and the Earth a little bigger than the Moon."""
+    low = SIZE_TEXTS.get(name, "").strip().lower()
+    number = re.fullmatch(r"(\d+(?:\.\d+)?)\s*(?:px)?", low)
+    if number:
+        return {"px": min(max(float(number[1]), SIZE_PX[0]), SIZE_PX[1])}
+    relative = re.fullmatch(r"(bigger than|smaller than|same as)\s+(.+)", low)
+    target = SIZE_WORDS.get(relative[2].strip()) if relative else None
+    if target and target != name and target not in _seen:
+        rule = size_rule(target, _seen + (name,))
+        add = {"bigger than": SIZE_STEP, "smaller than": -SIZE_STEP, "same as": 0.0}[relative[1]]
+        return {"px": max(rule["px"] + add, SIZE_PX[0])} if "px" in rule else {"of": rule["of"], "add": rule["add"] + add}
+    return {"of": name, "add": 0.0} if name in PLANET_ID else {"of": "Mo", "add": SIZE_STEP}
 
 
 def tag(angle: int) -> str:

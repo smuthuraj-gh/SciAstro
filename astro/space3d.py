@@ -15,7 +15,6 @@ WIDTH, HEIGHT = 1100, 720
 RADIUS = 330.0                    # pixels from the Earth to the farthest thing drawn
 SCALES = ("Log", "True", MO_LOG := "Mo Log")   # Mo Log: the Moon as on Log, at the same place on the page; the others as on True
 LOG_FROM_AU = 0.001               # on the Log scale, the distance drawn at the Earth: each ring then ten times the last
-EARTH_RADIUS = 12.0               # pixels: fixed, a little bigger than the Sun and Moon drawn (to true scale it would not show)
 SPANS = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN}     # days, points, name: one trip round the sky
 RINGS = {"Log": (0.002, 0.01, 0.1, 1.0, 10.0),
          "True": (0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)}   # AU; at most RINGS_SHOWN of them
@@ -51,7 +50,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
             tables[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
             if p != "Mo" or scale != MO_LOG:
                 outer = max(outer, _reach(max(whole["dist"]), scale))
-            marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock))
+            marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock, rule=core.size_rule(p)))
             days, steps, name = SPANS[p]
             if p == "Mo":                                     # the page works it out as time runs, from the Moon's table
                 paths.append(dict(colour=core.colour(p), dash=clock == "Now", pts=[], tip="", name=name, moon=clock))
@@ -62,12 +61,19 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
             near, far = min(q.dist_au for q in pts), max(q.dist_au for q in pts)
             paths.append(dict(colour=core.colour(p), dash=clock == "Now", pts=[_xyz(q.ra, q.dec, r) for q, r in zip(pts, reach)],
                               tip=f"{name} {clock}: {days:g} days around {clock} (distance from earth {near:.4g} to {far:.4g} AU)"))
+    # what the sizes are measured from (Bigger than Moon needs the Moon's table, shown or not)
+    earth_rule = core.size_rule("Ea")
+    for clock, jd, _ in moments:
+        for rule in [earth_rule] + [m["rule"] for m in marks]:
+            if "of" in rule and rule["of"] not in tables[clock]:
+                whole = _motion_table(rule["of"], jd)
+                tables[clock][rule["of"]] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
     outer = outer or 1.0
     wanted = [au for au in RINGS[scale] if _reach(au, scale) <= outer][-RINGS_SHOWN:] if show_au else []
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                tilt=TILT, earth_radius=EARTH_RADIUS, earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer)) for ra in RA_MARKS])
 
@@ -147,7 +153,11 @@ _JS = r"""
   };
   const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
   const arcsecOf = (km, au) => 2 * Math.atan(km / (au * D.au_km)) / RAD * 3600;
-  const radiusOf = (arcsec) => D.radii[0] + (D.radii[1] - D.radii[0]) * Math.max(0, Math.min(1, (Math.log(arcsec) - LOW) / (HIGH - LOW)));
+  const radiusAt = (rule, tables, t) => {          // by the Size in the Naming Conventions table: a fixed radius, or a planet's angular size and more
+    if (rule.px !== undefined) return rule.px;
+    const b = tables[rule.of], share = Math.max(0, Math.min(1, (Math.log(arcsecOf(b.km, sample(b, t).dist)) - LOW) / (HIGH - LOW)));
+    return Math.max(1, D.radii[0] + (D.radii[1] - D.radii[0]) * share + rule.add);
+  };
   const GREY = "rgb(150,150,150)", DARK = "rgb(60,60,60)";
   const rings = D.rings.map((r) => ({r, draw: line(GREY, 1, false, r.text + " from earth, on the plane of the Earth's equator"), label: words("rgb(110,110,110)")}));
   rings.forEach((g) => { g.label.textContent = g.r.text; });
@@ -160,9 +170,8 @@ _JS = r"""
     label.textContent = name;
     return {at, label};
   });
-  const earthR = D.earth_radius;
-  const earth = make("circle", svg, {r: earthR.toFixed(1), fill: D.earth_colour, stroke: DARK, "stroke-width": 1});
-  make("title", earth).textContent = "Ea, at the centre (its size is not to scale)";
+  const earth = make("circle", svg, {fill: D.earth_colour, stroke: DARK, "stroke-width": 1});
+  make("title", earth).textContent = "Ea, at the centre (its size is not to scale" + (D.earth_size ? ": " + D.earth_size : "") + ")";
   const earthLabel = words(D.earth_colour);
   earthLabel.textContent = "Ea";
   const marks = D.marks.map((m) => {
@@ -234,7 +243,7 @@ _JS = r"""
     const placed = marks.map((g) => {
       const s = sample(g.table, t), [x, y, z] = point(xyz(s, g.m.name === "Mo"));
       // sized by how wide it looks from the Earth then, on AstroGlobe's logarithmic scale (to true scale the planets would not show)
-      const arcsec = arcsecOf(g.table.km, s.dist), r = radiusOf(arcsec);
+      const arcsec = arcsecOf(g.table.km, s.dist), r = radiusAt(g.m.rule, D.tables[g.m.clock], t);
       const size = arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec";
       g.e.setAttribute("r", r.toFixed(1));
       g.tip.textContent = g.m.name + " " + g.m.clock + "\nDec/Lati: " + signed(s.dec) + "\nRA: " + s.ra.toFixed(2) + "\nAngular Size: " + size +
@@ -244,7 +253,8 @@ _JS = r"""
       g.label.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       return {g, x, y, z, r};
     }).sort((a, b) => a.z - b.z);
-    const [ex, ey] = point([0, 0, 0]);
+    const [ex, ey] = point([0, 0, 0]), earthR = radiusAt(D.earth_rule, D.tables[D.earth_clock], t);
+    earth.setAttribute("r", earthR.toFixed(1));
     earth.setAttribute("cx", ex.toFixed(1)); earth.setAttribute("cy", ey.toFixed(1));
     // in the order of depth, what is nearest on top (only when that changes: moving a mark would lose its hover box);
     // every label kept off every mark and every other label

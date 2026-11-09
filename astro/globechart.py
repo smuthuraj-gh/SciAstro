@@ -259,7 +259,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
-                family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
+                size_rules={p: core.size_rule(p) for p in core.BUTTON_ORDER}, family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
 
 
@@ -473,6 +473,12 @@ _MOTION_JS = r"""
     return {ra: (n.ra[i] + change * f + node.turn + 720) % 360, dec: node.sign * (n.dec[i] + (n.dec[i + 1] - n.dec[i]) * f)};
   };
   const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
+  const radiusAt = (rule, tables, t) => {          // by the Size in the Naming Conventions table: a fixed radius, or a planet's angular size and more
+    if (rule.px !== undefined) return rule.px;
+    const b = tables[rule.of], arcsec = 2 * Math.atan(b.km / (sample(b, t).dist * D.au_km)) / RAD * 3600;
+    const share = Math.max(0, Math.min(1, (Math.log(arcsec) - LOW) / (HIGH - LOW)));
+    return Math.max(1, D.radii[0] + (D.radii[1] - D.radii[0]) * share + rule.add);
+  };
   const paths = D.paths.map((p) => Object.assign({}, p, {draw: line(p.colour, p.dash), label: words(markG, {"text-anchor": "end", fill: p.colour})}));
   paths.forEach((p) => { p.label.textContent = p.name; });
   let pathBoxes = [], pathsFacing = null, pathsAt = null, namedAt = null;
@@ -547,8 +553,7 @@ _MOTION_JS = r"""
         body.decLine(pts, body.tipName + " Dec/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2));
       }
       const arcsec = 2 * Math.atan(b.km / (s.dist * D.au_km)) / RAD * 3600;
-      const share = Math.max(0, Math.min(1, (Math.log(arcsec) - LOW) / (HIGH - LOW)));
-      const r = D.radii[0] + (D.radii[1] - D.radii[0]) * share;
+      const r = radiusAt(D.size_rules[body.name], body.set.tables, t);
       const hidden = z < 0 && Math.hypot(x - D.cx, y - D.cy) < D.earth;   // behind the Earth
       const fade = z >= 0 ? 1 : 0.55, size = arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec";
       const pct = (s.dist * D.au_km - b.lo) / (b.hi - b.lo) * 100;
