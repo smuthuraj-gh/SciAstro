@@ -72,7 +72,12 @@ SYMBOLS = {"Su": "☉", "Mo": "☽", "Me": "☿", "Ve": "♀", "Ma": "♂", "Ju"
 POINT_ROWS = ("Ea", "NN", "SN", "CN", "CB")                         # the rows that are not bodies; always in the table
 COLOUR_NAMES = {"rgb(255,0,0)": "Red", "rgb(112,48,160)": "Purple", "rgb(255,165,0)": "Orange", "rgb(0,176,80)": "Green",
                 "rgb(146,208,80)": "Light Green", "rgb(0,112,192)": "Blue", "rgb(0,176,240)": "Light Blue",
-                "rgb(90,140,200)": "Steel Blue", "rgb(0,0,0)": "Black"}                        # the colours the charts start with
+                "rgb(90,140,200)": "Steel Blue", "rgb(0,0,0)": "Black",
+                # the recommended ones
+                "rgb(230,159,0)": "Gold", "rgb(140,140,150)": "Silver", "rgb(86,180,233)": "Sky Blue", "rgb(0,158,115)": "Green",
+                "rgb(213,94,0)": "Vermilion Red", "rgb(120,60,160)": "Purple", "rgb(120,80,40)": "Brown", "rgb(0,114,178)": "Earth Blue",
+                "rgb(204,121,167)": "Rose", "rgb(102,102,153)": "Slate", "rgb(0,60,140)": "Navy"}
+RECOMMENDED_COLOURS = "colours_recommended_2026_11"   # the settings key that marks they were set once (later edits stay)
 
 
 def _now():
@@ -103,6 +108,7 @@ def engine() -> sa.Engine:
     _add_planet_size(eng)
     _add_planet_symbol(eng)
     _update_earth_symbol(eng)
+    _set_recommended_colours(eng)
     _seed_planets(eng)
     _seed_aspect_details(eng)
     return eng
@@ -185,6 +191,17 @@ def _add_planet_symbol(eng: sa.Engine):
             c.execute(planets.update().where(planets.c.sn == sn).values(symbol=symbol))
 
 
+def _set_recommended_colours(eng: sa.Engine):
+    """Once (marked among the settings): every row the charts colour gets the recommended Color and its Color_Name. Any change an
+    admin makes afterwards stays."""
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == RECOMMENDED_COLOURS)).scalar():
+            return
+        for sn, colour in core.COLOURS.items():
+            c.execute(planets.update().where(planets.c.sn == sn).values(color=colour, color_name=COLOUR_NAMES[colour]))
+        c.execute(sa.insert(settings).values(key=RECOMMENDED_COLOURS, value="done"))
+
+
 def _update_earth_symbol(eng: sa.Engine):
     """The Earth's symbol is now the circled plus: a table still with the earlier one (U+2641) gets it; one an admin has changed keeps theirs."""
     with eng.begin() as c:
@@ -198,7 +215,7 @@ def _seed_planets(eng: sa.Engine):
         rows = dict(c.execute(sa.select(planets.c.sn, planets.c.color)).all())
         wanted = PLANET_NAMES if not rows else POINT_ROWS
         new = [{"sn": p, "name": PLANET_NAMES[p],
-                "color": (rows.get("Mo") or core.colour(p)) if p in ("NN", "SN") else core.colour(p)}
+                "color": core.colour(p)}
                for p in wanted if p not in rows]
         for row in new:
             row["color_name"] = COLOUR_NAMES.get(row["color"])

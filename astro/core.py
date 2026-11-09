@@ -22,9 +22,11 @@ PLANET_ID = {p: i for i, p in enumerate(PLANETS)}
 AU_KM = 149597870.7
 TRUE_NODE = 11                                                # Swiss Ephemeris number of the Moon's true node
 
-COLOURS = {"Sa": "rgb(255,0,0)", "Ju": "rgb(112,48,160)", "Ma": "rgb(255,165,0)", "Ve": "rgb(0,176,80)",
-           "Me": "rgb(146,208,80)", "Su": "rgb(0,112,192)", "Mo": "rgb(0,176,240)", "Ea": "rgb(90,140,200)", "NN": "rgb(0,176,240)",
-           "SN": "rgb(0,176,240)", "CN": "rgb(0,0,0)", "CB": "rgb(0,0,0)"}
+# The recommended colours: the traditional ones (Sun gold, Moon silver, Mars red, Venus green, Jupiter purple, Saturn brown),
+# made to show on white and to be told apart, colour-blind viewers too (the Naming Conventions table can change them)
+COLOURS = {"Su": "rgb(230,159,0)", "Mo": "rgb(140,140,150)", "Me": "rgb(86,180,233)", "Ve": "rgb(0,158,115)",
+           "Ma": "rgb(213,94,0)", "Ju": "rgb(120,60,160)", "Sa": "rgb(120,80,40)", "Ea": "rgb(0,114,178)",
+           "NN": "rgb(204,121,167)", "SN": "rgb(102,102,153)", "CB": "rgb(0,0,0)", "CN": "rgb(0,60,140)"}
 
 # geocentric minimum / maximum distance (km) over 1800-2400, as the workbook uses for D
 DIST_RANGE = {"Su": (147079476.4, 152116857.5), "Mo": (356371.3, 406720.6), "Me": (82110762.7, 217176258.7),
