@@ -13,13 +13,11 @@ from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
 RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
-SCALES = ("Log", "True", MO_LOG := "Mo Log")   # Mo Log: the Moon as on Log, at the same place on the page; the others as on True
+SCALES = ("Log", "True")
 LOG_FROM_AU = 0.001               # on the Log scale, the distance drawn at the Earth: each ring then ten times the last
 SPANS = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN}     # days, points, name: one trip round the sky
 RINGS = {"Log": (0.002, 0.01, 0.1, 1.0, 10.0),
          "True": (0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)}   # AU; at most RINGS_SHOWN of them
-RINGS[MO_LOG] = RINGS["True"]
-LOG_FULL_AU = 11.1                # about the farthest Saturn comes: all the Log scale's page
 RINGS_SHOWN = 4
 RA_MARKS = (0, 90, 180, 270)
 RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroGlobe) before it starts again, with the trails
@@ -45,15 +43,12 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     moments: (Now or DOB, Julian day, UTC offset). The drawing's size does not change with the paths shown."""
     paths, marks, tables = [], [], {}
     outer = 0.0
-    if scale == MO_LOG and set(bodies) == {"Mo"}:             # nothing to be true to: as Log
-        scale = "Log"
     for clock, jd, _ in moments:
         tables[clock] = {}
         for p in bodies:
             whole = _motion_table(p, jd, RUN_DAYS)
             tables[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
-            if p != "Mo" or scale != MO_LOG:
-                outer = max(outer, _reach(max(whole["dist"]), scale))
+            outer = max(outer, _reach(max(whole["dist"]), scale))
             marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock, rule=core.size_rule(p)))
             days, steps, name = SPANS[p]
             if with_paths is None or p in with_paths:         # the page draws it as time runs, from the body's own table
@@ -70,7 +65,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=LOG_FROM_AU, key=key, days=RUN_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=LOG_FROM_AU, key=key, days=RUN_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
@@ -98,9 +93,8 @@ __SYMBOL_JS__
     const turn = ((b.ra[i + 1] - b.ra[i] + 540) % 360) - 180;
     return {ra: (b.ra[i] + turn * f + 360) % 360, dec: b.dec[i] + (b.dec[i + 1] - b.dec[i]) * f, dist: b.dist[i] + (b.dist[i + 1] - b.dist[i]) * f};
   };
-  const xyz = (s, moon) => {                       // as space3d._xyz, at the distance as the scale draws it
-    const log = Math.max(Math.log10(s.dist / D.log_from), 0);
-    const r = D.scale === "Log" ? log : D.scale === "True" || !moon ? s.dist : log * D.moon_share, a = s.ra * RAD, d = s.dec * RAD;
+  const xyz = (s) => {                             // as space3d._xyz, at the distance as the scale draws it
+    const r = D.scale === "Log" ? Math.max(Math.log10(s.dist / D.log_from), 0) : s.dist, a = s.ra * RAD, d = s.dec * RAD;
     return [r * Math.cos(d) * Math.cos(a), r * Math.cos(d) * Math.sin(a), r * Math.sin(d)];
   };
   const signed = (v) => (v >= 0 ? "+" : "") + v.toFixed(2);
@@ -218,7 +212,7 @@ __SYMBOL_JS__
     while (run / gap > TRAIL_MOST) gap *= 2;         // (by doubling, so that the points stay where they were as it grows)
     for (let n = 0; n * gap < run; n++) samples.push(sample(b, trailFrom + n * gap));
     if (run > 0) samples.push(sample(b, t));        // to the body itself
-    p.pts = samples.map((s) => xyz(s, p.body === "Mo"));
+    p.pts = samples.map((s) => xyz(s));
     const dists = samples.map((s) => s.dist), days = Math.round(run);
     p.tip = p.name + " " + p.clock + ": where it has been since time started running, " + days + (days === 1 ? " day" : " days") +
       (samples.length ? " (distance from earth " + Math.min(...dists).toPrecision(4) + " to " + Math.max(...dists).toPrecision(4) + " AU)" : "");
@@ -245,7 +239,7 @@ __SYMBOL_JS__
       g.draw(g.p.pts, g.p.tip);
     });
     const placed = marks.map((g) => {
-      const s = sample(g.table, t), [x, y, z] = point(xyz(s, g.m.name === "Mo"));
+      const s = sample(g.table, t), [x, y, z] = point(xyz(s));
       // sized by how wide it looks from the Earth then, on AstroGlobe's logarithmic scale (to true scale the planets would not show)
       const arcsec = arcsecOf(g.table.km, s.dist), r = radiusAt(g.m.rule, D.tables[g.m.clock], t);
       const size = arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec";
