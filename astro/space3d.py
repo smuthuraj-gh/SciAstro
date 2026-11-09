@@ -8,7 +8,7 @@ import math
 import uuid
 
 from . import core
-from .globechart import MOTION_DAYS, PATH_SPAN, _motion_table
+from .globechart import MARKER_RANGE, MOTION_DAYS, PATH_SPAN, SIZE_RANGE_ARCSEC, _motion_table
 from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 720
@@ -43,7 +43,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
         tables[clock] = {}
         for p in bodies:
             whole = _motion_table(p, jd)
-            tables[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist")}
+            tables[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
             outer = max(outer, _reach(max(whole["dist"]), scale))
             marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock))
             days, steps, name = SPANS[p]
@@ -61,7 +61,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer)) for ra in RA_MARKS])
 
@@ -135,6 +135,7 @@ _JS = r"""
       parts[0].setAttribute("d", near); parts[1].setAttribute("d", far);
     };
   };
+  const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
   const GREY = "rgb(150,150,150)", DARK = "rgb(60,60,60)";
   const rings = D.rings.map((r) => ({r, draw: line(GREY, 1, false, r.text + " from earth, on the plane of the Earth's equator"), label: words("rgb(110,110,110)")}));
   rings.forEach((g) => { g.label.textContent = g.r.text; });
@@ -152,7 +153,7 @@ _JS = r"""
   const earthLabel = words(DARK);
   earthLabel.textContent = "Earth";
   const marks = D.marks.map((m) => {
-    const e = make("circle", svg, {r: 5, fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
+    const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
     const tip = make("title", e), label = words(m.colour);
     label.textContent = m.name;
     return {m, e, tip, label, table: D.tables[m.clock][m.name]};
@@ -208,20 +209,25 @@ _JS = r"""
     });
     const placed = marks.map((g) => {
       const s = sample(g.table, t), [x, y, z] = point(xyz(s));
-      g.tip.textContent = g.m.name + " " + g.m.clock + "\nDec/Lati: " + signed(s.dec) + "\nRA: " + s.ra.toFixed(2) +
+      // sized by how wide it looks from the Earth then, on AstroGlobe's logarithmic scale (to true scale the planets would not show)
+      const arcsec = 2 * Math.atan(g.table.km / (s.dist * D.au_km)) / RAD * 3600;
+      const share = Math.max(0, Math.min(1, (Math.log(arcsec) - LOW) / (HIGH - LOW))), r = D.radii[0] + (D.radii[1] - D.radii[0]) * share;
+      const size = arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec";
+      g.e.setAttribute("r", r.toFixed(1));
+      g.tip.textContent = g.m.name + " " + g.m.clock + "\nDec/Lati: " + signed(s.dec) + "\nRA: " + s.ra.toFixed(2) + "\nAngular Size: " + size +
         "\nDistance from earth: " + s.dist.toPrecision(4) + " AU";
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
       g.e.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       g.label.setAttribute("opacity", z >= 0 ? 1 : 0.6);
-      return {g, x, y, z};
+      return {g, x, y, z, r};
     }).sort((a, b) => a.z - b.z);
     const [ex, ey] = point([0, 0, 0]);
     earth.setAttribute("cx", ex.toFixed(1)); earth.setAttribute("cy", ey.toFixed(1));
     // in the order of depth, what is nearest on top; every label kept off every mark and every other label
     placed.forEach((q) => { svg.appendChild(q.g.e); svg.appendChild(q.g.label); });
-    const taken = placed.map((q) => [q.x - 7, q.y - 7, q.x + 7, q.y + 7]).concat([[ex - 9, ey - 9, ex + 9, ey + 9]]);
+    const taken = placed.map((q) => [q.x - q.r - 2, q.y - q.r - 2, q.x + q.r + 2, q.y + q.r + 2]).concat([[ex - 9, ey - 9, ex + 9, ey + 9]]);
     put(earthLabel, around(ex, ey, 8, 20), taken);
-    placed.slice().reverse().forEach((q) => put(q.g.label, around(q.x, q.y, 5, 8), taken));
+    placed.slice().reverse().forEach((q) => put(q.g.label, around(q.x, q.y, q.r, 8), taken));
     poles.forEach((g) => {
       const [x, y] = point(g.at);
       put(g.label, around(x, y, 4, 12), taken);
