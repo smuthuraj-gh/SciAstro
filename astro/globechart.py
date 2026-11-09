@@ -572,9 +572,20 @@ _MOTION_JS = r"""
       redraw(clock.t);
     }, D.step_ms);
   }
-  if (D.manual) {                                  // dragged sideways, the Earth and the sphere turn together to show their
-                                                   // hidden sides, about the axis; time stands still, so the clock and all positions hold
-    let from = null, moved = false;
+  if (D.manual) {                                  // everything is frozen and moves as one: dragged sideways, the Earth with its
+                                                   // lines and the sphere with its lines turn together about the axis, to show the
+                                                   // other side. The Earth is drawn first and the sphere straight after, each step
+    let from = null, wanted = clock.view;
+    const step = () => {
+      if (busy || wanted === clock.view) return;
+      busy = true;
+      clock.view = wanted;
+      Plotly.relayout(gd, {"geo.projection.rotation.lon": facing(clock.t)}).then(() => {
+        place(clock.t);
+        busy = false;
+        step();                                    // on to where the pointer has got to
+      });
+    };
     gd.style.cursor = "grab";
     const follow = (e) => {
       if (!document.body.contains(gd)) {
@@ -584,20 +595,18 @@ _MOTION_JS = r"""
       }
       if (from === null) return;
       const scale = gd.getBoundingClientRect().width / D.width;
-      const degrees = (e.clientX - from) / scale / D.earth / RAD;
+      wanted += (e.clientX - from) / scale / D.earth / RAD;
       from = e.clientX;
-      clock.view += degrees;
-      moved = true;
-      if (!busy) { moved = false; place(clock.t); redraw(clock.t); }
+      step();
     };
     const letGo = () => {
       from = null;
       gd.style.cursor = "grab";
-      if (moved) { moved = false; place(clock.t); Plotly.relayout(gd, {"geo.projection.rotation.lon": facing(clock.t)}); }
     };
     gd.addEventListener("pointerdown", (e) => {
       if (e.button !== 0 || e.target.closest(".modebar-container")) return;
       from = e.clientX;
+      wanted = clock.view;
       gd.style.cursor = "grabbing";
       e.preventDefault();
     });
