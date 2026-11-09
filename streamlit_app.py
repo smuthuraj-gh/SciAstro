@@ -131,7 +131,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth then (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its Dec/Lati, RA, Angular Size, Distance from earth and the others approaching and leaving it in Dec/Lati; at CB or CN for its Long, Dec/Lati, RA and the planets approaching and leaving its Dec/Lati). The far side of the sphere is "
                   "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Ma Aspects (0, 60, 90, 120, 180; black) and Mi Aspects (30, 45, 72, 135, 144, 150; grey): pick the angles to draw a line between any two planets shown that are in that aspect, by the orbs in Aspects Details, as time runs; dotted for Now; point at a line for its name. Coordinates, with Houses, RA, Dec, Lati and Long below it: which lines to show. Houses: twelve lines on the sphere, 30 degrees apart from the RA of CB (solid) and of CN (dashed), named H01 to H12, turning with the Earth. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
-                  "of CB and CN on the Earth. Distance(%) from earth (DOB+Now)/2, at the end of the buttons' line: the average of each planet's Distance(%) at birth and now, whatever time the clock shows; below it, with DOB chosen, Distance(%) from earth on DOB. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Pla Paths, picking from the list below it: the Sun's over a year, and the others' over one trip round "
+                  "of CB and CN on the Earth. Distance(%) from earth (DOB+Now)/2, at the end of the buttons' line: the average of each planet's Distance(%) at birth and now, whatever time the clock shows; below it, with DOB chosen, Distance(%) from earth on DOB. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Planet Path, picking from the list below it: the Sun's over a year, and the others' over one trip round "
                   "the sky around that moment (Moon 27.32 days; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now, hollow, dashed lines, with CN at the place now.",
     "Aspects": "The aspects between the chosen planets over the period, as tables, newest first: one table per "
@@ -429,7 +429,7 @@ def page_globe():
     shown = stacked(("Now", "DOB"), ("Now",), title="Time")
     all_bodies = list(globechart.BODY_CHOICES)
     bodies = options_under("Planets", "bodies", all_bodies, all_bodies)
-    paths = options_under("Pla Paths", "paths", all_bodies, [])
+    paths = options_under("Planet Path", "paths", all_bodies, [])
     major = options_under("Ma Aspects", "major", [str(a) for a in sorted(core.MAJOR)], [str(a) for a in sorted(core.MAJOR)], width=90)
     minor = options_under("Mi Aspects", "minor", [str(a) for a in core.MINOR], [str(a) for a in core.MINOR], width=90)
     coords = head.container(width="content", gap="xxsmall")   # Coordinates, with its options below it in fixed rows
