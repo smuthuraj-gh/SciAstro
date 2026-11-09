@@ -476,11 +476,13 @@ _MOTION_JS = r"""
     const now = s.clock === "Now";
     [["NN", 0, 1, "north"], ["SN", 180, -1, "south"]].filter(([name]) => D.node_names.includes(name)).forEach(([name, turn, sign, pole]) => {
       const colour = D.node_colours[name];
-      const mark = make("rect", markG, {width: 8, height: 8, fill: now ? "white" : colour, stroke: colour, "stroke-width": 2,
-                                        style: "pointer-events:auto"});
-      const label = words(markG, {"text-anchor": "middle", fill: colour});
-      label.textContent = name;
-      nodes.push({name, turn, sign, pole, s, mark, tip: make("title", mark), label});
+      // the conventional symbols, north an arch on two small circles and south the same upside down: drawn, as not every font has them
+      const mark = make("g", markG, {style: "pointer-events:auto"});
+      make("rect", mark, {x: -9, y: -9, width: 18, height: 18, fill: "transparent"});   // to point at, the gaps too
+      const symbol = make("g", mark, {transform: name === "SN" ? "scale(1,-1)" : ""});
+      make("path", symbol, {d: "M-3.6 4.2C-8.4 -0.8 -6 -7 0 -7C6 -7 8.4 -0.8 3.6 4.2", fill: "none", stroke: colour, "stroke-width": 2});
+      [-1, 1].forEach((side) => make("circle", symbol, {cx: side * 4.6, cy: 5.4, r: 1.9, fill: now ? "white" : colour, stroke: colour, "stroke-width": 1.4}));
+      nodes.push({name, turn, sign, pole, s, mark, tip: make("title", mark)});
     });
   });
   const nodeAt = (node, t) => {                    // between its two nearest table rows
@@ -586,12 +588,12 @@ _MOTION_JS = r"""
       const at = nodeAt(node, t), [x, y, z] = point(at.ra, at.dec);
       const hidden = z < 0 && Math.hypot(x - D.cx, y - D.cy) < D.earth, fade = z >= 0 ? 1 : 0.55;
       Object.assign(node, {x, y, hidden, fade});
-      node.mark.setAttribute("x", (x - 4).toFixed(1)); node.mark.setAttribute("y", (y - 4).toFixed(1));
+      node.mark.setAttribute("transform", "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ")");
       node.mark.setAttribute("opacity", fade);
-      node.mark.style.display = hidden ? "none" : ""; node.label.style.display = hidden ? "none" : "";
+      node.mark.style.display = hidden ? "none" : "";
       node.tip.textContent = node.name + " " + node.s.clock + ": the Moon's " + node.pole + " node (" + (z >= 0 ? "near" : "far") +
         " side of the sphere)\nDec/Lati: " + (at.dec >= 0 ? "+" : "") + at.dec.toFixed(2) + "\nRA: " + at.ra.toFixed(2);
-      if (!hidden) taken.push([x - 6, y - 6, x + 6, y + 6]);
+      if (!hidden) taken.push([x - 9, y - 9, x + 9, y + 9]);
     });
     bodies.forEach((body) => {
       if (body.hidden) return;
@@ -599,13 +601,6 @@ _MOTION_JS = r"""
       taken.push(boxOf(lx, ly, body.name));
       body.label.setAttribute("x", lx.toFixed(1)); body.label.setAttribute("y", ly.toFixed(1));
       body.label.setAttribute("opacity", body.fade);
-    });
-    nodes.forEach((node) => {
-      if (node.hidden) return;
-      const [lx, ly] = spot(node, node.x, node.y, 5, taken);
-      taken.push(boxOf(lx, ly, node.name));
-      node.label.setAttribute("x", lx.toFixed(1)); node.label.setAttribute("y", ly.toFixed(1));
-      node.label.setAttribute("opacity", node.fade);
     });
     houses.forEach((h) => {                        // named on the near side only, and not where a fixed label is
       const ra = (h.pl.ra + D.spin * t + 30 * h.k) % 360, pts = [];
