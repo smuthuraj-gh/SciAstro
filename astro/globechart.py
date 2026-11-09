@@ -36,6 +36,7 @@ PATH_SPAN = {"Mo": (27.32, 110, "Moon Path"), "Me": (365.25, 365, "Mercury Path"
              "Ve": (365.25, 365, "Venus Path"), "Ma": (687.0, 400, "Mars Path"),
              "Ju": (4333.0, 400, "Jupiter Path"), "Sa": (10759.0, 400, "Saturn Path")}
 BODY_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
+NODE_CHOICES = ("NN", "SN")       # the Moon's north and south nodes, picked with the planets
 MANUAL = "Manual"                 # Rotate's option to drag the Earth round by hand
 HOUSE_COLOUR = "rgb(0,0,0)"
 ASPECT_COLOURS = {False: "rgb(0,0,0)", True: "rgb(110,110,110)"}     # major, minor
@@ -248,7 +249,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                                    set=len(sets)))
             sets.append(dict(clock=name, jd=when, offset=offset, shown=[p for p in core.BUTTON_ORDER if p in g.bodies],
                              tables={p: {**_motion_table(p, when), "colour": core.colour(p)} for p in core.BUTTON_ORDER},
-                             node=_node_table(when) if "Mo" in g.paths else None))
+                             node=_node_table(when) if set(NODE_CHOICES) & set(g.bodies) else None))
     aspects = [dict(angle=a, colour=ASPECT_COLOURS[a in core.MINOR], width=1.0 if a in core.MINOR else 1.5,
                     orbs={f"{p}|{q}": [g.orbs.pair(a, p, q, False), g.orbs.pair(a, p, q, True)]
                           for i, p in enumerate(core.BUTTON_ORDER) for q in core.BUTTON_ORDER[i + 1:]})
@@ -259,7 +260,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
-                size_rules={p: core.size_rule(p) for p in core.BUTTON_ORDER}, family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
+                node_names=[n for n in NODE_CHOICES if n in g.bodies], size_rules={p: core.size_rule(p) for p in core.BUTTON_ORDER}, family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
 
 
@@ -454,11 +455,11 @@ _MOTION_JS = r"""
     });
     return "\nApproaching: " + names(near) + "\nLeaving: " + names(away);
   };
-  const nodes = [];                                // with the Moon's path: where it crosses the Sun's, north (NN) and south (SN)
+  const nodes = [];                                // where the Moon's path crosses the Sun's, north (NN) and south (SN), those picked
   D.sets.forEach((s) => {
     if (!s.node) return;
     const now = s.clock === "Now";
-    [["NN", 0, 1, "north"], ["SN", 180, -1, "south"]].forEach(([name, turn, sign, pole]) => {
+    [["NN", 0, 1, "north"], ["SN", 180, -1, "south"]].filter(([name]) => D.node_names.includes(name)).forEach(([name, turn, sign, pole]) => {
       const colour = D.node_colours[name];
       const mark = make("rect", markG, {width: 8, height: 8, fill: now ? "white" : colour, stroke: colour, "stroke-width": 2,
                                         style: "pointer-events:auto"});

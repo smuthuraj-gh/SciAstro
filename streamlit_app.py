@@ -38,7 +38,7 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 [data-testid="stSelectboxVirtualDropdown"] * { font-size: calc(13px * var(--app-zoom, 1)) !important; }
 /* AstroGlobe's lists: two a line, the last alone not stretched across */
 .st-key-globe_bodies button, .st-key-globe_paths button, .st-key-globe_coords button, .st-key-globe_speed button,
-.st-key-globe_major button, .st-key-globe_minor button, .st-key-space_speed button
+.st-key-globe_major button, .st-key-globe_minor button, .st-key-globe_bodies_row button, .st-key-space_speed button
   { flex: 0 0 auto !important; width: auto !important; }
 /* AstroGlobe's speed buttons, as small as their text allows */
 .st-key-globe_speed button, .st-key-space_speed button { padding-left: 4px !important; padding-right: 4px !important; }
@@ -131,9 +131,9 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "to the start). Below it, Manual: the Earth, the celestial sphere, Houses, RA, Dec, Lati and Long are frozen together; drag the chart sideways to turn them as one unit and see the other side of the AstroGlobe. Or pick a speed to start, how much time passes each second: 1h an hour, 1d a day, 1w a week, 1m a month; with none picked it holds still. The Earth starts as it was at that "
                   "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, sized as the Size column of Naming Conventions says, usually by how big it looks from the Earth then (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its Dec/Lati, RA, Angular Size, Distance from earth and the others approaching and leaving it in Dec/Lati; at CB or CN for its Long, Dec/Lati, RA and the planets approaching and leaving its Dec/Lati). The far side of the sphere is "
-                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Ma Aspects (0, 60, 90, 120, 180; black) and Mi Aspects (30, 45, 72, 135, 144, 150; grey): pick the angles to draw a line between any two planets shown that are in that aspect, by the orbs in Aspects Details, as time runs; dotted for Now, each with its tag, as 0-Ju-Ma, along it where there is room (point at a line for its name). Coordinates, with Houses, RA, Dec, Lati and Long below it: which lines to show. Houses: twelve lines on the sphere, 30 degrees apart from the RA of CB (solid) and of CN (dashed), named H01 to H12, turning with the Earth, with each line's RA at its lower right (on the near side, where there is room). RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
+                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines, and the Moon's north and south nodes (NN, SN), where its path crosses the Sun's. Ma Aspects (0, 60, 90, 120, 180; black) and Mi Aspects (30, 45, 72, 135, 144, 150; grey): pick the angles to draw a line between any two planets shown that are in that aspect, by the orbs in Aspects Details, as time runs; dotted for Now, each with its tag, as 0-Ju-Ma, along it where there is room (point at a line for its name). Coordinates, with Houses, RA, Dec, Lati and Long below it: which lines to show. Houses: twelve lines on the sphere, 30 degrees apart from the RA of CB (solid) and of CN (dashed), named H01 to H12, turning with the Earth, with each line's RA at its lower right (on the near side, where there is room). RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
                   "of CB and CN on the Earth. Distance(%) from earth (DOB+Now)/2, at the end of the buttons' line: the average of each planet's Distance(%) at birth and now, whatever time the clock shows; below it, with DOB chosen, Distance(%) from earth on DOB. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Planet Path, picking from the list below it: the Sun's over a year, and the others' over one trip round "
-                  "the sky around that moment (Moon 27.32 days around the clock's date, moving as time runs, tagged NN and SN at its north and south nodes where it crosses the Sun's path; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
+                  "the sky around that moment (Moon 27.32 days around the clock's date, moving as time runs; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now, hollow, dashed lines, with CN at the place now.",
     "Celestial Sphere 3D": "The paths of the Sun, Moon and planets around the Earth (Ea), each at its own distance from the Earth (on AstroGlobe all are on one sphere). "
                   "Each point is placed by its RA, Dec and distance. North is up, the axis from NCP to SCP tilted 23.44 degrees on the page, with everything else leaning with it. AU values: rings on the plane of the Earth's equator, each with its distance from the Earth in AU (1 AU is about the Sun's distance). "
@@ -436,18 +436,21 @@ def page_globe():
         return [n for n in names if box.pills(n, [n], default=n if n in default else None, key=f"globe_{n}",
                                               label_visibility="collapsed")]
 
-    def options_under(title: str, key: str, names: list, default: list, width: int = 84) -> tuple:
+    def options_under(title: str, key: str, names: list, default: list, width: int = 84, row: tuple = ()) -> tuple:
         """A button with options listed below it, two a line (width: room for two), to pick from; those picked, none with
-        the button off."""
+        the button off. row: more options, all on, on a line of their own below those."""
         box = head.container(width="content", gap="xxsmall")
         if not box.pills(title, [title], default=title, key=f"globe_{key}_on", label_visibility="collapsed"):
             return ()
-        return tuple(box.pills(f"Which {title}", names, selection_mode="multi", default=default, key=f"globe_{key}",
-                               label_visibility="collapsed", width=width))
+        picked = box.pills(f"Which {title}", names, selection_mode="multi", default=default, key=f"globe_{key}",
+                           label_visibility="collapsed", width=width)
+        more = box.pills(f"More {title}", list(row), selection_mode="multi", default=list(row), key=f"globe_{key}_row",
+                         label_visibility="collapsed", width=width) if row else []
+        return tuple(picked) + tuple(more)
 
     shown = stacked(("Now", "DOB"), ("DOB",), title="Time")
     all_bodies = list(globechart.BODY_CHOICES)
-    bodies = options_under("Planets", "bodies", all_bodies, all_bodies)
+    bodies = options_under("Planets", "bodies", all_bodies, all_bodies, row=globechart.NODE_CHOICES)
     paths = options_under("Planet Path", "paths", all_bodies, [])
     major = options_under("Ma Aspects", "major", [str(a) for a in sorted(core.MAJOR)], [str(a) for a in sorted(core.MAJOR)], width=90)
     minor = options_under("Mi Aspects", "minor", [str(a) for a in core.MINOR], [str(a) for a in core.MINOR], width=90)
