@@ -8,7 +8,7 @@ import math
 import uuid
 
 from . import core
-from .globechart import MARKER_RANGE, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_table, symbol_shapes
+from .globechart import MARKER_RANGE, MOTION_DAYS, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_table, symbol_shapes
 from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
@@ -22,7 +22,7 @@ RINGS[MO_LOG] = RINGS["True"]
 LOG_FULL_AU = 11.1                # about the farthest Saturn comes: all the Log scale's page
 RINGS_SHOWN = 4
 RA_MARKS = (0, 90, 180, 270)
-RUN_DAYS = 21915                  # how far time runs here (60 years) before it starts again, with the trails
+RUN_DAYS = MOTION_DAYS            # how far time runs here (60 years, as on AstroGlobe) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
 SIDES = 96                        # a ring is drawn with this many straight pieces
 
