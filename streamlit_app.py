@@ -1,6 +1,6 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
-Pages: AstroGlobe, Planets 3D, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only); Aspects Details,
+Pages: AstroGlobe, Celestial Sphere 3D, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only); Aspects Details,
 Customers and Naming Conventions for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
@@ -135,7 +135,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "of CB and CN on the Earth. Distance(%) from earth (DOB+Now)/2, at the end of the buttons' line: the average of each planet's Distance(%) at birth and now, whatever time the clock shows; below it, with DOB chosen, Distance(%) from earth on DOB. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Planet Path, picking from the list below it: the Sun's over a year, and the others' over one trip round "
                   "the sky around that moment (Moon 27.32 days around the clock's date, moving as time runs, tagged NN and SN at its north and south nodes where it crosses the Sun's path; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now, hollow, dashed lines, with CN at the place now.",
-    "Planets 3D": "The paths of the Sun, Moon and planets around the Earth (Ea), each at its own distance from the Earth (on AstroGlobe all are on one sphere). "
+    "Celestial Sphere 3D": "The paths of the Sun, Moon and planets around the Earth (Ea), each at its own distance from the Earth (on AstroGlobe all are on one sphere). "
                   "Each point is placed by its RA, Dec and distance. North is up, the axis from NCP to SCP tilted 23.44 degrees on the page, with everything else leaning with it. AU values: rings on the plane of the Earth's equator, each with its distance from the Earth in AU (1 AU is about the Sun's distance). "
                   "Rotate in 1s: Manual: time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second: 1h an hour, 1d a day, 1w a week, 1m a month: the clock beside the name gives the date and time, and the Sun, Moon and planets move as they really did, nearer and farther, the Moon's path going with it (time starts again after 4 years; refresh the page to go back to the start). With none picked it holds still. Each planet is sized by how big it looks from the Earth at that moment (a logarithmic scale, as to true scale the planets would not show), so it grows as it comes nearer; the Earth is on the same scale, as it looks from 1 AU (to true scale it would be far smaller than a dot). Point at a planet for its Dec/Lati, RA, Angular Size and distance, or at a path for its span and distances. "
                   "Time: Now is hollow with dashed paths, DOB solid; each path is one trip round the sky around that moment (Sun, Mercury and Venus a year; Moon 27.32 days; Mars 687; Jupiter 4333; Saturn 10759). "
@@ -150,7 +150,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Naming Conventions": "The Naming Conventions table: the short name (SN), long name (Name) and colour of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
-               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SN is unique, and stays once a row is in the table. Color is rgb(r,g,b) or #rrggbb; Color_Name is its name in words, for reference, and may be blank. The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on Planets 3D; NN's and SN's mark and name; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
+               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SN is unique, and stays once a row is in the table. Color is rgb(r,g,b) or #rrggbb; Color_Name is its name in words, for reference, and may be blank. The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on Celestial Sphere 3D; NN's and SN's mark and name; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
     "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",
@@ -190,7 +190,7 @@ def top_line(title: str, row: pd.Series | None):
         f'flex-wrap:nowrap; font-weight:600">'
         f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
-        + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("AstroGlobe", "Planets 3D") else "") +   # its script writes it
+        + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("AstroGlobe", "Celestial Sphere 3D") else "") +   # its script writes it
         f'</div>')
     # the slot fills the rest of the line
     TITLE_SLOT = line.container(width="stretch", horizontal=True, gap="small")
@@ -784,7 +784,7 @@ def page_my_details():
 
 core.COLOURS.update(db.planet_colours())                      # every chart's colours are the Naming Conventions table's
 pages = [st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe", default=True),
-         st.Page(page_space, title="Planets 3D", icon=":material/orbit:", url_path="planets-3d"),
+         st.Page(page_space, title="Celestial Sphere 3D", icon=":material/orbit:", url_path="celestial-sphere-3d"),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]

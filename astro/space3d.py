@@ -1,4 +1,4 @@
-"""The Planets 3D page: the paths of the Sun, Moon and planets around the Earth, each at its real distance, unlike AstroGlobe,
+"""The Celestial Sphere 3D page: the paths of the Sun, Moon and planets around the Earth, each at its real distance, unlike AstroGlobe,
 where all are on one sphere. A point is placed by its RA, Dec and distance only (equatorial, no zodiac); north is up and the
 Earth's equator is the flat plane. Drawn on the page in SVG, so its labels can be kept apart as it is turned."""
 from __future__ import annotations
