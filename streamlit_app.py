@@ -679,7 +679,7 @@ def page_naming():
     # the page's names for the table's columns (the store keeps its own)
     shown_as = {"SN": "SAbr", "Symbol": "Symb", "Name": "SDesc", "Color": "RGB", "Color_Name": "Color"}
     back = {v: k for k, v in shown_as.items()}
-    table = db.all_planets().assign(_sn=lambda d: d["SN"]).rename(columns=shown_as)
+    table = db.all_planets().assign(_sn=lambda d: d["SN"]).rename(columns=shown_as)[["Symb", "SAbr", "SDesc", "RGB", "Color", "Size", "_sn"]]
     crud_table("planets_table", table, lambda rows: db.planet_problems(rows.rename(columns=back)),
                lambda rows: "Committed: {} added, {} changed, {} deleted.".format(*db.save_planets(rows.rename(columns=back))),
                height=28 * (len(st.session_state.get("planets_table_working", table)) + 1) + 3,   # every row in view
