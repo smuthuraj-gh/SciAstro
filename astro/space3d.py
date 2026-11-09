@@ -14,11 +14,11 @@ from .mapchart import CHART_FONT_FAMILY, FONT
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
 RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
 SCALES = (FIT := "Fit", "True")   # Fit: each tenfold distance the same room, without the empty space between the Moon and the planets
-GAP = (0.003, 0.25, 0.08)         # Fit: from just past the Moon's farthest (AU) to inside any planet's nearest (Venus about 0.26),
-                                  # drawn as only this much (a fifth of a doubling: a thin space)
-LOG_FROM_AU = 0.001               # on Fit, the distance drawn at the Earth
+GAP = (0.003, 0.25, 0.03)         # Fit: from just past the Moon's farthest (AU) to inside any planet's nearest (Venus about 0.26),
+                                  # drawn as only this much (a tenth of a doubling: a thin space)
+LOG_FROM_AU = 0.0013              # on Fit, the distance drawn at the Earth (the Moon, about 0.0024-0.0027, close by)
 SPANS = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN}     # days, points, name: one trip round the sky
-RINGS = {FIT: (0.002, 0.5, 1.0, 10.0),            # none in the space taken out
+RINGS = {FIT: (0.003, 0.5, 1.0, 10.0),            # just past the Moon, then the planets: none in the space taken out
          "True": (0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)}   # AU; at most RINGS_SHOWN of them
 RINGS_SHOWN = 4
 RA_MARKS = (0, 90, 180, 270)
