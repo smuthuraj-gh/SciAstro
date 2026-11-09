@@ -200,7 +200,7 @@ def sky_svg(g: GlobeInput) -> tuple[str, list]:
     # the celestial equator
     circle = [(ra_facing + v, 0.0) for v in range(-180, 181, 2)]
     _sky_line(circle, ra_facing, AXIS_COLOUR, 1.4, False, "Celestial equator (Dec 0)", near, far)
-    path_label(circle, "Celestial Equator", AXIS_COLOUR, right=True)
+    path_label(circle, "CE", AXIS_COLOUR, right=True)
 
     hole =f"M{CX - E} {CY}a{E} {E} 0 1 0 {2 * E} 0a{E} {E} 0 1 0 {-2 * E} 0Z"     # the Earth's disc
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}" '
