@@ -64,11 +64,11 @@ aspect_details = sa.Table(
     *[sa.Column(c.lower().replace("-", "_"), sa.Float) for c in ORB_COLUMNS],
 )
 PLANET_NAMES = {"Su": "Sun", "Mo": "Moon", "Me": "Mercury", "Ve": "Venus", "Ma": "Mars", "Ju": "Jupiter", "Sa": "Saturn",
-                "NN": "Moon's North Node", "SN": "Moon's South Node", "CN": "Place Now", "CB": "Birth Place"}
-POINT_ROWS = ("NN", "SN", "CN", "CB")                         # the rows that are not bodies; always in the table
+                "Ea": "Earth", "NN": "Moon's North Node", "SN": "Moon's South Node", "CN": "Place Now", "CB": "Birth Place"}
+POINT_ROWS = ("Ea", "NN", "SN", "CN", "CB")                         # the rows that are not bodies; always in the table
 COLOUR_NAMES = {"rgb(255,0,0)": "Red", "rgb(112,48,160)": "Purple", "rgb(255,165,0)": "Orange", "rgb(0,176,80)": "Green",
                 "rgb(146,208,80)": "Light Green", "rgb(0,112,192)": "Blue", "rgb(0,176,240)": "Light Blue",
-                "rgb(0,0,0)": "Black"}                        # the colours the charts start with
+                "rgb(90,140,200)": "Steel Blue", "rgb(0,0,0)": "Black"}                        # the colours the charts start with
 
 
 def _now():
@@ -145,7 +145,7 @@ def _add_planet_color_name(eng: sa.Engine):
 
 def _seed_planets(eng: sa.Engine):
     """The planets table, when empty, starts with every row in the colours the charts use. A table made earlier gets the
-    rows it lacks of NN, SN (in its Moon's colour, as they were drawn), CN and CB."""
+    rows it lacks of Ea, NN, SN (in its Moon's colour, as they were drawn), CN and CB."""
     with eng.begin() as c:
         rows = dict(c.execute(sa.select(planets.c.sn, planets.c.color)).all())
         wanted = PLANET_NAMES if not rows else POINT_ROWS

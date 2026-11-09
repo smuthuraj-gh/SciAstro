@@ -67,7 +67,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                tilt=TILT, earth_km=EARTH_KM, moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                tilt=TILT, earth_km=EARTH_KM, earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer)) for ra in RA_MARKS])
 
@@ -161,10 +161,10 @@ _JS = r"""
     return {at, label};
   });
   const earthAt1Au = arcsecOf(D.earth_km, 1), earthR = radiusOf(earthAt1Au);
-  const earth = make("circle", svg, {r: earthR.toFixed(1), fill: "rgb(90,140,200)", stroke: DARK, "stroke-width": 1});
-  make("title", earth).textContent = "Earth, at the centre\nAngular Size: " + earthAt1Au.toFixed(1) + " arcsec, as seen from 1 AU";
-  const earthLabel = words(DARK);
-  earthLabel.textContent = "Earth";
+  const earth = make("circle", svg, {r: earthR.toFixed(1), fill: D.earth_colour, stroke: DARK, "stroke-width": 1});
+  make("title", earth).textContent = "Ea, at the centre\nAngular Size: " + earthAt1Au.toFixed(1) + " arcsec, as seen from 1 AU";
+  const earthLabel = words(D.earth_colour);
+  earthLabel.textContent = "Ea";
   const marks = D.marks.map((m) => {
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
     const tip = make("title", e), label = words(m.colour);
@@ -254,7 +254,7 @@ _JS = r"""
       lastStack = stack;
     }
     const taken = placed.map((q) => [q.x - q.r - 2, q.y - q.r - 2, q.x + q.r + 2, q.y + q.r + 2]).concat([[ex - earthR - 1, ey - earthR - 1, ex + earthR + 1, ey + earthR + 1]]);
-    put(earthLabel, around(ex, ey, earthR, 20), taken);
+    put(earthLabel, around(ex, ey, earthR, 8), taken);
     // always in the same order, so that a tag does not lose its place to another as the drawing turns
     marks.forEach((g) => {
       const q = placed.find((p) => p.g === g);
