@@ -138,13 +138,13 @@ KEY_GAP_HTML = 14
 
 def average_key_html(d_birth: dict, d_now: dict) -> str:
     """Each planet's Distance(%) from earth (DOB+Now)/2: the average of D at birth and D-N now. Empty if none has both."""
-    da = [(n, "&#9679;", round((d_birth[n] + d_now[n]) / 2, 2)) for n in core.BUTTON_ORDER
+    da = [(n, "&#9679;", round((d_birth[n] + d_now[n]) / 2, 2)) for n in core.PLANETS
           if d_birth.get(n) is not None and d_now.get(n) is not None]
     return _key_row(da, "Distance(%) from earth (DOB+Now)/2") if da else ""
 
 
 def globe_key_html(d_birth: dict, d_now: dict, show_dob: bool) -> str:
     """AstroGlobe's rows, one below the other: Distance(%) from earth (DOB+Now)/2, then with DOB chosen on DOB."""
-    dob = [(n, "&#9679;", d_birth[n]) for n in core.BUTTON_ORDER if d_birth.get(n) is not None]
+    dob = [(n, "&#9679;", d_birth[n]) for n in core.PLANETS if d_birth.get(n) is not None]
     rows = [average_key_html(d_birth, d_now), _key_row(dob, "Distance(%) from earth on DOB") if dob and show_dob else ""]
     return '<div style="display:flex; flex-direction:column; row-gap:6px">' + "".join(rows) + "</div>"
