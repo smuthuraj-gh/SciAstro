@@ -31,7 +31,7 @@ SIDES = 96                        # a ring is drawn with this many straight piec
 # where the Earth is, so it is drawn round the Earth's mark, larger than to scale: in its real direction from the Earth, at
 # MOON_AROUND_PX pixels at its mean distance, nearer and farther with its real distance)
 HELIO_BODIES = ("Me", "Ve", "Ea", "Mo", "Ma", "Ju", "Sa")
-MOON_AROUND_PX = 30.0
+MOON_AROUND_PX = 17.0            # just clear of the Earth's mark; the Moon itself Tiny there, a dot
 MOON_MEAN_AU = 0.00257
 HELIO_LOG_FROM_AU = 0.12          # on Fit, the distance drawn at the Sun (Mercury, about 0.31-0.47, close by)
 HELIO_SPANS = {"Mo": (27.32, 110, "Moon Path"), "Me": (87.97, 200, "Mercury Path"), "Ve": (224.7, 200, "Venus Path"), "Ea": (365.25, 200, "Earth Path"),
@@ -91,7 +91,8 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
             tables[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
             if not around:
                 outer = max(outer, reach(max(whole["dist"])))
-            marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock, rule=core.size_rule(p)))
+            rule = {"px": core.TINY_PX} if around else core.size_rule(p)     # round the Earth on HelioCentric: Tiny
+            marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock, rule=rule))
             days, steps, name = at["spans"][p]
             if with_paths is None or p in with_paths:         # the page draws it as time runs, from the body's own table
                 paths.append(dict(colour=core.colour(p), dash=clock == "Now", name=name, body=p, clock=clock, days=days, steps=steps, pts=[]))
