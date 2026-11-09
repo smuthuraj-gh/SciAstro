@@ -333,7 +333,7 @@ __SYMBOL_JS__
       lastStack = stack;
     }
     const taken = placed.map((q) => [q.x - q.r - 2, q.y - q.r - 2, q.x + q.r + 2, q.y + q.r + 2]).concat([[ex - earthR - 1, ey - earthR - 1, ex + earthR + 1, ey + earthR + 1]]);
-    if (!D.show_tags) {                            // AU Tags off: no tags at all (the lines stay)
+    if (!D.show_tags) {                            // AU off: no tags at all (the lines stay)
       poles.concat(spokes).forEach((g) => { g.label.style.display = "none"; });
       showClocks(t);
       return;
