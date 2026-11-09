@@ -319,10 +319,10 @@ def average_key_html(d_birth: dict, d_now: dict) -> str:
     return _key_row(da, "Distance(%) from earth (DOB+Now)/2") if da else ""
 
 
-def globe_key_html(d_birth: dict, d_now: dict) -> str:
-    """AstroGlobe's two rows, one below the other: Distance(%) from earth (DOB+Now)/2, then on DOB."""
+def globe_key_html(d_birth: dict, d_now: dict, show_dob: bool) -> str:
+    """AstroGlobe's rows, one below the other: Distance(%) from earth (DOB+Now)/2, then with DOB chosen on DOB."""
     dob = [(n, "&#9679;", d_birth[n]) for n in core.BUTTON_ORDER if d_birth.get(n) is not None]
-    rows = [average_key_html(d_birth, d_now), _key_row(dob, "Distance(%) from earth on DOB") if dob else ""]
+    rows = [average_key_html(d_birth, d_now), _key_row(dob, "Distance(%) from earth on DOB") if dob and show_dob else ""]
     return '<div style="display:flex; flex-direction:column; row-gap:6px">' + "".join(rows) + "</div>"
 
 
