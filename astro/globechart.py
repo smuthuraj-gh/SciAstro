@@ -43,6 +43,7 @@ HOUSE_COLOUR = "rgb(0,0,0)"
 ASPECT_COLOURS = {False: "rgb(0,0,0)", True: "rgb(110,110,110)"}     # major, minor
 HOUSE_VALUE_DEC = (-32.0, -44.0)  # the Dec of each house line's RA value, first and second place shown: low on the line
 HOUSE_LABEL_DEC = (55.0, 40.0)    # the Dec of the house names, first and second place shown: on the side tilted toward the viewer, off the planets' way
+PLACE_APART = 8.0                 # degrees of latitude and longitude within which CB and CN would overlap on the Earth
 EARTH_DEGREES_A_DAY = 360.98565  # the Earth's turn against the still sky in one day of the clock
 MOTION_DAYS = 1461                # how far time runs (4 years) before it starts again, and the tables' reach ...
 NODE_STEP_DAYS = 2.0              # the Moon's true node wobbles over days
@@ -319,8 +320,9 @@ def globe_figure(g: GlobeInput) -> go.Figure:
     fig = go.Figure()
     lats = [v / 2.0 for v in range(-180, 181)]           # a meridian, pole to pole, every half degree
     lons = [v / 2.0 for v in range(-360, 361)]           # a circle of latitude, right round, every half degree
-    for label, place, symbol, show, jd in (("CB", g.cb, "diamond", g.show_birth, g.jd_birth),
-                                           ("CN", g.cn, "triangle-up", g.show_now, g.jd_now)):
+    # (two places close together on the Earth, or the same: their names one above the other, not on each other)
+    close = g.show_birth and g.show_now and g.cb and g.cn and abs(g.cb[0] - g.cn[0]) < PLACE_APART and abs(g.cb[1] - g.cn[1]) < PLACE_APART
+    for label, place, show, jd in (("CB", g.cb, g.show_birth, g.jd_birth), ("CN", g.cn, g.show_now, g.jd_now)):
         if show and place:
             lat, lon = place
             if jd is not None:                                # its RA (the sidereal time there) and Dec (its latitude)
@@ -335,9 +337,9 @@ def globe_figure(g: GlobeInput) -> go.Figure:
                         hoverinfo="text", text=text, opacity=0.7 if label == "CN" else 0.9))
             fig.add_trace(go.Scattergeo(
                 lon=[lon], lat=[lat], mode="markers+text", showlegend=False, text=[f"<b>{label}</b>"],
-                textposition="bottom center" if label == "CB" else "top center",   # apart even in the same place
+                textposition=("bottom center" if label == "CB" else "top center") if close else "middle center",
                 textfont=dict(size=FONT, color=core.colour(label)),
-                marker=dict(size=12, color=core.colour(label), symbol=symbol), hoverinfo="text",
+                marker=dict(size=12, color=core.colour(label), opacity=0), hoverinfo="text",   # not seen: there to point at
                 hovertext=f"<b>{label}</b> {'birth place' if label == 'CB' else 'place now'}<br>"
                           f"latitude {lat:+.2f}, longitude {lon:+.2f}"))
 
