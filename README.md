@@ -9,7 +9,7 @@ zodiac), with the same rules.
 | Aspects | everyone | Planets Cycles' aspects as tables: one per angle, one row per aspect (date, planets, their Dec), newest first; a Major Aspects button (all five major angles) and a Minor Aspects button (30° / 45° / 72° / 135° / 144° / 150°) |
 | Planets Cycles | everyone | Dec (-M) lines from birth to now, with 0° / 60° / 90° / 120° / 180° aspect dots and tags |
 | Planets Distance(%) | everyone | distance (-D) lines from birth to now: D, the % between each planet's nearest and farthest |
-| GeoCentric | everyone | the paths of the Sun, Moon and planets in 3D, each at its real distance from the Earth (Log, True, or True-Log: Log without the empty space between the Moon and the planets); Rotate in 1s: Manual to drag it round, or a speed to run time |
+| GeoCentric | everyone | the paths of the Sun, Moon and planets in 3D, each at its real distance from the Earth (True, Log, or True-Log: Log without the empty space between the Moon and the planets); Rotate in 1s: Manual to drag it round, or a speed to run time |
 | Aspects Details | admins | the orbs per aspect and planet; a pair uses the larger of its two planets' orbs; Insert, Update, Delete, Commit |
 | Customers | admins | Insert, Update, Delete, Commit customers, click a column name to sort; import the workbook's Customers tab as CSV |
 | Naming Conventions | admins | the table in the database: SAbr (unique), Symb (shown in place of the SAbr on the pages), SDesc, RGB (the charts' colours for the planets, Ea, NN, SN, CN and CB), Color (its name, for reference), Size (how the charts size the planets and Ea); Insert, Update, Delete, Commit; click a column name to sort |

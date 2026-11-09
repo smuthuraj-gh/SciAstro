@@ -13,7 +13,7 @@ from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
 RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
-SCALES = ("Log", "True", TRUE_LOG := "True-Log")   # True-Log: as Log, without the empty space between the Moon and the planets
+SCALES = ("True", "Log", TRUE_LOG := "True-Log")   # True-Log: as Log, without the empty space between the Moon and the planets
 GAP = (0.003, 0.25, 0.3)          # True-Log: from just past the Moon's farthest (AU) to inside any planet's nearest (Venus about 0.26),
                                   # drawn as only this much of the Log scale (a ring there being twice the distance of the last)
 LOG_FROM_AU = 0.001               # on the Log scale, the distance drawn at the Earth: each ring then ten times the last
