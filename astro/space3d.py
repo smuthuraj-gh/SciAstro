@@ -13,11 +13,13 @@ from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 720
 RADIUS = 330.0                    # pixels from the Earth to the farthest thing drawn
-SCALES = ("Log", "True")
+SCALES = ("Log", "True", MO_LOG := "Mo Log")   # Mo Log: the Moon as on Log, at the same place on the page; the others as on True
 LOG_FROM_AU = 0.001               # on the Log scale, the distance drawn at the Earth: each ring then ten times the last
 SPANS = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN}     # days, points, name: one trip round the sky
 RINGS = {"Log": (0.002, 0.01, 0.1, 1.0, 10.0),
          "True": (0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)}   # AU; at most RINGS_SHOWN of them
+RINGS[MO_LOG] = RINGS["True"]
+LOG_FULL_AU = 11.1                # about the farthest Saturn comes: all the Log scale's page
 RINGS_SHOWN = 4
 RA_MARKS = (0, 90, 180, 270)
 SIDES = 96                        # a ring is drawn with this many straight pieces
@@ -25,7 +27,7 @@ SIDES = 96                        # a ring is drawn with this many straight piec
 
 def _reach(au: float, scale: str) -> float:
     """How far from the Earth a distance is drawn, before fitting to the page."""
-    return au if scale == "True" else max(math.log10(au / LOG_FROM_AU), 0.0)
+    return max(math.log10(au / LOG_FROM_AU), 0.0) if scale == "Log" else au
 
 
 def _xyz(ra: float, dec: float, reach: float) -> list[float]:
@@ -39,12 +41,15 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     """For each moment and body: its path, and its table to move it by. moments: (Now or DOB, Julian day, UTC offset)."""
     paths, marks, tables = [], [], {}
     outer = 0.0
+    if scale == MO_LOG and set(bodies) == {"Mo"}:             # nothing to be true to: as Log
+        scale = "Log"
     for clock, jd, _ in moments:
         tables[clock] = {}
         for p in bodies:
             whole = _motion_table(p, jd)
             tables[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
-            outer = max(outer, _reach(max(whole["dist"]), scale))
+            if p != "Mo" or scale != MO_LOG:
+                outer = max(outer, _reach(max(whole["dist"]), scale))
             marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock))
             days, steps, name = SPANS[p]
             if p == "Mo":                                     # the page works it out as time runs, from the Moon's table
@@ -61,7 +66,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer)) for ra in RA_MARKS])
 
@@ -88,8 +93,9 @@ _JS = r"""
     const turn = ((b.ra[i + 1] - b.ra[i] + 540) % 360) - 180;
     return {ra: (b.ra[i] + turn * f + 360) % 360, dec: b.dec[i] + (b.dec[i + 1] - b.dec[i]) * f, dist: b.dist[i] + (b.dist[i + 1] - b.dist[i]) * f};
   };
-  const xyz = (s) => {                             // as space3d._xyz, at the distance as the scale draws it
-    const r = D.scale === "True" ? s.dist : Math.max(Math.log10(s.dist / D.log_from), 0), a = s.ra * RAD, d = s.dec * RAD;
+  const xyz = (s, moon) => {                       // as space3d._xyz, at the distance as the scale draws it
+    const log = Math.max(Math.log10(s.dist / D.log_from), 0);
+    const r = D.scale === "Log" ? log : D.scale === "True" || !moon ? s.dist : log * D.moon_share, a = s.ra * RAD, d = s.dec * RAD;
     return [r * Math.cos(d) * Math.cos(a), r * Math.cos(d) * Math.sin(a), r * Math.sin(d)];
   };
   const signed = (v) => (v >= 0 ? "+" : "") + v.toFixed(2);
@@ -190,7 +196,7 @@ _JS = r"""
     const b = D.tables[p.moon].Mo, first = Math.max(0, Math.min(t - D.moon_month / 2, D.days - D.moon_month));
     const samples = [];
     for (let v = 0; v !== 56; v++) samples.push(sample(b, first + v * D.moon_month / 55));
-    p.pts = samples.map(xyz);
+    p.pts = samples.map((s) => xyz(s, true));
     const dists = samples.map((s) => s.dist);
     p.tip = p.name + " " + p.moon + ": the month around the clock's date (distance from earth " + Math.min(...dists).toPrecision(4) +
       " to " + Math.max(...dists).toPrecision(4) + " AU)";
@@ -216,7 +222,7 @@ _JS = r"""
       g.draw(g.p.pts, g.p.moon ? g.p.tip : null);
     });
     const placed = marks.map((g) => {
-      const s = sample(g.table, t), [x, y, z] = point(xyz(s));
+      const s = sample(g.table, t), [x, y, z] = point(xyz(s, g.m.name === "Mo"));
       // sized by how wide it looks from the Earth then, on AstroGlobe's logarithmic scale (to true scale the planets would not show)
       const arcsec = 2 * Math.atan(g.table.km / (s.dist * D.au_km)) / RAD * 3600;
       const share = Math.max(0, Math.min(1, (Math.log(arcsec) - LOW) / (HIGH - LOW))), r = D.radii[0] + (D.radii[1] - D.radii[0]) * share;
