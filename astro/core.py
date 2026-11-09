@@ -19,6 +19,7 @@ PLANETS = ["Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa"]          # Swiss Ephemeris 
 BUTTON_ORDER = ["Sa", "Ju", "Ma", "Ve", "Me", "Su", "Mo"]     # the order of the workbook's buttons and loops
 PLANET_ID = {p: i for i, p in enumerate(PLANETS)}
 AU_KM = 149597870.7
+TRUE_NODE = 11                                                # Swiss Ephemeris number of the Moon's true node
 
 COLOURS = {"Sa": "rgb(255,0,0)", "Ju": "rgb(112,48,160)", "Ma": "rgb(255,165,0)", "Ve": "rgb(0,176,80)",
            "Me": "rgb(146,208,80)", "Su": "rgb(0,112,192)", "Mo": "rgb(0,176,240)", "CN": "rgb(192,0,128)",
@@ -85,6 +86,14 @@ def position(label: str, jd_ut: float) -> Pos:
     if x is None:
         raise RuntimeError(f"Swiss Ephemeris: {err}")
     return Pos(x[0], x[1], x[2], x[3], x[4], x[5])
+
+
+def moon_north_node(jd_ut: float) -> tuple[float, float]:
+    """The (RA, Dec) of the Moon's true north node, where its path crosses the Sun's going north. The south node is opposite."""
+    x, err = se.calc_ut(jd_ut, TRUE_NODE)
+    if x is None:
+        raise RuntimeError(f"Swiss Ephemeris: {err}")
+    return x[0], x[1]
 
 
 def distance_pct(label: str, dist_au: float) -> float | None:

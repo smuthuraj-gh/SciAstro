@@ -43,6 +43,7 @@ HOUSE_VALUE_DEC = (-32.0, -44.0)  # the Dec of each house line's RA value, first
 HOUSE_LABEL_DEC = (55.0, 40.0)    # the Dec of the house names, first and second place shown: on the side tilted toward the viewer, off the planets' way
 EARTH_DEGREES_A_DAY = 360.98565  # the Earth's turn against the still sky in one day of the clock
 MOTION_DAYS = 1461                # how far time runs (4 years) before it starts again, and the tables' reach ...
+NODE_STEP_DAYS = 2.0              # the Moon's true node wobbles over days
 MOTION_STEP_DAYS = {"Mo": 0.5, "Me": 2.0, "Ve": 4.0, "Su": 5.0, "Ma": 5.0, "Ju": 20.0, "Sa": 20.0}    # ... and their steps
 CX, CY = WIDTH / 2.0, HEIGHT / 2.0
 TEXT_W, TEXT_H = 8.0, 18.0      # a character's width and a line's height, for keeping labels apart
@@ -108,6 +109,13 @@ def _motion_table(planet: str, jd: float) -> dict:
             "dist": [round(p.dist_au, 6) for p in pts], "dec_speed": [round(p.dec_speed, 4) for p in pts],
             "km": BODY_RADIUS_KM[planet],
             "lo": core.DIST_RANGE[planet][0], "hi": core.DIST_RANGE[planet][1]}
+
+
+@lru_cache(maxsize=64)
+def _node_table(jd: float) -> dict:
+    """The Moon's north node from jd on, for the page to move NN and SN by (the south node is opposite it)."""
+    pts = [core.moon_north_node(jd + i * NODE_STEP_DAYS) for i in range(int(MOTION_DAYS / NODE_STEP_DAYS) + 2)]
+    return {"step": NODE_STEP_DAYS, "ra": [round(p[0], 3) for p in pts], "dec": [round(p[1], 3) for p in pts]}
 
 
 def _sun_path(angle: float) -> tuple[float, float]:
@@ -241,7 +249,8 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 places.append(dict(label=label, title=title, lat=place[0], lon=place[1], ra=core.lst(when, place[1]),
                                    set=len(sets)))
             sets.append(dict(clock=name, jd=when, offset=offset, shown=[p for p in core.BUTTON_ORDER if p in g.bodies],
-                             tables={p: {**_motion_table(p, when), "colour": core.colour(p)} for p in core.BUTTON_ORDER}))
+                             tables={p: {**_motion_table(p, when), "colour": core.colour(p)} for p in core.BUTTON_ORDER},
+                             node=_node_table(when) if "Mo" in g.paths else None))
     aspects = [dict(angle=a, colour=ASPECT_COLOURS[a in core.MINOR], width=1.0 if a in core.MINOR else 1.5,
                     orbs={f"{p}|{q}": [g.orbs.pair(a, p, q, False), g.orbs.pair(a, p, q, True)]
                           for i, p in enumerate(core.BUTTON_ORDER) for q in core.BUTTON_ORDER[i + 1:]})
@@ -440,6 +449,23 @@ _MOTION_JS = r"""
     });
     return "\nApproaching: " + names(near) + "\nLeaving: " + names(away);
   };
+  const nodes = [];                                // with the Moon's path: where it crosses the Sun's, north (NN) and south (SN)
+  D.sets.forEach((s) => {
+    if (!s.node) return;
+    const colour = s.tables.Mo.colour, now = s.clock === "Now";
+    [["NN", 0, 1, "north"], ["SN", 180, -1, "south"]].forEach(([name, turn, sign, pole]) => {
+      const mark = make("rect", markG, {width: 8, height: 8, fill: now ? "white" : colour, stroke: colour, "stroke-width": 2,
+                                        style: "pointer-events:auto"});
+      const label = words(markG, {"text-anchor": "middle", fill: colour});
+      label.textContent = name;
+      nodes.push({name, turn, sign, pole, s, mark, tip: make("title", mark), label});
+    });
+  });
+  const nodeAt = (node, t) => {                    // between its two nearest table rows
+    const n = node.s.node, u = t / n.step, i = Math.min(Math.floor(u), n.ra.length - 2), f = u - i;
+    const change = ((n.ra[i + 1] - n.ra[i] + 540) % 360) - 180;
+    return {ra: (n.ra[i] + change * f + node.turn + 720) % 360, dec: node.sign * (n.dec[i] + (n.dec[i + 1] - n.dec[i]) * f)};
+  };
   const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
   const paths = D.paths.map((p) => Object.assign({}, p, {draw: line(p.colour, p.dash), label: words(markG, {"text-anchor": "end", fill: p.colour})}));
   paths.forEach((p) => { p.label.textContent = p.name; });
@@ -529,12 +555,30 @@ _MOTION_JS = r"""
         "\nDistance from earth: " + Math.max(0, Math.round(pct)) + "%" + moving(body, s, t);
       if (!hidden) taken.push([x - r - 1, y - r - 1, x + r + 1, y + r + 1]);   // no label may cover a marker
     });
+    nodes.forEach((node) => {
+      const at = nodeAt(node, t), [x, y, z] = point(at.ra, at.dec);
+      const hidden = z < 0 && Math.hypot(x - D.cx, y - D.cy) < D.earth, fade = z >= 0 ? 1 : 0.55;
+      Object.assign(node, {x, y, hidden, fade});
+      node.mark.setAttribute("x", (x - 4).toFixed(1)); node.mark.setAttribute("y", (y - 4).toFixed(1));
+      node.mark.setAttribute("opacity", fade);
+      node.mark.style.display = hidden ? "none" : ""; node.label.style.display = hidden ? "none" : "";
+      node.tip.textContent = node.name + " " + node.s.clock + ": the Moon's " + node.pole + " node (" + (z >= 0 ? "near" : "far") +
+        " side of the sphere)\nDec/Lati: " + (at.dec >= 0 ? "+" : "") + at.dec.toFixed(2) + "\nRA: " + at.ra.toFixed(2);
+      if (!hidden) taken.push([x - 6, y - 6, x + 6, y + 6]);
+    });
     bodies.forEach((body) => {
       if (body.hidden) return;
       const [lx, ly] = spot(body, body.x, body.y, body.r, taken);
       taken.push(boxOf(lx, ly, body.name));
       body.label.setAttribute("x", lx.toFixed(1)); body.label.setAttribute("y", ly.toFixed(1));
       body.label.setAttribute("opacity", body.fade);
+    });
+    nodes.forEach((node) => {
+      if (node.hidden) return;
+      const [lx, ly] = spot(node, node.x, node.y, 5, taken);
+      taken.push(boxOf(lx, ly, node.name));
+      node.label.setAttribute("x", lx.toFixed(1)); node.label.setAttribute("y", ly.toFixed(1));
+      node.label.setAttribute("opacity", node.fade);
     });
     aspectLines.forEach((l) => {                   // each its tag, as 0-Ju-Ma, in the first free place along its line; none if none
       l.tag.style.display = "none";
