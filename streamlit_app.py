@@ -1,6 +1,6 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
-Pages: AstroMap, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only); Aspects Details,
+Pages: AstroGlobe, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only); Aspects Details,
 Customers and Planets for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
@@ -27,7 +27,7 @@ st.html("""<style>
 [data-baseweb="popover"] :is(p, span, div, li):not([data-testid="stIconMaterial"]),
 [role="dialog"] :is(p, span, div, li, h1, h2, h3, button):not([data-testid="stIconMaterial"]),
 [data-testid="stTooltipContent"] * { font-size: 13px !important; }
-/* except the planet dots in AstroMap's Distance(%) rows, bigger (mapchart.DOT_SCALE) */
+/* except the planet dots in the Distance(%) row, bigger (mapchart.DOT_SCALE) */
 .stApp span.key-dot { font-size: """ + str(round(mapchart.FONT * mapchart.DOT_SCALE)) + """px !important; }
 /* an editable table's cell editor opens outside the table: it undoes the page's zoom, as the table does, to open on its cell */
 #portal { zoom: calc(1 / var(--app-zoom, 1)); }
@@ -130,17 +130,10 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "to the start). Below it, Manual: everything is frozen, the houses too; drag the chart sideways only to turn the AstroGlobe and see its other side. Or pick a speed to start, how much time passes each second: 1h an hour, 1d a day, 1w a week, 1m a month; with none picked it holds still. The Earth starts as it was at that "
                   "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth then (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its Dec/Lati, RA, Angular Size, Distance from earth and the others approaching and leaving it in Dec/Lati; at CB or CN for its Long, Dec/Lati, RA and the planets approaching and leaving its Dec/Lati). The far side of the sphere is "
-                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Ma Aspects (0, 60, 90, 120, 180; black) and Mi Aspects (30, 45, 72, 135, 144, 150; grey): pick the angles to draw a line between any two planets shown that are in that aspect, by the orbs in Aspects Details, as time runs; dotted for Now; point at a line for its name. Coordinates, with Houses, RA, Dec, Lati and Long below it: which lines to show. Houses: twelve lines on the sphere, 30 degrees apart from the RA of CB (solid) and of CN (dashed), named H01 to H12 as on AstroMap, turning with the Earth. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
-                  "of CB and CN on the Earth. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Pla Paths, picking from the list below it: the Sun's over a year, and the others' over one trip round "
+                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Ma Aspects (0, 60, 90, 120, 180; black) and Mi Aspects (30, 45, 72, 135, 144, 150; grey): pick the angles to draw a line between any two planets shown that are in that aspect, by the orbs in Aspects Details, as time runs; dotted for Now; point at a line for its name. Coordinates, with Houses, RA, Dec, Lati and Long below it: which lines to show. Houses: twelve lines on the sphere, 30 degrees apart from the RA of CB (solid) and of CN (dashed), named H01 to H12, turning with the Earth. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
+                  "of CB and CN on the Earth. Distance(%) from earth (DOB+Now)/2, at the end of the buttons' line: the average of each planet's Distance(%) at birth and now, whatever time the clock shows. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Pla Paths, picking from the list below it: the Sun's over a year, and the others' over one trip round "
                   "the sky around that moment (Moon 27.32 days; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now, hollow, dashed lines, with CN at the place now.",
-    "AstroMap": "The planets at birth (DOB) and now (Now) on a world map turned by the sky, in RA (along) and "
-                "Declination (up). Map: the coastlines. DOB: the planets at birth, with house lines from CB. "
-                "Now: the planets now (-N), with house lines from CN. Major Aspects: 0, 60, 90, 120, 180 degrees. "
-                "Minor Aspects: 30, 45, 72, 135, 144, 150 degrees. Beside the buttons: each planet's Distance(%) "
-                "from earth (DOB+Now)/2 (the average of its distance at birth and now) and Distance(%) from earth on DOB; with Now, "
-                "Distance(%) from earth at Now under the map. Point at a planet to see the planets it is approaching and leaving, "
-                "in RA and in Declination.",
     "Aspects": "The aspects between the chosen planets over the period, as tables, newest first: one table per "
                "angle, a row each time two planets came into it (RA within the angle's RA orb, Declination within "
                "its Dec orb). Major Aspects: 0, 60, 90, 120, 180 degrees. Minor Aspects: 30, 45, 72, 135, 144, "
@@ -183,7 +176,7 @@ def top_line(title: str, row: pd.Series | None):
                  f'opacity:0.55; font-weight:600; font-size:0.85em; line-height:1; vertical-align:middle">?</span>'
                  ) if help_text else ""
     # the First Name right after the title (and its help), on the same line; then a slot (TITLE_SLOT) where a page may
-    # put more on this line, as AstroMap its Distance(%) rows, their titles level with the page title
+    # put more on this line
     global TITLE_SLOT
     line = st.container(horizontal=True, vertical_alignment="top", gap="large")
     line.container(width="content").html(
@@ -193,8 +186,7 @@ def top_line(title: str, row: pd.Series | None):
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
         + ('<span class="globe-clock" style="white-space:pre"></span>' if title == "AstroGlobe" else "") +   # its script writes it
         f'</div>')
-    # the slot fills the rest of the line, its content at the right end: on AstroMap the rows then start after the
-    # buttons below (Map ... Minor Aspects), never above them
+    # the slot fills the rest of the line, its content at the right end
     TITLE_SLOT = line.container(width="stretch", horizontal_alignment="right")
 
 
@@ -359,35 +351,6 @@ def need_chart(prep: Prepared | None) -> bool:
 
 
 # ---------------------------------------------------------------- pages
-def page_map():
-    row, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="top", gap="small")       # buttons, then the key
-    if not need_chart(prep):
-        return
-    shown = head.pills("Show", ["Map", "DOB", "Now", "Major Aspects", "Minor Aspects"],
-                       selection_mode="multi", default=["DOB", "Major Aspects", "Minor Aspects"],
-                       key="map_show_v8", label_visibility="collapsed")
-    show_birth, show_now = "DOB" in shown, "Now" in shown
-    major, minor = "Major Aspects" in shown, "Minor Aspects" in shown
-    jd_now = core.now_jd()
-    now_pts, d_now = now_values(jd_now)
-    m = mapchart.MapInput(
-        birth=prep.birth, now=now_pts, cn=prep.cn, jd_birth=prep.jd_birth, jd_now=jd_now,
-        d_birth=prep.d_birth, d_now=d_now, show_birth=show_birth, show_now=show_now, major=major, minor=minor,
-        show_map="Map" in shown)
-    key = mapchart.key_html(m)
-    if key:     # Distance(%) from earth (DOB+Now)/2, then on DOB: one line below the page title, on the buttons' line,
-        # at its right end (after Minor Aspects), their titles level with the buttons' top
-        head.container(width="stretch", horizontal_alignment="right").markdown(
-            key, unsafe_allow_html=True, width="content")
-    # Laid out at its own fixed size (every label is spaced for it) and scaled down whole to fit a narrower column:
-    # st.plotly_chart would re-lay it out narrower and bring the labels back on top of each other
-    # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
-    st.html(mapchart.fit_html(mapchart.map_figure(m, orbs())), unsafe_allow_javascript=True)
-    if show_now:
-        st.caption(f"Now: {now_local_text(prep.cn_tz)}" + ("" if prep.cn else " - no City-N for this customer, so no CN"))
-
-
 def period(prep: Prepared, row=None) -> tuple[float, float] | None:
     """The Start / End inputs (UT; birth to now unless changed) as Julian days, or None (with a warning) if unusable.
     With row (a horizontal container) they go into it, each just wide enough; otherwise in four columns."""
@@ -482,7 +445,10 @@ def page_globe():
         manual = speed == globechart.MANUAL                           # the Earth is dragged round by hand
         day_seconds = globechart.SPEEDS.get(speed)                    # nothing picked: it holds still
     jd_now = core.now_jd()
-    now_pts, _ = now_values(jd_now)
+    now_pts, d_now = now_values(jd_now)
+    key = mapchart.average_key_html(prep.d_birth, d_now)
+    if key:                                                   # at the end of the buttons' line, after Rotate in 1s
+        head.container(width="stretch", horizontal_alignment="right").markdown(key, unsafe_allow_html=True, width="content")
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
     g = globechart.GlobeInput(
         birth=prep.birth, now=now_pts, jd_birth=prep.jd_birth, jd_now=jd_now,
@@ -504,7 +470,7 @@ def page_range():
     jds, dec_on, angles, _ = got
     with st.spinner("Drawing..."):
         fig, note = _range_cached(tuple(dec_on), tuple(angles), *jds, db.orb_table().to_csv(index=False))
-    # fixed size, scaled down whole to fit (its tags are placed for that size), as AstroMap
+    # fixed size, scaled down whole to fit (its tags are placed for that size)
     st.html(mapchart.fit_html(fig), unsafe_allow_javascript=True)
     if note:
         st.caption(note)
@@ -745,8 +711,7 @@ def page_my_details():
         details_form(row)
 
 
-pages = [st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe"),
-         st.Page(page_map, title="AstroMap", icon=":material/public:", url_path="astromap", default=True),
+pages = [st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe", default=True),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]

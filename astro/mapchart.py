@@ -312,14 +312,17 @@ KEY_GAP = 3
 KEY_GAP_HTML = 14
 
 
+def average_key_html(d_birth: dict, d_now: dict) -> str:
+    """Each planet's Distance(%) from earth (DOB+Now)/2: the average of D at birth and D-N now. Empty if none has both."""
+    da = [(n, "&#9679;", round((d_birth[n] + d_now[n]) / 2, 2)) for n in core.BUTTON_ORDER
+          if d_birth.get(n) is not None and d_now.get(n) is not None]
+    return _key_row(da, "Distance(%) from earth (DOB+Now)/2") if da else ""
+
+
 def key_html(m: MapInput) -> str:
     """For beside the buttons: each planet's Distance(%) from earth (DOB+Now)/2 (the average of D at birth and D-N now), then
     to its right each planet at birth with its D (Distance(%) from earth on DOB) beneath (on the next line if there is no room)."""
-    rows = []
-    da = [(n, "&#9679;", round((m.d_birth[n] + m.d_now[n]) / 2, 2)) for n in core.BUTTON_ORDER
-          if m.d_birth.get(n) is not None and m.d_now.get(n) is not None]
-    if da:
-        rows.append(_key_row(da, "Distance(%) from earth (DOB+Now)/2"))
+    rows = [row for row in [average_key_html(m.d_birth, m.d_now)] if row]
     if m.show_birth and m.birth:
         rows.append(_key_row([(n, "&#9679;", m.d_birth.get(n)) for n in m.birth if n != "CB"],
                              "Distance(%) from earth on DOB"))
