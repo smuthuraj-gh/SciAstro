@@ -17,6 +17,7 @@ GREG_CAL = 1
 FLG_SWIEPH = 2
 FLG_SPEED = 256
 FLG_EQUATORIAL = 2048
+FLG_HELCTR = 8                    # positions as seen from the Sun
 CALC_FLAGS = FLG_SWIEPH | FLG_EQUATORIAL | FLG_SPEED
 # The Swiss Ephemeris keeps its state in globals: two page loads calling it at once can crash the server (an access
 # violation), so one call at a time
@@ -28,11 +29,11 @@ try:
     _swe.set_ephe_path(EPHE_PATH)
     BACKEND = "pyswisseph"
 
-    def calc_ut(jd_ut: float, ipl: int) -> tuple[tuple[float, ...] | None, str]:
+    def calc_ut(jd_ut: float, ipl: int, flags: int = CALC_FLAGS) -> tuple[tuple[float, ...] | None, str]:
         """(RA, Dec, distance AU, and their daily speeds), or (None, error text)."""
         try:
             with _ONE_AT_A_TIME:
-                x, _flags = _swe.calc_ut(jd_ut, ipl, CALC_FLAGS)
+                x, _flags = _swe.calc_ut(jd_ut, ipl, flags)
             return tuple(x), ""
         except _swe.Error as exc:  # pragma: no cover - depends on the files
             return None, str(exc)
@@ -60,11 +61,11 @@ except ImportError:
     _dll.swe_set_ephe_path(EPHE_PATH.encode("mbcs"))
     BACKEND = "swedll64 (ctypes)"
 
-    def calc_ut(jd_ut: float, ipl: int) -> tuple[tuple[float, ...] | None, str]:
+    def calc_ut(jd_ut: float, ipl: int, flags: int = CALC_FLAGS) -> tuple[tuple[float, ...] | None, str]:
         x = (ctypes.c_double * 6)()
         err = ctypes.create_string_buffer(256)
         with _ONE_AT_A_TIME:
-            failed = _dll.swe_calc_ut(jd_ut, ipl, CALC_FLAGS, x, err) < 0
+            failed = _dll.swe_calc_ut(jd_ut, ipl, flags, x, err) < 0
         if failed:
             return None, err.value.decode("latin-1", "replace")
         return tuple(x), ""

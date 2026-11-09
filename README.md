@@ -10,6 +10,7 @@ zodiac), with the same rules.
 | Planets Cycles | everyone | Dec (-M) lines from birth to now, with 0° / 60° / 90° / 120° / 180° aspect dots and tags |
 | Planets Distance(%) | everyone | distance (-D) lines from birth to now: D, the % between each planet's nearest and farthest |
 | GeoCentric | everyone | the paths of the Sun, Moon and planets in 3D, each at its real distance from the Earth (Fit: each tenfold distance the same room, without the empty space between the Moon and the planets; or True); Rotate in 1s: Manual to drag it round, or a speed to run time |
+| HelioCentric | everyone | as GeoCentric, with the Sun at the centre: the paths of the planets and the Earth around the Sun in 3D, each at its real distance from the Sun (RA, Dec and distance as seen from the Sun; Fit or True) |
 | Aspects Details | admins | the orbs per aspect and planet; a pair uses the larger of its two planets' orbs; Insert, Update, Delete, Commit |
 | Customers | admins | Insert, Update, Delete, Commit customers, click a column name to sort; import the workbook's Customers tab as CSV |
 | Naming Conventions | admins | the table in the database: SAbr (unique), Symb (shown in place of the SAbr on the pages), SDesc, RGB (the charts' colours for the planets, Ea, NN, SN, CN and CB), Color (its name, for reference), Size (how the charts size the planets and Ea); Insert, Update, Delete, Commit; click a column name to sort |

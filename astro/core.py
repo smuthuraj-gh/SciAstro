@@ -21,6 +21,7 @@ BUTTON_ORDER = ["Sa", "Ju", "Ma", "Ve", "Me", "Su", "Mo"]     # the order of the
 PLANET_ID = {p: i for i, p in enumerate(PLANETS)}
 AU_KM = 149597870.7
 TRUE_NODE = 11                                                # Swiss Ephemeris number of the Moon's true node
+EARTH = 14                                                    # Swiss Ephemeris number of the Earth (as seen from the Sun)
 
 # The recommended colours: the traditional ones (Sun gold, Moon silver, Mars red, Venus green, Jupiter purple, Saturn brown),
 # made to show on white and to be told apart, colour-blind viewers too (the Naming Conventions table can change them)
@@ -143,6 +144,15 @@ class Pos:
 
 def position(label: str, jd_ut: float) -> Pos:
     x, err = se.calc_ut(jd_ut, PLANET_ID[label])
+    if x is None:
+        raise RuntimeError(f"Swiss Ephemeris: {err}")
+    return Pos(x[0], x[1], x[2], x[3], x[4], x[5])
+
+
+def helio_position(label: str, jd_ut: float) -> Pos:
+    """As position, but seen from the Sun: RA and Dec on the same equatorial frame (the Earth's equator), and the distance from
+    the Sun. Ea is the Earth."""
+    x, err = se.calc_ut(jd_ut, EARTH if label == "Ea" else PLANET_ID[label], se.CALC_FLAGS | se.FLG_HELCTR)
     if x is None:
         raise RuntimeError(f"Swiss Ephemeris: {err}")
     return Pos(x[0], x[1], x[2], x[3], x[4], x[5])

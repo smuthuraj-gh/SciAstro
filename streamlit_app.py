@@ -1,6 +1,6 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
-Pages: AstroGlobe, GeoCentric, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only); Aspects Details,
+Pages: AstroGlobe, GeoCentric, HelioCentric, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only); Aspects Details,
 Customers and Naming Conventions for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
@@ -138,6 +138,13 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "Rotate in 1s: Manual: time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second: 1h an hour, 1d a day, 1w a week, 1m a month, 1y a year: the clock beside the name gives the date and time, and the Sun, Moon and planets move as they really did, nearer and farther, the Moon's path going with it (time starts again after 72 years; refresh the page to go back to the start). With none picked it holds still. Each has its symbol inside its marker (☉ Su, ☽ Mo, ☿ Me, ♀ Ve, ♂ Ma, ♃ Ju, ♄ Sa, ⊕ Ea). Sizes follow the Size column of Naming Conventions: usually a planet by how big it looks from the Earth at that moment (a logarithmic scale, as to true scale the planets would not show), so it grows as it comes nearer, and the Earth as its Size says (Tiny, a dot, when it says nothing readable; to true scale it would be far smaller still). Point at a planet for its Dec/Lati, RA, Angular Size and distance, or at a path for its span and distances. "
                   "Planet Path: which of the planets shown have their paths drawn. Time: Now is hollow with dashed paths, DOB solid; each path is a trail behind its planet, drawn only while time runs: where it has really been since time started running, kept for up to 72 years, when time starts again (a trail over many years is drawn with fewer points). With time standing still there are no trails, and each start begins new ones. "
                   "Scale: on Fit each tenfold distance takes the same room, so the Moon's path and Saturn's can be seen together, and the empty space between the Moon's path and the planets' is taken out (it alone is not to scale); True is to scale, where the Moon's path is too small to tell from the Earth (pick Mo alone to see it). A label with no room is left off: point at its mark.",
+    "HelioCentric": "As GeoCentric, with the Sun (Su) at the centre: the paths of the planets and the Earth (Ea) around the Sun, each at its own distance from the Sun, "
+                    "placed by its RA, Dec and distance as seen from the Sun, on the same frame as from the Earth (the plane of the Earth's equator, north up). The Moon is not shown: seen from the Sun it is where the Earth is. "
+                    "AU Tags: all the tags, NCP, SCP and the RA names, and rings on the plane of the Earth's equator, each with its distance from the Sun in AU (1 AU is about the Earth's distance); off, the drawing has no tags. "
+                    "Rotate in 1s: Manual: time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second (1h, 1d, 1w, 1m, 1y): the clock beside the name gives the date and time, and the planets and the Earth move round the Sun as they really did (time starts again after 72 years; refresh the page to go back to the start). With none picked it holds still. "
+                    "Each has its symbol inside its marker (☿ Me, ♀ Ve, ⊕ Ea, ♂ Ma, ♃ Ju, ♄ Sa, ☉ Su). Sizes follow the Size column of Naming Conventions, as on GeoCentric: usually a planet by how big it looks from the Earth at that moment (a logarithmic scale), the Sun and the Earth as their Sizes say. Point at a planet for its Dec/Lati, RA, Angular Size and distance from the Sun, or at a path for its span and distances. "
+                    "Planet Path: which of the planets shown have their paths drawn. Time: Now is hollow with dashed paths, DOB solid; each path is a trail behind its planet, drawn only while time runs, kept for up to 72 years (with time standing still there are no trails, and each start begins new ones). "
+                    "Scale: on Fit each tenfold distance takes the same room, so Mercury's path and Saturn's can be seen together; True is to scale. A label with no room is left off: point at its mark.",
     "Aspects": "The aspects between the chosen planets over the period, as tables, newest first: one table per "
                "angle, a row each time two planets came into it (RA within the angle's RA orb, Declination within "
                "its Dec orb). Major Aspects: 0, 60, 90, 120, 180 degrees. Minor Aspects: 30, 45, 72, 135, 144, "
@@ -188,7 +195,7 @@ def top_line(title: str, row: pd.Series | None):
         f'flex-wrap:nowrap; font-weight:600">'
         f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
-        + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("AstroGlobe", "GeoCentric") else "") +   # its script writes it
+        + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("AstroGlobe", "GeoCentric", "HelioCentric") else "") +   # its script writes it
         f'</div>')
     # the slot fills the rest of the line
     TITLE_SLOT = line.container(width="stretch", horizontal=True, gap="small")
@@ -482,19 +489,29 @@ def page_globe():
 
 
 def page_space():
-    """The paths at their real distances, in 3D."""
+    """The paths around the Earth at their real distances, in 3D."""
+    space_page("space", "Ea", globechart.BODY_CHOICES)
+
+
+def page_helio():
+    """The paths around the Sun at their real distances, in 3D."""
+    space_page("helio", "Su", space3d.HELIO_BODIES)
+
+
+def space_page(key: str, centre: str, choices: tuple):
+    """GeoCentric (centre Ea) or HelioCentric (centre Su): its buttons each keep their own choice (key)."""
     _, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
     if not need_chart(prep):
         return
-    shown = head.pills("Time", ["Now", "DOB"], selection_mode="multi", default=["DOB"], key="space_time") or []
-    bodies = head.pills("Planets", list(globechart.BODY_CHOICES), selection_mode="multi", default=list(globechart.BODY_CHOICES),
-                        format_func=core.symbol_of, key="space_bodies") or []
-    with_paths = head.pills("Planet Path", list(globechart.BODY_CHOICES), selection_mode="multi", default=list(globechart.BODY_CHOICES),
-                            format_func=core.symbol_of, key="space_paths") or []
-    scale = head.pills("Scale", space3d.SCALES, default=space3d.FIT, key="space_scale") or space3d.FIT
-    show_au = bool(head.pills("AU Tags", ["AU Tags"], key="space_au", label_visibility="collapsed"))
-    speed = head.pills("Rotate in 1s", [globechart.MANUAL] + list(globechart.SPEEDS), default=globechart.MANUAL, key="space_speed")
+    shown = head.pills("Time", ["Now", "DOB"], selection_mode="multi", default=["DOB"], key=f"{key}_time") or []
+    bodies = head.pills("Planets", list(choices), selection_mode="multi", default=list(choices),
+                        format_func=core.symbol_of, key=f"{key}_bodies") or []
+    with_paths = head.pills("Planet Path", list(choices), selection_mode="multi", default=list(choices),
+                            format_func=core.symbol_of, key=f"{key}_paths") or []
+    scale = head.pills("Scale", space3d.SCALES, default=space3d.FIT, key=f"{key}_scale") or space3d.FIT
+    show_au = bool(head.pills("AU Tags", ["AU Tags"], key=f"{key}_au", label_visibility="collapsed"))
+    speed = head.pills("Rotate in 1s", [globechart.MANUAL] + list(globechart.SPEEDS), default=globechart.MANUAL, key=f"{key}_speed")
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
     if not shown or not bodies:
@@ -502,7 +519,8 @@ def page_space():
         return
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
     moments = [m for m in (("Now", core.now_jd(), utc_now), ("DOB", prep.jd_birth, prep.utc)) if m[0] in shown]
-    st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths)), unsafe_allow_javascript=True)
+    st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre),
+            unsafe_allow_javascript=True)
 
 
 def page_range():
@@ -793,6 +811,7 @@ core.SYMBOL_TEXTS = db.planet_symbols()                       # and their symbol
 core.COLOURS.update(core.DEFAULT_COLOURS | db.planet_colours())   # every chart's colours are the Naming Conventions table's (a deleted row's, the usual one)
 pages = [st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe", default=True),
          st.Page(page_space, title="GeoCentric", icon=":material/orbit:", url_path="geocentric"),
+         st.Page(page_helio, title="HelioCentric", icon=":material/sunny:", url_path="heliocentric"),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]

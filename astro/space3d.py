@@ -1,11 +1,12 @@
-"""The GeoCentric page: the paths of the Sun, Moon and planets around the Earth, each at its real distance, unlike AstroGlobe,
-where all are on one sphere. A point is placed by its RA, Dec and distance only (equatorial, no zodiac); north is up and the
+"""The GeoCentric and HelioCentric pages: the paths of the Sun, Moon and planets around the Earth, or of the planets and the Earth
+around the Sun, each at its real distance, unlike AstroGlobe, where all are on one sphere. A point is placed by its RA, Dec and distance only (equatorial, no zodiac); north is up and the
 Earth's equator is the flat plane. Drawn on the page in SVG, so its labels can be kept apart as it is turned."""
 from __future__ import annotations
 
 import json
 import math
 import uuid
+from functools import lru_cache
 
 from . import core
 from .globechart import MARKER_RANGE, MOTION_DAYS, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_table, symbol_shapes
@@ -26,14 +27,35 @@ RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on Astr
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
 SIDES = 96                        # a ring is drawn with this many straight pieces
 
+# HelioCentric: the Sun at the centre, the planets and the Earth round it (the Moon, seen from the Sun, is where the Earth is)
+HELIO_BODIES = ("Me", "Ve", "Ea", "Ma", "Ju", "Sa")
+HELIO_LOG_FROM_AU = 0.12          # on Fit, the distance drawn at the Sun (Mercury, about 0.31-0.47, close by)
+HELIO_SPANS = {"Me": (87.97, 200, "Mercury Path"), "Ve": (224.7, 200, "Venus Path"), "Ea": (365.25, 200, "Earth Path"),
+               "Ma": (687.0, 300, "Mars Path"), "Ju": (4333.0, 400, "Jupiter Path"), "Sa": (10759.0, 400, "Saturn Path")}   # a year each
+HELIO_STEP_DAYS = {"Me": 1.0, "Ve": 2.0, "Ea": 2.0, "Ma": 4.0, "Ju": 20.0, "Sa": 20.0}
+HELIO_RINGS = {FIT: (0.5, 1.0, 2.0, 5.0, 10.0), "True": RINGS["True"]}
+NO_GAP = (1.0, 1.0, 0.0)          # nothing taken out
+# by the body at the centre: the distance drawn there on Fit, the space taken out, the rings, the paths' spans, and its name in words
+CENTRES = {"Ea": dict(log_from=LOG_FROM_AU, gap=GAP, rings=RINGS, spans=SPANS, word="earth"),
+           "Su": dict(log_from=HELIO_LOG_FROM_AU, gap=NO_GAP, rings=HELIO_RINGS, spans=HELIO_SPANS, word="the Sun")}
 
-def _reach(au: float, scale: str) -> float:
-    """How far from the Earth a distance is drawn, before fitting to the page."""
+
+@lru_cache(maxsize=24)
+def _helio_table(planet: str, jd: float, days: int = RUN_DAYS) -> dict:
+    """A body's RA, Dec and distance as seen from the Sun, from jd on, for the page to move it by."""
+    step = HELIO_STEP_DAYS[planet]
+    pts = [core.helio_position(planet, jd + i * step) for i in range(int(days / step) + 2)]
+    return {"step": step, "ra": [round(p.ra, 3) for p in pts], "dec": [round(p.dec, 3) for p in pts],
+            "dist": [round(p.dist_au, 6) for p in pts], "km": 0.0}
+
+
+def _reach(au: float, scale: str, log_from: float = LOG_FROM_AU, gap: tuple = GAP) -> float:
+    """How far from the centre a distance is drawn, before fitting to the page."""
     if scale == "True":
         return au
-    log = max(math.log10(au / LOG_FROM_AU), 0.0)
-    a, b = math.log10(GAP[0] / LOG_FROM_AU), math.log10(GAP[1] / LOG_FROM_AU)
-    return log if log <= a else log - (b - a) + GAP[2] if log >= b else a + (log - a) / (b - a) * GAP[2]
+    log = max(math.log10(au / log_from), 0.0)
+    a, b = math.log10(gap[0] / log_from), math.log10(gap[1] / log_from)
+    return log if log <= a else log - (b - a) + gap[2] if log >= b else a + (log - a) / (b - a) * gap[2]
 
 
 def _xyz(ra: float, dec: float, reach: float) -> list[float]:
@@ -43,35 +65,50 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
 
 
 def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
-               day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None) -> dict:
+               day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
+               centre: str = "Ea") -> dict:
     """For each moment and body: its table to move it by, and (those in with_paths; all with None) its path, which the page draws
-    as a trail behind it, where it has really been since the moment, kept for the whole run (30 years).
-    moments: (Now or DOB, Julian day, UTC offset). The drawing's size does not change with the paths shown."""
-    paths, marks, tables = [], [], {}
+    as a trail behind it, where it has really been since the moment, kept for the whole run (72 years).
+    moments: (Now or DOB, Julian day, UTC offset). centre: Ea (GeoCentric) or Su (HelioCentric). The drawing's size does not
+    change with the paths shown. The sizes are always by how big a body looks from the Earth (the tables seen from the Earth)."""
+    at = CENTRES[centre]
+    reach = lambda au: _reach(au, scale, at["log_from"], at["gap"])
+    paths, marks, tables, sizing = [], [], {}, {}
     outer = 0.0
     for clock, jd, _ in moments:
-        tables[clock] = {}
+        tables[clock], sizing[clock] = {}, {}
         for p in bodies:
-            whole = _motion_table(p, jd, RUN_DAYS)
+            whole = _motion_table(p, jd, RUN_DAYS) if centre == "Ea" else _helio_table(p, jd, RUN_DAYS)
             tables[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
-            outer = max(outer, _reach(max(whole["dist"]), scale))
+            outer = max(outer, reach(max(whole["dist"])))
             marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock, rule=core.size_rule(p)))
-            days, steps, name = SPANS[p]
+            days, steps, name = at["spans"][p]
             if with_paths is None or p in with_paths:         # the page draws it as time runs, from the body's own table
                 paths.append(dict(colour=core.colour(p), dash=clock == "Now", name=name, body=p, clock=clock, days=days, steps=steps, pts=[]))
-    # what the sizes are measured from (Bigger than Moon needs the Moon's table, shown or not)
-    earth_rule = core.size_rule("Ea")
+    # what the sizes are measured from: each body as seen from the Earth (Bigger than Moon needs the Moon's table, shown or not)
+    centre_rule = core.size_rule(centre)
     for clock, jd, _ in moments:
-        for rule in [earth_rule] + [m["rule"] for m in marks]:
-            if "of" in rule and rule["of"] not in tables[clock]:
+        for p in bodies:
+            if p in core.PLANET_ID:
+                whole = _motion_table(p, jd, RUN_DAYS)
+                sizing[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
+        for rule in [centre_rule] + [m["rule"] for m in marks]:
+            if "of" in rule and rule["of"] not in sizing[clock]:
                 whole = _motion_table(rule["of"], jd, RUN_DAYS)
-                tables[clock][rule["of"]] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
+                sizing[clock][rule["of"]] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
+    if centre == "Ea":                                         # the same tables: not sent twice
+        for clock in tables:
+            tables[clock].update(sizing[clock])
+        sizing = None
     outer = outer or 1.0
-    wanted = [au for au in RINGS[scale] if _reach(au, scale) <= outer][-RINGS_SHOWN:] if show_au else []
+    wanted = [au for au in at["rings"][scale] if reach(au) <= outer][-RINGS_SHOWN:] if show_au else []
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
-    rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
-    return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=LOG_FROM_AU, gap=GAP, key=key, days=RUN_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+    rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
+    return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
+                shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
+                centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=core.SIZE_TEXTS.get(centre, ""), centre_colour=core.colour(centre),
+                au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=at["log_from"], gap=at["gap"],
+                key=centre + key, days=RUN_DAYS, manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
@@ -153,26 +190,28 @@ __SYMBOL_JS__
   };
   const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
   const arcsecOf = (km, au) => 2 * Math.atan(km / (au * D.au_km)) / RAD * 3600;
+  const sizing = (clock) => (D.sizing || D.tables)[clock];   // the tables as seen from the Earth, for the sizes
   const radiusAt = (rule, tables, t) => {          // by the Size in the Naming Conventions table: a fixed radius, or a planet's angular size and more
     if (rule.px !== undefined) return rule.px;
     const b = tables[rule.of], share = Math.max(0, Math.min(1, (Math.log(arcsecOf(b.km, sample(b, t).dist)) - LOW) / (HIGH - LOW)));
     return Math.max(1, D.radii[0] + (D.radii[1] - D.radii[0]) * share + rule.add);
   };
   const GREY = "rgb(150,150,150)", DARK = "rgb(60,60,60)";
-  const rings = D.rings.map((r) => ({r, draw: line(GREY, 1, false, r.text + " from earth, on the plane of the Earth's equator"), label: words("rgb(110,110,110)")}));
+  const rings = D.rings.map((r) => ({r, draw: line(GREY, 1, false, r.text + " from " + D.centre_word + ", on the plane of the Earth's equator"), label: words("rgb(110,110,110)")}));
   rings.forEach((g) => { g.label.textContent = g.r.text; });
   const spokes = D.ra_marks.map((m) => ({m, draw: line("rgb(205,205,205)", 1, false, m.text), label: words("rgb(110,110,110)")}));
   spokes.forEach((g) => { g.label.textContent = g.m.text; });
-  const axis = line(DARK, 2, false, "The Earth's axis: north celestial pole to south");
+  const axis = line(DARK, 2, false, D.centre === "Ea" ? "The Earth's axis: north celestial pole to south" :
+                     "Toward the north celestial pole and the south, as the Earth's axis");
   const paths = D.paths.map((p) => ({p, draw: line(p.colour, 1.8, p.dash, "", true)}));   // a path is one colour all round
   const poles = [["NCP", [0, 0, D.outer]], ["SCP", [0, 0, -D.outer]]].map(([name, at]) => {
     const label = words(DARK);
     label.textContent = name;
     return {at, label};
   });
-  const earth = make("circle", svg, {fill: D.earth_colour, stroke: DARK, "stroke-width": 1});
-  make("title", earth).textContent = symbolOf("Ea") + ", at the centre (its size is not to scale" + (D.earth_size ? ": " + D.earth_size : "") + ")";
-  const earthLabel = symbolTag(svg, "Ea", D.earth_colour, false);
+  const earth = make("circle", svg, {fill: D.centre_colour, stroke: DARK, "stroke-width": 1});   // the body at the centre
+  make("title", earth).textContent = symbolOf(D.centre) + ", at the centre (its size is not to scale" + (D.centre_size ? ": " + D.centre_size : "") + ")";
+  const earthLabel = symbolTag(svg, D.centre, D.centre_colour, false);
   const marks = D.marks.map((m) => {
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
     const tip = make("title", e), label = symbolTag(svg, m.name, m.colour, m.hollow);
@@ -223,7 +262,7 @@ __SYMBOL_JS__
     p.pts = samples.map((s) => xyz(s));
     const dists = samples.map((s) => s.dist), days = Math.round(run);
     p.tip = p.name + " " + p.clock + ": where it has been since time started running, " + days + (days === 1 ? " day" : " days") +
-      (samples.length ? " (distance from earth " + Math.min(...dists).toPrecision(4) + " to " + Math.max(...dists).toPrecision(4) + " AU)" : "");
+      (samples.length ? " (distance from " + D.centre_word + " " + Math.min(...dists).toPrecision(4) + " to " + Math.max(...dists).toPrecision(4) + " AU)" : "");
   };
   const WAYS = 8;                                  // the places round a mark, at each reach
   const around = (x, y, r, w) => {
@@ -249,18 +288,19 @@ __SYMBOL_JS__
     const placed = marks.map((g) => {
       const s = sample(g.table, t), [x, y, z] = point(xyz(s));
       // sized by how wide it looks from the Earth then, on AstroGlobe's logarithmic scale (to true scale the planets would not show)
-      const arcsec = arcsecOf(g.table.km, s.dist), r = radiusAt(g.m.rule, D.tables[g.m.clock], t);
-      const size = arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec";
+      const seen = sizing(g.m.clock)[g.m.name], r = radiusAt(g.m.rule, sizing(g.m.clock), t);
+      const arcsec = seen ? arcsecOf(seen.km, sample(seen, t).dist) : null;   // how big it looks from the Earth (not for the Earth itself)
+      const size = arcsec === null ? "" : "\nAngular Size: " + (arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec");
       g.e.setAttribute("r", r.toFixed(1));
-      g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDec/Lati: " + signed(s.dec) + "\nRA: " + s.ra.toFixed(2) + "\nAngular Size: " + size +
-        "\nDistance from earth: " + s.dist.toPrecision(4) + " AU";
+      g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDec/Lati: " + signed(s.dec) + "\nRA: " + s.ra.toFixed(2) + size +
+        "\nDistance from " + D.centre_word + ": " + s.dist.toPrecision(4) + " AU";
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
       g.e.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       g.label.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       fitSymbol(g.label, x, y, r);
       return {g, x, y, z, r};
     }).sort((a, b) => a.z - b.z);
-    const [ex, ey] = point([0, 0, 0]), earthR = radiusAt(D.earth_rule, D.tables[D.earth_clock], t);
+    const [ex, ey] = point([0, 0, 0]), earthR = radiusAt(D.centre_rule, sizing(D.centre_clock), t);
     earth.setAttribute("r", earthR.toFixed(1));
     fitSymbol(earthLabel, ex, ey, earthR);
     earth.setAttribute("cx", ex.toFixed(1)); earth.setAttribute("cy", ey.toFixed(1));
@@ -331,7 +371,8 @@ __SYMBOL_JS__
 
 
 def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
-               day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None) -> str:
+               day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
+               centre: str = "Ea") -> str:
     uid = "space-" + uuid.uuid4().hex[:8]
-    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths)).replace("<", chr(92) + "u003c")
+    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre)).replace("<", chr(92) + "u003c")
     return f'<div id="{uid}"></div><script>{_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data).replace("__ID__", uid)}</script>'
