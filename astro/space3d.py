@@ -1,4 +1,4 @@
-"""The GeoCentric and HelioCentric pages: the paths of the Sun, Moon and planets around the Earth, or of the planets and the Earth
+"""The Geo/Helio Centric Model page, GeoCentric and HelioCentric: the paths of the Sun, Moon and planets around the Earth, or of the planets and the Earth
 around the Sun, each at its real distance, unlike AstroGlobe, where all are on one sphere. A point is placed by its RA, Dec and distance only (equatorial, no zodiac); north is up and the
 Earth's equator is the flat plane. Drawn on the page in SVG, so its labels can be kept apart as it is turned."""
 from __future__ import annotations
