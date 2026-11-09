@@ -271,25 +271,25 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
             continue
         label = sn or kept or "New row"
         if kept and sn != kept:
-            out.append(f"{kept}: the SN of a row already in the table cannot be changed")
+            out.append(f"{kept}: the SAbr of a row already in the table cannot be changed")
         elif not sn:
-            out.append("New row: SN is empty")
+            out.append("New row: SAbr is empty")
         elif len(sn) > 8:
-            out.append(f"{sn}: SN can be at most 8 characters")
+            out.append(f"{sn}: SAbr can be at most 8 characters")
         elif sn.lower() in seen:
             out.append(f"{sn} is already in the table")
         seen.add(sn.lower())
         if not name:
-            out.append(f"{label}: Name is empty")
+            out.append(f"{label}: SDesc is empty")
         rgb = re.fullmatch(r"rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)", colour)
         if not (re.fullmatch(r"#[0-9a-fA-F]{6}", colour) or (rgb and all(int(v) <= 255 for v in rgb.groups()))):
-            out.append(f"{label}: Color must look like rgb(0,112,192) or #0070c0")
+            out.append(f"{label}: RGB must look like rgb(0,112,192) or #0070c0")
         if len(colour_name) > 40:
-            out.append(f"{label}: Color_Name can be at most 40 characters")
+            out.append(f"{label}: Color can be at most 40 characters")
         if len(_cell(r["Size"])) > 40:
             out.append(f"{label}: Size can be at most 40 characters")
         if len(_cell(r["Symbol"])) > 8:
-            out.append(f"{label}: Symbol can be at most 8 characters")
+            out.append(f"{label}: Symb can be at most 8 characters")
     return out
 
 

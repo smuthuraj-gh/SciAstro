@@ -147,8 +147,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                       "its dot to see it. Dates and times are UT.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
-    "Naming Conventions": "The Naming Conventions table: the short name (SN), long name (Name) and colour of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
-               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SN is unique, and stays once a row is in the table. Symbol is what the pages show in place of its SN, the SN itself when blank. On AstroGlobe and Geocentric the conventional symbols are drawn, in the row's Color; anything else is shown as typed, an emoji such as the baby in its own colours. Color is rgb(r,g,b) or #rrggbb; Color_Name is its name in words, for reference, and may be blank. Size says how AstroGlobe and Geocentric draw the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SN or Name (Bigger than Moon); anything else or blank, as usual (a planet by its angular size, Ea a little bigger than the Moon, the nodes and places 9 pixels). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on Geocentric; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
+    "Naming Conventions": "The Naming Conventions table: the short name (SAbr), symbol (Symb), long name (SDesc) and colour (RGB, and its name, Color) of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
+               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SAbr is unique, and stays once a row is in the table. Symb is what the pages show in place of its SAbr, the SAbr itself when blank. On AstroGlobe and Geocentric the conventional symbols are drawn, in the row's RGB colour; anything else is shown as typed, an emoji such as the baby in its own colours. RGB is rgb(r,g,b) or #rrggbb; Color is its name in words, for reference, and may be blank. Size says how AstroGlobe and Geocentric draw the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SAbr or SDesc (Bigger than Moon); anything else or blank, as usual (a planet by its angular size, Ea a little bigger than the Moon, the nodes and places 9 pixels). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on Geocentric; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
     "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",
@@ -657,12 +657,15 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
 def page_naming():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
-    table = db.all_planets().assign(_sn=lambda d: d["SN"])
-    crud_table("planets_table", table, db.planet_problems,
-               lambda rows: "Committed: {} added, {} changed, {} deleted.".format(*db.save_planets(rows)),
+    # the page's names for the table's columns (the store keeps its own)
+    shown_as = {"SN": "SAbr", "Symbol": "Symb", "Name": "SDesc", "Color": "RGB", "Color_Name": "Color"}
+    back = {v: k for k, v in shown_as.items()}
+    table = db.all_planets().assign(_sn=lambda d: d["SN"]).rename(columns=shown_as)
+    crud_table("planets_table", table, lambda rows: db.planet_problems(rows.rename(columns=back)),
+               lambda rows: "Committed: {} added, {} changed, {} deleted.".format(*db.save_planets(rows.rename(columns=back))),
                height=28 * (len(st.session_state.get("planets_table_working", table)) + 1) + 3,   # every row in view
-               column_config={"_sn": None, "Symbol": st.column_config.TextColumn(width="small"), "Name": st.column_config.TextColumn(width=150), "Color": st.column_config.TextColumn(width=130),
-                              "Size": st.column_config.TextColumn(width=130)}, width="content")
+               column_config={"_sn": None, "Symb": st.column_config.TextColumn(width="small"), "SDesc": st.column_config.TextColumn(width=150),
+                              "RGB": st.column_config.TextColumn(width=130), "Size": st.column_config.TextColumn(width=130)}, width="content")
 
 
 def page_aspects():
