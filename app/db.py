@@ -119,27 +119,25 @@ def _cell(value) -> str:
     return str(value).strip() if pd.notna(value) else ""
 
 
-def planet_problems(edited: pd.DataFrame, table: pd.DataFrame) -> list[str]:
-    """What is wrong with an edited planets table (table: as it is kept; rows after those are new, and wholly empty ones do
-    not count). Each needs a Name and a colour as rgb(r,g,b) or #rrggbb; a new one an SN of up to 8 characters not yet
-    in the table; the SN of a row already in the table, the key, stays."""
-    out, seen, kept = [], {v.lower() for v in table["SN"]}, len(table)
-    for i, (_, r) in enumerate(edited.iterrows()):
-        sn, name, colour = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"])
-        if i >= kept and not (sn or name or colour):
+def planet_problems(rows: pd.DataFrame) -> list[str]:
+    """What is wrong with the planets table's rows (_sn: the SN a row is kept under; blank on a new one, and a wholly empty
+    new one does not count). Each needs a Name and a colour as rgb(r,g,b) or #rrggbb and an SN of up to 8 characters, unique;
+    the SN of a row already in the table stays."""
+    out, seen = [], set()
+    for _, r in rows.iterrows():
+        sn, name, colour, kept = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
+        if not (kept or sn or name or colour):
             continue
-        label = sn or "New row"
-        if i < kept:
-            if sn != table["SN"].iloc[i]:
-                out.append(f"{table['SN'].iloc[i]}: the SN of a row already in the table cannot be changed")
+        label = sn or kept or "New row"
+        if kept and sn != kept:
+            out.append(f"{kept}: the SN of a row already in the table cannot be changed")
         elif not sn:
             out.append("New row: SN is empty")
         elif len(sn) > 8:
             out.append(f"{sn}: SN can be at most 8 characters")
         elif sn.lower() in seen:
             out.append(f"{sn} is already in the table")
-        else:
-            seen.add(sn.lower())
+        seen.add(sn.lower())
         if not name:
             out.append(f"{label}: Name is empty")
         rgb = re.fullmatch(r"rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)", colour)
@@ -148,15 +146,51 @@ def planet_problems(edited: pd.DataFrame, table: pd.DataFrame) -> list[str]:
     return out
 
 
-def save_planets(edited: pd.DataFrame, table: pd.DataFrame) -> None:
-    """Keeps an edited planets table: the Name and Color of the rows it had, and the new rows after them."""
+def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
+    """Makes the planets table these rows: (added, changed, deleted)."""
+    old = {r["SN"]: (r["Name"], r["Color"]) for _, r in all_planets().iterrows()}
+    added = changed = 0
+    kept = {_cell(v) for v in rows["_sn"]} - {""}
     with engine().begin() as c:
-        for i, (_, r) in enumerate(edited.iterrows()):
-            sn, name, colour = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"])
-            if i < len(table):
-                c.execute(planets.update().where(planets.c.sn == sn).values(name=name, color=colour))
+        for sn in set(old) - kept:
+            c.execute(planets.delete().where(planets.c.sn == sn))
+        for _, r in rows.iterrows():
+            sn, name, colour, was = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
+            if was:
+                if old.get(was) != (name, colour):
+                    c.execute(planets.update().where(planets.c.sn == was).values(name=name, color=colour))
+                    changed += 1
             elif sn or name or colour:
                 c.execute(planets.insert().values(sn=sn, name=name, color=colour))
+                added += 1
+    return added, changed, len(set(old) - kept)
+
+
+def orb_problems(rows: pd.DataFrame) -> list[str]:
+    """What is wrong with the orb table's rows (_angle: the Angle a row is kept under; blank on a new one). Each needs an
+    Aspect, a unique Angle (which stays on a row already there) and every orb a number of 0 or more."""
+    out, seen = [], set()
+    orbs = [c for c in rows.columns if c not in ("Aspect", "Angle", "_angle")]
+    numbers = rows[orbs].apply(pd.to_numeric, errors="coerce")
+    for i, r in rows.iterrows():
+        aspect, kept = _cell(r["Aspect"]), r["_angle"]
+        angle = pd.to_numeric(r["Angle"], errors="coerce")
+        if pd.isna(kept) and not aspect and pd.isna(angle) and numbers.loc[i].isna().all():
+            continue                                               # a wholly empty new row does not count
+        label = aspect or "New row"
+        if pd.notna(kept) and angle != kept:
+            out.append(f"{label}: the Angle of a row already in the table cannot be changed")
+        if not aspect:
+            out.append(f"{label}: Aspect is empty")
+        if pd.isna(angle) or not 0 <= angle <= 180:
+            out.append(f"{label}: Angle must be a number from 0 to 180")
+        elif angle in seen:
+            out.append(f"{label}: Angle {angle:g} is already in the table")
+        else:
+            seen.add(angle)
+        if numbers.loc[i].isna().any() or (numbers.loc[i] < 0).any():
+            out.append(f"{label}: every orb must be a number of 0 or more")
+    return out
 
 
 def _add_missing_columns(eng: sa.Engine):
@@ -277,17 +311,25 @@ def missing_required(df: pd.DataFrame) -> list[str]:
     return out
 
 
+def customer_problems(rows: pd.DataFrame) -> list[str]:
+    """What stops these customer rows being saved: a login email used twice, or a required field missing."""
+    out = []
+    dup = shared_emails(rows)
+    if dup:
+        out.append("Each login email can belong to one customer only. Used more than once: " + ", ".join(dup))
+    missing = missing_required(rows)
+    if missing:
+        out.append("Required for every customer: Email (login), First Name, Last Name, Country, State, City, "
+                   "the birth date and time (Year, Mon, Date, Hr24, Min), and Country-N, State-N, City-N. " + "; ".join(missing))
+    return out
+
+
 def save_customers(edited: pd.DataFrame, original: pd.DataFrame) -> tuple[int, int, int]:
     """Apply an edited copy of the customers table: (added, changed, deleted). Raises ValueError, saving nothing,
     when two customers would share a login email."""
-    dup = shared_emails(edited)
-    if dup:
-        raise ValueError("Each login email can belong to one customer only. Used more than once: " + ", ".join(dup))
-    problems = missing_required(edited)
+    problems = customer_problems(edited)
     if problems:
-        raise ValueError("Required for every customer: Email (login), First Name, Last Name, Country, State, City, "
-                         "the birth date and time (Year, Mon, Date, Hr24, Min), and Country-N, State-N, City-N. "
-                         + "; ".join(problems))
+        raise ValueError(" ".join(problems))
     added = changed = deleted = 0
     keep_ids = set(edited["id"].dropna().astype(int)) if "id" in edited else set()
     now = _now()

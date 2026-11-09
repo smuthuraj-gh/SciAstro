@@ -39,6 +39,7 @@ BODY_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
 MANUAL = "Manual"                 # Rotate's option to drag the Earth round by hand
 HOUSE_COLOUR = "rgb(0,0,0)"
 ASPECT_COLOURS = {False: "rgb(0,0,0)", True: "rgb(110,110,110)"}     # major, minor: as on AstroMap
+HOUSE_VALUE_DEC = (-32.0, -44.0)  # the Dec of each house line's RA value, first and second place shown: low on the line
 HOUSE_LABEL_DEC = (55.0, 40.0)    # the Dec of the house names, first and second place shown: on the side tilted toward the viewer, off the planets' way
 EARTH_DEGREES_A_DAY = 360.98565  # the Earth's turn against the still sky in one day of the clock
 MOTION_DAYS = 1461                # how far time runs (4 years) before it starts again, and the tables' reach ...
@@ -257,7 +258,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
                 family=CHART_FONT_FAMILY, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
-                house_dec=HOUSE_LABEL_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
+                house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
 
 
 def globe_figure(g: GlobeInput) -> go.Figure:
@@ -387,12 +388,14 @@ _MOTION_JS = r"""
     for (let k = 0; k !== 12; k++) {
       const label = words(markG, {"text-anchor": "middle", fill: D.house_colour});
       label.textContent = "H" + String((9 + k) % 12 + 1).padStart(2, "0");
-      houses.push({pl, k, label, draw: line(D.house_colour, pl.label === "CN")});
+      const value = words(markG, {"text-anchor": "start", fill: D.house_colour});
+      houses.push({pl, k, label, value, draw: line(D.house_colour, pl.label === "CN")});
     }
   });
   const aspectLines = [];                          // each pair of the bodies shown, at each moment: its line when in aspect
   if (D.aspects.length) D.sets.forEach((s) => s.shown.forEach((p, i) => s.shown.slice(i + 1).forEach((q) =>
-    aspectLines.push({s, p, q, draw: line("black", s.clock === "Now" ? "2 3" : false)}))));
+    aspectLines.push({s, p, q, draw: line("black", s.clock === "Now" ? "2 3" : false),
+                      tag: words(markG, {"text-anchor": "middle"})}))));
   const inAspect = (angle, a, b, orb) => {         // the rules of core.hit: within the RA orb of the angle, and the Dec orb
     let sep = Math.abs(a.ra - b.ra);               // of equal (0), mirrored (180) or either (the others)
     if (sep > 180) sep = 360 - sep;
@@ -483,14 +486,25 @@ _MOTION_JS = r"""
         h.label.setAttribute("x", x.toFixed(1)); h.label.setAttribute("y", (y + 4).toFixed(1));
         taken.push(box);
       }
+      // its RA, to the right of its line low on the near side
+      const text = ra.toFixed(2), [vx, vy, vz] = point(ra, D.house_value_dec[D.places.indexOf(h.pl)]);
+      const vBox = boxOf(vx + 5 + text.length * D.text_w / 2, vy + 4, text), show = vz >= 0 && inChart(vBox) && clear(vBox, taken);
+      h.value.style.display = show ? "" : "none";
+      if (show) {
+        h.value.textContent = text;
+        h.value.setAttribute("x", (vx + 5).toFixed(1)); h.value.setAttribute("y", (vy + 4).toFixed(1));
+        taken.push(vBox);
+      }
     });
     aspectLines.forEach((l) => {                   // the short way round between the two, straight in RA and Dec as on AstroMap
       const a = sample(l.s.tables[l.p], t), b = sample(l.s.tables[l.q], t);
       const on = D.aspects.filter((d) => inAspect(d.angle, a, b, d.orbs[l.p + "|" + l.q]));
+      l.tagged = on[0] || null;
       if (!on.length) return l.draw([], "");
       const turn = ((b.ra - a.ra + 540) % 360) - 180, pts = [];
       for (let v = 0; v !== 21; v++) pts.push([a.ra + turn * v / 20, a.dec + (b.dec - a.dec) * v / 20]);
       l.draw(pts, on.map((d) => d.angle + "-" + l.p + "-" + l.q + " " + l.s.clock).join(", "), on[0].colour, on[0].width);
+      l.pts = pts;
     });
     bodies.forEach((body) => {
       const b = body.b, s = sample(b, t);
@@ -526,6 +540,24 @@ _MOTION_JS = r"""
       taken.push(boxOf(lx, ly, body.name));
       body.label.setAttribute("x", lx.toFixed(1)); body.label.setAttribute("y", ly.toFixed(1));
       body.label.setAttribute("opacity", body.fade);
+    });
+    aspectLines.forEach((l) => {                   // each its tag, as 0-Ju-Ma, in the first free place along its line; none if none
+      l.tag.style.display = "none";
+      if (!l.tagged) return;
+      const text = l.tagged.angle + "-" + l.p + "-" + l.q;
+      l.tag.textContent = text;
+      l.tag.setAttribute("fill", l.tagged.colour);
+      for (const v of [10, 7, 13, 4, 16, 2, 18]) {
+        const [x, y, z] = point(l.pts[v][0], l.pts[v][1]);
+        const box = boxOf(x, y + 4, text);
+        if ((z >= 0 || Math.hypot(x - D.cx, y - D.cy) >= D.earth) && inChart(box) && clear(box, taken)) {
+          l.tag.setAttribute("x", x.toFixed(1)); l.tag.setAttribute("y", (y + 4).toFixed(1));
+          l.tag.setAttribute("opacity", z >= 0 ? 1 : 0.55);
+          l.tag.style.display = "";
+          taken.push(box);
+          break;
+        }
+      }
     });
     showClocks(t);
   };

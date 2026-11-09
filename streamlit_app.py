@@ -130,7 +130,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "to the start). Below it, Manual: the Earth, the celestial sphere, Houses, RA, Dec, Lati and Long are frozen together; drag the chart sideways to turn them as one unit and see the other side of the AstroGlobe. Or pick a speed to start, how much time passes each second: 1h an hour, 1d a day, 1w a week, 1m a month; with none picked it holds still. The Earth starts as it was at that "
                   "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, sized by how big it looks from the Earth then (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its Dec/Lati, RA, Angular Size, Distance from earth and the others approaching and leaving it in Dec/Lati; at CB or CN for its Long, Dec/Lati, RA and the planets approaching and leaving its Dec/Lati). The far side of the sphere is "
-                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Ma Aspects (0, 60, 90, 120, 180; black) and Mi Aspects (30, 45, 72, 135, 144, 150; grey): pick the angles to draw a line between any two planets shown that are in that aspect, by the orbs in Aspects Details, as time runs; dotted for Now; point at a line for its name. Coordinates, with Houses, RA, Dec, Lati and Long below it: which lines to show. Houses: twelve lines on the sphere, 30 degrees apart from the RA of CB (solid) and of CN (dashed), named H01 to H12, turning with the Earth. RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
+                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines. Ma Aspects (0, 60, 90, 120, 180; black) and Mi Aspects (30, 45, 72, 135, 144, 150; grey): pick the angles to draw a line between any two planets shown that are in that aspect, by the orbs in Aspects Details, as time runs; dotted for Now, each with its tag, as 0-Ju-Ma, along it where there is room (point at a line for its name). Coordinates, with Houses, RA, Dec, Lati and Long below it: which lines to show. Houses: twelve lines on the sphere, 30 degrees apart from the RA of CB (solid) and of CN (dashed), named H01 to H12, turning with the Earth, with each line's RA at its lower right (on the near side, where there is room). RA, Dec: the RA lines and the Dec lines of each planet on the sphere, and "
                   "of CB and CN on the Earth. Distance(%) from earth (DOB+Now)/2, at the end of the buttons' line: the average of each planet's Distance(%) at birth and now, whatever time the clock shows; below it, with DOB chosen, Distance(%) from earth on DOB. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Planet Path, picking from the list below it: the Sun's over a year, and the others' over one trip round "
                   "the sky around that moment (Moon 27.32 days; Mercury, Venus a year; Mars 687; Jupiter 4333; Saturn 10759). DOB: at birth, solid lines, with CB at the birth place. Now: the planets "
                   "now, hollow, dashed lines, with CN at the place now.",
@@ -144,11 +144,11 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Planets": "The planets table: each planet's short name (SN), long name (Name) and colour. Seen by admins only, who can "
-               "change Name and Color, press Add row for a new row and type it in, and press Update. Click a column name to sort. SN is unique, and stays once a row is in the table. Color is rgb(r,g,b) or #rrggbb. The charts take each planet's colour from here: its marker, RA and Dec lines and path.",
+               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SN is unique, and stays once a row is in the table. Color is rgb(r,g,b) or #rrggbb. The charts take each planet's colour from here: its marker, RA and Dec lines and path.",
     "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",
-    "Customers": "Add row for a new customer, change or delete rows, then Save changes. Click a column name to sort. ID is the record's number, set by the app. Required (*): Email (login), First Name, "
+    "Customers": "Insert for a new customer, type changes and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. ID is the record's number, set by the app. Required (*): Email (login), First Name, "
                  "Last Name, Country, State, City, the birth date and time (Year, Mon, Date, Hr24, Min), and where they "
                  "live now (Country-N, State-N, City-N). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
@@ -186,8 +186,8 @@ def top_line(title: str, row: pd.Series | None):
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
         + ('<span class="globe-clock" style="white-space:pre"></span>' if title == "AstroGlobe" else "") +   # its script writes it
         f'</div>')
-    # the slot fills the rest of the line, its content at the right end
-    TITLE_SLOT = line.container(width="stretch", horizontal_alignment="right")
+    # the slot fills the rest of the line
+    TITLE_SLOT = line.container(width="stretch", horizontal=True, gap="small")
 
 
 TITLE_SLOT = None                                             # set by top_line for the page being shown
@@ -555,42 +555,61 @@ def _distance_cached(dist_on, jd_from, jd_to):
 
 
 
-# Editable tables sort by their column headers only while they cannot add rows themselves, so a button adds the rows: the
-# table goes on from what has been typed so far, with an empty row at the end.
-def with_new_rows(show: pd.DataFrame, key: str) -> pd.DataFrame:
-    return st.session_state.get(f"{key}_working", show)
+# Customers, Planets and Aspects Details: Insert, Update, Delete and Commit on the title line, as in a database. Editable tables
+# sort by their column headers only while they cannot add or delete rows themselves, so these buttons do that. Insert, Update
+# and Delete change only the working copy shown (Delete takes the rows ticked in the first column; Update checks what has
+# been typed); nothing reaches the database until Commit, which also takes what has been typed since.
+def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: dict | None = None, width: str = "stretch",
+               height: int | None = None) -> None:
+    """problems(rows) gives what is wrong with the rows as they stand; commit(rows) saves them and gives what to report."""
+    pressed = next((name for name in ("Insert", "Update", "Delete", "Commit")
+                    if TITLE_SLOT.button(name, key=f"{key}_{name}", type="primary" if name == "Commit" else "secondary")), None)
+    view = st.session_state.get(f"{key}_working", show).copy()
+    view.insert(0, "Del", False)
+    edited = st.data_editor(view, hide_index=True, width=width, num_rows="fixed", key=key, height=height or "auto",
+                            column_config={"Del": st.column_config.CheckboxColumn("Del", width="small",
+                                                                                  help="Tick, then press Delete."),
+                                           **(column_config or {})}).reset_index(drop=True)
+    rows, ticked = edited.drop(columns="Del"), edited["Del"].fillna(False).astype(bool)
+    said = st.session_state.pop(f"{key}_said", None)           # below the table, so that it does not move
+    if said:
+        st.success(said)
+    elif f"{key}_working" in st.session_state:
+        st.caption("Changes not committed yet: press Commit to save them.")
 
-
-def add_row_button(where, key: str, edited: pd.DataFrame) -> None:
-    if where.button("Add row", key=f"{key}_add"):
-        st.session_state[f"{key}_working"] = edited.reset_index(drop=True).reindex(range(len(edited) + 1))
+    def stage(new_rows: pd.DataFrame, note: str) -> None:
+        st.session_state[f"{key}_working"] = new_rows.reset_index(drop=True)
         st.session_state.pop(key, None)
+        st.session_state[f"{key}_said"] = note
         st.rerun()
 
-
-def forget_new_rows(key: str) -> None:
-    st.session_state.pop(f"{key}_working", None)
-    st.session_state.pop(key, None)
+    if pressed == "Insert":
+        stage(rows.reindex(range(len(rows) + 1)), "A new row is at the bottom of the table. Press Commit to save it.")
+    elif pressed == "Delete":
+        if ticked.any():
+            stage(rows[~ticked], f"{int(ticked.sum())} row(s) taken out. Press Commit to delete them from the database.")
+        st.warning("Tick the rows to delete in the Del column first.")
+    elif pressed in ("Update", "Commit"):
+        wrong = problems(rows)
+        if wrong:
+            st.error(f"Not {'updated' if pressed == 'Update' else 'committed'}. " + "; ".join(wrong))
+        elif pressed == "Update":
+            stage(rows, "Updated. Press Commit to save it to the database.")
+        else:
+            report = commit(rows)
+            st.cache_data.clear()                              # charts kept with the old values
+            st.session_state.pop(f"{key}_working", None)
+            st.session_state.pop(key, None)
+            st.session_state[f"{key}_said"] = report
+            st.rerun()
 
 
 def page_planets():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
-    table = db.all_planets()
-    edited = st.data_editor(with_new_rows(table, "planets_table"), hide_index=True, width="content", num_rows="fixed",
-                            key="planets_table")
-    buttons = st.container(horizontal=True, gap="small")
-    add_row_button(buttons, "planets_table", edited)
-    if buttons.button("Update", key="planets_save"):
-        problems = db.planet_problems(edited, table)
-        if problems:
-            st.error("Not updated. " + "; ".join(problems))
-        else:
-            db.save_planets(edited, table)
-            st.cache_data.clear()                              # charts kept with the old colours
-            st.toast("Updated")
-            forget_new_rows("planets_table")                   # the table starts again from what is now kept
-            st.rerun()
+    crud_table("planets_table", db.all_planets().assign(_sn=lambda d: d["SN"]), db.planet_problems,
+               lambda rows: "Committed: {} added, {} changed, {} deleted.".format(*db.save_planets(rows)),
+               column_config={"_sn": None}, width="content")
 
 
 def page_aspects():
@@ -601,19 +620,13 @@ def page_aspects():
     st.caption("A pair is in aspect when RA is within the RA orb of the angle and Dec within the Dec orb of equal "
                "(conjunction), mirrored (opposition) or either (the others). A pair uses the larger of its two planets' "
                "orbs; CB and CN take the planet's.")
-    edited = st.data_editor(table, hide_index=True, width="stretch", key="orb_editor",
-                            disabled=["Aspect", "Angle"], num_rows="fixed")
-    c = st.columns([1, 1, 6])
-    if c[0].button("Save orbs", type="primary"):
-        num = edited.drop(columns=["Aspect", "Angle"]).apply(pd.to_numeric, errors="coerce")
-        if num.isna().any().any() or (num < 0).any().any():
-            st.error("Every orb must be a number of 0 or more.")
-        else:
-            db.save_orb_table(edited)
-            st.cache_data.clear()
-            st.success("Saved.")
-    if c[1].button("Reset to defaults"):
+    crud_table("orb_editor", table.assign(_angle=table["Angle"]), db.orb_problems,
+               lambda rows: (db.save_orb_table(rows[rows["Aspect"].notna() | rows["_angle"].notna()].drop(columns="_angle")), "Committed.")[1],
+               column_config={"_angle": None, "Angle": st.column_config.NumberColumn("Angle", format="%g", width="small")})
+    if st.button("Reset to defaults"):
         db.save_orb_table(core.default_orb_table())
+        st.session_state.pop("orb_editor_working", None)
+        st.session_state.pop("orb_editor", None)
         st.cache_data.clear()
         st.rerun()
 
@@ -638,11 +651,16 @@ def page_customers():
                                            ("Updated", "When the details last changed (UT)."),
                                            ("Accessed", "When the customer last opened their charts (UT); "
                                                         "an admin looking does not count."))}
-    working = with_new_rows(show, "cust_editor")
-    edited = st.data_editor(working, hide_index=True, width="stretch", num_rows="delete", key="cust_editor",
-                            height=min(38 * (len(working) + 2), 700),   # every row in view, above the table's scroll bar
-                            disabled=list(db.STAMPS.values()),
-                            column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The record's number, set by the app (blank on a new row until saved)."), **stamp_cols,
+    def for_store(rows: pd.DataFrame) -> pd.DataFrame:
+        back = {v: k for k, v in db.LABELS.items()}
+        out = rows.rename(columns=back).drop(columns=list(db.STAMPS.values()), errors="ignore")
+        out["utc"] = out["id"].map(df.set_index("id")["utc"])   # each customer's kept UTC, unchanged (new: blank)
+        return out
+
+    crud_table("cust_editor", show, lambda rows: db.customer_problems(for_store(rows)),
+               lambda rows: "Committed: {} added, {} changed, {} deleted.".format(*db.save_customers(for_store(rows), df)),
+               height=min(27 * (len(st.session_state.get("cust_editor_working", show)) + 2), 700),   # above its scroll bar
+               column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The record's number, set by the app (blank on a new row until saved)."), **stamp_cols,
                                 "First Name": st.column_config.TextColumn("First Name *", help="Required."),
                                 "Last Name": st.column_config.TextColumn("Last Name *", help="Required."),
                                 "Hr24": st.column_config.NumberColumn("Hr24 *", help="Birth time, hour 0-23: required.",
@@ -670,21 +688,6 @@ def page_customers():
                                 "State-N": st.column_config.TextColumn("State-N *", help="Place now: required."),
                                 "City-N": st.column_config.TextColumn("City-N *", help="Place now: required."),
                                 "Other-N": st.column_config.TextColumn(help="Anything else about the place now.")})
-    buttons = st.container(horizontal=True, gap="small")
-    add_row_button(buttons, "cust_editor", edited)
-    if buttons.button("Save changes", type="primary"):
-        back = {v: k for k, v in db.LABELS.items()}
-        out = edited.rename(columns=back).drop(columns=list(db.STAMPS.values()), errors="ignore")
-        out["utc"] = out["id"].map(df.set_index("id")["utc"])   # each customer's kept UTC, unchanged (new: blank)
-        try:
-            a, ch, de = db.save_customers(out, df)
-        except ValueError as e:                               # e.g. a login email used twice: nothing saved
-            st.error(f"{e}. Nothing was saved.")
-        else:
-            st.cache_data.clear()
-            forget_new_rows("cust_editor")
-            st.success(f"Saved: {a} added, {ch} changed, {de} deleted.")
-            st.rerun()
     with st.expander("Import from the workbook"):
         st.write("Save the workbook's Customers tab as CSV (Customer, Country, State, City, Other, Year, Mon, Date, "
                  "Hr24, Min, Country-N, State-N, City-N, Other-N; Other and Other-N may be left out) and upload it. "

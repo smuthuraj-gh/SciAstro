@@ -9,9 +9,9 @@ zodiac), with the same rules.
 | Aspects | everyone | Planets Cycles' aspects as tables: one per angle, one row per aspect (date, planets, their Dec), newest first; a Major Aspects button (all five major angles) and a Minor Aspects button (30° / 45° / 72° / 135° / 144° / 150°) |
 | Planets Cycles | everyone | Dec (-M) lines from birth to now, with 0° / 60° / 90° / 120° / 180° aspect dots and tags |
 | Planets Distance(%) | everyone | distance (-D) lines from birth to now: D, the % between each planet's nearest and farthest |
-| Aspects Details | admins | the orbs per aspect and planet; a pair uses the larger of its two planets' orbs |
-| Customers | admins | add (Add row), edit, delete customers, click a column name to sort; import the workbook's Customers tab as CSV |
-| Planets | admins | the planets table in the database: SN (unique), Name, Color (the charts' planet colours); Add row for a new row, Name and Color edited in the table, kept with Update; click a column name to sort |
+| Aspects Details | admins | the orbs per aspect and planet; a pair uses the larger of its two planets' orbs; Insert, Update, Delete, Commit |
+| Customers | admins | Insert, Update, Delete, Commit customers, click a column name to sort; import the workbook's Customers tab as CSV |
+| Planets | admins | the planets table in the database: SN (unique), Name, Color (the charts' planet colours); Insert, Update, Delete, Commit; click a column name to sort |
 | My details | users | their own birth details, with Edit my details to change them (the login email stays) |
 
 Users sign in with Google and see only the customers whose **Email (login)** is theirs. A new member (no customer
