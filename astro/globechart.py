@@ -96,6 +96,7 @@ SYMBOLS = {"Su": _ring(0, 0, 6.5) + _ring(0, 0, 0.8),
 
 # The page's part, for both pages: a marker's symbol, in black or white, whichever shows on its colour, or in its colour on a hollow one
 SYMBOL_JS = r"""
+  const symbolOf = (name) => D.sym[name] || name;
   const inkOn = (colour) => {
     const [r, g, b] = colour.startsWith("#") ? [1, 3, 5].map((i) => parseInt(colour.slice(i, i + 2), 16)) : colour.match(/[0-9]+/g).map(Number);
     return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "black" : "white";
@@ -282,8 +283,8 @@ def _paths(g: GlobeInput) -> list[dict]:
             for node in NODE_CHOICES:
                 if node in g.paths:
                     path = _node_path(node, when)
-                    out.append(dict(name=f"{node} Path", colour=core.colour(node), width=1.8, dash=dash,
-                                    tip=f"{node} Path: {NODE_PATH[0]:g} days around {what} (Dec between "
+                    out.append(dict(name=f"{core.symbol_of(node)} Path", colour=core.colour(node), width=1.8, dash=dash,
+                                    tip=f"{core.symbol_of(node)} Path: {NODE_PATH[0]:g} days around {what} (Dec between "
                                         f"{min(d for _, d in path):+.2f} and {max(d for _, d in path):+.2f})",
                                     pts=[[round(a, 2), round(d, 2)] for a, d in path]))
     return out
@@ -314,7 +315,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
-                node_names=[n for n in NODE_CHOICES if n in g.bodies], symbols=SYMBOLS, place_apart=PLACE_APART, size_rules={p: core.size_rule(p) for p in core.BUTTON_ORDER}, family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
+                node_names=[n for n in NODE_CHOICES if n in g.bodies], symbols=SYMBOLS, sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p) for p in core.BUTTON_ORDER}, family=CHART_FONT_FAMILY, moon_month=PATH_SPAN["Mo"][0], node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
 
 
@@ -328,8 +329,8 @@ def globe_figure(g: GlobeInput) -> go.Figure:
             lat, lon = place
             if jd is not None:                                # its RA (the sidereal time there) and Dec (its latitude)
                 ra = core.lst(jd, lon)
-                for on, text, line_lon, line_lat in ((g.show_ra, f"{label} RA: {ra:.2f}", [lon] * len(lats), lats),
-                                                     (g.show_dec, f"{label} Dec/Lati: {lat:+.2f}", lons, [lat] * len(lons))):
+                for on, text, line_lon, line_lat in ((g.show_ra, f"{core.symbol_of(label)} RA: {ra:.2f}", [lon] * len(lats), lats),
+                                                     (g.show_dec, f"{core.symbol_of(label)} Dec/Lati: {lat:+.2f}", lons, [lat] * len(lons))):
                     if not on:
                         continue
                     fig.add_trace(go.Scattergeo(
@@ -339,7 +340,7 @@ def globe_figure(g: GlobeInput) -> go.Figure:
             fig.add_trace(go.Scattergeo(
                 lon=[lon], lat=[lat], mode="markers", showlegend=False, text=[label],
                 marker=dict(size=18, color=core.colour(label), opacity=0), hoverinfo="text",   # not seen: there to point at; the page draws its icon
-                hovertext=f"<b>{label}</b> {'birth place' if label == 'CB' else 'place now'}<br>"
+                hovertext=f"<b>{core.symbol_of(label)}</b> {'birth place' if label == 'CB' else 'place now'}<br>"
                           f"latitude {lat:+.2f}, longitude {lon:+.2f}"))
 
     lat0, roll0 = _view()
@@ -426,7 +427,7 @@ __SYMBOL_JS__
   const bodies = [];
   D.sets.forEach((s) => s.shown.forEach((p) => {
     const b = s.tables[p];
-    const body = {name: p, tipName: p + " " + s.clock, b, set: s, now: s.clock === "Now"};   // Now: hollow, dashed
+    const body = {name: p, tipName: symbolOf(p) + " " + s.clock, b, set: s, now: s.clock === "Now"};   // Now: hollow, dashed
     if (D.show_ra) body.raLine = line(b.colour, body.now);
     if (D.show_dec) body.decLine = line(b.colour, body.now);
     bodies.push(body);
@@ -474,7 +475,7 @@ __SYMBOL_JS__
   };
   const clear = (a, taken) => taken.every((b) => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
   const inChart = (a) => a[0] > 0 && a[1] > 0 && a[2] < D.width && a[3] < D.height;
-  const names = (list) => list.sort((a, b) => a[1] - b[1]).map(([p, gap]) => p + " " + gap.toFixed(1) + "°").join(", ") || "none";
+  const names = (list) => list.sort((a, b) => a[1] - b[1]).map(([p, gap]) => symbolOf(p) + " " + gap.toFixed(1) + "°").join(", ") || "none";
   const moving = (body, s, t) => {                 // the others approaching and leaving it: the gap in Dec closing or opening
     const near = [], away = [];
     Object.entries(body.set.tables).forEach(([q, b]) => {
@@ -557,7 +558,7 @@ __SYMBOL_JS__
       if (!on.length) return l.draw([], "");
       const turn = ((b.ra - a.ra + 540) % 360) - 180, pts = [];
       for (let v = 0; v !== 21; v++) pts.push([a.ra + turn * v / 20, a.dec + (b.dec - a.dec) * v / 20]);
-      l.draw(pts, on.map((d) => d.angle + "-" + l.p + "-" + l.q + " " + l.s.clock).join(", "), on[0].colour, on[0].width);
+      l.draw(pts, on.map((d) => d.angle + "-" + symbolOf(l.p) + "-" + symbolOf(l.q) + " " + l.s.clock).join(", "), on[0].colour, on[0].width);
       l.pts = pts;
     });
     bodies.forEach((body) => {
@@ -596,7 +597,7 @@ __SYMBOL_JS__
       node.mark.setAttribute("transform", "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ")");
       node.mark.setAttribute("opacity", fade);
       node.mark.style.display = hidden ? "none" : "";
-      node.tip.textContent = node.name + " " + node.s.clock + ": the Moon's " + node.pole + " node (" + (z >= 0 ? "near" : "far") +
+      node.tip.textContent = symbolOf(node.name) + " " + node.s.clock + ": the Moon's " + node.pole + " node (" + (z >= 0 ? "near" : "far") +
         " side of the sphere)\nDec/Lati: " + (at.dec >= 0 ? "+" : "") + at.dec.toFixed(2) + "\nRA: " + at.ra.toFixed(2);
       if (!hidden) taken.push([x - 9, y - 9, x + 9, y + 9]);
     });
@@ -614,7 +615,7 @@ __SYMBOL_JS__
     houses.forEach((h) => {                        // named on the near side only, and not where a fixed label is
       const ra = (h.pl.ra + D.spin * t + 30 * h.k) % 360, pts = [];
       for (let v = -90; v !== 93; v += 3) pts.push([ra, v]);
-      h.draw(pts, h.label.textContent + " " + h.pl.label + " RA: " + ra.toFixed(2));
+      h.draw(pts, h.label.textContent + " " + symbolOf(h.pl.label) + " RA: " + ra.toFixed(2));
       const [x, y, z] = point(ra + 15, D.house_dec[D.places.indexOf(h.pl)]), box = boxOf(x, y + 4, h.label.textContent);
       const seen = z >= 0 && clear(box, taken);
       h.label.style.display = seen ? "" : "none";
@@ -635,7 +636,7 @@ __SYMBOL_JS__
     aspectLines.forEach((l) => {                   // each its tag, as 0-Ju-Ma, in the first free place along its line; none if none
       l.tag.style.display = "none";
       if (!l.tagged) return;
-      const text = l.tagged.angle + "-" + l.p + "-" + l.q;
+      const text = l.tagged.angle + "-" + symbolOf(l.p) + "-" + symbolOf(l.q);
       l.tag.textContent = text;
       l.tag.setAttribute("fill", l.tagged.colour);
       // its last place along the line while that stays free, then the nearest to that
@@ -665,7 +666,7 @@ __SYMBOL_JS__
       const s = sample(b, t), gap = s.dec - pl.lat, rate = s.dec_speed * (gap >= 0 ? 1 : -1);
       if (rate) (rate < 0 ? near : away).push([p, Math.abs(gap)]);
     });
-    return tag("b") + pl.label + tag("/b") + " " + pl.title + NL + "Long: " + signed(pl.lon) + NL + "Dec/Lati: " + signed(pl.lat) +
+    return tag("b") + symbolOf(pl.label) + tag("/b") + " " + pl.title + NL + "Long: " + signed(pl.lon) + NL + "Dec/Lati: " + signed(pl.lat) +
       NL + "RA: " + (((pl.ra + D.spin * t) % 360 + 360) % 360).toFixed(2) +
       NL + "Approaching: " + names(near) + NL + "Leaving: " + names(away);
   };

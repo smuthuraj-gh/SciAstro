@@ -118,7 +118,7 @@ def _key_row(items: list[tuple[str, str, float | None]], label: str = "") -> str
                 f'line-height:1.4">'
                 f'<span style="white-space:nowrap"><span class="key-dot" style="color:{core.colour(n)}; '
                 f'font-size:{round(FONT * DOT_SCALE)}px; line-height:0; vertical-align:0.05em">{sym}</span>'
-                f'&nbsp;{n}</span>'
+                f'&nbsp;{core.symbol_of(n)}</span>'
                 f'<br><span style="font-size:{FONT}px">{value}</span></span>')
     head = (f'<div style="font-size:{FONT}px; line-height:1.2; margin-bottom:{3 + DOT_ROOM}px">'
             f'<b style="font-weight:700">{label}</b>'

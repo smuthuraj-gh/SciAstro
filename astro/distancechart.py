@@ -22,9 +22,9 @@ def distance_figure(dist_on: list[str], jd_from: float, jd_to: float) -> go.Figu
     rows = core.range_rows(labels, jd_from, jd_to)
     t = [core.jd_to_datetime(j) for j in rows["jd"]]
     for p in labels:
-        fig.add_trace(go.Scatter(x=t, y=rows[f"{p}-D"], mode="lines", name=f"{p}-D",
+        fig.add_trace(go.Scatter(x=t, y=rows[f"{p}-D"], mode="lines", name=f"{core.symbol_of(p)}-D",
                                  line=dict(color=core.colour(p), width=1.5),
-                                 hovertemplate=f"{p}-D %{{x|%Y-%m-%d %H:%M}}<br>D %{{y:.2f}}<extra></extra>"))
+                                 hovertemplate=f"{core.symbol_of(p)}-D %{{x|%Y-%m-%d %H:%M}}<br>D %{{y:.2f}}<extra></extra>"))
     fig.update_layout(
         width=WIDTH, height=HEIGHT, autosize=False, margin=dict(**MARGIN, autoexpand=False),
         plot_bgcolor="white", paper_bgcolor="white",

@@ -150,7 +150,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Naming Conventions": "The Naming Conventions table: the short name (SN), long name (Name) and colour of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
-               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SN is unique, and stays once a row is in the table. Symbol is its conventional symbol, for reference (the charts draw their own), and may be blank. Color is rgb(r,g,b) or #rrggbb; Color_Name is its name in words, for reference, and may be blank. Size says how AstroGlobe and Celestial Sphere 3D draw the Sun, Moon, planets and Ea: Angular Size, by how big it looks from the Earth; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SN or Name (Bigger than Moon); anything else or blank, as usual (a planet by its angular size, Ea a little bigger than the Moon). The other rows do not use it. The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on Celestial Sphere 3D; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
+               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SN is unique, and stays once a row is in the table. Symbol is its conventional symbol, which the pages show in place of its SN (or the SN when blank; the markers on AstroGlobe and Celestial Sphere 3D draw their own). Color is rgb(r,g,b) or #rrggbb; Color_Name is its name in words, for reference, and may be blank. Size says how AstroGlobe and Celestial Sphere 3D draw the Sun, Moon, planets and Ea: Angular Size, by how big it looks from the Earth; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SN or Name (Bigger than Moon); anything else or blank, as usual (a planet by its angular size, Ea a little bigger than the Moon). The other rows do not use it. The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on Celestial Sphere 3D; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
     "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",
@@ -404,7 +404,7 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True):
         return None
     jds = period(prep, head)
     # on / off buttons, as on Distance: every choice always in view
-    dec_on = head.pills("Planets", core.BUTTON_ORDER, selection_mode="multi",
+    dec_on = head.pills("Planets", core.BUTTON_ORDER, selection_mode="multi", format_func=core.symbol_of,
                         default=["Sa", "Ju"], key=f"{keys}dec_on_v2") or []
     ea_names = {v: k for k, v in rangechart.EA_NAME.items()}   # 0°, 60°, 90°, 120°, 180° -> their angles
     minor = False
@@ -442,7 +442,7 @@ def page_globe():
         box = head.container(width="content", gap="xxsmall")
         if not box.pills(title, [title], default=title, key=f"globe_{key}_on", label_visibility="collapsed"):
             return ()
-        return tuple(box.pills(f"Which {title}", names, selection_mode="multi", default=default, key=f"globe_{key}",
+        return tuple(box.pills(f"Which {title}", names, selection_mode="multi", default=default, key=f"globe_{key}", format_func=core.symbol_of,
                                label_visibility="collapsed", width=width))
 
     shown = stacked(("Now", "DOB"), ("DOB",), title="Time")
@@ -490,7 +490,7 @@ def page_space():
     if not need_chart(prep):
         return
     shown = head.pills("Time", ["Now", "DOB"], selection_mode="multi", default=["DOB"], key="space_time") or []
-    bodies = head.pills("Planets", list(globechart.BODY_CHOICES), selection_mode="multi", default=["Su", "Mo"],
+    bodies = head.pills("Planets", list(globechart.BODY_CHOICES), selection_mode="multi", default=["Su", "Mo"], format_func=core.symbol_of,
                         key="space_bodies") or []
     scale = head.pills("Distance scale", space3d.SCALES, default=space3d.MO_LOG, key="space_scale") or space3d.MO_LOG
     show_au = bool(head.pills("AU values", ["AU values"], key="space_au", label_visibility="collapsed"))
@@ -554,8 +554,8 @@ def _aspect_tables(events: list, angles: list[int], where):
         rows = []
         for jd, _, title, de1, de2 in ev:
             p1, p2 = title.split("-")[1:3]
-            rows.append({"Date / Time (UT)": core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M"), "Aspect": title,
-                         "Planet 1": p1, "Dec 1": de1, "Planet 2": p2, "Dec 2": de2})
+            rows.append({"Date / Time (UT)": core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M"), "Aspect": core.with_symbols(title),
+                         "Planet 1": core.symbol_of(p1), "Dec 1": de1, "Planet 2": core.symbol_of(p2), "Dec 2": de2})
         # sorted by clicking a column's name; Dec as numbers, so that they sort as numbers
         where.dataframe(pd.DataFrame(rows), hide_index=True, width="content",
                         column_config={"Dec 1": st.column_config.NumberColumn(format="%+.2f"),
@@ -582,7 +582,7 @@ def page_distance():
         return
     jds = period(prep, head)
     # on / off buttons: all seven planets always in view (a selection box would hide some, or not fit on the line)
-    dist_on = head.pills("Planets", core.BUTTON_ORDER, selection_mode="multi",
+    dist_on = head.pills("Planets", core.BUTTON_ORDER, selection_mode="multi", format_func=core.symbol_of,
                          default=["Sa", "Ju"], key="dist_on_v2") or []
     if jds is None:
         return
@@ -674,7 +674,8 @@ def page_aspects():
                "orbs; CB and CN take the planet's.")
     crud_table("orb_editor", table.assign(_angle=table["Angle"]), db.orb_problems,
                lambda rows: (db.save_orb_table(rows[rows["Angle"].notna()].drop(columns="_angle")), "Committed.")[1],
-               column_config={"_angle": None, "Angle": st.column_config.NumberColumn("Angle", format="%g", width="small")})
+               column_config={"_angle": None, "Angle": st.column_config.NumberColumn("Angle", format="%g", width="small"),
+                              **{c: st.column_config.NumberColumn(core.with_symbols(c)) for c in db.ORB_COLUMNS}})
     if st.button("Reset to defaults"):
         db.save_orb_table(core.default_orb_table())
         st.session_state.pop("orb_editor_working", None)
@@ -785,6 +786,7 @@ def page_my_details():
 
 
 core.SIZE_TEXTS, core.SIZE_WORDS = db.planet_sizes()         # and their sizes
+core.SYMBOL_TEXTS = db.planet_symbols()                       # and their symbols, shown in place of the SNs
 core.COLOURS.update(db.planet_colours())                      # every chart's colours are the Naming Conventions table's
 pages = [st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe", default=True),
          st.Page(page_space, title="Celestial Sphere 3D", icon=":material/orbit:", url_path="celestial-sphere-3d"),

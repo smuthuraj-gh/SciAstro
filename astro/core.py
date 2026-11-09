@@ -44,6 +44,22 @@ SIZE_STEP = 1.5                   # pixels of radius that "bigger than" and "sma
 SIZE_PX = (1.0, 40.0)             # the smallest and largest radius a number in Size can ask for
 
 
+# The Symbol column of the Naming Conventions table (set each run from the table), which the pages show in place of an SN
+SYMBOL_TEXTS: dict[str, str] = {}
+_ANY_SN = re.compile(r"\b(Su|Mo|Me|Ve|Ma|Ju|Sa|Ea|NN|SN|CB|CN)\b")
+
+
+def symbol_of(name: str) -> str:
+    """What the pages show for an SN: its Symbol, or the SN itself with none. (A single symbol is asked for as text, not as an emoji.)"""
+    symbol = SYMBOL_TEXTS.get(name) or name
+    return symbol + "\ufe0e" if name in SYMBOL_TEXTS and len(symbol) == 1 and ord(symbol) < 0x2700 else symbol
+
+
+def with_symbols(text: str) -> str:
+    """A text with each SN in it shown as its Symbol: 0-Sa-Ju, as it is kept, for the page."""
+    return _ANY_SN.sub(lambda m: symbol_of(m[1]), text)
+
+
 def size_rule(name: str, _seen: tuple = ()) -> dict:
     """How a body is sized, from its Size text: {"px": radius}, or {"of": a planet, "add": pixels}, meaning that planet's angular size
     drawn, plus add. "Angular Size"; a number (pixels of radius); "Bigger than X", "Smaller than X" or "Same as X", X an SN or a Name.

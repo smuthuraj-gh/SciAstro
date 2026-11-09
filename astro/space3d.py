@@ -74,7 +74,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                symbols=SYMBOLS, tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                symbols=SYMBOLS, sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
@@ -173,7 +173,7 @@ __SYMBOL_JS__
     return {at, label};
   });
   const earth = make("circle", svg, {fill: D.earth_colour, stroke: DARK, "stroke-width": 1});
-  make("title", earth).textContent = "Ea, at the centre (its size is not to scale" + (D.earth_size ? ": " + D.earth_size : "") + ")";
+  make("title", earth).textContent = symbolOf("Ea") + ", at the centre (its size is not to scale" + (D.earth_size ? ": " + D.earth_size : "") + ")";
   const earthLabel = symbolTag(svg, "Ea", D.earth_colour, false);
   const marks = D.marks.map((m) => {
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
@@ -246,7 +246,7 @@ __SYMBOL_JS__
       const arcsec = arcsecOf(g.table.km, s.dist), r = radiusAt(g.m.rule, D.tables[g.m.clock], t);
       const size = arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec";
       g.e.setAttribute("r", r.toFixed(1));
-      g.tip.textContent = g.m.name + " " + g.m.clock + "\nDec/Lati: " + signed(s.dec) + "\nRA: " + s.ra.toFixed(2) + "\nAngular Size: " + size +
+      g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDec/Lati: " + signed(s.dec) + "\nRA: " + s.ra.toFixed(2) + "\nAngular Size: " + size +
         "\nDistance from earth: " + s.dist.toPrecision(4) + " AU";
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
       g.e.setAttribute("opacity", z >= 0 ? 1 : 0.6);

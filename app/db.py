@@ -225,6 +225,12 @@ def planet_sizes() -> tuple[dict[str, str], dict[str, str]]:
     return {sn: size or "" for sn, _, size in rows}, words
 
 
+def planet_symbols() -> dict[str, str]:
+    """The Symbol of each row that has one, by its SN."""
+    with engine().connect() as c:
+        return {sn: symbol.strip() for sn, symbol in c.execute(sa.select(planets.c.sn, planets.c.symbol)) if symbol and symbol.strip()}
+
+
 def _cell(value) -> str:
     return str(value).strip() if pd.notna(value) else ""
 

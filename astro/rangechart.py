@@ -31,8 +31,8 @@ def range_figure(dec_on: list[str], ea_on: list[int], jd_from: float, jd_to: flo
     rows = core.range_rows(labels, jd_from, jd_to)
     t = [core.jd_to_datetime(j) for j in rows["jd"]]
     for p in labels:
-        fig.add_trace(go.Scatter(x=t, y=rows[f"{p}-De"], mode="lines", name=f"{p}-M", line=dict(color=core.colour(p), width=1.5),
-                                 hovertemplate=f"{p}-M %{{x|%Y-%m-%d %H:%M}}<br>Dec %{{y:+.2f}}<extra></extra>"))
+        fig.add_trace(go.Scatter(x=t, y=rows[f"{p}-De"], mode="lines", name=f"{core.symbol_of(p)}-M", line=dict(color=core.colour(p), width=1.5),
+                                 hovertemplate=f"{core.symbol_of(p)}-M %{{x|%Y-%m-%d %H:%M}}<br>Dec %{{y:+.2f}}<extra></extra>"))
     events = core.aspect_events(labels, jd_from, jd_to, ea_on, orbs)
     for ang in (0, 60, 90, 120, 180):
         ev = [e for e in events if e.angle == ang]
@@ -41,7 +41,7 @@ def range_figure(dec_on: list[str], ea_on: list[int], jd_from: float, jd_to: flo
         xs, ys, hov = [], [], []
         for e in ev:
             when = core.jd_to_datetime(e.jd)
-            xs += [when, when, None]; ys += [e.de1, e.de2, None]; hov += [e.title, e.title, None]
+            xs += [when, when, None]; ys += [e.de1, e.de2, None]; hov += [core.with_symbols(e.title)] * 2 + [None]
         fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines+markers", name=EA_NAME[ang], hovertext=hov,
                                  hovertemplate="%{hovertext}<br>%{x|%Y-%m-%d %H:%M}<extra></extra>",
                                  marker=dict(size=7, color=DOT_COLOUR[ang]), line=dict(color=DOT_COLOUR[ang], width=1),
@@ -61,7 +61,7 @@ def range_figure(dec_on: list[str], ea_on: list[int], jd_from: float, jd_to: flo
         ys = [(lo + hi) / 2, lo + (hi - lo) / 4, hi - (hi - lo) / 4, lo, hi]
         tries = [(e.jd, y, xa, "middle", dx, dy) for dy in (0, 13, -13, 26, -26) for y in ys
                  for xa, dx in (("left", 6), ("right", -6))]
-        text = f"<b>{e.title}</b>"
+        text = f"<b>{core.with_symbols(e.title)}</b>"
         for jd, y, xa, ya, dx, dy in tries:
             b = spots.box(jd, y, text, xa, ya, dx, dy)
             if spots.free(b):
