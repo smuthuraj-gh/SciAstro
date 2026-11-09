@@ -137,7 +137,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "now, hollow, dashed lines, with CN at the place now.",
     "Planets 3D": "The paths of the Sun, Moon and planets around the Earth, each at its own distance from the Earth (on AstroGlobe all are on one sphere). "
                   "Each point is placed by its RA, Dec and distance. North is up, and the rings lie on the plane of the Earth's equator, with their distances from the Earth in AU (1 AU is about the Sun's distance). "
-                  "Rotate in 1s: below it, Manual: time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second: 1h an hour, 1d a day, 1w a week, 1m a month: the clock beside the name gives the date and time, and the Sun, Moon and planets move as they really did, nearer and farther, the Moon's path going with it (time starts again after 4 years; refresh the page to go back to the start). With none picked it holds still. Point at a planet for its Dec/Lati, RA and distance, or at a path for its span and distances. "
+                  "Rotate in 1s: Manual: time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second: 1h an hour, 1d a day, 1w a week, 1m a month: the clock beside the name gives the date and time, and the Sun, Moon and planets move as they really did, nearer and farther, the Moon's path going with it (time starts again after 4 years; refresh the page to go back to the start). With none picked it holds still. Point at a planet for its Dec/Lati, RA and distance, or at a path for its span and distances. "
                   "Time: Now is hollow with dashed paths, DOB solid; each path is one trip round the sky around that moment (Sun, Mercury and Venus a year; Moon 27.32 days; Mars 687; Jupiter 4333; Saturn 10759). "
                   "Distance scale: on Log each ring is ten times the distance of the one inside it, so the Moon's path and Saturn's can be seen together; True is to scale, where the Moon's path is too small to tell from the Earth (pick Mo alone to see it). A label with no room is left off: point at its mark.",
     "Aspects": "The aspects between the chosen planets over the period, as tables, newest first: one table per "
@@ -485,20 +485,16 @@ def page_globe():
 def page_space():
     """The paths at their real distances, in 3D."""
     _, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="top", gap="small")
+    head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
     if not need_chart(prep):
         return
     shown = head.pills("Time", ["Now", "DOB"], selection_mode="multi", default=["Now"], key="space_time") or []
     bodies = head.pills("Planets", list(globechart.BODY_CHOICES), selection_mode="multi", default=list(globechart.BODY_CHOICES),
                         key="space_bodies") or []
     scale = head.pills("Distance scale", space3d.SCALES, default=space3d.SCALES[0], key="space_scale") or space3d.SCALES[0]
-    spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
-    day_seconds, manual = None, False
-    if spin.pills("Rotate in 1s", ["Rotate in 1s"], default="Rotate in 1s", key="space_rotate", label_visibility="collapsed"):
-        speed = spin.pills("Rotate speed", [globechart.MANUAL] + list(globechart.SPEEDS), default=globechart.MANUAL, key="space_speed",
-                           label_visibility="collapsed", width=92)    # (Manual, 1h on a line; 1d, 1w, 1m on the next)
-        manual = speed == globechart.MANUAL                           # time stands still, and the drawing is dragged round
-        day_seconds = globechart.SPEEDS.get(speed)                    # nothing picked: it holds still
+    speed = head.pills("Rotate in 1s", [globechart.MANUAL] + list(globechart.SPEEDS), default=globechart.MANUAL, key="space_speed")
+    manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round
+    day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
     if not shown or not bodies:
         st.info("Choose a time and at least one planet.")
         return
