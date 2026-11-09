@@ -40,6 +40,11 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
   { flex: 0 0 auto !important; width: auto !important; }
 /* AstroGlobe's speed buttons, as small as their text allows */
 .st-key-globe_speed button, .st-key-space_speed button { padding-left: 4px !important; padding-right: 4px !important; }
+/* every planet button (Planets, Planet Path), on every page: a circle round its symbol */
+:is(.st-key-globe_bodies, .st-key-globe_paths, .st-key-space_bodies, .st-key-space_paths, .st-key-helio_bodies, .st-key-helio_paths,
+    [class*="dec_on_v2"], .st-key-dist_on_v2) button
+  { border-radius: 50% !important; width: 28px !important; min-width: 28px !important; height: 28px !important; min-height: 28px !important;
+    padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
 /* the button that opens the sidebar (pages, customer) is titled Menu, so it is clear what it opens */
 [data-testid="stExpandSidebarButton"] { width: auto !important; padding: 0 6px !important; gap: 4px;
   display: inline-flex !important; align-items: center; }
