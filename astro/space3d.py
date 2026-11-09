@@ -74,7 +74,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, _reach(au, scale)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
-                shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
+                shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, earth_rule=earth_rule, earth_clock=moments[0][0], earth_size=core.SIZE_TEXTS.get("Ea", ""), earth_colour=core.colour("Ea"), moon_share=outer / _reach(LOG_FULL_AU, "Log"), au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=LOG_FROM_AU, key=key, days=MOTION_DAYS, moon_month=SPANS["Mo"][0], manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
@@ -266,6 +266,11 @@ __SYMBOL_JS__
       lastStack = stack;
     }
     const taken = placed.map((q) => [q.x - q.r - 2, q.y - q.r - 2, q.x + q.r + 2, q.y + q.r + 2]).concat([[ex - earthR - 1, ey - earthR - 1, ex + earthR + 1, ey + earthR + 1]]);
+    if (!D.show_tags) {                            // AU Tags off: no tags at all (the lines stay)
+      poles.concat(spokes).forEach((g) => { g.label.style.display = "none"; });
+      showClocks(t);
+      return;
+    }
     poles.forEach((g) => {
       const [x, y] = point(g.at);
       put(g.label, around(x, y, 4, 12), taken);
