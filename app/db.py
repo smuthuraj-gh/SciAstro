@@ -109,6 +109,12 @@ def all_planets() -> pd.DataFrame:
                         columns=["SN", "Name", "Color"])
 
 
+def planet_colours() -> dict[str, str]:
+    """The Color of each row of the planets table, by its SN."""
+    with engine().connect() as c:
+        return {sn: color for sn, color in c.execute(sa.select(planets.c.sn, planets.c.color)) if color}
+
+
 def _cell(value) -> str:
     return str(value).strip() if pd.notna(value) else ""
 

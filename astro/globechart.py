@@ -105,7 +105,7 @@ def _motion_table(planet: str, jd: float) -> dict:
     pts = [core.position(planet, jd + i * step) for i in range(int(MOTION_DAYS / step) + 2)]
     return {"step": step, "ra": [round(p.ra, 3) for p in pts], "dec": [round(p.dec, 3) for p in pts],
             "dist": [round(p.dist_au, 6) for p in pts], "dec_speed": [round(p.dec_speed, 4) for p in pts],
-            "km": BODY_RADIUS_KM[planet], "colour": core.colour(planet),
+            "km": BODY_RADIUS_KM[planet],
             "lo": core.DIST_RANGE[planet][0], "hi": core.DIST_RANGE[planet][1]}
 
 
@@ -245,7 +245,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 places.append(dict(label=label, title=title, lat=place[0], lon=place[1], ra=core.lst(when, place[1]),
                                    set=len(sets)))
             sets.append(dict(clock=name, jd=when, offset=offset, shown=[p for p in core.BUTTON_ORDER if p in g.bodies],
-                             tables={p: _motion_table(p, when) for p in core.BUTTON_ORDER}))
+                             tables={p: {**_motion_table(p, when), "colour": core.colour(p)} for p in core.BUTTON_ORDER}))
     aspects = [dict(angle=a, colour=ASPECT_COLOURS[a in core.MINOR], width=1.0 if a in core.MINOR else 1.5,
                     orbs={f"{p}|{q}": [g.orbs.pair(a, p, q, False), g.orbs.pair(a, p, q, True)]
                           for i, p in enumerate(core.BUTTON_ORDER) for q in core.BUTTON_ORDER[i + 1:]})

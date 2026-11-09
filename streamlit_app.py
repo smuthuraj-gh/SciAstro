@@ -144,7 +144,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Planets": "The planets table: each planet's short name (SN), long name (Name) and colour. Seen by admins only, who can "
-               "change Name and Color, press Add row for a new row and type it in, and press Update. Click a column name to sort. SN is unique, and stays once a row is in the table. Color is rgb(r,g,b) or #rrggbb. The charts do not use these colours yet.",
+               "change Name and Color, press Add row for a new row and type it in, and press Update. Click a column name to sort. SN is unique, and stays once a row is in the table. Color is rgb(r,g,b) or #rrggbb. The charts take each planet's colour from here: its marker, RA and Dec lines and path.",
     "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
                        "apply to every chart.",
@@ -587,6 +587,7 @@ def page_planets():
             st.error("Not updated. " + "; ".join(problems))
         else:
             db.save_planets(edited, table)
+            st.cache_data.clear()                              # charts kept with the old colours
             st.toast("Updated")
             forget_new_rows("planets_table")                   # the table starts again from what is now kept
             st.rerun()
@@ -711,6 +712,7 @@ def page_my_details():
         details_form(row)
 
 
+core.COLOURS.update(db.planet_colours())                      # every chart's colours are the planets table's
 pages = [st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe", default=True),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
