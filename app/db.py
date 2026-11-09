@@ -47,8 +47,8 @@ STAMPS = {"added_at": "Added", "updated_at": "Updated", "accessed_at": "Accessed
 EMAIL_INDEX = "ux_customers_email"
 sa.Index(EMAIL_INDEX, customers.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
-planets = sa.Table(                                           # seen by admins only (the Planets page)
-    "planets", meta,
+planets = sa.Table(                                           # seen by admins only (the Naming Conventions page)
+    "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
     sa.Column("name", sa.String(60)),
     sa.Column("color", sa.String(40)),
@@ -91,6 +91,7 @@ def engine() -> sa.Engine:
         (ROOT / "private").mkdir(exist_ok=True)
         url = f"sqlite:///{(ROOT / 'private' / 'app.db').as_posix()}"
     eng = sa.create_engine(url, pool_pre_ping=True)
+    _rename_planets_table(eng)
     meta.create_all(eng)
     _add_missing_columns(eng)
     _rename_planet_columns(eng)
@@ -124,27 +125,35 @@ def _orb_rows(table: pd.DataFrame) -> list[dict]:
     return rows
 
 
+def _rename_planets_table(eng: sa.Engine):
+    """A store made when this table was called planets gets the new name; its rows stay."""
+    have = set(sa.inspect(eng).get_table_names())
+    if "planets" in have and "naming_conventions" not in have:
+        with eng.begin() as c:
+            c.execute(sa.text("ALTER TABLE planets RENAME TO naming_conventions"))
+
+
 def _rename_planet_columns(eng: sa.Engine):
-    """A planets table made with earlier column names gets the new ones; its rows stay."""
-    have = {c["name"] for c in sa.inspect(eng).get_columns("planets")}
+    """A table made with earlier column names gets the new ones; its rows stay."""
+    have = {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}
     with eng.begin() as c:
         for old, new in (("planet", "sn"), ("desc", "name"), ("s_name", "sn"), ("l_name", "name")):
             if old in have:
-                c.execute(sa.text(f'ALTER TABLE planets RENAME COLUMN "{old}" TO {new}'))
+                c.execute(sa.text(f'ALTER TABLE naming_conventions RENAME COLUMN "{old}" TO {new}'))
 
 
 def _add_planet_color_name(eng: sa.Engine):
-    """A planets table made before Color_Name gets it, named for the colours the charts start with; others stay blank."""
-    if "color_name" in {c["name"] for c in sa.inspect(eng).get_columns("planets")}:
+    """A table made before Color_Name gets it, named for the colours the charts start with; others stay blank."""
+    if "color_name" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
         return
     with eng.begin() as c:
-        c.execute(sa.text("ALTER TABLE planets ADD COLUMN color_name VARCHAR(40)"))
+        c.execute(sa.text("ALTER TABLE naming_conventions ADD COLUMN color_name VARCHAR(40)"))
         for colour, name in COLOUR_NAMES.items():
             c.execute(planets.update().where(planets.c.color == colour).values(color_name=name))
 
 
 def _seed_planets(eng: sa.Engine):
-    """The planets table, when empty, starts with every row in the colours the charts use. A table made earlier gets the
+    """The table, when empty, starts with every row in the colours the charts use. A table made earlier gets the
     rows it lacks of Ea, NN, SN (in its Moon's colour, as they were drawn), CN and CB."""
     with eng.begin() as c:
         rows = dict(c.execute(sa.select(planets.c.sn, planets.c.color)).all())
@@ -159,7 +168,7 @@ def _seed_planets(eng: sa.Engine):
 
 
 def all_planets() -> pd.DataFrame:
-    """The planets table: SN, Name, Color, Color_Name, Sun first."""
+    """The Naming Conventions table: SN, Name, Color, Color_Name, Sun first."""
     with engine().connect() as c:
         rows = c.execute(sa.select(planets)).mappings().all()
     order = {p: i for i, p in enumerate(PLANET_NAMES)}
@@ -169,7 +178,7 @@ def all_planets() -> pd.DataFrame:
 
 
 def planet_colours() -> dict[str, str]:
-    """The Color of each row of the planets table, by its SN."""
+    """The Color of each row of the Naming Conventions table, by its SN."""
     with engine().connect() as c:
         return {sn: color for sn, color in c.execute(sa.select(planets.c.sn, planets.c.color)) if color}
 
@@ -179,7 +188,7 @@ def _cell(value) -> str:
 
 
 def planet_problems(rows: pd.DataFrame) -> list[str]:
-    """What is wrong with the planets table's rows (_sn: the SN a row is kept under; blank on a new one, and a wholly empty
+    """What is wrong with the Naming Conventions table's rows (_sn: the SN a row is kept under; blank on a new one, and a wholly empty
     new one does not count). Each needs a Name and a colour as rgb(r,g,b) or #rrggbb and an SN of up to 8 characters, unique;
     the SN of a row already in the table stays. Color_Name may be blank, up to 40 characters."""
     out, seen = [], set()
@@ -209,7 +218,7 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
 
 
 def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
-    """Makes the planets table these rows: (added, changed, deleted)."""
+    """Makes the Naming Conventions table these rows: (added, changed, deleted)."""
     old = {r["SN"]: (_cell(r["Name"]), _cell(r["Color"]), _cell(r["Color_Name"])) for _, r in all_planets().iterrows()}
     added = changed = 0
     kept = {_cell(v) for v in rows["_sn"]} - {""}

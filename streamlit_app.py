@@ -1,7 +1,7 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
 Pages: AstroGlobe, Planets 3D, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only); Aspects Details,
-Customers and Planets for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
+Customers and Naming Conventions for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
 
@@ -149,7 +149,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                       "its dot to see it. Dates and times are UT.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
-    "Planets": "The planets table: the short name (SN), long name (Name) and colour of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
+    "Naming Conventions": "The Naming Conventions table: the short name (SN), long name (Name) and colour of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
                "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SN is unique, and stays once a row is in the table. Color is rgb(r,g,b) or #rrggbb; Color_Name is its name in words, for reference, and may be blank. The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on Planets 3D; NN's and SN's mark and name; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
     "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
                        "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
@@ -598,7 +598,7 @@ def _distance_cached(dist_on, jd_from, jd_to):
 
 
 
-# Customers, Planets and Aspects Details: Insert, Update, Delete and Commit on the title line, as in a database. Editable tables
+# Customers, Naming Conventions and Aspects Details: Insert, Update, Delete and Commit on the title line, as in a database. Editable tables
 # sort by their column headers only while they cannot add or delete rows themselves, so these buttons do that. Insert, Update
 # and Delete change only the working copy shown (Delete takes the rows ticked in the first column; Update checks what has
 # been typed); nothing reaches the database until Commit, which also takes what has been typed since.
@@ -653,7 +653,7 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
             st.rerun()
 
 
-def page_planets():
+def page_naming():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     table = db.all_planets().assign(_sn=lambda d: d["SN"])
@@ -782,16 +782,16 @@ def page_my_details():
         details_form(row)
 
 
-core.COLOURS.update(db.planet_colours())                      # every chart's colours are the planets table's
+core.COLOURS.update(db.planet_colours())                      # every chart's colours are the Naming Conventions table's
 pages = [st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe", default=True),
          st.Page(page_space, title="Planets 3D", icon=":material/orbit:", url_path="planets-3d"),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
-if user.is_admin:                                             # the Aspects Details, Customers, Planets pages: admins only
+if user.is_admin:                                             # the Aspects Details, Customers, Naming Conventions pages: admins only
     pages += [st.Page(page_aspects, title="Aspects Details", icon=":material/tune:", url_path="aspects-details"),
               st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers"),
-              st.Page(page_planets, title="Planets", icon=":material/planet:", url_path="planets")]
+              st.Page(page_naming, title="Naming Conventions", icon=":material/planet:", url_path="naming-conventions")]
 else:
     pages.append(st.Page(page_my_details, title="My details", icon=":material/person:", url_path="me"))
 nav = st.navigation(pages)
