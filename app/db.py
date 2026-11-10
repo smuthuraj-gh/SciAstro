@@ -60,15 +60,15 @@ logins = sa.Table(
     sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete')", name="ck_logins_activity"),
 )
 sa.Index("ix_logins_date_time", logins.c.date_time)
-# The Defaults table: a row per page input (Page, Title) and what it starts as (Options); seen by admins only (the
+# The Defaults table: a row per page input (Page, Options) and what it starts as (Choices); seen by admins only (the
 # Defaults page). Each page reads it as it is drawn; an input with no row starts as the app's own default.
 defaults = sa.Table(
     "defaults", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
     sa.Column("page", sa.String(60), nullable=False),
-    sa.Column("title", sa.String(60), nullable=False),
-    sa.Column("options", sa.String(500)),
-    sa.UniqueConstraint("page", "title", name="ux_defaults_page_title"),
+    sa.Column("options", sa.String(60), nullable=False),
+    sa.Column("choices", sa.String(500)),
+    sa.UniqueConstraint("page", "options", name="ux_defaults_page_options"),
 )
 DEFAULT_ROWS = [                                              # the app's own defaults: the rows the table starts with
     ("AstroGlobe", "Time", "DOB"),
@@ -162,6 +162,7 @@ def engine() -> sa.Engine:
     eng = sa.create_engine(url, pool_pre_ping=True)
     _rename_planets_table(eng)
     _rename_logins_operation(eng)
+    _rename_defaults_options(eng)
     meta.create_all(eng)
     _add_missing_columns(eng)
     _rename_planet_columns(eng)
@@ -188,6 +189,19 @@ def _rename_logins_operation(eng: sa.Engine):
             c.execute(sa.text("ALTER TABLE logins RENAME COLUMN operation TO activity"))
 
 
+def _rename_defaults_options(eng: sa.Engine):
+    """A Defaults table made with Page, Options, Options gets the names Page, Options, Choices: its options column is
+    renamed choices, then its title column options (rows kept)."""
+    if not sa.inspect(eng).has_table("defaults"):
+        return
+    have = {c["name"] for c in sa.inspect(eng).get_columns("defaults")}
+    if "title" in have:
+        with eng.begin() as c:
+            if "options" in have:
+                c.execute(sa.text("ALTER TABLE defaults RENAME COLUMN options TO choices"))
+            c.execute(sa.text("ALTER TABLE defaults RENAME COLUMN title TO options"))
+
+
 def _seed_defaults(eng: sa.Engine):
     """The Defaults table gets the rows of DEFAULT_ROWS it lacks, once per DEFAULTS_VERSION (a note among the settings says
     which, so a row deleted since stays deleted); rows already there are left as they are."""
@@ -195,8 +209,8 @@ def _seed_defaults(eng: sa.Engine):
         done = c.execute(sa.select(settings.c.value).where(settings.c.key == "defaults_seeded")).scalar()
         if done == DEFAULTS_VERSION:
             return
-        have = {(p.lower(), t.lower()) for p, t in c.execute(sa.select(defaults.c.page, defaults.c.title)).all()}
-        new = [dict(page=p, title=t, options=o or None) for p, t, o in DEFAULT_ROWS if (p.lower(), t.lower()) not in have]
+        have = {(p.lower(), t.lower()) for p, t in c.execute(sa.select(defaults.c.page, defaults.c.options)).all()}
+        new = [dict(page=p, options=t, choices=o or None) for p, t, o in DEFAULT_ROWS if (p.lower(), t.lower()) not in have]
         if new:
             c.execute(defaults.insert(), new)
         if done is None:
@@ -207,38 +221,38 @@ def _seed_defaults(eng: sa.Engine):
 
 # ---------------------------------------------------------------- the Defaults table
 def defaults_table() -> pd.DataFrame:
-    """The Defaults table: Page, Title, Options, sorted by Page, then Title, then Options (case aside)."""
+    """The Defaults table: Page, Options, Choices, sorted by Page, then Options, then Choices (case aside)."""
     with engine().connect() as c:
-        rows = c.execute(sa.select(defaults).order_by(sa.func.lower(defaults.c.page), sa.func.lower(defaults.c.title),
-                                                      sa.func.lower(sa.func.coalesce(defaults.c.options, "")))).mappings().all()
-    return pd.DataFrame([{"Page": r["page"], "Title": r["title"], "Options": r["options"]} for r in rows],
-                        columns=["Page", "Title", "Options"])
+        rows = c.execute(sa.select(defaults).order_by(sa.func.lower(defaults.c.page), sa.func.lower(defaults.c.options),
+                                                      sa.func.lower(sa.func.coalesce(defaults.c.choices, "")))).mappings().all()
+    return pd.DataFrame([{"Page": r["page"], "Options": r["options"], "Choices": r["choices"]} for r in rows],
+                        columns=["Page", "Options", "Choices"])
 
 
 def defaults_map() -> dict[tuple[str, str], str]:
-    """The Defaults table's Options by its Page and Title, both in lower case."""
+    """The Defaults table's Choices by its Page and Options, both in lower case."""
     with engine().connect() as c:
-        rows = c.execute(sa.select(defaults.c.page, defaults.c.title, defaults.c.options)).all()
+        rows = c.execute(sa.select(defaults.c.page, defaults.c.options, defaults.c.choices)).all()
     return {(p.strip().lower(), t.strip().lower()): o or "" for p, t, o in rows}
 
 
 def defaults_problems(rows: pd.DataFrame) -> list[str]:
-    """What is wrong with the Defaults rows: each needs a Page and a Title (at most 60 characters), one row per Page and
-    Title, and Options of at most 500 characters. A wholly empty row does not count."""
+    """What is wrong with the Defaults rows: each needs a Page and a Options (at most 60 characters), one row per Page and
+    Options, and Choices of at most 500 characters. A wholly empty row does not count."""
     out, seen = [], set()
     for _, r in rows.iterrows():
-        page, title, options = _cell(r["Page"]), _cell(r["Title"]), _cell(r["Options"])
+        page, title, options = _cell(r["Page"]), _cell(r["Options"]), _cell(r["Choices"])
         if not (page or title or options):
             continue
         label = f"{page or 'New row'} / {title}" if title else (page or "New row")
         if not page:
             out.append(f"{label}: Page is empty")
         if not title:
-            out.append(f"{label}: Title is empty")
+            out.append(f"{label}: Options is empty")
         if len(page) > 60 or len(title) > 60:
-            out.append(f"{label}: Page and Title can be at most 60 characters")
+            out.append(f"{label}: Page and Options can be at most 60 characters")
         if len(options) > 500:
-            out.append(f"{label}: Options can be at most 500 characters")
+            out.append(f"{label}: Choices can be at most 500 characters")
         if page and title:
             if (page.lower(), title.lower()) in seen:
                 out.append(f"{label}: is in the table twice")
@@ -248,8 +262,8 @@ def defaults_problems(rows: pd.DataFrame) -> list[str]:
 
 def save_defaults(rows: pd.DataFrame) -> int:
     """Makes the Defaults table these rows (wholly empty ones left out); gives how many it has."""
-    keep = [dict(page=_cell(r["Page"]), title=_cell(r["Title"]), options=_cell(r["Options"]) or None)
-            for _, r in rows.iterrows() if _cell(r["Page"]) or _cell(r["Title"]) or _cell(r["Options"])]
+    keep = [dict(page=_cell(r["Page"]), options=_cell(r["Options"]), choices=_cell(r["Choices"]) or None)
+            for _, r in rows.iterrows() if _cell(r["Page"]) or _cell(r["Options"]) or _cell(r["Choices"])]
     with engine().begin() as c:
         c.execute(sa.delete(defaults))
         if keep:

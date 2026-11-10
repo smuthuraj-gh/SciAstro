@@ -165,12 +165,12 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
               "deleted a customer (on Customers, by import, or their own My details), a row per customer. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
               "either asks first, and a deleted row cannot be brought back.",
-    "Defaults": "The Defaults table: what each page's inputs start as. A row per input: its Page, its Title and its "
-                "Options. Buttons: the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0°, 180°; Manual), "
+    "Defaults": "The Defaults table: what each page's inputs start as. A row per input: its Page, its Options and its "
+                "Choices. Buttons: the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0°, 180°; Manual), "
                 "blank for none; one on / off button (AU): On or Off. Start Date (UT): DOB or Now. End Date (UT): Now, or "
                 "Start Date (UT) + a time, e.g. 5 days, 2 years 6 months (years, months, weeks, days), which moves with the "
                 "Start. Commit checks each row against the page's input. An input with no row starts as the app's own default. "
-                "Rows are sorted by Page, Title, Options; click a column name to sort by it. Changes apply when a page is next opened (a button already changed this visit keeps its choice). Seen by admins "
+                "Rows are sorted by Page, Options, Choices; click a column name to sort by it. Changes apply when a page is next opened (a button already changed this visit keeps its choice). Seen by admins "
                 "only, who can Insert, Update, Delete and Commit rows.",
     "Symbols": "The Symbols table: the short name (SAbr), symbol (Symb), long name (SDesc) and colour (RGB, and its name, Color) of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
                "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SAbr is unique, and stays once a row is in the table. Symb is what the pages show in place of its SAbr, the SAbr itself when blank. On AstroGlobe and GeoCentric the conventional symbols are drawn, in the row's RGB colour; anything else is shown as typed, an emoji such as the baby in its own colours. RGB is rgb(r,g,b) or #rrggbb; Color is its name in words, for reference, and may be blank. Size_Globe says how AstroGlobe draws the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; Tiny, a dot with no symbol; Small, 9 pixels; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SAbr or SDesc (Bigger than Moon); blank, as usual (a planet by its angular size, Ea a dot, the nodes and places 9 pixels). Size_Geo says the same for GeoCentric, and Size_Helio for HelioCentric (it starts as Size_Geo, with the Moon Tiny). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on GeoCentric; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
@@ -404,7 +404,7 @@ START, END = "start", "end"                                   # the two date inp
 
 
 def default_inputs() -> dict[tuple[str, str], tuple]:
-    """Every page input the Defaults table can set, by (Page, Title): (its choices, or START / END; more than one may be
+    """Every page input the Defaults table can set, by (Page, Options): (its choices, or START / END; more than one may be
     picked; the app's own default, used when the table has no row for it)."""
     globe = list(globechart.BODY_CHOICES) + list(globechart.NODE_CHOICES)
     out = {("AstroGlobe", "Time"): (["Now", "DOB"], True, ["DOB"]),
@@ -437,7 +437,7 @@ def _word(text: str) -> str:
 
 
 def read_options(choices, multi: bool, text: str):
-    """The Defaults table's Options text as the input's start: (value, what was not understood). Buttons: the choices named
+    """The Defaults table's Choices text as the input's start: (value, what was not understood). Buttons: the choices named
     (by name, SAbr, symbol or planet name, any case, comma-separated; for one on / off button On or Off). Start: DOB or Now.
     End: Now, or Start Date (UT) + a time such as 5 days, 2 years 6 months, 30 years (years, months, weeks, days)."""
     text = (text or "").strip()
@@ -489,7 +489,7 @@ def read_options(choices, multi: bool, text: str):
 
 
 def default_choice(page: str, title: str):
-    """What this input starts as: the Defaults table's Options for it, read as read_options says; with no row, or Options it
+    """What this input starts as: the Defaults table's Choices for it, read as read_options says; with no row, or Choices it
     cannot read, the app's own default."""
     choices, multi, own = default_inputs()[(page, title)]
     text = DEFAULT_TEXTS.get((page.lower(), title.lower()))
@@ -500,11 +500,11 @@ def default_choice(page: str, title: str):
 
 
 def options_problems(rows: pd.DataFrame) -> list[str]:
-    """The Defaults rows whose Page and Title are no input of the app, or whose Options it cannot read."""
+    """The Defaults rows whose Page and Options are no input of the app, or whose Choices it cannot read."""
     inputs = {(p.lower(), t.lower()): (p, t, spec) for (p, t), spec in default_inputs().items()}
     out = []
     for _, r in rows.iterrows():
-        page, title = str(r["Page"] or "").strip(), str(r["Title"] or "").strip()
+        page, title = str(r["Page"] or "").strip(), str(r["Options"] or "").strip()
         if not (page and title):
             continue                                          # (said by db.defaults_problems)
         known = inputs.get((page.lower(), title.lower()))
@@ -512,7 +512,7 @@ def options_problems(rows: pd.DataFrame) -> list[str]:
             out.append(f"{page} / {title}: no page has that input")
             continue
         choices, multi, _ = known[2]
-        _, wrong = read_options(choices, multi, "" if pd.isna(r["Options"]) else str(r["Options"]))
+        _, wrong = read_options(choices, multi, "" if pd.isna(r["Choices"]) else str(r["Choices"]))
         if wrong:
             if choices == START:
                 hint = "DOB or Now"
@@ -522,7 +522,7 @@ def options_problems(rows: pd.DataFrame) -> list[str]:
                 hint = ("one of " if not multi else "any of ") + ", ".join(choices) + (" (or On / Off)" if len(choices) == 1 else "")
             one = "only one can be picked"
             said = ", ".join(w for w in wrong if w != one)
-            out.append(f"{page} / {title}: " + (f"Options '{said}' not understood: {hint}" if said else f"pick {hint}"))
+            out.append(f"{page} / {title}: " + (f"Choices '{said}' not understood: {hint}" if said else f"pick {hint}"))
     return out
 
 
@@ -914,8 +914,8 @@ def page_defaults():
     crud_table("defaults_table", table, lambda rows: db.defaults_problems(rows) + options_problems(rows),
                lambda rows: f"Committed: {db.save_defaults(rows)} row(s).",
                height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
-               column_config={"Page": st.column_config.TextColumn(width=170), "Title": st.column_config.TextColumn(width=170),
-                              "Options": st.column_config.TextColumn(width="large")})
+               column_config={"Page": st.column_config.TextColumn(width=170), "Options": st.column_config.TextColumn(width=170),
+                              "Choices": st.column_config.TextColumn(width="large")})
 
 
 def page_naming():
