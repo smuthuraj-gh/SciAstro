@@ -160,7 +160,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                       "its dot to see it. Dates and times are UT.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
-    "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Operation) and when (Date_Time, "
+    "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
               "UT). View: opened a customer's charts (once per customer per visit). Create, Update, Delete: added, changed or "
               "deleted a customer (on Customers, by import, or their own My details), a row per customer. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
@@ -179,7 +179,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                        "if left blank, comes from its Aspect's name, one of Conjunction, Opposition, Square, Trine, Sextile, Semi-sextile, Semi-square, Quintile, "
                        "Sesquiquadrate, Bi-quintile, Quincunx. Changes here "
                        "apply to every chart.",
-    "Customers": "Insert for a new customer, type changes and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. ID is the record's number, set by the app. Required (*): Email (login), First Name, "
+    "Customers": "Insert for a new customer, type changes and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. ID is the record's number, and Created and Last_Updated (UT) when it was added and last changed, all set by the app. Required (*): Email (login), First Name, "
                  "Last Name, Country, State, City, the birth date and time (Year, Mon, Date, Hr24, Min), and where they "
                  "live now (Country-N, State-N, City-N). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
@@ -873,10 +873,10 @@ def page_logins():
     view = table.copy()
     view.insert(0, "Del", False)
     edited = st.data_editor(view, hide_index=True, width="content", num_rows="fixed", key=f"logins_table_{len(table)}",
-                            height="auto" if len(table) <= 18 else 700, disabled=["Email", "Operation", "Date_Time"],
+                            height="auto" if len(table) <= 18 else 700, disabled=["Email", "Activity", "Date_Time"],
                             column_config={"Del": st.column_config.CheckboxColumn("Del", width="small", help="Tick, then press Delete."),
                                            "Id": None, "Email": st.column_config.TextColumn(width=260),
-                                           "Operation": st.column_config.TextColumn(width=100),
+                                           "Activity": st.column_config.TextColumn(width=100),
                                            "Date_Time": st.column_config.DatetimeColumn("Date_Time (UT)", format="YYYY-MM-DD HH:mm:ss",
                                                                                         width=170)})
     ticked = edited.loc[edited["Del"].fillna(False).astype(bool), "Id"].tolist()
@@ -958,17 +958,18 @@ def page_customers():
         st.warning("Saved in a local SQLite file. On Streamlit Community Cloud that file is lost on every restart: "
                    "set the secret db_url to a hosted Postgres database (see README).")
     df = db.all_customers()
-    # UTC is not shown (a blank one is looked up from the birth place; one already kept stays, see below); nor are the
-    # times Added / Updated / Accessed (still kept in the database, set by the app)
+    # UTC is not shown (a blank one is looked up from the birth place; one already kept stays, see below); Created and
+    # Last_Updated (UT) are, read only (set by the app); the time last opened (Accessed) is kept but not shown
     shown_fields = [f for f in db.FIELDS if f != "utc"]
-    show = df[["id"] + shown_fields].rename(columns=db.LABELS)
+    stamps = {"added_at": "Created", "updated_at": "Last_Updated"}
+    show = df[["id"] + shown_fields + list(stamps)].rename(columns={**db.LABELS, **stamps})
     # First Name, A-Z, to begin with; the column headers sort by any column. Saving matches rows by their record, so the
     # order shown does not matter
     by_name = show[db.LABELS["name"]].map(lambda v: v.strip().lower() if isinstance(v, str) else v)
     show = show.loc[by_name.sort_values(na_position="last", kind="stable").index].reset_index(drop=True)
     def for_store(rows: pd.DataFrame) -> pd.DataFrame:
         back = {v: k for k, v in db.LABELS.items()}
-        out = rows.rename(columns=back).drop(columns=list(db.STAMPS.values()), errors="ignore")
+        out = rows.rename(columns=back).drop(columns=list(db.STAMPS.values()) + list(stamps.values()), errors="ignore")
         out["utc"] = out["id"].map(df.set_index("id")["utc"])   # each customer's kept UTC, unchanged (new: blank)
         return out
 
@@ -979,7 +980,7 @@ def page_customers():
             *db.save_customers(for_store(rows), df if base is None else for_store(base), by=user.email))
 
     crud_table("cust_editor", show, lambda rows: db.customer_problems(for_store(rows)), commit,
-               height=min(27 * (len(st.session_state.get("cust_editor_working", show)) + 2), 700),   # above its scroll bar
+               height="auto" if len(st.session_state.get("cust_editor_working", show)) <= 18 else 700,   # nothing below it overlapped
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The record's number, set by the app (blank on a new row until saved)."),
                                 "First Name": st.column_config.TextColumn("First Name *", help="Required."),
                                 "Last Name": st.column_config.TextColumn("Last Name *", help="Required."),
@@ -1007,7 +1008,12 @@ def page_customers():
                                 "Country-N": st.column_config.TextColumn("Country-N *", help="Place now: required."),
                                 "State-N": st.column_config.TextColumn("State-N *", help="Place now: required."),
                                 "City-N": st.column_config.TextColumn("City-N *", help="Place now: required."),
-                                "Other-N": st.column_config.TextColumn(help="Anything else about the place now.")})
+                                "Other-N": st.column_config.TextColumn(help="Anything else about the place now."),
+                                "Created": st.column_config.DatetimeColumn("Created", format="YYYY-MM-DD HH:mm", disabled=True,
+                                                                           help="When the record was added (UT), set by the app."),
+                                "Last_Updated": st.column_config.DatetimeColumn("Last_Updated", format="YYYY-MM-DD HH:mm",
+                                                                                disabled=True,
+                                                                                help="When the record was last changed (UT), set by the app.")})
     with st.expander("Import from the workbook"):
         st.write("Save the workbook's Customers tab as CSV (Customer, Country, State, City, Other, Year, Mon, Date, "
                  "Hr24, Min, Country-N, State-N, City-N, Other-N; Other and Other-N may be left out) and upload it. "

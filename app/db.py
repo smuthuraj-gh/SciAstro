@@ -48,15 +48,16 @@ EMAIL_INDEX = "ux_customers_email"
 sa.Index(EMAIL_INDEX, customers.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
 # The Logins table: a row each time a signed-in person (Email) opens a customer (View; once per customer per visit) or
-# adds, changes or deletes one (Create, Update, Delete: a row per customer), at Date_Time (UT); seen by admins only
-OPERATIONS = ("View", "Create", "Update", "Delete")
+# adds, changes or deletes one (Create, Update, Delete: a row per customer): the Activity, at Date_Time (UT); seen by
+# admins only
+ACTIVITIES = ("View", "Create", "Update", "Delete")
 logins = sa.Table(
     "logins", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
     sa.Column("email", sa.String(320), nullable=False),
-    sa.Column("operation", sa.String(10), nullable=False),
+    sa.Column("activity", sa.String(10), nullable=False),
     sa.Column("date_time", sa.DateTime, nullable=False),
-    sa.CheckConstraint("operation IN ('View', 'Create', 'Update', 'Delete')", name="ck_logins_operation"),
+    sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete')", name="ck_logins_activity"),
 )
 sa.Index("ix_logins_date_time", logins.c.date_time)
 # The Defaults table: a row per page input (Page, Title) and what it starts as (Options); seen by admins only (the
@@ -160,6 +161,7 @@ def engine() -> sa.Engine:
         url = f"sqlite:///{(ROOT / 'private' / 'app.db').as_posix()}"
     eng = sa.create_engine(url, pool_pre_ping=True)
     _rename_planets_table(eng)
+    _rename_logins_operation(eng)
     meta.create_all(eng)
     _add_missing_columns(eng)
     _rename_planet_columns(eng)
@@ -175,6 +177,15 @@ def engine() -> sa.Engine:
     _seed_aspect_details(eng)
     _seed_defaults(eng)
     return eng
+
+
+def _rename_logins_operation(eng: sa.Engine):
+    """A Logins table made with an operation column has it renamed activity (its rows and check kept)."""
+    if not sa.inspect(eng).has_table("logins"):
+        return
+    if "operation" in {c["name"] for c in sa.inspect(eng).get_columns("logins")}:
+        with eng.begin() as c:
+            c.execute(sa.text("ALTER TABLE logins RENAME COLUMN operation TO activity"))
 
 
 def _seed_defaults(eng: sa.Engine):
@@ -662,12 +673,12 @@ def customer_problems(rows: pd.DataFrame) -> list[str]:
     return out
 
 
-def _log(c, email: str | None, operation: str, times: int = 1):
+def _log(c, email: str | None, activity: str, times: int = 1):
     """Rows in the Logins table: this person did this, times times (one row per customer), now."""
     if email and times > 0:
-        assert operation in OPERATIONS
+        assert activity in ACTIVITIES
         now = _now()
-        c.execute(logins.insert(), [dict(email=email.lower(), operation=operation, date_time=now)] * times)
+        c.execute(logins.insert(), [dict(email=email.lower(), activity=activity, date_time=now)] * times)
 
 
 def log_view(email: str | None):
@@ -677,11 +688,11 @@ def log_view(email: str | None):
 
 
 def logins_table(limit: int = 5000) -> pd.DataFrame:
-    """The Logins table, newest first (at most limit rows): Id, Email, Operation, Date_Time (UT)."""
+    """The Logins table, newest first (at most limit rows): Id, Email, Activity, Date_Time (UT)."""
     with engine().connect() as c:
         rows = c.execute(sa.select(logins).order_by(logins.c.date_time.desc(), logins.c.id.desc()).limit(limit)).mappings().all()
-    return pd.DataFrame([{"Id": r["id"], "Email": r["email"], "Operation": r["operation"], "Date_Time": r["date_time"]} for r in rows],
-                        columns=["Id", "Email", "Operation", "Date_Time"])
+    return pd.DataFrame([{"Id": r["id"], "Email": r["email"], "Activity": r["activity"], "Date_Time": r["date_time"]} for r in rows],
+                        columns=["Id", "Email", "Activity", "Date_Time"])
 
 
 def delete_logins(ids: list[int] | None = None) -> int:
