@@ -305,7 +305,7 @@ def details_form(row: pd.Series | None):
         st.markdown("**Birth place**")
         c1, c2, c3, c4 = st.columns(4)
         city = c1.text_input("City *", value=txt("city"), max_chars=500)
-        state = c2.text_input("State / region *", value=txt("state"), max_chars=120)
+        state = c2.text_input("State/Region *", value=txt("state"), max_chars=120)
         country = c3.text_input("Country *", value=txt("country"), max_chars=120)
         other = c4.text_input("District/Others", value=txt("other"), max_chars=500,
                               help="The district, or anything else about the birth place (optional; not used in the "
@@ -313,7 +313,7 @@ def details_form(row: pd.Series | None):
         st.markdown("**Where you live now** (for the Now charts)")
         c1, c2, c3, c4 = st.columns(4)
         city_n = c1.text_input("City *", value=txt("city_n"), max_chars=500, key="city_n")
-        state_n = c2.text_input("State / region *", value=txt("state_n"), max_chars=120, key="state_n")
+        state_n = c2.text_input("State/Region *", value=txt("state_n"), max_chars=120, key="state_n")
         country_n = c3.text_input("Country *", value=txt("country_n"), max_chars=120, key="country_n")
         other_n = c4.text_input("District/Other", value=txt("other_n"), max_chars=500, key="other_n",
                                 help="The district, or anything else about where you live now (optional; not used "
@@ -329,8 +329,8 @@ def details_form(row: pd.Series | None):
         st.error("Birth time: type it as hh:mm in 24 hours, e.g. 14:30 or 09:05.")
         return
     missing = [n for n, v in (("First Name", first), ("Last Name", last), ("Birth date", born), ("Birth time", at),
-                              ("City", city), ("State / region", state), ("Country", country),
-                              ("City (now)", city_n), ("State / region (now)", state_n), ("Country (now)", country_n))
+                              ("City", city), ("State/Region", state), ("Country", country),
+                              ("City (now)", city_n), ("State/Region (now)", state_n), ("Country (now)", country_n))
                if not (v.strip() if isinstance(v, str) else v)]
     if missing:
         st.error("Please fill in: " + ", ".join(missing) + ".")
