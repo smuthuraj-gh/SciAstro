@@ -39,11 +39,12 @@ HELIO_LOG_FROM_AU = 0.12          # on Fit, the distance drawn at the Sun (Mercu
 HELIO_SPANS = {"Mo": (27.32, 110, "Moon Path"), "Me": (87.97, 200, "Mercury Path"), "Ve": (224.7, 200, "Venus Path"), "Ea": (365.25, 200, "Earth Path"),
                "Ma": (687.0, 300, "Mars Path"), "Ju": (4333.0, 400, "Jupiter Path"), "Sa": (10759.0, 400, "Saturn Path")}   # a year each
 HELIO_STEP_DAYS = {"Me": 1.0, "Ve": 2.0, "Ea": 2.0, "Ma": 4.0, "Ju": 20.0, "Sa": 20.0}
-HELIO_RINGS = {FIT: (0.5, 1.0, 2.0, 5.0, 10.0), "True": RINGS["True"]}
+HELIO_RINGS = {FIT: (0.25, 0.5, 1.0, 2.0, 5.0, 10.0),   # all of them (on True those inside 1 AU would be lost in the Sun's mark)
+               "True": (1.0, 2.0, 5.0, 10.0)}
 NO_GAP = (1.0, 1.0, 0.0)          # nothing taken out
 # by the body at the centre: the distance drawn there on Fit, the space taken out, the rings, the paths' spans, and its name in words
-CENTRES = {"Ea": dict(log_from=LOG_FROM_AU, gap=GAP, rings=RINGS, spans=SPANS, word="earth"),
-           "Su": dict(log_from=HELIO_LOG_FROM_AU, gap=NO_GAP, rings=HELIO_RINGS, spans=HELIO_SPANS, word="the Sun")}
+CENTRES = {"Ea": dict(log_from=LOG_FROM_AU, gap=GAP, rings=RINGS, rings_shown=RINGS_SHOWN, spans=SPANS, word="earth"),
+           "Su": dict(log_from=HELIO_LOG_FROM_AU, gap=NO_GAP, rings=HELIO_RINGS, rings_shown=6, spans=HELIO_SPANS, word="the Sun")}
 
 
 @lru_cache(maxsize=24)
@@ -115,7 +116,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
             tables[clock].update(sizing[clock])
         sizing = None
     outer = outer or 1.0
-    wanted = [au for au in at["rings"][scale] if reach(au) <= outer][-RINGS_SHOWN:] if show_au else []
+    wanted = [au for au in at["rings"][scale] if reach(au) <= outer][-at["rings_shown"]:] if show_au else []
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
