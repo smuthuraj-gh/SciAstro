@@ -48,7 +48,7 @@ EMAIL_INDEX = "ux_customers_email"
 sa.Index(EMAIL_INDEX, customers.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
 # The Defaults table: a row per page input (Page, Title) and what it starts as (Options); seen by admins only (the
-# Defaults page). The pages do not read it yet.
+# Defaults page). Each page reads it as it is drawn; an input with no row starts as the app's own default.
 defaults = sa.Table(
     "defaults", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),   # keeps the order shown
@@ -57,11 +57,40 @@ defaults = sa.Table(
     sa.Column("options", sa.String(500)),
     sa.UniqueConstraint("page", "title", name="ux_defaults_page_title"),
 )
-DEFAULT_ROWS = [                                              # what the pages start with today
+DEFAULT_ROWS = [                                              # the app's own defaults: the rows the table starts with
+    ("AstroGlobe", "Time", "DOB"),
+    ("AstroGlobe", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
+    ("AstroGlobe", "Planet Path", "Su"),
+    ("AstroGlobe", "Maj Aspects", ""),
+    ("AstroGlobe", "Min Aspects", ""),
+    ("AstroGlobe", "Coordinates", "Celes"),
+    ("AstroGlobe", "Rotate in 1s", "Manual"),
+    ("Geo/Helio", "Centric Model", "Geo"),
+    ("Geo/Helio", "Geo Time", "DOB"),
+    ("Geo/Helio", "Geo Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa"),
+    ("Geo/Helio", "Geo Planet Path", "Mo, Su, Me, Ve, Ma, Ju, Sa"),
+    ("Geo/Helio", "Geo Scale", "Fit"),
+    ("Geo/Helio", "Geo AU", "On"),
+    ("Geo/Helio", "Geo Rotate in 1s", "Manual"),
+    ("Geo/Helio", "Helio Time", "DOB"),
+    ("Geo/Helio", "Helio Planets", "Mo, Ea, Me, Ve, Ma, Ju, Sa"),
+    ("Geo/Helio", "Helio Planet Path", "Mo, Ea, Me, Ve, Ma, Ju, Sa"),
+    ("Geo/Helio", "Helio Scale", "Fit"),
+    ("Geo/Helio", "Helio AU", "On"),
+    ("Geo/Helio", "Helio Rotate in 1s", "Manual"),
+    ("Aspects", "Start Date (UT)", "DOB"),
     ("Aspects", "End Date (UT)", "Start Date (UT) + 5 days"),
+    ("Aspects", "Planets", "Ju, Sa"),
+    ("Aspects", "Aspects", "Major Aspects, Minor Aspects"),
+    ("Planets Cycles", "Start Date (UT)", "DOB"),
     ("Planets Cycles", "End Date (UT)", "Start Date (UT) + 30 years"),
+    ("Planets Cycles", "Planets", "Ju, Sa"),
+    ("Planets Cycles", "Major Aspects", "0°, 180°"),
+    ("Planets Distance(%)", "Start Date (UT)", "DOB"),
     ("Planets Distance(%)", "End Date (UT)", "Start Date (UT) + 2 years"),
+    ("Planets Distance(%)", "Planets", "Ju, Sa"),
 ]
+DEFAULTS_VERSION = "2"                                        # rows added for every input (1: the End Dates only)
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
@@ -137,13 +166,20 @@ def engine() -> sa.Engine:
 
 
 def _seed_defaults(eng: sa.Engine):
-    """The Defaults table gets its first rows once (a note among the settings says so, so an emptied table stays empty)."""
+    """The Defaults table gets the rows of DEFAULT_ROWS it lacks, once per DEFAULTS_VERSION (a note among the settings says
+    which, so a row deleted since stays deleted); rows already there are left as they are."""
     with eng.begin() as c:
-        if c.execute(sa.select(settings.c.value).where(settings.c.key == "defaults_seeded")).scalar():
+        done = c.execute(sa.select(settings.c.value).where(settings.c.key == "defaults_seeded")).scalar()
+        if done == DEFAULTS_VERSION:
             return
-        if not c.execute(sa.select(sa.func.count()).select_from(defaults)).scalar():
-            c.execute(defaults.insert(), [dict(page=p, title=t, options=o) for p, t, o in DEFAULT_ROWS])
-        c.execute(settings.insert().values(key="defaults_seeded", value="1"))
+        have = {(p.lower(), t.lower()) for p, t in c.execute(sa.select(defaults.c.page, defaults.c.title)).all()}
+        new = [dict(page=p, title=t, options=o or None) for p, t, o in DEFAULT_ROWS if (p.lower(), t.lower()) not in have]
+        if new:
+            c.execute(defaults.insert(), new)
+        if done is None:
+            c.execute(settings.insert().values(key="defaults_seeded", value=DEFAULTS_VERSION))
+        else:
+            c.execute(settings.update().where(settings.c.key == "defaults_seeded").values(value=DEFAULTS_VERSION))
 
 
 # ---------------------------------------------------------------- the Defaults table
@@ -153,6 +189,13 @@ def defaults_table() -> pd.DataFrame:
         rows = c.execute(sa.select(defaults).order_by(defaults.c.id)).mappings().all()
     return pd.DataFrame([{"Page": r["page"], "Title": r["title"], "Options": r["options"]} for r in rows],
                         columns=["Page", "Title", "Options"])
+
+
+def defaults_map() -> dict[tuple[str, str], str]:
+    """The Defaults table's Options by its Page and Title, both in lower case."""
+    with engine().connect() as c:
+        rows = c.execute(sa.select(defaults.c.page, defaults.c.title, defaults.c.options)).all()
+    return {(p.strip().lower(), t.strip().lower()): o or "" for p, t, o in rows}
 
 
 def defaults_problems(rows: pd.DataFrame) -> list[str]:

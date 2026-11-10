@@ -160,9 +160,13 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                       "its dot to see it. Dates and times are UT.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
-    "Defaults": "The Defaults table: a row per page input, with the Page, the input's Title and what it starts as "
-                "(Options), e.g. Planets Cycles, End Date (UT), Start Date (UT) + 30 years. Seen by admins only, who can Insert, "
-                "Update, Delete and Commit rows; one row per Page and Title. For reference: the pages do not read it yet.",
+    "Defaults": "The Defaults table: what each page's inputs start as. A row per input: its Page, its Title and its "
+                "Options. Buttons: the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0°, 180°; Manual), "
+                "blank for none; one on / off button (AU): On or Off. Start Date (UT): DOB or Now. End Date (UT): Now, or "
+                "Start Date (UT) + a time, e.g. 5 days, 2 years 6 months (years, months, weeks, days), which moves with the "
+                "Start. Commit checks each row against the page's input. An input with no row starts as the app's own default. "
+                "Changes apply when a page is next opened (a button already changed this visit keeps its choice). Seen by admins "
+                "only, who can Insert, Update, Delete and Commit rows.",
     "Symbols": "The Symbols table: the short name (SAbr), symbol (Symb), long name (SDesc) and colour (RGB, and its name, Color) of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
                "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SAbr is unique, and stays once a row is in the table. Symb is what the pages show in place of its SAbr, the SAbr itself when blank. On AstroGlobe and GeoCentric the conventional symbols are drawn, in the row's RGB colour; anything else is shown as typed, an emoji such as the baby in its own colours. RGB is rgb(r,g,b) or #rrggbb; Color is its name in words, for reference, and may be blank. Size_Globe says how AstroGlobe draws the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; Tiny, a dot with no symbol; Small, 9 pixels; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SAbr or SDesc (Bigger than Moon); blank, as usual (a planet by its angular size, Ea a dot, the nodes and places 9 pixels). Size_Geo says the same for GeoCentric, and Size_Helio for HelioCentric (it starts as Size_Geo, with the Moon Tiny). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on GeoCentric; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
     "Aspect Rules": "The orbs: for each aspect and planet, how far from exact still counts as the aspect, the same "
@@ -385,6 +389,136 @@ def need_chart(prep: Prepared | None) -> bool:
     return True
 
 
+# ---------------------------------------------------------------- the Defaults table: what each page's inputs start as
+SPEED_CHOICES = [globechart.MANUAL] + list(globechart.SPEEDS)
+GLOBE_MAJOR = [str(a) for a in sorted(core.MAJOR)]
+GLOBE_MINOR = [str(a) for a in core.MINOR]
+START, END = "start", "end"                                   # the two date inputs (not buttons)
+
+
+def default_inputs() -> dict[tuple[str, str], tuple]:
+    """Every page input the Defaults table can set, by (Page, Title): (its choices, or START / END; more than one may be
+    picked; the app's own default, used when the table has no row for it)."""
+    globe = list(globechart.BODY_CHOICES) + list(globechart.NODE_CHOICES)
+    out = {("AstroGlobe", "Time"): (["Now", "DOB"], True, ["DOB"]),
+           ("AstroGlobe", "Planets"): (globe, True, globe),
+           ("AstroGlobe", "Planet Path"): (globe, True, ["Su"]),
+           ("AstroGlobe", "Maj Aspects"): (GLOBE_MAJOR, True, []),
+           ("AstroGlobe", "Min Aspects"): (GLOBE_MINOR, True, []),
+           ("AstroGlobe", "Coordinates"): (["House", "Celes", "RA", "Dec", "Lati", "Long"], True, ["Celes"]),
+           ("AstroGlobe", "Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL),
+           ("Geo/Helio", "Centric Model"): (["Geo", "Helio"], False, "Geo")}
+    for model, bodies in (("Geo", globechart.BODY_CHOICES), ("Helio", space3d.HELIO_BODIES)):
+        out |= {("Geo/Helio", f"{model} Time"): (["Now", "DOB"], True, ["DOB"]),
+                ("Geo/Helio", f"{model} Planets"): (list(bodies), True, list(bodies)),
+                ("Geo/Helio", f"{model} Planet Path"): (list(bodies), True, list(bodies)),
+                ("Geo/Helio", f"{model} Scale"): (list(space3d.SCALES), False, space3d.FIT),
+                ("Geo/Helio", f"{model} AU"): (["AU"], False, "AU"),
+                ("Geo/Helio", f"{model} Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL)}
+    for page, end, planets in (("Aspects", (0, 5), core.BUTTON_ORDER + ["NN", "SN"]), ("Planets Cycles", (360, 0), core.BUTTON_ORDER),
+                               ("Planets Distance(%)", (24, 0), core.BUTTON_ORDER)):
+        out |= {(page, "Start Date (UT)"): (START, False, "DOB"), (page, "End Date (UT)"): (END, False, end),
+                (page, "Planets"): (list(planets), True, ["Sa", "Ju"])}
+    out[("Aspects", "Aspects")] = (["Major Aspects", "Minor Aspects"], True, ["Major Aspects", "Minor Aspects"])
+    out[("Planets Cycles", "Major Aspects")] = (list(rangechart.EA_NAME.values()), True, ["0°", "180°"])
+    return out
+
+
+def _word(text: str) -> str:
+    """A choice as typed, to compare: lower case, without spaces, degree signs or the text-style mark of a symbol."""
+    return "".join(ch for ch in str(text).lower() if ch not in " °\ufe0e\ufe0f")
+
+
+def read_options(choices, multi: bool, text: str):
+    """The Defaults table's Options text as the input's start: (value, what was not understood). Buttons: the choices named
+    (by name, SAbr, symbol or planet name, any case, comma-separated; for one on / off button On or Off). Start: DOB or Now.
+    End: Now, or Start Date (UT) + a time such as 5 days, 2 years 6 months, 30 years (years, months, weeks, days)."""
+    text = (text or "").strip()
+    if choices == START:
+        w = _word(text)
+        return ("Now", []) if w == "now" else ("DOB", [] if w in ("dob", "") else [text])
+    if choices == END:
+        if _word(text) == "now":
+            return "Now", []
+        m = re.fullmatch(r"(?i)\s*(?:start(?:\s*date)?(?:\s*\(ut\))?)?\s*\+?\s*(.*?)\s*", text)
+        months = days = 0
+        parts = re.findall(r"(?i)(\d+)\s*(years?|yrs?|y|months?|mons?|mo|weeks?|wks?|w|days?|d)\b", m[1])
+        if not parts or re.sub(r"(?i)(\d+)\s*(years?|yrs?|y|months?|mons?|mo|weeks?|wks?|w|days?|d)\b|,|and", "", m[1]).strip():
+            return None, [text]
+        for n, unit in parts:
+            n, u = int(n), unit.lower()
+            if u.startswith("y"):
+                months += 12 * n
+            elif u.startswith("mo"):
+                months += n
+            elif u.startswith("w"):
+                days += 7 * n
+            else:
+                days += n
+        return (months, days), []
+    names = {}
+    for c in choices:
+        for alias in (c, core.symbol_of(c), db.PLANET_NAMES.get(c, "")):
+            if alias:
+                names[_word(alias)] = c
+    picked, wrong = [], []
+    for part in (p.strip() for p in text.split(",")):
+        if not part:
+            continue
+        w = _word(part)
+        if len(choices) == 1 and w in ("on", "off", "yes", "no"):
+            if w in ("on", "yes"):
+                picked.append(choices[0])
+        elif w in names:
+            if names[w] not in picked:
+                picked.append(names[w])
+        else:
+            wrong.append(part)
+    if multi:
+        return picked, wrong
+    if len(picked) > 1:
+        wrong.append("only one can be picked")
+    return (picked[0] if picked else None), wrong
+
+
+def default_choice(page: str, title: str):
+    """What this input starts as: the Defaults table's Options for it, read as read_options says; with no row, or Options it
+    cannot read, the app's own default."""
+    choices, multi, own = default_inputs()[(page, title)]
+    text = DEFAULT_TEXTS.get((page.lower(), title.lower()))
+    if text is None:
+        return own
+    value, wrong = read_options(choices, multi, text)
+    return own if wrong else value
+
+
+def options_problems(rows: pd.DataFrame) -> list[str]:
+    """The Defaults rows whose Page and Title are no input of the app, or whose Options it cannot read."""
+    inputs = {(p.lower(), t.lower()): (p, t, spec) for (p, t), spec in default_inputs().items()}
+    out = []
+    for _, r in rows.iterrows():
+        page, title = str(r["Page"] or "").strip(), str(r["Title"] or "").strip()
+        if not (page and title):
+            continue                                          # (said by db.defaults_problems)
+        known = inputs.get((page.lower(), title.lower()))
+        if known is None:
+            out.append(f"{page} / {title}: no page has that input")
+            continue
+        choices, multi, _ = known[2]
+        _, wrong = read_options(choices, multi, "" if pd.isna(r["Options"]) else str(r["Options"]))
+        if wrong:
+            if choices == START:
+                hint = "DOB or Now"
+            elif choices == END:
+                hint = "Now, or Start Date (UT) + a time such as 5 days or 2 years 6 months"
+            else:
+                hint = ("one of " if not multi else "any of ") + ", ".join(choices) + (" (or On / Off)" if len(choices) == 1 else "")
+            one = "only one can be picked"
+            said = ", ".join(w for w in wrong if w != one)
+            out.append(f"{page} / {title}: " + (f"Options '{said}' not understood: {hint}" if said else f"pick {hint}"))
+    return out
+
+
 # ---------------------------------------------------------------- pages
 def add_months(when: datetime, months: int) -> datetime:
     """That many calendar months later, on the same day of the month (or the month's last day, if it has fewer days)."""
@@ -394,23 +528,26 @@ def add_months(when: datetime, months: int) -> datetime:
     return when.replace(year=year, month=month, day=min(when.day, last))
 
 
-def period(prep: Prepared, row=None, end_months: int | None = None, end_days: int | None = None) -> tuple[float, float] | None:
-    """The Start / End inputs (UT; birth to now unless changed) as Julian days, or None (with a warning) if unusable.
-    With row (a horizontal container) they go into it, each just wide enough; otherwise in four columns. end_months,
-    end_days: the End starts that many calendar months and days after the Start (and moves with it) instead of at now."""
+def period(prep: Prepared, row=None, page: str = "") -> tuple[float, float] | None:
+    """The Start / End inputs (UT) as Julian days, or None (with a warning) if unusable. They start as the Defaults table
+    says for this page (Start: DOB or Now; End: Now, or Start Date (UT) + a time, which moves with the Start).
+    With row (a horizontal container) they go into it, each just wide enough; otherwise in four columns."""
     birth_dt = core.jd_to_datetime(prep.jd_birth)
     now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
     c = [row] * 4 if row is not None else st.columns(4)
     dw, tw = (125, 80) if row is not None else ("stretch", "stretch")
-    d0 = c[0].date_input("Start Date (UT)", value=birth_dt.date(), min_value=datetime(1800, 1, 1),
-                         max_value=datetime(2399, 12, 31), width=dw)
-    t0 = c[1].time_input("Time (UT)", key=f"start_time_{prep.jd_birth}", value=time(birth_dt.hour, birth_dt.minute), width=tw)
-    if end_months is not None or end_days is not None:        # the End follows the Start: a changed Start sets it again
-        end_dt = add_months(datetime.combine(d0, t0), end_months or 0) + timedelta(days=end_days or 0)
+    start0 = now_dt if default_choice(page, "Start Date (UT)") == "Now" else birth_dt
+    d0 = c[0].date_input("Start Date (UT)", value=start0.date(), min_value=datetime(1800, 1, 1),
+                         max_value=datetime(2399, 12, 31), width=dw, key=f"start_date_{page}_{start0.date()}")
+    t0 = c[1].time_input("Time (UT)", key=f"start_time_{page}_{prep.jd_birth}_{start0 is now_dt}",
+                         value=time(start0.hour, start0.minute), width=tw)
+    after = default_choice(page, "End Date (UT)")             # (months, days) after the Start, or "Now"
+    if after != "Now":                                        # the End follows the Start: a changed Start sets it again
+        end_dt = add_months(datetime.combine(d0, t0), after[0]) + timedelta(days=after[1])
         end_dt = min(end_dt, datetime(2399, 12, 31, 23, 59))   # (the last date allowed)
         d1 = c[2].date_input("End Date (UT)", value=end_dt.date(), min_value=datetime(1800, 1, 1),
-                             max_value=datetime(2399, 12, 31), width=dw, key=f"end_date_{d0}_{t0}")
-        t1 = c[3].time_input("Time (UT)", key=f"end_time_{d0}_{t0}", value=end_dt.time(), width=tw)
+                             max_value=datetime(2399, 12, 31), width=dw, key=f"end_date_{page}_{d0}_{t0}_{after}")
+        t1 = c[3].time_input("Time (UT)", key=f"end_time_{page}_{d0}_{t0}_{after}", value=end_dt.time(), width=tw)
     else:
         d1 = c[2].date_input("End Date (UT)", value=now_dt.date(), min_value=datetime(1800, 1, 1),
                              max_value=datetime(2399, 12, 31), width=dw)
@@ -425,8 +562,7 @@ def period(prep: Prepared, row=None, end_months: int | None = None, end_days: in
     return core.jd_of_datetime(start), core.jd_of_datetime(end)
 
 
-def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, end_months: int | None = None,
-                  end_days: int | None = None):
+def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, page: str = "Planets Cycles"):
     """The inputs of Planets Cycles (and Aspects, which shares them; keys keeps each page's buttons
     apart): (period as Julian days, planets, angles, minor on), or None when there is nothing to show yet.
     Planets Cycles has a button per major angle; Aspects (aspect_buttons False) has one Major Aspects and one
@@ -436,19 +572,19 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, e
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return None
-    jds = period(prep, head, end_months, end_days)
+    jds = period(prep, head, page)
     # on / off buttons, as on Distance: every choice always in view
     choices = core.BUTTON_ORDER + (["NN", "SN"] if nodes else [])
     dec_on = core.in_order(head.pills("Planets", core.shown_order(choices), selection_mode="multi", format_func=core.symbol_of,
-                                      default=["Sa", "Ju"], key=f"{keys}dec_on_v2"), choices)
+                                      default=default_choice(page, "Planets"), key=f"{keys}dec_on_v2"), choices)
     ea_names = {v: k for k, v in rangechart.EA_NAME.items()}   # 0°, 60°, 90°, 120°, 180° -> their angles
     minor = False
     if aspect_buttons:
-        ea = head.pills("Major Aspects", list(ea_names), selection_mode="multi", default=["0°", "180°"],
+        ea = head.pills("Major Aspects", list(ea_names), selection_mode="multi", default=default_choice(page, "Major Aspects"),
                         key=f"{keys}ea_on_v5") or []
     else:                                                     # one on / off button for each group
         groups = head.pills("Aspects", ["Major Aspects", "Minor Aspects"], selection_mode="multi",
-                            default=["Major Aspects", "Minor Aspects"], key=f"{keys}groups_v2") or []
+                            default=default_choice(page, "Aspects"), key=f"{keys}groups_v2") or []
         ea = list(ea_names) if "Major Aspects" in groups else []
         minor = "Minor Aspects" in groups
     if jds is None:
@@ -481,22 +617,23 @@ def page_globe():
                                              key=f"globe_{key}", format_func=core.symbol_of, label_visibility="collapsed", width=width),
                                    names))
 
-    shown = stacked(("Now", "DOB"), ("DOB",), title="Time")
+    shown = stacked(("Now", "DOB"), default_choice("AstroGlobe", "Time"), title="Time")
     all_bodies = list(globechart.BODY_CHOICES)
     with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # shown three a line: Mo Su Me, Ve Ma Ju, Sa NN SN
-    bodies = options_under("Planets", "bodies", with_nodes, with_nodes, width=112)
-    paths = options_under("Planet Path", "paths", with_nodes, ["Su"], width=112)
-    major = options_under("Maj Aspects", "major", [str(a) for a in sorted(core.MAJOR)], [], width=90)
-    minor = options_under("Min Aspects", "minor", [str(a) for a in core.MINOR], [], width=90)
+    bodies = options_under("Planets", "bodies", with_nodes, default_choice("AstroGlobe", "Planets"), width=112)
+    paths = options_under("Planet Path", "paths", with_nodes, default_choice("AstroGlobe", "Planet Path"), width=112)
+    major = options_under("Maj Aspects", "major", GLOBE_MAJOR, default_choice("AstroGlobe", "Maj Aspects"), width=90)
+    minor = options_under("Min Aspects", "minor", GLOBE_MINOR, default_choice("AstroGlobe", "Min Aspects"), width=90)
+    coords_on = default_choice("AstroGlobe", "Coordinates")
     coords = head.container(width="content", gap="xxsmall")   # Coordinates, with its options below it in fixed rows
     if coords.pills("Coordinates", ["Coordinates"], default="Coordinates", key="globe_coords_on", label_visibility="collapsed"):
         for row_of in (["House", "Celes"], ["RA", "Dec"], ["Lati", "Long"]):
-            shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[n for n in row_of if n == "Celes"],
+            shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[n for n in row_of if n in coords_on],
                                   key=f"globe_coords_{row_of[0]}", label_visibility="collapsed")
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds, manual = None, False
     if spin.pills("Rotate in 1s", ["Rotate in 1s"], default="Rotate in 1s", key="globe_rotate", label_visibility="collapsed"):
-        speed = spin.pills("Rotate speed", [globechart.MANUAL] + list(globechart.SPEEDS), default=globechart.MANUAL, key="globe_speed",
+        speed = spin.pills("Rotate speed", SPEED_CHOICES, default=default_choice("AstroGlobe", "Rotate in 1s"), key="globe_speed",
                            label_visibility="collapsed", width=92)    # (Manual, 1h on a line; 1d, 1w, 1m on the next; then 1y)
         manual = speed == globechart.MANUAL                           # the Earth is dragged round by hand
         day_seconds = globechart.SPEEDS.get(speed)                    # nothing picked: it holds still
@@ -529,8 +666,9 @@ def page_centric():
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
     if not need_chart(prep):
         return
-    model = head.pills("Centric Model", list(CENTRIC_MODELS), default="Geo", key="centric_model") or "Geo"
-    space_page(head, prep, *CENTRIC_MODELS[model])
+    model = head.pills("Centric Model", list(CENTRIC_MODELS), default=default_choice("Geo/Helio", "Centric Model"),
+                       key="centric_model") or "Geo"
+    space_page(head, prep, *CENTRIC_MODELS[model], model=model)
 
 
 def kept_pills(box, label: str, options, key: str, default=None, **kw):
@@ -542,17 +680,19 @@ def kept_pills(box, label: str, options, key: str, default=None, **kw):
     return value
 
 
-def space_page(head, prep, key: str, centre: str, choices: tuple):
+def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "Geo"):
     """GeoCentric (centre Ea) or HelioCentric (centre Su): its buttons each keep their own choice (key), also while the other
-    model is shown."""
-    shown = kept_pills(head, "Time", ["Now", "DOB"], f"{key}_time", ["DOB"], selection_mode="multi") or []
-    bodies = core.in_order(kept_pills(head, "Planets", core.shown_order(choices), f"{key}_bodies", list(choices), selection_mode="multi",
+    model is shown; they start as the Defaults table says (Geo Time .. Helio Rotate in 1s)."""
+    def start(title: str):
+        return default_choice("Geo/Helio", f"{model} {title}")
+    shown = kept_pills(head, "Time", ["Now", "DOB"], f"{key}_time", start("Time"), selection_mode="multi") or []
+    bodies = core.in_order(kept_pills(head, "Planets", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
                                       format_func=core.symbol_of), choices)
-    with_paths = core.in_order(kept_pills(head, "Planet Path", core.shown_order(choices), f"{key}_paths", list(choices),
+    with_paths = core.in_order(kept_pills(head, "Planet Path", core.shown_order(choices), f"{key}_paths", start("Planet Path"),
                                           selection_mode="multi", format_func=core.symbol_of), choices)
-    scale = kept_pills(head, "Scale", space3d.SCALES, f"{key}_scale", space3d.FIT) or space3d.FIT
-    show_au = bool(kept_pills(head, "AU", ["AU"], f"{key}_au", "AU", label_visibility="collapsed"))   # on to start with
-    speed = kept_pills(head, "Rotate in 1s", [globechart.MANUAL] + list(globechart.SPEEDS), f"{key}_speed", globechart.MANUAL)
+    scale = kept_pills(head, "Scale", space3d.SCALES, f"{key}_scale", start("Scale")) or space3d.FIT
+    show_au = bool(kept_pills(head, "AU", ["AU"], f"{key}_au", start("AU"), label_visibility="collapsed"))
+    speed = kept_pills(head, "Rotate in 1s", SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
     if not shown or not bodies:
@@ -568,7 +708,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple):
 
 
 def page_range():
-    got = cycles_inputs("", end_months=30 * 12)              # End: 30 years after the Start
+    got = cycles_inputs("", page="Planets Cycles")
     if got is None:
         return
     jds, dec_on, angles, _ = got
@@ -583,7 +723,7 @@ def page_range():
 def page_aspects_view():
     """Planets Cycles' aspects as tables: one per chosen angle, one row per time two of the planets come into it,
     newest first; then, with the Minor Aspects switch on, one per minor angle too."""
-    got = cycles_inputs("asp_", aspect_buttons=False, nodes=True, end_days=5)   # End: 5 days after the Start; Major / Minor Aspects on / off buttons; NN, SN too
+    got = cycles_inputs("asp_", aspect_buttons=False, nodes=True, page="Aspects")   # Major / Minor Aspects on / off buttons; NN, SN too
     if got is None:
         return
     jds, dec_on, angles, minor = got
@@ -643,10 +783,10 @@ def page_distance():
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return
-    jds = period(prep, head, end_months=2 * 12)              # End: 2 years after the Start
+    jds = period(prep, head, "Planets Distance(%)")
     # on / off buttons: all seven planets always in view (a selection box would hide some, or not fit on the line)
     dist_on = core.in_order(head.pills("Planets", core.shown_order(core.BUTTON_ORDER), selection_mode="multi", format_func=core.symbol_of,
-                                       default=["Sa", "Ju"], key="dist_on_v2"), core.BUTTON_ORDER)
+                                       default=default_choice("Planets Distance(%)", "Planets"), key="dist_on_v2"), core.BUTTON_ORDER)
     if jds is None:
         return
     with st.spinner("Drawing..."):
@@ -721,7 +861,7 @@ def page_defaults():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     table = db.defaults_table()
-    crud_table("defaults_table", table, db.defaults_problems,
+    crud_table("defaults_table", table, lambda rows: db.defaults_problems(rows) + options_problems(rows),
                lambda rows: f"Committed: {db.save_defaults(rows)} row(s).",
                height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
                column_config={"Page": st.column_config.TextColumn(width=170), "Title": st.column_config.TextColumn(width=170),
@@ -865,6 +1005,7 @@ def page_my_details():
 
 core.SIZE_TEXTS, core.SIZE_WORDS, core.SIZE_TEXTS_HELIO, core.SIZE_TEXTS_GLOBE = db.planet_sizes()   # and their sizes
 core.SYMBOL_TEXTS = db.planet_symbols()                       # and their symbols, shown in place of the SNs
+DEFAULT_TEXTS = db.defaults_map()                             # what each page's inputs start as (the Defaults table)
 core.COLOURS.update(core.DEFAULT_COLOURS | db.planet_colours())   # every chart's colours are the Symbols table's (a deleted row's, the usual one)
 pages = [st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe", default=True),
          st.Page(page_centric, title="Geo/Helio", icon=":material/orbit:", url_path="geo-helio"),
