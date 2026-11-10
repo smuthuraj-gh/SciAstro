@@ -30,6 +30,12 @@ POLE_FONT = 8                     # NCP, SCP and the RA names, in pixels
 SCP_BEYOND_AU = 15.0              # the axis reaches, both ways on the page, past where a ring this far out would be drawn ...
 SCP_PAST_PX = 22                  # ... by this many pixels, NCP and SCP at its ends
 SIDES = 96                        # a ring is drawn with this many straight pieces
+# Flat (the ScientificAstro page): GeoCentric seen from above the north celestial pole, each body at its RA and its distance
+# from the Earth (its Dec in its hover box only); only the FLAT_RING_AU circle, at the edge, with an RA scale round it,
+# 1 to 360 (a tick every degree, longer every 5, numbered every 10)
+FLAT_RING_AU = 15.0
+FLAT_RADIUS = 360.0               # pixels from the Earth to that circle
+FLAT_FONT = 9                     # the RA numbers, in pixels
 
 # HelioCentric: the Sun at the centre, the planets and the Earth round it, and the Moon round the Earth (seen from the Sun it is
 # where the Earth is, so it is drawn round the Earth's mark, larger than to scale: in its real direction from the Earth, at
@@ -75,7 +81,7 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
 
 def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
-               centre: str = "Ea") -> dict:
+               centre: str = "Ea", flat: bool = False) -> dict:
     """For each moment and body: its table to move it by, and (those in with_paths; all with None) its path, which the page draws
     as a trail behind it, where it has really been since the moment, kept for the whole run (72 years).
     moments: (Now or DOB, Julian day, UTC offset). centre: Ea (GeoCentric) or Su (HelioCentric). The drawing's size does not
@@ -119,15 +125,18 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
         sizing = None
     outer = outer or 1.0
     wanted = [au for au in at["rings"][scale] if reach(au) <= outer][-at["rings_shown"][scale]:] if show_au else []
+    if flat:                                                  # only the 15 AU circle, always, at the edge
+        wanted, outer = [FLAT_RING_AU], reach(FLAT_RING_AU)
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
-    return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
+    return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer,
+                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, flat_font=FLAT_FONT,
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=at["log_from"], gap=at["gap"],
                 scp_ring=reach(SCP_BEYOND_AU), scp_past=SCP_PAST_PX, sides=SIDES, small_font=SMALL_FONT, pole_font=POLE_FONT, key=centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
-                family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
+                family=CHART_FONT_FAMILY, ra_marks=[] if flat else [dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
 
 # (Spaces after every less-than: the page drops a script that seems to have tags in it.)
@@ -157,6 +166,7 @@ __SYMBOL_JS__
     const log = Math.max(Math.log10(s.dist / D.log_from), 0), lo = Math.log10(D.gap[0] / D.log_from), hi = Math.log10(D.gap[1] / D.log_from);
     const r = D.scale === "True" ? s.dist : log <= lo ? log :      // Fit: the gap past the Moon closed up
       log >= hi ? log - (hi - lo) + D.gap[2] : lo + (log - lo) / (hi - lo) * D.gap[2], a = s.ra * RAD, d = s.dec * RAD;
+    if (D.flat) return [r * Math.cos(a), r * Math.sin(a), 0];   // flat: at its RA and distance (the Dec left out)
     return [r * Math.cos(d) * Math.cos(a), r * Math.cos(d) * Math.sin(a), r * Math.sin(d)];
   };
   const posAt = (clock, body, t) => {             // where a body is then, and where it is drawn
@@ -181,6 +191,7 @@ __SYMBOL_JS__
   const LEAN_S = Math.sin(D.tilt * RAD), LEAN_C = Math.cos(D.tilt * RAD);
   const angles = () => { S = Math.sin(view.yaw * RAD); C = Math.cos(view.yaw * RAD); s = Math.sin(view.pitch * RAD); c = Math.cos(view.pitch * RAD); };
   const point = ([x, y, z]) => {                   // on the page: x, y, and how far toward the viewer (+ is near)
+    if (D.flat) return [D.width / 2 + x * D.fit, D.height / 2 - y * D.fit, 0];   // seen from above the north pole: RA 0 right, 90 up
     X = x * C - y * S;
     Y = -(x * S + y * C);
     Z = z * s + Y * c;
@@ -225,10 +236,10 @@ __SYMBOL_JS__
   rings.forEach((g) => { g.label.textContent = g.r.text; });
   const spokes = D.ra_marks.map((m) => ({m, draw: line("rgb(205,205,205)", 1, false, m.text), label: words("rgb(110,110,110)", D.pole_font)}));
   spokes.forEach((g) => { g.label.textContent = g.m.text; });
-  const axis = line(DARK, 2, false, D.centre === "Ea" ? "The Earth's axis: north celestial pole to south" :
+  const axis = D.flat ? null : line(DARK, 2, false, D.centre === "Ea" ? "The Earth's axis: north celestial pole to south" :
                      "Toward the north celestial pole and the south, as the Earth's axis");
   const paths = D.paths.map((p) => ({p, draw: line(p.colour, 1.8, p.dash, "", true)}));   // a path is one colour all round
-  const poles = [["NCP", [0, 0, D.outer]], ["SCP", [0, 0, -D.outer]]].map(([name, at]) => {
+  const poles = (D.flat ? [] : [["NCP", [0, 0, D.outer]], ["SCP", [0, 0, -D.outer]]]).map(([name, at]) => {
     const label = words(DARK, D.pole_font);
     label.textContent = name;
     return {at, label};
@@ -245,6 +256,24 @@ __SYMBOL_JS__
     const k = (size || D.font) / 13, w = text.length * 8 * k;
     return [x - w / 2 - 3, y - 15 * k, x + w / 2 + 3, y + 3 * k];
   };
+  const scaleBoxes = [];                           // flat: the RA scale round the circle, 1 to 360 (drawn once: it does not turn)
+  if (D.flat) {
+    const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2;
+    let ticks = "";
+    for (let ra = 1; ra !== 361; ra++) {
+      const a = ra * RAD, long = ra % 10 === 0 ? 10 : ra % 5 === 0 ? 7 : 4;
+      ticks += "M" + (cx + R * Math.cos(a)).toFixed(1) + " " + (cy - R * Math.sin(a)).toFixed(1) +
+               "L" + (cx + (R + long) * Math.cos(a)).toFixed(1) + " " + (cy - (R + long) * Math.sin(a)).toFixed(1);
+      if (ra % 10 === 0) {
+        const x = cx + (R + 22) * Math.cos(a), y = cy - (R + 22) * Math.sin(a) + D.flat_font / 3;
+        const n = words("rgb(90,90,90)", D.flat_font);
+        n.setAttribute("x", x.toFixed(1)); n.setAttribute("y", y.toFixed(1)); n.textContent = ra;
+        scaleBoxes.push(boxOf(x, y, String(ra), D.flat_font));
+      }
+    }
+    const scale = make("path", svg, {d: ticks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
+    make("title", scale).textContent = "RA, 1 to 360 degrees";
+  }
   const clear = (a, taken) => taken.every((b) => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
   const inside = (a) => a[0] > 0 && a[1] > 0 && a[2] < D.width && a[3] < D.height;
   const put = (label, spots, taken) => {           // its last place while that stays free, else the first free near it; left off if none
@@ -328,10 +357,12 @@ __SYMBOL_JS__
       }
       return hi;
     };
-    const length = Math.max(pageLength(1, 1), ringAcross(1) + D.scp_past, ringAcross(-1) + D.scp_past);
-    poles[0].at = [0, 0, reachFor(1, length) * D.outer];
-    poles[1].at = [0, 0, -reachFor(-1, length) * D.outer];
-    axis([poles[1].at, poles[0].at]);
+    if (!D.flat) {
+      const length = Math.max(pageLength(1, 1), ringAcross(1) + D.scp_past, ringAcross(-1) + D.scp_past);
+      poles[0].at = [0, 0, reachFor(1, length) * D.outer];
+      poles[1].at = [0, 0, -reachFor(-1, length) * D.outer];
+      axis([poles[1].at, poles[0].at]);
+    }
     const t = clock.t;
     paths.forEach((g) => {
       trail(g.p, t);
@@ -364,7 +395,7 @@ __SYMBOL_JS__
       placed.forEach((q) => { svg.appendChild(q.g.e); svg.appendChild(q.g.label); });
       lastStack = stack;
     }
-    const taken = placed.map((q) => [q.x - q.r - 2, q.y - q.r - 2, q.x + q.r + 2, q.y + q.r + 2]).concat([[ex - earthR - 1, ey - earthR - 1, ex + earthR + 1, ey + earthR + 1]]);
+    const taken = placed.map((q) => [q.x - q.r - 2, q.y - q.r - 2, q.x + q.r + 2, q.y + q.r + 2]).concat([[ex - earthR - 1, ey - earthR - 1, ex + earthR + 1, ey + earthR + 1]], scaleBoxes);
     if (!D.show_tags) {                            // AU off: no tags at all (the lines stay)
       poles.concat(spokes).forEach((g) => { g.label.style.display = "none"; });
       showClocks(t);
@@ -397,7 +428,7 @@ __SYMBOL_JS__
       draw();
     }, D.step_ms);
   }
-  if (!D.manual) { svg.style.cursor = "default"; return; }
+  if (!D.manual || D.flat) { svg.style.cursor = "default"; return; }   // (flat: nothing to turn)
   let from = null, due = false;                    // Manual: time stands still, and dragging turns the drawing
   svg.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
@@ -425,7 +456,7 @@ __SYMBOL_JS__
 
 def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
-               centre: str = "Ea") -> str:
+               centre: str = "Ea", flat: bool = False) -> str:
     uid = "space-" + uuid.uuid4().hex[:8]
-    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre)).replace("<", chr(92) + "u003c")
+    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat)).replace("<", chr(92) + "u003c")
     return f'<div id="{uid}"></div><script>{_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data).replace("__ID__", uid)}</script>'

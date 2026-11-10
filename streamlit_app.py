@@ -213,7 +213,7 @@ def top_line(title: str, row: pd.Series | None):
         f'flex-wrap:nowrap; font-weight:600">'
         f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
-        + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("AstroGlobe", "Geo/Helio") else "") +   # its script writes it
+        + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("ScientificAstro", "AstroGlobe", "Geo/Helio") else "") +   # its script writes it
         f'</div>')
     # the slot fills the rest of the line
     TITLE_SLOT = line.container(width="stretch", horizontal=True, gap="small")
@@ -600,7 +600,13 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
 
 
 def page_scientific():
-    """ScientificAstro: the top page of the menu, for everyone; nothing on it yet."""
+    """ScientificAstro: the top page of the menu, for everyone: the Geo drawing in 2D, seen from above the north celestial
+    pole, with only the 15 AU circle and an RA scale round it, 1 to 360. Its buttons are its own, and start as Geo's."""
+    _, prep = pick_customer()
+    head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
+    if not need_chart(prep):
+        return
+    space_page(head, prep, "sci", "Ea", globechart.BODY_CHOICES, model="Geo", flat=True)
 
 
 def page_globe():
@@ -691,7 +697,7 @@ def kept_pills(box, label: str, options, key: str, default=None, **kw):
     return value
 
 
-def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "Geo"):
+def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "Geo", flat: bool = False):
     """GeoCentric (centre Ea) or HelioCentric (centre Su): its buttons each keep their own choice (key), also while the other
     model is shown; they start as the Defaults table says (Geo Time .. Helio Rotate in 1s)."""
     def start(title: str):
@@ -714,7 +720,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         return
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
     moments = [m for m in (("Now", core.now_jd(), utc_now), ("DOB", prep.jd_birth, prep.utc)) if m[0] in shown]
-    st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre),
+    st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre, flat),
             unsafe_allow_javascript=True)
 
 
