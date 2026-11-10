@@ -601,8 +601,8 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
 
 def page_scientific():
     """ScientificAstrology: the top page of the menu, for everyone: the Geo drawing in 2D, seen from above the north celestial
-    pole, with only the 15 AU circle and an RA scale round it, 1 to 360. Its buttons (Geo's, without Planet Path and AU) are
-    its own, and start as Geo's."""
+    pole, with only the 15 AU circle and an RA scale round it, 1 to 360, always on the Fit scale and still (time does not
+    run). Its buttons, Time and Planets, are its own, and start as Geo's."""
     _, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
     if not need_chart(prep):
@@ -706,17 +706,16 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     shown = kept_pills(head, "Time", ["Now", "DOB"], f"{key}_time", start("Time"), selection_mode="multi") or []
     bodies = core.in_order(kept_pills(head, "Planets", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
                                       format_func=core.symbol_of), choices)
-    if flat:                                                  # no Planet Path or AU buttons: no paths, the 15 AU circle's tag shown
-        with_paths, show_au = [], True
+    if flat:      # no Planet Path, Scale, AU or Rotate in 1s buttons: no paths, always Fit, the 15 AU tag shown, time still
+        with_paths, scale, show_au, manual, day_seconds = [], space3d.FIT, True, False, None
     else:
         with_paths = core.in_order(kept_pills(head, "Planet Path", core.shown_order(choices), f"{key}_paths", start("Planet Path"),
                                               selection_mode="multi", format_func=core.symbol_of), choices)
-    scale = kept_pills(head, "Scale", space3d.SCALES, f"{key}_scale", start("Scale")) or space3d.FIT
-    if not flat:
+        scale = kept_pills(head, "Scale", space3d.SCALES, f"{key}_scale", start("Scale")) or space3d.FIT
         show_au = bool(kept_pills(head, "AU", ["AU"], f"{key}_au", start("AU"), label_visibility="collapsed"))
-    speed = kept_pills(head, "Rotate in 1s", SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
-    manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round
-    day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
+        speed = kept_pills(head, "Rotate in 1s", SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
+        manual = speed == globechart.MANUAL                   # time stands still, and the drawing is dragged round
+        day_seconds = globechart.SPEEDS.get(speed)            # nothing picked: it holds still
     if not shown or not bodies:
         st.info("Choose a time and at least one planet.")
         # nothing drawn: no clock beside the name either (the last drawing's would stay there)
