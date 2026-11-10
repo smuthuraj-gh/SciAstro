@@ -25,8 +25,8 @@ RINGS_SHOWN = {FIT: 6, "True": 4}   # at most this many rings, the outermost one
 RA_MARKS = (0, 90, 180, 270)
 RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroGlobe) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
-SMALL_FONT = 11                   # the rings' AU tags, in pixels
-POLE_FONT = 10                    # NCP, SCP and the RA names, in pixels
+SMALL_FONT = 8                    # the rings' AU tags, in pixels
+POLE_FONT = 8                     # NCP, SCP and the RA names, in pixels
 SCP_BEYOND_AU = 15.0              # the axis reaches, both ways on the page, past where a ring this far out would be drawn ...
 SCP_PAST_PX = 22                  # ... by this many pixels, NCP and SCP at its ends
 SIDES = 96                        # a ring is drawn with this many straight pieces
@@ -241,16 +241,16 @@ __SYMBOL_JS__
     const tip = make("title", e), label = symbolTag(svg, m.name, m.colour, m.hollow);
     return {m, e, tip, label, table: D.tables[m.clock][m.name]};
   });
-  const boxOf = (x, y, text) => {
-    const w = text.length * 8;
-    return [x - w / 2 - 3, y - 15, x + w / 2 + 3, y + 3];
+  const boxOf = (x, y, text, size) => {             // the room a tag takes, by its font size (13 px: 8 a character, 18 high)
+    const k = (size || D.font) / 13, w = text.length * 8 * k;
+    return [x - w / 2 - 3, y - 15 * k, x + w / 2 + 3, y + 3 * k];
   };
   const clear = (a, taken) => taken.every((b) => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
   const inside = (a) => a[0] > 0 && a[1] > 0 && a[2] < D.width && a[3] < D.height;
   const put = (label, spots, taken) => {           // its last place while that stays free, else the first free near it; left off if none
     const text = label.textContent;
     const free = (i) => {
-      const [x, y] = spots[i], a = boxOf(x, y, text);
+      const [x, y] = spots[i], a = boxOf(x, y, text, +label.getAttribute("font-size"));
       if (!inside(a) || !clear(a, taken)) return false;
       label.setAttribute("x", x.toFixed(1)); label.setAttribute("y", y.toFixed(1));
       label.style.display = "";
