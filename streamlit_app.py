@@ -591,12 +591,15 @@ def _aspect_tables(events: list, angles: list[int], where):
             continue
         rows = []
         for jd, _, title, de1, de2, ra1, ra2 in ev:       # (the Aspect names the two planets, in the order of 1, 2)
+            rd = abs(ra1 - ra2)
             rows.append({"Date / Time (UT)": core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M"), "Aspect": core.with_symbols(title),
-                         "RA1": ra1, "RA2": ra2, "De1": de1, "De2": de2})
+                         "RA1": ra1, "RA2": ra2, "RD": 360.0 - rd if rd > 180.0 else rd,   # RD: the angle between them, 0-180
+                         "De1": de1, "De2": de2})
         # sorted by clicking a column's name; RA and De as numbers, so that they sort as numbers
         where.dataframe(pd.DataFrame(rows), hide_index=True, width="content",
                         column_config={"RA1": st.column_config.NumberColumn(format="%.2f"),
                                        "RA2": st.column_config.NumberColumn(format="%.2f"),
+                                       "RD": st.column_config.NumberColumn(format="%.2f"),
                                        "De1": st.column_config.NumberColumn(format="%+.2f"),
                                        "De2": st.column_config.NumberColumn(format="%+.2f")})
 
