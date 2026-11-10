@@ -527,7 +527,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple):
     with_paths = core.in_order(kept_pills(head, "Planet Path", core.shown_order(choices), f"{key}_paths", list(choices),
                                           selection_mode="multi", format_func=core.symbol_of), choices)
     scale = kept_pills(head, "Scale", space3d.SCALES, f"{key}_scale", space3d.FIT) or space3d.FIT
-    show_au = bool(kept_pills(head, "AU", ["AU"], f"{key}_au", label_visibility="collapsed"))
+    show_au = bool(kept_pills(head, "AU", ["AU"], f"{key}_au", "AU", label_visibility="collapsed"))   # on to start with
     speed = kept_pills(head, "Rotate in 1s", [globechart.MANUAL] + list(globechart.SPEEDS), f"{key}_speed", globechart.MANUAL)
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
