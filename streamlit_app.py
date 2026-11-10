@@ -590,20 +590,22 @@ def _aspect_tables(events: list, angles: list[int], where):
             where.caption("None in this period.")
             continue
         rows = []
-        for jd, _, title, de1, de2 in ev:                 # (the Aspect names the two planets, in the order of Dec 1, Dec 2)
+        for jd, _, title, de1, de2, ra1, ra2 in ev:       # (the Aspect names the two planets, in the order of 1, 2)
             rows.append({"Date / Time (UT)": core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M"), "Aspect": core.with_symbols(title),
-                         "Dec 1": de1, "Dec 2": de2})
-        # sorted by clicking a column's name; Dec as numbers, so that they sort as numbers
+                         "RA1": ra1, "RA2": ra2, "De1": de1, "De2": de2})
+        # sorted by clicking a column's name; RA and De as numbers, so that they sort as numbers
         where.dataframe(pd.DataFrame(rows), hide_index=True, width="content",
-                        column_config={"Dec 1": st.column_config.NumberColumn(format="%+.2f"),
-                                       "Dec 2": st.column_config.NumberColumn(format="%+.2f")})
+                        column_config={"RA1": st.column_config.NumberColumn(format="%.2f"),
+                                       "RA2": st.column_config.NumberColumn(format="%.2f"),
+                                       "De1": st.column_config.NumberColumn(format="%+.2f"),
+                                       "De2": st.column_config.NumberColumn(format="%+.2f")})
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
 def _events_cached(dec_on, angles, jd_from, jd_to, orb_csv):
     import io
     ev = core.aspect_events(list(dec_on), jd_from, jd_to, list(angles), core.Orbs(pd.read_csv(io.StringIO(orb_csv))))
-    return [(e.jd, e.angle, e.title, e.de1, e.de2) for e in sorted(ev, key=lambda e: e.jd)]
+    return [(e.jd, e.angle, e.title, e.de1, e.de2, e.ra1, e.ra2) for e in sorted(ev, key=lambda e: e.jd)]
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)

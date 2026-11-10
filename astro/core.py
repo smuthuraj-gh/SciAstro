@@ -286,6 +286,8 @@ class AspectEvent:
     title: str          # e.g. 0-Sa-Ju (in the workbook's planet order)
     de1: float
     de2: float
+    ra1: float = 0.0    # the two planets' RA then (degrees), in the order of the title
+    ra2: float = 0.0
 
 
 def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[int], orbs: Orbs) -> list[AspectEvent]:
@@ -326,7 +328,8 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
                     h = (np.abs(sep - ang) <= ra_o) & ((same <= de_o) | (mirror <= de_o))
                 start = h & ~np.concatenate(([False], h[:-1]))      # coming into the aspect
                 for k in np.flatnonzero(start):
-                    out.append(AspectEvent(float(jds[k]), ang, tag(ang) + a + "-" + b, float(de[a][k]), float(de[b][k])))
+                    out.append(AspectEvent(float(jds[k]), ang, tag(ang) + a + "-" + b, float(de[a][k]), float(de[b][k]),
+                                           float(ra[a][k]), float(ra[b][k])))
     out.sort(key=lambda e: e.jd)
     return out
 
