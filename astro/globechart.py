@@ -635,16 +635,30 @@ __SYMBOL_JS__
       // its last place along the line while that stays free, then the nearest to that
       const had = l.tagAt === undefined ? 10 : l.tagAt;
       const along = [10, 7, 13, 4, 16, 2, 18].sort((a, b) => Math.abs(a - had) - Math.abs(b - had));
+      const put = (x, y, z, box) => {
+        l.tag.setAttribute("x", x.toFixed(1)); l.tag.setAttribute("y", (y + 4).toFixed(1));
+        l.tag.setAttribute("opacity", z >= 0 ? 1 : 0.55);
+        l.tag.style.display = "";
+        taken.push(box);
+      };
+      const seenAt = (x, y, z) => z >= 0 || Math.hypot(x - D.cx, y - D.cy) >= D.earth;
       for (const v of along) {
         const [x, y, z] = point(l.pts[v][0], l.pts[v][1]);
         const box = boxOf(x, y + 4, text);
-        if ((z >= 0 || Math.hypot(x - D.cx, y - D.cy) >= D.earth) && inChart(box) && clear(box, taken)) {
-          l.tag.setAttribute("x", x.toFixed(1)); l.tag.setAttribute("y", (y + 4).toFixed(1));
-          l.tag.setAttribute("opacity", z >= 0 ? 1 : 0.55);
-          l.tag.style.display = "";
+        if (seenAt(x, y, z) && inChart(box) && clear(box, taken)) {
+          put(x, y, z, box);
           l.tagAt = v;
-          taken.push(box);
-          break;
+          return;
+        }
+      }
+      // no room along it (a short line, between two planets close together): the nearest free place beside its middle
+      const [mx, my, mz] = point(l.pts[10][0], l.pts[10][1]);
+      if (!seenAt(mx, my, mz)) return;
+      for (let r = 12; r !== 60; r += 8) {
+        for (let k = 0; k !== 8; k++) {
+          const a = k * Math.PI / 4, x = mx + r * Math.cos(a) * (1 + text.length * D.text_w / 2 / 12), y = my + r * Math.sin(a);
+          const box = boxOf(x, y + 4, text);
+          if (inChart(box) && clear(box, taken)) return put(x, y, mz, box);
         }
       }
     });
