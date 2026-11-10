@@ -9,7 +9,8 @@ import uuid
 from functools import lru_cache
 
 from . import core
-from .globechart import MARKER_RANGE, MOTION_DAYS, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_table, symbol_shapes
+from .globechart import (MARKER_RANGE, MOTION_DAYS, NODE_CHOICES, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_table,
+                         _node_table, symbol_shapes)
 from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
@@ -64,6 +65,23 @@ def _helio_table(planet: str, jd: float, days: int = RUN_DAYS) -> dict:
             "dist": [round(p.dist_au, 6) for p in pts], "km": 0.0}
 
 
+@lru_cache(maxsize=24)
+def _node_geo_table(name: str, jd: float, days: int = RUN_DAYS) -> dict:
+    """NN or SN as a body round the Earth (the flat page): on the Moon's path, so at the Moon's distance then, at the node's
+    own RA and Dec (the south node opposite the north), on the Moon's table's times."""
+    moon, node = _motion_table("Mo", jd, days), _node_table(jd)
+    ra, dec = [], []
+    for i in range(len(moon["ra"])):
+        u = i * moon["step"] / node["step"]
+        k = min(int(u), len(node["ra"]) - 2)
+        f = u - k
+        turn = ((node["ra"][k + 1] - node["ra"][k] + 540.0) % 360.0) - 180.0
+        r, d = (node["ra"][k] + turn * f) % 360.0, node["dec"][k] + (node["dec"][k + 1] - node["dec"][k]) * f
+        ra.append(round(r if name == "NN" else (r + 180.0) % 360.0, 3))
+        dec.append(round(d if name == "NN" else -d, 3))
+    return {"step": moon["step"], "ra": ra, "dec": dec, "dist": moon["dist"], "km": 0.0}
+
+
 def _reach(au: float, scale: str, log_from: float = LOG_FROM_AU, gap: tuple = GAP) -> float:
     """How far from the centre a distance is drawn, before fitting to the page."""
     if scale == "True":
@@ -99,14 +117,15 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
             outer = max(outer, reach(max(whole["dist"])))
         for p in bodies:
             around = centre == "Su" and p == "Mo"                # its table as seen from the Earth
-            whole = _motion_table(p, jd, RUN_DAYS) if centre == "Ea" or around else _helio_table(p, jd, RUN_DAYS)
+            whole = (_node_geo_table(p, jd, RUN_DAYS) if p in NODE_CHOICES else       # (the flat page's NN, SN)
+                     _motion_table(p, jd, RUN_DAYS) if centre == "Ea" or around else _helio_table(p, jd, RUN_DAYS))
             tables[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
             if not around:
                 outer = max(outer, reach(max(whole["dist"])))
             rule = core.size_rule(p, texts=sizes)
             marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock, rule=rule))
-            days, steps, name = at["spans"][p]
             if with_paths is None or p in with_paths:         # the page draws it as time runs, from the body's own table
+                days, steps, name = at["spans"][p]
                 paths.append(dict(colour=core.colour(p), dash=clock == "Now", name=name, body=p, clock=clock, days=days, steps=steps, pts=[]))
     # what the sizes are measured from: each body as seen from the Earth (Bigger than Moon needs the Moon's table, shown or not)
     centre_rule = core.size_rule(centre, texts=sizes)
@@ -130,11 +149,11 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer,
-                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, flat_font=FLAT_FONT,
+                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, flat_font=FLAT_FONT, node_colour=core.colour("NN"),
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=at["log_from"], gap=at["gap"],
-                scp_ring=reach(SCP_BEYOND_AU), scp_past=SCP_PAST_PX, sides=SIDES, small_font=SMALL_FONT, pole_font=POLE_FONT, key=centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
+                scp_ring=reach(SCP_BEYOND_AU), scp_past=SCP_PAST_PX, sides=SIDES, small_font=SMALL_FONT, pole_font=POLE_FONT, key=("flat" if flat else "") + centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[] if flat else [dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
@@ -247,6 +266,15 @@ __SYMBOL_JS__
   const earth = make("circle", svg, {fill: D.centre_colour, stroke: DARK, "stroke-width": 1});   // the body at the centre
   make("title", earth).textContent = symbolOf(D.centre) + ", at the centre (its size is not to scale" + (D.centre_size ? ": " + D.centre_size : "") + ")";
   const earthLabel = symbolTag(svg, D.centre, D.centre_colour, false);
+  // NN and SN, at each moment both are shown, joined by a line: 180 degrees apart, through the Earth (under the marks)
+  const nodeLines = [...new Set(D.marks.map((m) => m.clock))]
+    .filter((c) => D.marks.some((m) => m.clock === c && m.name === "NN") && D.marks.some((m) => m.clock === c && m.name === "SN"))
+    .map((c) => {
+      const e = make("path", svg, {fill: "none", stroke: D.node_colour, "stroke-width": 1.5, style: "pointer-events:stroke"});
+      if (c === "Now") e.setAttribute("stroke-dasharray", "6 4");
+      make("title", e).textContent = symbolOf("NN") + " to " + symbolOf("SN") + " " + c + ": 180 degrees apart";
+      return {c, e};
+    });
   const marks = D.marks.map((m) => {
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
     const tip = make("title", e), label = symbolTag(svg, m.name, m.colour, m.hollow);
@@ -372,18 +400,23 @@ __SYMBOL_JS__
       const {s, p: at} = posAt(g.m.clock, g.m.name, t), [x, y, z] = point(at);
       // sized by how wide it looks from the Earth then, on AstroGlobe's logarithmic scale (to true scale the planets would not show)
       const seen = sizing(g.m.clock)[g.m.name], r = radiusAt(g.m.rule, sizing(g.m.clock), t);
-      const arcsec = seen ? arcsecOf(seen.km, sample(seen, t).dist) : null;   // how big it looks from the Earth (not for the Earth itself)
+      const arcsec = seen && seen.km ? arcsecOf(seen.km, sample(seen, t).dist) : null;   // how big it looks from the Earth (not for the Earth itself)
       const size = arcsec === null ? "" : "\nAngular Size: " + (arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec");
       g.e.setAttribute("r", r.toFixed(1));
       g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDec/Lati: " + signed(s.dec) + "\nRA: " + s.ra.toFixed(2) + size +
         "\nDistance from " + fromWord(g.m.name) + ": " + s.dist.toPrecision(4) + " AU" +
-        (D.around && g.m.name === "Mo" ? "\n(drawn round the Earth, farther out than to scale)" : "");
+        (D.around && g.m.name === "Mo" ? "\n(drawn round the Earth, farther out than to scale)" : "") +
+        (g.m.name === "NN" || g.m.name === "SN" ? "\n(on the Moon's path: at the Moon's distance)" : "");
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
       g.e.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       g.label.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       fitSymbol(g.label, x, y, r);
       return {g, x, y, z, r};
     }).sort((a, b) => a.z - b.z);
+    nodeLines.forEach((g) => {
+      const [n, s] = ["NN", "SN"].map((name) => placed.find((q) => q.g.m.clock === g.c && q.g.m.name === name));
+      g.e.setAttribute("d", "M" + n.x.toFixed(1) + " " + n.y.toFixed(1) + "L" + s.x.toFixed(1) + " " + s.y.toFixed(1));
+    });
     const [ex, ey] = point([0, 0, 0]), earthR = radiusAt(D.centre_rule, sizing(D.centre_clock), t);
     earth.setAttribute("r", earthR.toFixed(1));
     fitSymbol(earthLabel, ex, ey, earthR);
