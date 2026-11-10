@@ -599,6 +599,10 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
     return jds, dec_on, [ea_names[e] for e in ea], minor
 
 
+def page_scientific():
+    """ScientificAstro: the top page of the menu, for everyone; nothing on it yet."""
+
+
 def page_globe():
     """The Earth turning inside the celestial sphere: the planets and their RA and Dec lines on the sphere, CB, CN on it."""
     _, prep = pick_customer()
@@ -1057,7 +1061,8 @@ core.SIZE_TEXTS, core.SIZE_WORDS, core.SIZE_TEXTS_HELIO, core.SIZE_TEXTS_GLOBE =
 core.SYMBOL_TEXTS = db.planet_symbols()                       # and their symbols, shown in place of the SNs
 DEFAULT_TEXTS = db.defaults_map()                             # what each page's inputs start as (the Defaults table)
 core.COLOURS.update(core.DEFAULT_COLOURS | db.planet_colours())   # every chart's colours are the Symbols table's (a deleted row's, the usual one)
-pages = [st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe", default=True),
+pages = [st.Page(page_scientific, title="ScientificAstro", icon=":material/science:", url_path="scientific-astro"),
+         st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe", default=True),
          st.Page(page_centric, title="Geo/Helio", icon=":material/orbit:", url_path="geo-helio"),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
