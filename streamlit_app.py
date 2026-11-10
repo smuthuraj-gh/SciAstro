@@ -160,6 +160,9 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                       "its dot to see it. Dates and times are UT.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
+    "Defaults": "The Defaults table: a row per page input, with the Page, the input's Title and what it starts as "
+                "(Options), e.g. Planets Cycles, End Date (UT), Start Date (UT) + 30 years. Seen by admins only, who can Insert, "
+                "Update, Delete and Commit rows; one row per Page and Title. For reference: the pages do not read it yet.",
     "Symbols": "The Symbols table: the short name (SAbr), symbol (Symb), long name (SDesc) and colour (RGB, and its name, Color) of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
                "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SAbr is unique, and stays once a row is in the table. Symb is what the pages show in place of its SAbr, the SAbr itself when blank. On AstroGlobe and GeoCentric the conventional symbols are drawn, in the row's RGB colour; anything else is shown as typed, an emoji such as the baby in its own colours. RGB is rgb(r,g,b) or #rrggbb; Color is its name in words, for reference, and may be blank. Size_Globe says how AstroGlobe draws the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; Tiny, a dot with no symbol; Small, 9 pixels; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SAbr or SDesc (Bigger than Moon); blank, as usual (a planet by its angular size, Ea a dot, the nodes and places 9 pixels). Size_Geo says the same for GeoCentric, and Size_Helio for HelioCentric (it starts as Size_Geo, with the Moon Tiny). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on GeoCentric; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
     "Aspect Rules": "The orbs: for each aspect and planet, how far from exact still counts as the aspect, the same "
@@ -714,6 +717,17 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
             st.rerun()
 
 
+def page_defaults():
+    if not user.is_admin:                                     # admins only (not in a user's menu either)
+        st.stop()
+    table = db.defaults_table()
+    crud_table("defaults_table", table, db.defaults_problems,
+               lambda rows: f"Committed: {db.save_defaults(rows)} row(s).",
+               height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
+               column_config={"Page": st.column_config.TextColumn(width=170), "Title": st.column_config.TextColumn(width=170),
+                              "Options": st.column_config.TextColumn(width="large")})
+
+
 def page_naming():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
@@ -857,10 +871,11 @@ pages = [st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
-if user.is_admin:                                             # the Aspect Rules, Customers, Symbols pages: admins only
+if user.is_admin:                                             # the Aspect Rules, Customers, Symbols, Defaults pages: admins only
     pages += [st.Page(page_aspects, title="Aspect Rules", icon=":material/tune:", url_path="aspect-rules"),
               st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers"),
-              st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols")]
+              st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols"),
+              st.Page(page_defaults, title="Defaults", icon=":material/settings:", url_path="defaults")]
 else:
     pages.append(st.Page(page_my_details, title="My details", icon=":material/person:", url_path="me"))
 nav = st.navigation(pages)

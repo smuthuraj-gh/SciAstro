@@ -47,6 +47,21 @@ STAMPS = {"added_at": "Added", "updated_at": "Updated", "accessed_at": "Accessed
 EMAIL_INDEX = "ux_customers_email"
 sa.Index(EMAIL_INDEX, customers.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
+# The Defaults table: a row per page input (Page, Title) and what it starts as (Options); seen by admins only (the
+# Defaults page). The pages do not read it yet.
+defaults = sa.Table(
+    "defaults", meta,
+    sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),   # keeps the order shown
+    sa.Column("page", sa.String(60), nullable=False),
+    sa.Column("title", sa.String(60), nullable=False),
+    sa.Column("options", sa.String(500)),
+    sa.UniqueConstraint("page", "title", name="ux_defaults_page_title"),
+)
+DEFAULT_ROWS = [                                              # what the pages start with today
+    ("Aspects", "End Date (UT)", "Start Date (UT) + 5 days"),
+    ("Planets Cycles", "End Date (UT)", "Start Date (UT) + 30 years"),
+    ("Planets Distance(%)", "End Date (UT)", "Start Date (UT) + 2 years"),
+]
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
@@ -117,7 +132,62 @@ def engine() -> sa.Engine:
     _seed_planets(eng)
     _add_orb_nn_ra(eng)
     _seed_aspect_details(eng)
+    _seed_defaults(eng)
     return eng
+
+
+def _seed_defaults(eng: sa.Engine):
+    """The Defaults table gets its first rows once (a note among the settings says so, so an emptied table stays empty)."""
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "defaults_seeded")).scalar():
+            return
+        if not c.execute(sa.select(sa.func.count()).select_from(defaults)).scalar():
+            c.execute(defaults.insert(), [dict(page=p, title=t, options=o) for p, t, o in DEFAULT_ROWS])
+        c.execute(settings.insert().values(key="defaults_seeded", value="1"))
+
+
+# ---------------------------------------------------------------- the Defaults table
+def defaults_table() -> pd.DataFrame:
+    """The Defaults table: Page, Title, Options, in the order they were added."""
+    with engine().connect() as c:
+        rows = c.execute(sa.select(defaults).order_by(defaults.c.id)).mappings().all()
+    return pd.DataFrame([{"Page": r["page"], "Title": r["title"], "Options": r["options"]} for r in rows],
+                        columns=["Page", "Title", "Options"])
+
+
+def defaults_problems(rows: pd.DataFrame) -> list[str]:
+    """What is wrong with the Defaults rows: each needs a Page and a Title (at most 60 characters), one row per Page and
+    Title, and Options of at most 500 characters. A wholly empty row does not count."""
+    out, seen = [], set()
+    for _, r in rows.iterrows():
+        page, title, options = _cell(r["Page"]), _cell(r["Title"]), _cell(r["Options"])
+        if not (page or title or options):
+            continue
+        label = f"{page or 'New row'} / {title}" if title else (page or "New row")
+        if not page:
+            out.append(f"{label}: Page is empty")
+        if not title:
+            out.append(f"{label}: Title is empty")
+        if len(page) > 60 or len(title) > 60:
+            out.append(f"{label}: Page and Title can be at most 60 characters")
+        if len(options) > 500:
+            out.append(f"{label}: Options can be at most 500 characters")
+        if page and title:
+            if (page.lower(), title.lower()) in seen:
+                out.append(f"{label}: is in the table twice")
+            seen.add((page.lower(), title.lower()))
+    return out
+
+
+def save_defaults(rows: pd.DataFrame) -> int:
+    """Makes the Defaults table these rows (wholly empty ones left out); gives how many it has."""
+    keep = [dict(page=_cell(r["Page"]), title=_cell(r["Title"]), options=_cell(r["Options"]) or None)
+            for _, r in rows.iterrows() if _cell(r["Page"]) or _cell(r["Title"]) or _cell(r["Options"])]
+    with engine().begin() as c:
+        c.execute(sa.delete(defaults))
+        if keep:
+            c.execute(defaults.insert(), keep)
+    return len(keep)
 
 
 def _add_orb_nn_ra(eng: sa.Engine):

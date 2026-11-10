@@ -13,6 +13,7 @@ zodiac), with the same rules.
 | Aspect Rules | admins | the orbs per aspect and planet; a pair uses the larger of its two planets' orbs; Insert, Update, Delete, Commit |
 | Customers | admins | Insert, Update, Delete, Commit customers, click a column name to sort; import the workbook's Customers tab as CSV |
 | Symbols | admins | the table in the database: SAbr (unique), Symb (shown in place of the SAbr on the pages), SDesc, RGB (the charts' colours for the planets, Ea, NN, SN, CN and CB), Color (its name, for reference), Size_Globe (how AstroGlobe sizes the planets, Ea, the nodes and places), Size_Geo (the same, on GeoCentric), Size_Helio (on HelioCentric); Insert, Update, Delete, Commit; click a column name to sort |
+| Defaults | admins | the table in the database: Page, Title (a page input) and Options (what it starts as), one row per Page and Title; Insert, Update, Delete, Commit (for reference: the pages do not read it yet) |
 | My details | users | their own birth details, with Edit my details to change them (the login email stays) |
 
 Users sign in with Google and see only the customers whose **Email (login)** is theirs. A new member (no customer
