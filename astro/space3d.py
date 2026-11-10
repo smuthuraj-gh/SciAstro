@@ -299,7 +299,16 @@ __SYMBOL_JS__
     angles();
     rings.forEach((g) => g.draw(g.r.pts));
     spokes.forEach((g) => g.draw([[0, 0, 0], g.m.at]));
-    axis([[0, 0, -D.outer], [0, 0, D.outer]]);
+    // the south half as long on the page as the north half: leaning away from the viewer it would look shorter, so it is drawn
+    // farther out, to the length that matches (found by halving, for the way the drawing is turned now)
+    const [cx, cy] = point([0, 0, 0]), [nx, ny] = point([0, 0, D.outer]), north = Math.hypot(nx - cx, ny - cy);
+    let lo = 0.2, hi = 4;
+    for (let i = 0; i !== 30; i++) {
+      const k = (lo + hi) / 2, [sx, sy] = point([0, 0, -k * D.outer]);
+      if (Math.hypot(sx - cx, sy - cy) > north) hi = k; else lo = k;
+    }
+    poles[1].at = [0, 0, -lo * D.outer];
+    axis([poles[1].at, [0, 0, D.outer]]);
     const t = clock.t;
     paths.forEach((g) => {
       trail(g.p, t);
