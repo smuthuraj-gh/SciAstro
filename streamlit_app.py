@@ -151,7 +151,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                     "Each has its symbol inside its marker (☿ Me, ♀ Ve, ⊕ Ea, ☽ Mo, ♂ Ma, ♃ Ju, ♄ Sa, ☉ Su). Sizes follow the Size_Helio column of Symbols: usually a planet by how big it looks from the Earth at that moment (a logarithmic scale), the Sun and the Earth as their Sizes say. Point at a planet for its Dec/Lati, RA, Angular Size and distance from the Sun, or at a path for its span and distances. "
                     "Planet Path: which of the planets shown have their paths drawn. Time: Now is hollow with dashed paths, DOB solid; each path is a trail behind its planet, drawn only while time runs, kept for up to 72 years (with time standing still there are no trails, and each start begins new ones). "
                     "Scale: on Fit each tenfold distance takes the same room, so Mercury's path and Saturn's can be seen together; True is to scale. A label with no room is left off: point at its mark.",
-    "Aspects": "The aspects between the chosen planets, and the Moon's nodes (NN, SN; by their own orbs in Aspects Details, ☊-RA, ☋-RA, the larger of the pair's as for two planets; never with each other), over the period, as tables, newest first: one table per "
+    "Aspects": "The aspects between the chosen planets, and the Moon's nodes (NN, SN; by their own orbs in Aspects Details, ☊ and ☋, the larger of the pair's as for two planets; never with each other), over the period, as tables, newest first: one table per "
                "angle, a row each time two planets came into it (RA within the orb of the angle, and the two Declinations "
                "within the same orb of equal or mirrored). Major Aspects: 0, 60, 90, 120, 180 degrees. Minor Aspects: 30, 45, 72, 135, 144, "
                "150 degrees. Dates and times are UT.",
@@ -722,7 +722,7 @@ def page_aspects():
                lambda rows: (db.save_orb_table(db.with_angles(rows).pipe(lambda r: r[r["Angle"].notna()]).drop(columns="_angle")),
                              "Committed.")[1],
                column_config={"_angle": None, "Angle": None,          # not shown: a new row's comes from its Aspect's name
-                              **{c: st.column_config.NumberColumn(core.with_symbols(c)) for c in db.ORB_COLUMNS}})
+                              **{c: st.column_config.NumberColumn(core.with_symbols(c.removesuffix("-RA"))) for c in db.ORB_COLUMNS}})   # ☽︎, ☉︎ ..
     if st.button("Reset to defaults"):
         db.save_orb_table(core.default_orb_table())
         st.session_state.pop("orb_editor_working", None)
