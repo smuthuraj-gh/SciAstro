@@ -47,6 +47,18 @@ STAMPS = {"added_at": "Added", "updated_at": "Updated", "accessed_at": "Accessed
 EMAIL_INDEX = "ux_customers_email"
 sa.Index(EMAIL_INDEX, customers.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
+# The Logins table: a row each time a signed-in person (Email) opens a customer (View; once per customer per visit) or
+# adds, changes or deletes one (Create, Update, Delete: a row per customer), at Date_Time (UT); seen by admins only
+OPERATIONS = ("View", "Create", "Update", "Delete")
+logins = sa.Table(
+    "logins", meta,
+    sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
+    sa.Column("email", sa.String(320), nullable=False),
+    sa.Column("operation", sa.String(10), nullable=False),
+    sa.Column("date_time", sa.DateTime, nullable=False),
+    sa.CheckConstraint("operation IN ('View', 'Create', 'Update', 'Delete')", name="ck_logins_operation"),
+)
+sa.Index("ix_logins_date_time", logins.c.date_time)
 # The Defaults table: a row per page input (Page, Title) and what it starts as (Options); seen by admins only (the
 # Defaults page). Each page reads it as it is drawn; an input with no row starts as the app's own default.
 defaults = sa.Table(
@@ -650,10 +662,33 @@ def customer_problems(rows: pd.DataFrame) -> list[str]:
     return out
 
 
-def save_customers(edited: pd.DataFrame, original: pd.DataFrame) -> tuple[int, int, int]:
+def _log(c, email: str | None, operation: str, times: int = 1):
+    """Rows in the Logins table: this person did this, times times (one row per customer), now."""
+    if email and times > 0:
+        assert operation in OPERATIONS
+        now = _now()
+        c.execute(logins.insert(), [dict(email=email.lower(), operation=operation, date_time=now)] * times)
+
+
+def log_view(email: str | None):
+    """A View row in the Logins table: this person opened a customer."""
+    with engine().begin() as c:
+        _log(c, email, "View")
+
+
+def logins_table(limit: int = 5000) -> pd.DataFrame:
+    """The Logins table, newest first (at most limit rows): Email, Operation, Date_Time (UT)."""
+    with engine().connect() as c:
+        rows = c.execute(sa.select(logins).order_by(logins.c.date_time.desc(), logins.c.id.desc()).limit(limit)).mappings().all()
+    return pd.DataFrame([{"Email": r["email"], "Operation": r["operation"], "Date_Time": r["date_time"]} for r in rows],
+                        columns=["Email", "Operation", "Date_Time"])
+
+
+def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None = None) -> tuple[int, int, int]:
     """Apply an edited copy of the customers table: (added, changed, deleted). original is what that copy started from,
     so a customer who joined or changed their details since is left alone. A new birth date, time or place clears the
-    kept UTC offset, to be looked up again. Raises ValueError, saving nothing, when two customers would share a login email."""
+    kept UTC offset, to be looked up again. Raises ValueError, saving nothing, when two customers would share a login email.
+    by: who did it (their email), logged in the Logins table."""
     problems = customer_problems(edited)
     if problems:
         raise ValueError(" ".join(problems))
@@ -690,6 +725,9 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame) -> tuple[int, i
         for data in new:
             c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now))
             added += 1
+        _log(c, by, "Create", added)
+        _log(c, by, "Update", changed)
+        _log(c, by, "Delete", deleted)
     return added, changed, deleted
 
 
@@ -705,6 +743,7 @@ def add_own_customer(rec: dict, email: str) -> bool:
             return False
         now = _now()
         c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now, accessed_at=now))
+        _log(c, email, "Create")
     return True
 
 
@@ -728,6 +767,7 @@ def update_own_customer(rec: dict, email: str) -> bool:
         before["utc"] = old["utc"]
         if any(before.get(k) != v for k, v in new.items()):
             c.execute(sa.update(customers).where(where).values(**new, updated_at=_now()))
+            _log(c, email, "Update")
     return True
 
 
@@ -740,9 +780,9 @@ def mark_accessed(email: str):
                   .values(accessed_at=_now()))
 
 
-def import_workbook_csv(raw: bytes) -> int:
+def import_workbook_csv(raw: bytes, by: str | None = None) -> int:
     """Customers from a CSV saved from the workbook's Customers tab (Customer, Country, State, City, Other, ... City-N,
-    Other-N; any column may be missing); new names only."""
+    Other-N; any column may be missing); new names only. by: who did it, logged as Create in the Logins table."""
     src = pd.read_csv(io.BytesIO(raw), dtype=str)
     back = {v.split(" (")[0].lower(): k for k, v in LABELS.items()}
     back["customer"] = "name"                                # the workbook's own heading for First Name
@@ -763,6 +803,7 @@ def import_workbook_csv(raw: bytes) -> int:
                 have.add(data["name"].lower()); n += 1
                 if data.get("email"):
                     used.add(data["email"])
+        _log(c, by, "Create", n)
     return n
 
 

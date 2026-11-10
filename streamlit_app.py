@@ -160,6 +160,10 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                       "its dot to see it. Dates and times are UT.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
+    "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Operation) and when (Date_Time, "
+              "UT). View: opened a customer's charts (once per customer per visit). Create, Update, Delete: added, changed or "
+              "deleted a customer (on Customers, by import, or their own My details), a row per customer. Seen by admins only; "
+              "click a column name to sort.",
     "Defaults": "The Defaults table: what each page's inputs start as. A row per input: its Page, its Title and its "
                 "Options. Buttons: the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0°, 180°; Manual), "
                 "blank for none; one on / off button (AU): On or Off. Start Date (UT): DOB or Now. End Date (UT): Now, or "
@@ -256,6 +260,10 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
                            + ", ".join(str(row[f]) for f in ("city", "state", "country") if pd.notna(row[f]))
                            + f" ({prep.birth_lat}, {prep.birth_lon})")
     mark_accessed()
+    viewed = st.session_state.setdefault("viewed_customers", set())   # a View in the Logins table: once per customer per visit
+    if cid not in viewed:
+        db.log_view(user.email)
+        viewed.add(cid)
     return row, prep
 
 
@@ -857,6 +865,16 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
             st.rerun()
 
 
+def page_logins():
+    if not user.is_admin:                                     # admins only (not in a user's menu either)
+        st.stop()
+    table = db.logins_table()
+    st.dataframe(table, hide_index=True, width="content", height="auto" if len(table) <= 18 else 700,
+                 column_config={"Email": st.column_config.TextColumn(width=260), "Operation": st.column_config.TextColumn(width=100),
+                                "Date_Time": st.column_config.DatetimeColumn("Date_Time (UT)", format="YYYY-MM-DD HH:mm:ss", width=170)})
+    st.caption(f"{len(table)} row(s), newest first" + (" (the latest 5000)" if len(table) >= 5000 else "") + ".")
+
+
 def page_defaults():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
@@ -932,7 +950,7 @@ def page_customers():
         # against what the working copy started from: a member who joined or changed their details since is left alone
         base = st.session_state.get("cust_editor_base")
         return "Committed: {} added, {} changed, {} deleted.".format(
-            *db.save_customers(for_store(rows), df if base is None else for_store(base)))
+            *db.save_customers(for_store(rows), df if base is None else for_store(base), by=user.email))
 
     crud_table("cust_editor", show, lambda rows: db.customer_problems(for_store(rows)), commit,
                height=min(27 * (len(st.session_state.get("cust_editor_working", show)) + 2), 700),   # above its scroll bar
@@ -971,7 +989,7 @@ def page_customers():
         up = st.file_uploader("Customers CSV", type="csv")
         if up is not None and st.button("Import"):
             try:
-                n = db.import_workbook_csv(up.getvalue())
+                n = db.import_workbook_csv(up.getvalue(), by=user.email)
             except ValueError as exc:                          # nothing is saved
                 st.error(f"That file could not be imported, so nothing was added: {exc}")
             else:
@@ -1012,11 +1030,12 @@ pages = [st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
-if user.is_admin:                                             # the Aspect Rules, Customers, Symbols, Defaults pages: admins only
+if user.is_admin:                                             # the Aspect Rules, Customers, Symbols, Defaults, Logins pages: admins only
     pages += [st.Page(page_aspects, title="Aspect Rules", icon=":material/tune:", url_path="aspect-rules"),
               st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers"),
               st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols"),
-              st.Page(page_defaults, title="Defaults", icon=":material/settings:", url_path="defaults")]
+              st.Page(page_defaults, title="Defaults", icon=":material/settings:", url_path="defaults"),
+              st.Page(page_logins, title="Logins", icon=":material/history:", url_path="logins")]
 else:
     pages.append(st.Page(page_my_details, title="My details", icon=":material/person:", url_path="me"))
 nav = st.navigation(pages)
