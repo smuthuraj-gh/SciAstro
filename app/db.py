@@ -1,4 +1,4 @@
-"""The private store: customers, the planets and the orbs (Aspects Details).
+"""The private store: customers, the planets and the orbs (Aspect Rules).
 
 The database URL comes from the secret `db_url` (e.g. a Neon or Supabase Postgres URL on Streamlit Community Cloud,
 whose own disk is wiped on every restart). Without it, a local SQLite file private/app.db is used.
@@ -58,7 +58,7 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("size", sa.String(40)),                         # how the GeoCentric chart sizes it: Size_Geo
     sa.Column("size_helio", sa.String(40)),                   # how the HelioCentric chart sizes it: Size_Helio
 )
-# The Aspects Details table: a row per aspect, with its orb per planet (for RA and Dec alike); pos keeps the order shown
+# The Aspect Rules table: a row per aspect, with its orb per planet (for RA and Dec alike); pos keeps the order shown
 # (a store made when it had -De columns keeps them, unused)
 ORB_COLUMNS = [c for c in core.default_orb_table().columns if c not in ("Aspect", "Angle")]
 aspect_details = sa.Table(
@@ -121,7 +121,7 @@ def engine() -> sa.Engine:
 
 
 def _add_orb_nn_ra(eng: sa.Engine):
-    """An Aspects Details table made before its NN-RA and SN-RA columns gets them, each row as its Ju-RA (as the defaults have them)."""
+    """An Aspect Rules table made before its NN-RA and SN-RA columns gets them, each row as its Ju-RA (as the defaults have them)."""
     have = {c["name"] for c in sa.inspect(eng).get_columns("aspect_details")}
     with eng.begin() as c:
         for col, like in (("nn_ra", "ju_ra"), ("sn_ra", "ju_ra")):
@@ -132,7 +132,7 @@ def _add_orb_nn_ra(eng: sa.Engine):
 
 
 def _seed_aspect_details(eng: sa.Engine):
-    """The Aspects Details table, when empty, starts from the orbs kept as text among the settings before it existed
+    """The Aspect Rules table, when empty, starts from the orbs kept as text among the settings before it existed
     (that text stays until the table is next saved), or else from the defaults."""
     with eng.begin() as c:
         if c.execute(sa.select(sa.func.count()).select_from(aspect_details)).scalar():
@@ -654,7 +654,7 @@ def import_workbook_csv(raw: bytes) -> int:
 
 # ---------------------------------------------------------------- the orb table
 def orb_table() -> pd.DataFrame:
-    """The Aspects Details table, with the columns the charts read: Aspect, Angle, Mo-RA .. SN-RA."""
+    """The Aspect Rules table, with the columns the charts read: Aspect, Angle, Mo-RA .. SN-RA."""
     with engine().connect() as c:
         rows = c.execute(sa.select(aspect_details).order_by(aspect_details.c.pos)).mappings().all()
     return pd.DataFrame([{"Aspect": r["aspect"], "Angle": r["angle"],

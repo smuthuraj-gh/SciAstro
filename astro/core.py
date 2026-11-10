@@ -291,7 +291,7 @@ class AspectEvent:
 
 def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[int], orbs: Orbs) -> list[AspectEvent]:
     """Each time two of the planets come into one of the aspects (C / O / Q / T / S) across the period. The Moon's nodes (NN,
-    SN) may be among them, with their own orbs where the Aspects Details table has them (NN-RA, SN-RA), as the planets', the larger of the pair's;
+    SN) may be among them, with their own orbs where the Aspect Rules table has them (NN-RA, SN-RA), as the planets', the larger of the pair's;
     NN with SN is never one (they are always opposite)."""
     names = shown_order([p for p in BUTTON_ORDER + ["NN", "SN"] if p in labels])   # named in this order: 0-Mo-Su .. 0-Sa-SN
     if len(names) < 2 or not angles:
