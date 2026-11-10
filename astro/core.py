@@ -223,7 +223,7 @@ def start_orb(angle: float, is_dec: bool) -> float:
 
 @dataclass
 class Orbs:
-    """The orb table: a row per aspect (Aspect, Angle, Su-RA .. Ju-RA, Su-De .. Ju-De)."""
+    """The orb table: a row per aspect (Aspect, Angle, Su-RA .. Ju-RA, NN-RA, Su-De .. Ju-De, NN-De)."""
     table: pd.DataFrame
     _lookup: dict = field(default_factory=dict, init=False, repr=False)
 
@@ -235,7 +235,7 @@ class Orbs:
                 continue
             for col in self.table.columns:
                 c = str(col).strip()
-                if len(c) == 5 and c[:2] in PLANET_ID and c[2:].upper() in ("-RA", "-DE"):
+                if len(c) == 5 and (c[:2] in PLANET_ID or c[:2] in ("NN", "SN")) and c[2:].upper() in ("-RA", "-DE"):
                     v = pd.to_numeric(row[col], errors="coerce")
                     if pd.notna(v) and v >= 0:
                         self._lookup[(ang, c[:2], c[2:].upper() == "-DE")] = float(v)
@@ -292,7 +292,7 @@ class AspectEvent:
 
 def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[int], orbs: Orbs) -> list[AspectEvent]:
     """Each time two of the planets come into one of the aspects (C / O / Q / T / S) across the period. The Moon's nodes (NN,
-    SN) may be among them, with the orbs of the planet they are paired with (the Aspects Details table has none of their own);
+    SN) may be among them, with their own orbs where the Aspects Details table has them (NN-RA, NN-De; SN none), else the planet's they are paired with;
     NN with SN is never one (they are always opposite)."""
     names = [p for p in BUTTON_ORDER + ["NN", "SN"] if p in labels]
     if len(names) < 2 or not angles:
