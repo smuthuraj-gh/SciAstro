@@ -509,20 +509,33 @@ def page_centric():
     space_page(head, prep, *CENTRIC_MODELS[model])
 
 
+def kept_pills(box, label: str, options, key: str, default=None, **kw):
+    """Buttons whose choice is kept while they are not on the page (Streamlit forgets a widget's choice on a run that does not
+    show it): when they come back they start from the choice they had."""
+    store = f"_kept_{key}"
+    value = box.pills(label, options, default=st.session_state.get(store, default), key=key, **kw)
+    st.session_state[store] = value
+    return value
+
+
 def space_page(head, prep, key: str, centre: str, choices: tuple):
-    """GeoCentric (centre Ea) or HelioCentric (centre Su): its buttons each keep their own choice (key)."""
-    shown = head.pills("Time", ["Now", "DOB"], selection_mode="multi", default=["DOB"], key=f"{key}_time") or []
-    bodies = core.in_order(head.pills("Planets", core.shown_order(choices), selection_mode="multi", default=list(choices),
-                                      format_func=core.symbol_of, key=f"{key}_bodies"), choices)
-    with_paths = core.in_order(head.pills("Planet Path", core.shown_order(choices), selection_mode="multi", default=list(choices),
-                                          format_func=core.symbol_of, key=f"{key}_paths"), choices)
-    scale = head.pills("Scale", space3d.SCALES, default=space3d.FIT, key=f"{key}_scale") or space3d.FIT
-    show_au = bool(head.pills("AU", ["AU"], key=f"{key}_au", label_visibility="collapsed"))
-    speed = head.pills("Rotate in 1s", [globechart.MANUAL] + list(globechart.SPEEDS), default=globechart.MANUAL, key=f"{key}_speed")
+    """GeoCentric (centre Ea) or HelioCentric (centre Su): its buttons each keep their own choice (key), also while the other
+    model is shown."""
+    shown = kept_pills(head, "Time", ["Now", "DOB"], f"{key}_time", ["DOB"], selection_mode="multi") or []
+    bodies = core.in_order(kept_pills(head, "Planets", core.shown_order(choices), f"{key}_bodies", list(choices), selection_mode="multi",
+                                      format_func=core.symbol_of), choices)
+    with_paths = core.in_order(kept_pills(head, "Planet Path", core.shown_order(choices), f"{key}_paths", list(choices),
+                                          selection_mode="multi", format_func=core.symbol_of), choices)
+    scale = kept_pills(head, "Scale", space3d.SCALES, f"{key}_scale", space3d.FIT) or space3d.FIT
+    show_au = bool(kept_pills(head, "AU", ["AU"], f"{key}_au", label_visibility="collapsed"))
+    speed = kept_pills(head, "Rotate in 1s", [globechart.MANUAL] + list(globechart.SPEEDS), f"{key}_speed", globechart.MANUAL)
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
     if not shown or not bodies:
         st.info("Choose a time and at least one planet.")
+        # nothing drawn: no clock beside the name either (the last drawing's would stay there)
+        st.html("<script>document.querySelectorAll('.globe-clock').forEach((e) => { e.textContent = ''; });</script>",
+                unsafe_allow_javascript=True)
         return
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
     moments = [m for m in (("Now", core.now_jd(), utc_now), ("DOB", prep.jd_birth, prep.utc)) if m[0] in shown]
