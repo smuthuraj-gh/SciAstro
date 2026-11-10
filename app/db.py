@@ -398,7 +398,7 @@ def orb_problems(rows: pd.DataFrame) -> list[str]:
         if not aspect:
             out.append(f"{label}: Aspect is empty")
         if aspect and pd.isna(angle):
-            out.append(f"{label}: Aspect must be one of " + ", ".join(core.default_orb_table()["Aspect"]))
+            out.append(f"{label}: give an Angle (0 to 180), or an Aspect that is one of " + ", ".join(core.default_orb_table()["Aspect"]))
         elif pd.notna(angle) and not 0 <= angle <= 180:
             out.append(f"{label}: Angle must be a number from 0 to 180")
         elif pd.notna(angle) and angle in seen:
