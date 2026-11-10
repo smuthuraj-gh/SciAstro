@@ -96,7 +96,7 @@ SYMBOLS = {"Su": _ring(0, 0, 6.5) + _ring(0, 0, 0.8),
            # the Moon's nodes: north an arch on two small circles, south the same upside down
            "NN": "M-3.6 4.2C-8.4 -0.8 -6 -7 0 -7C6 -7 8.4 -0.8 3.6 4.2" + _ring(-4.6, 5.4, 1.7) + _ring(4.6, 5.4, 1.7),
            "SN": "M-3.6 -4.2C-8.4 0.8 -6 7 0 7C6 7 8.4 0.8 3.6 -4.2" + _ring(-4.6, -5.4, 1.7) + _ring(4.6, -5.4, 1.7)}
-# Which shape each symbol is drawn with, so that the Symbol column of the Naming Conventions table says what is drawn
+# Which shape each symbol is drawn with, so that the Symbol column of the Symbols table says what is drawn
 GLYPHS = {"\u2609": "Su", "\u263d": "Mo", "\u263f": "Me", "\u2640": "Ve", "\u2642": "Ma", "\u2643": "Ju", "\u2644": "Sa", "\u2295": "Ea", "\u2641": "Ea",
           "\u260a": "NN", "\u260b": "SN", "\U0001f3e0": "CN"}
 
@@ -507,7 +507,7 @@ __SYMBOL_JS__
     return [D.cx + (x - D.cx) * k, D.cy + (y - D.cy) * k, z];
   };
   const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
-  const radiusAt = (rule, tables, t) => {          // by the Size in the Naming Conventions table: a fixed radius, or a planet's angular size and more
+  const radiusAt = (rule, tables, t) => {          // by the Size in the Symbols table: a fixed radius, or a planet's angular size and more
     if (rule.px !== undefined) return rule.px;
     const b = tables[rule.of], arcsec = 2 * Math.atan(b.km / (sample(b, t).dist * D.au_km)) / RAD * 3600;
     const share = Math.max(0, Math.min(1, (Math.log(arcsec) - LOW) / (HIGH - LOW)));
@@ -602,7 +602,7 @@ __SYMBOL_JS__
       }
       const hidden = z < 0 && Math.hypot(x - D.cx, y - D.cy) < D.earth, fade = z >= 0 ? 1 : 0.55;
       Object.assign(node, {x, y, hidden, fade});
-      const nr = radiusAt(D.size_rules[node.name], node.s.tables, t);   // by its Size in the Naming Conventions table
+      const nr = radiusAt(D.size_rules[node.name], node.s.tables, t);   // by its Size in the Symbols table
       node.mark.setAttribute("transform", "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ") scale(" + (nr / 9).toFixed(3) + ")");
       node.mark.setAttribute("opacity", fade);
       node.mark.style.display = hidden ? "none" : "";
@@ -617,7 +617,7 @@ __SYMBOL_JS__
     });
     const apart = icons.length === 2 && Math.hypot(icons[0].at[0] - icons[1].at[0], icons[0].at[1] - icons[1].at[1]) < D.place_apart;
     icons.forEach((q, n) => {                      // close together, side by side
-      const r = radiusAt(D.size_rules[q.i.pl.label], D.sets[q.i.pl.set].tables, t);   // by its Size in the Naming Conventions table
+      const r = radiusAt(D.size_rules[q.i.pl.label], D.sets[q.i.pl.set].tables, t);   // by its Size in the Symbols table
       const x = q.at[0] + (apart ? (n ? 1 : -1) * (r + 2) : 0), y = q.at[1];
       q.i.tag.setAttribute("transform", "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ") scale(" + (r / 9).toFixed(3) + ")");
       taken.push([x - r - 1, y - r - 1, x + r + 1, y + r + 1]);

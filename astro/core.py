@@ -37,7 +37,7 @@ TRUE_NODE = 11                                                # Swiss Ephemeris 
 EARTH = 14                                                    # Swiss Ephemeris number of the Earth (as seen from the Sun)
 
 # The recommended colours: the traditional ones (Sun gold, Moon silver, Mars red, Venus green, Jupiter purple, Saturn brown),
-# made to show on white and to be told apart, colour-blind viewers too (the Naming Conventions table can change them)
+# made to show on white and to be told apart, colour-blind viewers too (the Symbols table can change them)
 COLOURS = {"Su": "rgb(230,159,0)", "Mo": "rgb(140,140,150)", "Me": "rgb(86,180,233)", "Ve": "rgb(0,158,115)",
            "Ma": "rgb(213,94,0)", "Ju": "rgb(120,60,160)", "Sa": "rgb(120,80,40)", "Ea": "rgb(0,114,178)",
            "NN": "rgb(204,121,167)", "SN": "rgb(102,102,153)", "CB": "rgb(0,0,0)", "CN": "rgb(0,60,140)"}
@@ -56,7 +56,7 @@ def colour(name: str) -> str:
     return COLOURS.get(name[:2], "rgb(0,0,0)")
 
 
-# The Size column of the Naming Conventions table (set each run from the table), and its names and SNs, in lower case, to their SN
+# The Size column of the Symbols table (set each run from the table), and its names and SNs, in lower case, to their SN
 SIZE_TEXTS: dict[str, str] = {}
 SIZE_WORDS: dict[str, str] = {}
 SIZE_TEXTS_HELIO: dict[str, str] = {}   # the Size_Helio column: how the HelioCentric chart sizes each row
@@ -68,7 +68,7 @@ SIZE_NAMES = {"tiny": TINY_PX, "small": MARK_PX}   # Size words: Tiny a dot; Sma
 SIZE_PX = (1.0, 40.0)             # the smallest and largest radius a number in Size can ask for
 
 
-# The Symbol column of the Naming Conventions table (set each run from the table), which the pages show in place of an SN
+# The Symbol column of the Symbols table (set each run from the table), which the pages show in place of an SN
 SYMBOL_TEXTS: dict[str, str] = {}
 _ANY_SN = re.compile(r"\b(Su|Mo|Me|Ve|Ma|Ju|Sa|Ea|NN|SN|CB|CN)\b")
 

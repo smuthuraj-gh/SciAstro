@@ -47,7 +47,7 @@ STAMPS = {"added_at": "Added", "updated_at": "Updated", "accessed_at": "Accessed
 EMAIL_INDEX = "ux_customers_email"
 sa.Index(EMAIL_INDEX, customers.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
-planets = sa.Table(                                           # seen by admins only (the Naming Conventions page)
+planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
     sa.Column("symbol", sa.String(8)),                        # the conventional symbol, as text, for people; the charts draw their own
@@ -266,7 +266,7 @@ def _seed_planets(eng: sa.Engine):
 
 
 def all_planets() -> pd.DataFrame:
-    """The Naming Conventions table: SN, Symbol, Name, Color, Color_Name, Size_Globe, Size (Size_Geo), Size_Helio, Sun first."""
+    """The Symbols table: SN, Symbol, Name, Color, Color_Name, Size_Globe, Size (Size_Geo), Size_Helio, Sun first."""
     with engine().connect() as c:
         rows = c.execute(sa.select(planets)).mappings().all()
     order = {p: i for i, p in enumerate(PLANET_NAMES)}
@@ -277,7 +277,7 @@ def all_planets() -> pd.DataFrame:
 
 
 def planet_colours() -> dict[str, str]:
-    """The Color of each row of the Naming Conventions table, by its SN."""
+    """The Color of each row of the Symbols table, by its SN."""
     with engine().connect() as c:
         return {sn: color for sn, color in c.execute(sa.select(planets.c.sn, planets.c.color)) if color}
 
@@ -303,7 +303,7 @@ def _cell(value) -> str:
 
 
 def planet_problems(rows: pd.DataFrame) -> list[str]:
-    """What is wrong with the Naming Conventions table's rows (_sn: the SN a row is kept under; blank on a new one, and a wholly empty
+    """What is wrong with the Symbols table's rows (_sn: the SN a row is kept under; blank on a new one, and a wholly empty
     new one does not count). Each needs a Name and a colour as rgb(r,g,b) or #rrggbb and an SN of up to 8 characters, unique;
     the SN of a row already in the table stays. Color_Name and Size may be blank, up to 40 characters each; Symbol may be blank, up to 8."""
     out, seen = [], set()
@@ -343,7 +343,7 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
 
 
 def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
-    """Makes the Naming Conventions table these rows: (added, changed, deleted)."""
+    """Makes the Symbols table these rows: (added, changed, deleted)."""
     old = {r["SN"]: (_cell(r["Name"]), _cell(r["Color"]), _cell(r["Color_Name"]), _cell(r["Size_Globe"]), _cell(r["Size"]), _cell(r["Size_Helio"]),
                _cell(r["Symbol"])) for _, r in all_planets().iterrows()}
     added = changed = 0

@@ -215,7 +215,7 @@ __SYMBOL_JS__
   const LOW = Math.log(D.sizes[0]), HIGH = Math.log(D.sizes[1]);
   const arcsecOf = (km, au) => 2 * Math.atan(km / (au * D.au_km)) / RAD * 3600;
   const sizing = (clock) => (D.sizing || D.tables)[clock];   // the tables as seen from the Earth, for the sizes
-  const radiusAt = (rule, tables, t) => {          // by the Size in the Naming Conventions table: a fixed radius, or a planet's angular size and more
+  const radiusAt = (rule, tables, t) => {          // by the Size in the Symbols table: a fixed radius, or a planet's angular size and more
     if (rule.px !== undefined) return rule.px;
     const b = tables[rule.of], share = Math.max(0, Math.min(1, (Math.log(arcsecOf(b.km, sample(b, t).dist)) - LOW) / (HIGH - LOW)));
     return Math.max(1, D.radii[0] + (D.radii[1] - D.radii[0]) * share + rule.add);
