@@ -38,6 +38,7 @@ PATH_SPAN = {"Mo": (27.32, 110, "Moon Path"), "Me": (365.25, 365, "Mercury Path"
 BODY_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
 TRAIL_SPAN = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN, "NN": (6793.5, 400, "NN Path"), "SN": (6793.5, 400, "SN Path")}
 NODE_CHOICES = ("NN", "SN")       # the Moon's north and south nodes, picked with the planets
+ASPECT_NAMES = core.shown_order(core.BUTTON_ORDER + list(NODE_CHOICES))   # in aspect with each other (not NN with SN), named in this order
 MANUAL = "Manual"                 # Rotate's option to drag the Earth round by hand
 HOUSE_COLOUR = "rgb(0,0,0)"
 ASPECT_COLOURS = {False: "rgb(0,0,0)", True: "rgb(110,110,110)"}     # major, minor
@@ -293,7 +294,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                              node=_node_table(when) if set(NODE_CHOICES) & (set(g.bodies) | set(g.paths)) else None))
     aspects = [dict(angle=a, colour=ASPECT_COLOURS[a in core.MINOR], width=1.0 if a in core.MINOR else 1.5,
                     orbs={f"{p}|{q}": [g.orbs.pair(a, p, q, False), g.orbs.pair(a, p, q, True)]
-                          for i, p in enumerate(core.shown_order(core.BUTTON_ORDER)) for q in core.shown_order(core.BUTTON_ORDER)[i + 1:]})
+                          for i, p in enumerate(ASPECT_NAMES) for q in ASPECT_NAMES[i + 1:] if {p, q} != set(NODE_CHOICES)})
                for a in g.aspects] if g.orbs is not None else []
     svg, taken = sky_svg(g)
     return dict(svg=svg, aspects=aspects, paths=_paths(g), taken=[[round(v, 1) for v in box] for box in taken], sets=sets, places=places,
@@ -301,7 +302,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
-                node_names=[n for n in NODE_CHOICES if n in g.bodies], name_order=core.shown_order(core.BUTTON_ORDER), shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p, texts=core.SIZE_TEXTS_GLOBE) for p in core.BUTTON_ORDER + ["NN", "SN", "CB", "CN"]}, family=CHART_FONT_FAMILY, node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
+                node_names=[n for n in NODE_CHOICES if n in g.bodies], name_order=ASPECT_NAMES, shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p, texts=core.SIZE_TEXTS_GLOBE) for p in core.BUTTON_ORDER + ["NN", "SN", "CB", "CN"]}, family=CHART_FONT_FAMILY, node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
 
 
@@ -434,10 +435,14 @@ __SYMBOL_JS__
     }
   });
   const aspectLines = [];                          // each pair of the bodies shown, at each moment: its line when in aspect
-  const named = (s) => D.name_order.filter((p) => s.shown.includes(p));   // each pair named in the order of the buttons: 0-Mo-Su
-  if (D.aspects.length) D.sets.forEach((s) => named(s).forEach((p, i) => named(s).slice(i + 1).forEach((q) =>
+  const named = (s) => D.name_order.filter((p) => s.shown.includes(p) || (s.node && D.node_names.includes(p)));   // with NN, SN;
+  if (D.aspects.length) D.sets.forEach((s) => named(s).forEach((p, i) => named(s).slice(i + 1).forEach((q) => {   // named in the
+    if ((p + q).length === 4 && p[1] === "N" && q[1] === "N") return;           // order of the buttons: 0-Mo-Su; NN-SN always opposite
     aspectLines.push({s, p, q, draw: line("black", s.clock === "Now" ? "2 3" : false),
-                      tag: words(markG, {"text-anchor": "middle"})}))));
+                      tag: words(markG, {"text-anchor": "middle"})});
+  })));
+  const aspectAt = (s, name, t) => (name === "NN" || name === "SN"      // where a planet, or a node, is then
+    ? nodeAt({s, turn: name === "NN" ? 0 : 180, sign: name === "NN" ? 1 : -1}, t) : sample(s.tables[name], t));
   const inAspect = (angle, a, b, orb) => {         // the rules of core.aspect_events: within the RA orb of the angle, and the Dec orb
     let sep = Math.abs(a.ra - b.ra);               // of equal (0), mirrored (180) or either (the others)
     if (sep > 180) sep = 360 - sep;
@@ -545,7 +550,7 @@ __SYMBOL_JS__
     } else if (pathsFacing !== raFacing) drawPaths();
     const taken = D.taken.slice();       // in the order of who keeps their place: the planets' tags before the houses', which spin past
     aspectLines.forEach((l) => {                   // the short way round between the two, straight in RA and Dec
-      const a = sample(l.s.tables[l.p], t), b = sample(l.s.tables[l.q], t);
+      const a = aspectAt(l.s, l.p, t), b = aspectAt(l.s, l.q, t);
       const on = D.aspects.filter((d) => inAspect(d.angle, a, b, d.orbs[l.p + "|" + l.q]));
       l.tagged = on[0] || null;
       if (!on.length) return l.draw([], "");
