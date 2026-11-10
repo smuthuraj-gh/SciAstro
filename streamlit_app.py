@@ -601,7 +601,7 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
 
 def page_scientific():
     """ScientificAstrology: the top page of the menu, for everyone: the Geo drawing in 2D, seen from above the north celestial
-    pole, with only the 15 AU circle and an RA scale round it, 1 to 360, always on the Fit scale and still (time does not
+    pole, with only the 12 AU circle and an RA scale round it, 1 to 360, always on the Fit scale and still (time does not
     run). Its buttons, Time and Planets, are its own, and start as Geo's."""
     _, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
@@ -706,7 +706,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     shown = kept_pills(head, "Time", ["Now", "DOB"], f"{key}_time", start("Time"), selection_mode="multi") or []
     bodies = core.in_order(kept_pills(head, "Planets", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
                                       format_func=core.symbol_of), choices)
-    if flat:      # no Planet Path, Scale, AU or Rotate in 1s buttons: no paths, always Fit, the 15 AU tag shown, time still
+    if flat:      # no Planet Path, Scale, AU or Rotate in 1s buttons: no paths, always Fit, the 12 AU tag shown, time still
         with_paths, scale, show_au, manual, day_seconds = [], space3d.FIT, True, False, None
     else:
         with_paths = core.in_order(kept_pills(head, "Planet Path", core.shown_order(choices), f"{key}_paths", start("Planet Path"),

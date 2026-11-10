@@ -33,7 +33,7 @@ SIDES = 96                        # a ring is drawn with this many straight piec
 # Flat (the ScientificAstrology page): GeoCentric seen from above the north celestial pole, each body at its RA and its distance
 # from the Earth (its Dec in its hover box only); only the FLAT_RING_AU circle, at the edge, with an RA scale round it,
 # 1 to 360 (a tick every degree, longer every 5, numbered every 10)
-FLAT_RING_AU = 15.0
+FLAT_RING_AU = 12.0
 FLAT_RADIUS = 360.0               # pixels from the Earth to that circle
 FLAT_FONT = 9                     # the RA numbers, in pixels
 
@@ -125,7 +125,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
         sizing = None
     outer = outer or 1.0
     wanted = [au for au in at["rings"][scale] if reach(au) <= outer][-at["rings_shown"][scale]:] if show_au else []
-    if flat:                                                  # only the 15 AU circle, always, at the edge
+    if flat:                                                  # only the 12 AU circle, always, at the edge
         wanted, outer = [FLAT_RING_AU], reach(FLAT_RING_AU)
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
