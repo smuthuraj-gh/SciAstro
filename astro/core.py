@@ -18,6 +18,19 @@ from . import se
 
 PLANETS = ["Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa"]          # Swiss Ephemeris numbers 0 .. 6
 BUTTON_ORDER = ["Sa", "Ju", "Ma", "Ve", "Me", "Su", "Mo"]     # the order of the workbook's buttons and loops
+SHOWN_ORDER = ["Mo", "Su", "Ea", "Me", "Ve", "Ma", "Ju", "Sa", "NN", "SN"]   # the order the planet buttons are shown in, on every page
+
+
+def shown_order(names) -> list:
+    """These names in the order the planet buttons are shown in (any not in it last, as they were)."""
+    names = list(names)
+    return sorted(names, key=lambda n: SHOWN_ORDER.index(n) if n in SHOWN_ORDER else len(SHOWN_ORDER) + names.index(n))
+
+
+def in_order(picked, order) -> list:
+    """The buttons picked, back in the order the charts use (the buttons' own order is only for showing)."""
+    order = list(order)
+    return [n for n in order if n in (picked or [])]
 PLANET_ID = {p: i for i, p in enumerate(PLANETS)}
 AU_KM = 149597870.7
 TRUE_NODE = 11                                                # Swiss Ephemeris number of the Moon's true node

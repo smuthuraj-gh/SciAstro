@@ -415,8 +415,8 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True):
         return None
     jds = period(prep, head)
     # on / off buttons, as on Distance: every choice always in view
-    dec_on = head.pills("Planets", core.BUTTON_ORDER, selection_mode="multi", format_func=core.symbol_of,
-                        default=["Sa", "Ju"], key=f"{keys}dec_on_v2") or []
+    dec_on = core.in_order(head.pills("Planets", core.shown_order(core.BUTTON_ORDER), selection_mode="multi", format_func=core.symbol_of,
+                                      default=["Sa", "Ju"], key=f"{keys}dec_on_v2"), core.BUTTON_ORDER)
     ea_names = {v: k for k, v in rangechart.EA_NAME.items()}   # 0°, 60°, 90°, 120°, 180° -> their angles
     minor = False
     if aspect_buttons:
@@ -453,12 +453,13 @@ def page_globe():
         box = head.container(width="content", gap="xxsmall")
         if not box.pills(title, [title], default=title, key=f"globe_{key}_on", label_visibility="collapsed"):
             return ()
-        return tuple(box.pills(f"Which {title}", names, selection_mode="multi", default=default, key=f"globe_{key}", format_func=core.symbol_of,
-                               label_visibility="collapsed", width=width))
+        return tuple(core.in_order(box.pills(f"Which {title}", core.shown_order(names), selection_mode="multi", default=default,
+                                             key=f"globe_{key}", format_func=core.symbol_of, label_visibility="collapsed", width=width),
+                                   names))
 
     shown = stacked(("Now", "DOB"), ("DOB",), title="Time")
     all_bodies = list(globechart.BODY_CHOICES)
-    with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # three a line: Su Mo Me, Ve Ma Ju, Sa NN SN
+    with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # shown three a line: Mo Su Me, Ve Ma Ju, Sa NN SN
     bodies = options_under("Planets", "bodies", with_nodes, with_nodes, width=112)
     paths = options_under("Planet Path", "paths", with_nodes, ["Su"], width=112)
     major = options_under("Maj Aspects", "major", [str(a) for a in sorted(core.MAJOR)], [], width=90)
@@ -511,10 +512,10 @@ def page_centric():
 def space_page(head, prep, key: str, centre: str, choices: tuple):
     """GeoCentric (centre Ea) or HelioCentric (centre Su): its buttons each keep their own choice (key)."""
     shown = head.pills("Time", ["Now", "DOB"], selection_mode="multi", default=["DOB"], key=f"{key}_time") or []
-    bodies = head.pills("Planets", list(choices), selection_mode="multi", default=list(choices),
-                        format_func=core.symbol_of, key=f"{key}_bodies") or []
-    with_paths = head.pills("Planet Path", list(choices), selection_mode="multi", default=list(choices),
-                            format_func=core.symbol_of, key=f"{key}_paths") or []
+    bodies = core.in_order(head.pills("Planets", core.shown_order(choices), selection_mode="multi", default=list(choices),
+                                      format_func=core.symbol_of, key=f"{key}_bodies"), choices)
+    with_paths = core.in_order(head.pills("Planet Path", core.shown_order(choices), selection_mode="multi", default=list(choices),
+                                          format_func=core.symbol_of, key=f"{key}_paths"), choices)
     scale = head.pills("Scale", space3d.SCALES, default=space3d.FIT, key=f"{key}_scale") or space3d.FIT
     show_au = bool(head.pills("AU", ["AU"], key=f"{key}_au", label_visibility="collapsed"))
     speed = head.pills("Rotate in 1s", [globechart.MANUAL] + list(globechart.SPEEDS), default=globechart.MANUAL, key=f"{key}_speed")
@@ -606,8 +607,8 @@ def page_distance():
         return
     jds = period(prep, head)
     # on / off buttons: all seven planets always in view (a selection box would hide some, or not fit on the line)
-    dist_on = head.pills("Planets", core.BUTTON_ORDER, selection_mode="multi", format_func=core.symbol_of,
-                         default=["Sa", "Ju"], key="dist_on_v2") or []
+    dist_on = core.in_order(head.pills("Planets", core.shown_order(core.BUTTON_ORDER), selection_mode="multi", format_func=core.symbol_of,
+                                       default=["Sa", "Ju"], key="dist_on_v2"), core.BUTTON_ORDER)
     if jds is None:
         return
     with st.spinner("Drawing..."):
