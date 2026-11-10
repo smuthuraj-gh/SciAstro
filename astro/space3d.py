@@ -25,6 +25,8 @@ RINGS_SHOWN = 4
 RA_MARKS = (0, 90, 180, 270)
 RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroGlobe) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
+SCP_BEYOND_AU = 15.0              # the axis's SCP half reaches, on the page, past where a ring this far out would be drawn ...
+SCP_PAST_PX = 22                  # ... by this many pixels, its tag at its end
 SIDES = 96                        # a ring is drawn with this many straight pieces
 
 # HelioCentric: the Sun at the centre, the planets and the Earth round it, and the Moon round the Earth (seen from the Sun it is
@@ -120,7 +122,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=at["log_from"], gap=at["gap"],
-                key=centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
+                scp_ring=reach(SCP_BEYOND_AU), scp_past=SCP_PAST_PX, sides=SIDES, key=centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
@@ -299,7 +301,7 @@ __SYMBOL_JS__
     angles();
     rings.forEach((g) => g.draw(g.r.pts));
     spokes.forEach((g) => g.draw([[0, 0, 0], g.m.at]));
-    // the south half as long on the page as the north half: leaning away from the viewer it would look shorter, so it is drawn
+    // the south half at least as long on the page as the north half: leaning away from the viewer it would look shorter, so it is drawn
     // farther out, to the length that matches (found by halving, for the way the drawing is turned now)
     const [cx, cy] = point([0, 0, 0]), [nx, ny] = point([0, 0, D.outer]), north = Math.hypot(nx - cx, ny - cy);
     let lo = 0.2, hi = 4;
@@ -307,7 +309,21 @@ __SYMBOL_JS__
       const k = (lo + hi) / 2, [sx, sy] = point([0, 0, -k * D.outer]);
       if (Math.hypot(sx - cx, sy - cy) > north) hi = k; else lo = k;
     }
-    poles[1].at = [0, 0, -lo * D.outer];
+    // and on the page past where a 15 AU ring would be drawn (round the centre, on the plane of the equator), its tag beyond it
+    const [sx0, sy0] = point([0, 0, -D.outer]), toward = Math.atan2(sy0 - cy, sx0 - cx);
+    let ring = 0, nearest = 9;
+    for (let i = 0; i !== D.sides; i++) {           // where that ring crosses the axis's line on the page
+      const a = 2 * Math.PI * i / D.sides, [rx, ry] = point([D.scp_ring * Math.cos(a), D.scp_ring * Math.sin(a), 0]);
+      const off = Math.abs(((Math.atan2(ry - cy, rx - cx) - toward + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
+      if (off < nearest) { nearest = off; ring = Math.hypot(rx - cx, ry - cy); }
+    }
+    const toViewer = point([0, 0, -D.outer])[2] / D.outer;   // leaning toward the viewer: not so far that the perspective turns over
+    let lo2 = lo, hi2 = toViewer > 0 ? Math.max(lo, Math.min(12, 3 / toViewer)) : 12;
+    for (let i = 0; i !== 30; i++) {
+      const k = (lo2 + hi2) / 2, [sx, sy] = point([0, 0, -k * D.outer]);
+      if (Math.hypot(sx - cx, sy - cy) > ring + D.scp_past) hi2 = k; else lo2 = k;
+    }
+    poles[1].at = [0, 0, -hi2 * D.outer];
     axis([poles[1].at, [0, 0, D.outer]]);
     const t = clock.t;
     paths.forEach((g) => {
