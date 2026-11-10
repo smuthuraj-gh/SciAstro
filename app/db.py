@@ -51,7 +51,7 @@ settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_ke
 # Defaults page). Each page reads it as it is drawn; an input with no row starts as the app's own default.
 defaults = sa.Table(
     "defaults", meta,
-    sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),   # keeps the order shown
+    sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
     sa.Column("page", sa.String(60), nullable=False),
     sa.Column("title", sa.String(60), nullable=False),
     sa.Column("options", sa.String(500)),
@@ -184,9 +184,10 @@ def _seed_defaults(eng: sa.Engine):
 
 # ---------------------------------------------------------------- the Defaults table
 def defaults_table() -> pd.DataFrame:
-    """The Defaults table: Page, Title, Options, in the order they were added."""
+    """The Defaults table: Page, Title, Options, sorted by Page, then Title, then Options (case aside)."""
     with engine().connect() as c:
-        rows = c.execute(sa.select(defaults).order_by(defaults.c.id)).mappings().all()
+        rows = c.execute(sa.select(defaults).order_by(sa.func.lower(defaults.c.page), sa.func.lower(defaults.c.title),
+                                                      sa.func.lower(sa.func.coalesce(defaults.c.options, "")))).mappings().all()
     return pd.DataFrame([{"Page": r["page"], "Title": r["title"], "Options": r["options"]} for r in rows],
                         columns=["Page", "Title", "Options"])
 
