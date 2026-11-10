@@ -19,9 +19,9 @@ GAP = (0.003, 0.25, 0.03)         # Fit: from just past the Moon's farthest (AU)
                                   # drawn as only this much (a tenth of a doubling: a thin space)
 LOG_FROM_AU = 0.0013              # on Fit, the distance drawn at the Earth (the Moon, about 0.0024-0.0027, close by)
 SPANS = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN}     # days, points, name: one trip round the sky
-RINGS = {FIT: (0.003, 0.5, 1.0, 5.0, 10.0),            # just past the Moon, then the planets: none in the space taken out
+RINGS = {FIT: (0.003, 0.5, 1.0, 2.5, 5.0, 10.0),            # just past the Moon, then the planets: none in the space taken out
          "True": (0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)}   # AU; at most RINGS_SHOWN of them
-RINGS_SHOWN = {FIT: 5, "True": 4}   # at most this many rings, the outermost ones
+RINGS_SHOWN = {FIT: 6, "True": 4}   # at most this many rings, the outermost ones
 RA_MARKS = (0, 90, 180, 270)
 RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroGlobe) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
