@@ -293,7 +293,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                              node=_node_table(when) if set(NODE_CHOICES) & (set(g.bodies) | set(g.paths)) else None))
     aspects = [dict(angle=a, colour=ASPECT_COLOURS[a in core.MINOR], width=1.0 if a in core.MINOR else 1.5,
                     orbs={f"{p}|{q}": [g.orbs.pair(a, p, q, False), g.orbs.pair(a, p, q, True)]
-                          for i, p in enumerate(core.BUTTON_ORDER) for q in core.BUTTON_ORDER[i + 1:]})
+                          for i, p in enumerate(core.shown_order(core.BUTTON_ORDER)) for q in core.shown_order(core.BUTTON_ORDER)[i + 1:]})
                for a in g.aspects] if g.orbs is not None else []
     svg, taken = sky_svg(g)
     return dict(svg=svg, aspects=aspects, paths=_paths(g), taken=[[round(v, 1) for v in box] for box in taken], sets=sets, places=places,
@@ -301,7 +301,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
-                node_names=[n for n in NODE_CHOICES if n in g.bodies], shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p, texts=core.SIZE_TEXTS_GLOBE) for p in core.BUTTON_ORDER + ["NN", "SN", "CB", "CN"]}, family=CHART_FONT_FAMILY, node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
+                node_names=[n for n in NODE_CHOICES if n in g.bodies], name_order=core.shown_order(core.BUTTON_ORDER), shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p, texts=core.SIZE_TEXTS_GLOBE) for p in core.BUTTON_ORDER + ["NN", "SN", "CB", "CN"]}, family=CHART_FONT_FAMILY, node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
 
 
@@ -434,7 +434,8 @@ __SYMBOL_JS__
     }
   });
   const aspectLines = [];                          // each pair of the bodies shown, at each moment: its line when in aspect
-  if (D.aspects.length) D.sets.forEach((s) => s.shown.forEach((p, i) => s.shown.slice(i + 1).forEach((q) =>
+  const named = (s) => D.name_order.filter((p) => s.shown.includes(p));   // each pair named in the order of the buttons: 0-Mo-Su
+  if (D.aspects.length) D.sets.forEach((s) => named(s).forEach((p, i) => named(s).slice(i + 1).forEach((q) =>
     aspectLines.push({s, p, q, draw: line("black", s.clock === "Now" ? "2 3" : false),
                       tag: words(markG, {"text-anchor": "middle"})}))));
   const inAspect = (angle, a, b, orb) => {         // the rules of core.aspect_events: within the RA orb of the angle, and the Dec orb
@@ -637,7 +638,7 @@ __SYMBOL_JS__
         taken.push(vBox);
       }
     });
-    aspectLines.forEach((l) => {                   // each its tag, as 0-Ju-Ma, in the first free place along its line; none if none
+    aspectLines.forEach((l) => {                   // each its tag, as 0-Ma-Ju, in the first free place along its line; none if none
       l.tag.style.display = "none";
       if (!l.tagged) return;
       const text = l.tagged.angle + "-" + symbolOf(l.p) + "-" + symbolOf(l.q);

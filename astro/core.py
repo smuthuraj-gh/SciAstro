@@ -80,7 +80,7 @@ def symbol_of(name: str) -> str:
 
 
 def with_symbols(text: str) -> str:
-    """A text with each SN in it shown as its Symbol: 0-Sa-Ju, as it is kept, for the page."""
+    """A text with each SN in it shown as its Symbol: 0-Ju-Sa, as it is kept, for the page."""
     return _ANY_SN.sub(lambda m: symbol_of(m[1]), text)
 
 
@@ -118,7 +118,7 @@ def size_readable(text: str, words: set[str]) -> bool:
 
 
 def tag(angle: int) -> str:
-    """An aspect's name starts with its angle: 0-Su-Me, 60-Ma-Mo, 135-Sa-Ve (the workbook used C-, S-, Q-, T-, O-)."""
+    """An aspect's name starts with its angle: 0-Su-Me, 60-Mo-Ma, 135-Ve-Sa (the workbook used C-, S-, Q-, T-, O-)."""
     return f"{angle}-"
 
 
@@ -283,7 +283,7 @@ def range_rows(labels: list[str], jd_from: float, jd_to: float) -> pd.DataFrame:
 class AspectEvent:
     jd: float
     angle: int
-    title: str          # e.g. 0-Sa-Ju (in the workbook's planet order)
+    title: str          # e.g. 0-Ju-Sa (in the order the planet buttons are shown: Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN)
     de1: float
     de2: float
     ra1: float = 0.0    # the two planets' RA then (degrees), in the order of the title
@@ -294,7 +294,7 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
     """Each time two of the planets come into one of the aspects (C / O / Q / T / S) across the period. The Moon's nodes (NN,
     SN) may be among them, with their own orbs where the Aspects Details table has them (NN-RA, SN-RA, NN-De, SN-De), as the planets', the larger of the pair's;
     NN with SN is never one (they are always opposite)."""
-    names = [p for p in BUTTON_ORDER + ["NN", "SN"] if p in labels]
+    names = shown_order([p for p in BUTTON_ORDER + ["NN", "SN"] if p in labels])   # named in this order: 0-Mo-Su .. 0-Sa-SN
     if len(names) < 2 or not angles:
         return []
     span = jd_to - jd_from
