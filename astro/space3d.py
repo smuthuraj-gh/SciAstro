@@ -19,9 +19,9 @@ GAP = (0.003, 0.25, 0.03)         # Fit: from just past the Moon's farthest (AU)
                                   # drawn as only this much (a tenth of a doubling: a thin space)
 LOG_FROM_AU = 0.0013              # on Fit, the distance drawn at the Earth (the Moon, about 0.0024-0.0027, close by)
 SPANS = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN}     # days, points, name: one trip round the sky
-RINGS = {FIT: (0.003, 0.5, 1.0, 10.0),            # just past the Moon, then the planets: none in the space taken out
+RINGS = {FIT: (0.003, 0.5, 1.0, 5.0, 10.0),            # just past the Moon, then the planets: none in the space taken out
          "True": (0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)}   # AU; at most RINGS_SHOWN of them
-RINGS_SHOWN = 4
+RINGS_SHOWN = {FIT: 5, "True": 4}   # at most this many rings, the outermost ones
 RA_MARKS = (0, 90, 180, 270)
 RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroGlobe) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
@@ -44,7 +44,7 @@ HELIO_RINGS = {FIT: (0.25, 0.5, 1.0, 2.0, 5.0, 10.0),   # all of them (on True t
 NO_GAP = (1.0, 1.0, 0.0)          # nothing taken out
 # by the body at the centre: the distance drawn there on Fit, the space taken out, the rings, the paths' spans, and its name in words
 CENTRES = {"Ea": dict(log_from=LOG_FROM_AU, gap=GAP, rings=RINGS, rings_shown=RINGS_SHOWN, spans=SPANS, word="earth"),
-           "Su": dict(log_from=HELIO_LOG_FROM_AU, gap=NO_GAP, rings=HELIO_RINGS, rings_shown=6, spans=HELIO_SPANS, word="the Sun")}
+           "Su": dict(log_from=HELIO_LOG_FROM_AU, gap=NO_GAP, rings=HELIO_RINGS, rings_shown={FIT: 6, "True": 4}, spans=HELIO_SPANS, word="the Sun")}
 
 
 @lru_cache(maxsize=24)
@@ -116,7 +116,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
             tables[clock].update(sizing[clock])
         sizing = None
     outer = outer or 1.0
-    wanted = [au for au in at["rings"][scale] if reach(au) <= outer][-at["rings_shown"]:] if show_au else []
+    wanted = [au for au in at["rings"][scale] if reach(au) <= outer][-at["rings_shown"][scale]:] if show_au else []
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer, fit=RADIUS / outer, width=WIDTH, height=HEIGHT, font=FONT,
