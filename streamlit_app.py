@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import html
 import re
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -383,9 +383,10 @@ def need_chart(prep: Prepared | None) -> bool:
 
 
 # ---------------------------------------------------------------- pages
-def period(prep: Prepared, row=None) -> tuple[float, float] | None:
+def period(prep: Prepared, row=None, end_days: int | None = None) -> tuple[float, float] | None:
     """The Start / End inputs (UT; birth to now unless changed) as Julian days, or None (with a warning) if unusable.
-    With row (a horizontal container) they go into it, each just wide enough; otherwise in four columns."""
+    With row (a horizontal container) they go into it, each just wide enough; otherwise in four columns. end_days: the
+    End starts that many days after the Start (and moves with it) instead of at now."""
     birth_dt = core.jd_to_datetime(prep.jd_birth)
     now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
     c = [row] * 4 if row is not None else st.columns(4)
@@ -393,9 +394,15 @@ def period(prep: Prepared, row=None) -> tuple[float, float] | None:
     d0 = c[0].date_input("Start Date (UT)", value=birth_dt.date(), min_value=datetime(1800, 1, 1),
                          max_value=datetime(2399, 12, 31), width=dw)
     t0 = c[1].time_input("Time (UT)", key=f"start_time_{prep.jd_birth}", value=time(birth_dt.hour, birth_dt.minute), width=tw)
-    d1 = c[2].date_input("End Date (UT)", value=now_dt.date(), min_value=datetime(1800, 1, 1),
-                         max_value=datetime(2399, 12, 31), width=dw)
-    t1 = c[3].time_input("Time (UT)", key=f"end_time_{now_dt.date()}", value=time(now_dt.hour, now_dt.minute), width=tw)
+    if end_days is not None:                                  # the End follows the Start: a changed Start sets it again
+        end_dt = datetime.combine(d0, t0) + timedelta(days=end_days)
+        d1 = c[2].date_input("End Date (UT)", value=end_dt.date(), min_value=datetime(1800, 1, 1),
+                             max_value=datetime(2399, 12, 31), width=dw, key=f"end_date_{d0}_{t0}")
+        t1 = c[3].time_input("Time (UT)", key=f"end_time_{d0}_{t0}", value=end_dt.time(), width=tw)
+    else:
+        d1 = c[2].date_input("End Date (UT)", value=now_dt.date(), min_value=datetime(1800, 1, 1),
+                             max_value=datetime(2399, 12, 31), width=dw)
+        t1 = c[3].time_input("Time (UT)", key=f"end_time_{now_dt.date()}", value=time(now_dt.hour, now_dt.minute), width=tw)
     start, end = datetime.combine(d0, t0), datetime.combine(d1, t1)
     if end <= start:
         st.warning("The end must be after the start.")
@@ -406,7 +413,7 @@ def period(prep: Prepared, row=None) -> tuple[float, float] | None:
     return core.jd_of_datetime(start), core.jd_of_datetime(end)
 
 
-def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False):
+def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, end_days: int | None = None):
     """The inputs of Planets Cycles (and Aspects, which shares them; keys keeps each page's buttons
     apart): (period as Julian days, planets, angles, minor on), or None when there is nothing to show yet.
     Planets Cycles has a button per major angle; Aspects (aspect_buttons False) has one Major Aspects and one
@@ -416,7 +423,7 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False):
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return None
-    jds = period(prep, head)
+    jds = period(prep, head, end_days)
     # on / off buttons, as on Distance: every choice always in view
     choices = core.BUTTON_ORDER + (["NN", "SN"] if nodes else [])
     dec_on = core.in_order(head.pills("Planets", core.shown_order(choices), selection_mode="multi", format_func=core.symbol_of,
@@ -548,7 +555,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple):
 
 
 def page_range():
-    got = cycles_inputs("")
+    got = cycles_inputs("", end_days=5)                      # End: 5 days after the Start
     if got is None:
         return
     jds, dec_on, angles, _ = got
@@ -623,7 +630,7 @@ def page_distance():
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return
-    jds = period(prep, head)
+    jds = period(prep, head, end_days=5)                     # End: 5 days after the Start
     # on / off buttons: all seven planets always in view (a selection box would hide some, or not fit on the line)
     dist_on = core.in_order(head.pills("Planets", core.shown_order(core.BUTTON_ORDER), selection_mode="multi", format_func=core.symbol_of,
                                        default=["Sa", "Ju"], key="dist_on_v2"), core.BUTTON_ORDER)
