@@ -565,7 +565,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple):
 
 
 def page_range():
-    got = cycles_inputs("", end_months=30)                   # End: 2 years 6 months after the Start
+    got = cycles_inputs("", end_months=30 * 12)              # End: 30 years after the Start
     if got is None:
         return
     jds, dec_on, angles, _ = got
@@ -640,7 +640,7 @@ def page_distance():
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return
-    jds = period(prep, head, end_months=30)                  # End: 2 years 6 months after the Start
+    jds = period(prep, head, end_months=2 * 12)              # End: 2 years after the Start
     # on / off buttons: all seven planets always in view (a selection box would hide some, or not fit on the line)
     dist_on = core.in_order(head.pills("Planets", core.shown_order(core.BUTTON_ORDER), selection_mode="multi", format_func=core.symbol_of,
                                        default=["Sa", "Ju"], key="dist_on_v2"), core.BUTTON_ORDER)
