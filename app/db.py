@@ -58,7 +58,8 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("size", sa.String(40)),                         # how the GeoCentric chart sizes it: Size_Geo
     sa.Column("size_helio", sa.String(40)),                   # how the HelioCentric chart sizes it: Size_Helio
 )
-# The Aspects Details table: a row per aspect, with its RA and Dec orbs per planet; pos keeps the order shown
+# The Aspects Details table: a row per aspect, with its orb per planet (for RA and Dec alike); pos keeps the order shown
+# (a store made when it had -De columns keeps them, unused)
 ORB_COLUMNS = [c for c in core.default_orb_table().columns if c not in ("Aspect", "Angle")]
 aspect_details = sa.Table(
     "aspect_details", meta,
@@ -120,11 +121,10 @@ def engine() -> sa.Engine:
 
 
 def _add_orb_nn_ra(eng: sa.Engine):
-    """An Aspects Details table made before its NN-RA, SN-RA, NN-De and SN-De columns gets them, each row as its Ju-RA and Ju-De
-    (as the defaults have them)."""
+    """An Aspects Details table made before its NN-RA and SN-RA columns gets them, each row as its Ju-RA (as the defaults have them)."""
     have = {c["name"] for c in sa.inspect(eng).get_columns("aspect_details")}
     with eng.begin() as c:
-        for col, like in (("nn_ra", "ju_ra"), ("sn_ra", "ju_ra"), ("nn_de", "ju_de"), ("sn_de", "ju_de")):
+        for col, like in (("nn_ra", "ju_ra"), ("sn_ra", "ju_ra")):
             if col not in have:
                 kind = aspect_details.c[col].type.compile(dialect=eng.dialect)
                 c.execute(sa.text(f"ALTER TABLE aspect_details ADD COLUMN {col} {kind}"))
@@ -367,6 +367,20 @@ def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
     return added, changed, len(set(old) - kept)
 
 
+def aspect_angles() -> dict[str, float]:
+    """The angle of each aspect by its name, in lower case (from the defaults): how a new row gets its Angle."""
+    d = core.default_orb_table()
+    return {str(a).strip().lower(): float(g) for a, g in zip(d["Aspect"], d["Angle"])}
+
+
+def with_angles(rows: pd.DataFrame) -> pd.DataFrame:
+    """These rows, a new one (no Angle yet) given the angle of its Aspect's name."""
+    rows, angles = rows.copy(), aspect_angles()
+    new = rows["Angle"].isna()
+    rows.loc[new, "Angle"] = rows.loc[new, "Aspect"].map(lambda a: angles.get(_cell(a).lower()))
+    return rows
+
+
 def orb_problems(rows: pd.DataFrame) -> list[str]:
     """What is wrong with the orb table's rows (_angle: the Angle a row is kept under; blank on a new one). Each needs an
     Aspect, a unique Angle (which stays on a row already there) and every orb a number of 0 or more."""
@@ -383,10 +397,12 @@ def orb_problems(rows: pd.DataFrame) -> list[str]:
             out.append(f"{label}: the Angle of a row already in the table cannot be changed")
         if not aspect:
             out.append(f"{label}: Aspect is empty")
-        if pd.isna(angle) or not 0 <= angle <= 180:
+        if aspect and pd.isna(angle):
+            out.append(f"{label}: Aspect must be one of " + ", ".join(core.default_orb_table()["Aspect"]))
+        elif pd.notna(angle) and not 0 <= angle <= 180:
             out.append(f"{label}: Angle must be a number from 0 to 180")
-        elif angle in seen:
-            out.append(f"{label}: Angle {angle:g} is already in the table")
+        elif pd.notna(angle) and angle in seen:
+            out.append(f"{label}: {aspect} ({angle:g}) is already in the table")
         else:
             seen.add(angle)
         if numbers.loc[i].isna().any() or (numbers.loc[i] < 0).any():
@@ -638,7 +654,7 @@ def import_workbook_csv(raw: bytes) -> int:
 
 # ---------------------------------------------------------------- the orb table
 def orb_table() -> pd.DataFrame:
-    """The Aspects Details table, with the columns the charts read: Aspect, Angle, Su-RA .. Ju-De."""
+    """The Aspects Details table, with the columns the charts read: Aspect, Angle, Mo-RA .. SN-RA."""
     with engine().connect() as c:
         rows = c.execute(sa.select(aspect_details).order_by(aspect_details.c.pos)).mappings().all()
     return pd.DataFrame([{"Aspect": r["aspect"], "Angle": r["angle"],

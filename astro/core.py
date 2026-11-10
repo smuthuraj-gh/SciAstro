@@ -1,9 +1,9 @@
 """Equatorial positions (RA / Dec only, no zodiac), distances, sidereal time and the aspect rules.
 
 Ported from the Excel workbook's VBA (modSE, modTable, modMap, modMovement); the rules are the same:
-an aspect at an angle holds when the RA separation is within the RA orb of the angle and the Dec is within the Dec
-orb of equal (conjunction), mirrored (opposition) or either (every other angle). A pair's orb is the larger of
-its two planets' orbs; a house point (CB, CN) takes the planet's.
+an aspect at an angle holds when the RA separation is within the orb of the angle and the two Decs are within the
+same orb of equal or mirrored (one rule for every angle). A pair's orb is the larger of its two planets' orbs; a house
+point (CB, CN) takes the planet's.
 """
 from __future__ import annotations
 
@@ -209,9 +209,8 @@ def now_points(jd_now: float) -> dict[str, tuple[float, float]]:
 
 
 # ---------------------------------------------------------------- orbs
-def start_orb(angle: float, is_dec: bool) -> float:
-    if is_dec:
-        return 1.0
+def start_orb(angle: float, is_dec: bool = False) -> float:
+    """The orb used where the table has none (the same for RA and Dec)."""
     if angle in (0, 180):
         return 8.0
     if angle in (90, 120):
@@ -223,7 +222,7 @@ def start_orb(angle: float, is_dec: bool) -> float:
 
 @dataclass
 class Orbs:
-    """The orb table: a row per aspect (Aspect, Angle, Su-RA .. Ju-RA, NN-RA, SN-RA, Su-De .. Ju-De, NN-De, SN-De)."""
+    """The orb table: a row per aspect (Aspect, Angle, Mo-RA .. Sa-RA, NN-RA, SN-RA). Each orb is used for RA and for Dec alike."""
     table: pd.DataFrame
     _lookup: dict = field(default_factory=dict, init=False, repr=False)
 
@@ -235,15 +234,15 @@ class Orbs:
                 continue
             for col in self.table.columns:
                 c = str(col).strip()
-                if len(c) == 5 and (c[:2] in PLANET_ID or c[:2] in ("NN", "SN")) and c[2:].upper() in ("-RA", "-DE"):
+                if len(c) == 5 and (c[:2] in PLANET_ID or c[:2] in ("NN", "SN")) and c[2:].upper() == "-RA":
                     v = pd.to_numeric(row[col], errors="coerce")
                     if pd.notna(v) and v >= 0:
-                        self._lookup[(ang, c[:2], c[2:].upper() == "-DE")] = float(v)
+                        self._lookup[(ang, c[:2])] = float(v)
 
-    def planet(self, angle: float, name: str, is_dec: bool) -> float:
-        return self._lookup.get((float(angle), name, is_dec), -1.0)
+    def planet(self, angle: float, name: str, is_dec: bool = False) -> float:
+        return self._lookup.get((float(angle), name), -1.0)       # the RA orb, used for Dec too
 
-    def pair(self, angle: float, n1: str, n2: str, is_dec: bool) -> float:
+    def pair(self, angle: float, n1: str, n2: str, is_dec: bool = False) -> float:
         o = max(self.planet(angle, n1, is_dec), self.planet(angle, n2, is_dec))
         return o if o >= 0 else start_orb(angle, is_dec)
 
@@ -292,7 +291,7 @@ class AspectEvent:
 
 def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[int], orbs: Orbs) -> list[AspectEvent]:
     """Each time two of the planets come into one of the aspects (C / O / Q / T / S) across the period. The Moon's nodes (NN,
-    SN) may be among them, with their own orbs where the Aspects Details table has them (NN-RA, SN-RA, NN-De, SN-De), as the planets', the larger of the pair's;
+    SN) may be among them, with their own orbs where the Aspects Details table has them (NN-RA, SN-RA), as the planets', the larger of the pair's;
     NN with SN is never one (they are always opposite)."""
     names = shown_order([p for p in BUTTON_ORDER + ["NN", "SN"] if p in labels])   # named in this order: 0-Mo-Su .. 0-Sa-SN
     if len(names) < 2 or not angles:
@@ -327,13 +326,8 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
             sep = np.where(sep > 180.0, 360.0 - sep, sep)
             same, mirror = np.abs(de[a] - de[b]), np.abs(de[a] + de[b])
             for ang in angles:
-                ra_o, de_o = orbs.pair(ang, a, b, False), orbs.pair(ang, a, b, True)
-                if ang == 0:
-                    h = (sep <= ra_o) & (same <= de_o)
-                elif ang == 180:
-                    h = (np.abs(sep - 180.0) <= ra_o) & (mirror <= de_o)
-                else:
-                    h = (np.abs(sep - ang) <= ra_o) & ((same <= de_o) | (mirror <= de_o))
+                o = orbs.pair(ang, a, b, False)                       # one orb for RA and Dec; one rule for every angle
+                h = (np.abs(sep - ang) <= o) & ((same <= o) | (mirror <= o))
                 start = h & ~np.concatenate(([False], h[:-1]))      # coming into the aspect
                 for k in np.flatnonzero(start):
                     out.append(AspectEvent(float(jds[k]), ang, tag(ang) + a + "-" + b, float(de[a][k]), float(de[b][k]),

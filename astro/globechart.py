@@ -293,7 +293,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                              tables={p: {**_motion_table(p, when), "colour": core.colour(p)} for p in core.BUTTON_ORDER},
                              node=_node_table(when) if set(NODE_CHOICES) & (set(g.bodies) | set(g.paths)) else None))
     aspects = [dict(angle=a, colour=ASPECT_COLOURS[a in core.MINOR], width=1.0 if a in core.MINOR else 1.5,
-                    orbs={f"{p}|{q}": [g.orbs.pair(a, p, q, False), g.orbs.pair(a, p, q, True)]
+                    orbs={f"{p}|{q}": g.orbs.pair(a, p, q)
                           for i, p in enumerate(ASPECT_NAMES) for q in ASPECT_NAMES[i + 1:] if {p, q} != set(NODE_CHOICES)})
                for a in g.aspects] if g.orbs is not None else []
     svg, taken = sky_svg(g)
@@ -443,13 +443,10 @@ __SYMBOL_JS__
   })));
   const aspectAt = (s, name, t) => (name === "NN" || name === "SN"      // where a planet, or a node, is then
     ? nodeAt({s, turn: name === "NN" ? 0 : 180, sign: name === "NN" ? 1 : -1}, t) : sample(s.tables[name], t));
-  const inAspect = (angle, a, b, orb) => {         // the rules of core.aspect_events: within the RA orb of the angle, and the Dec orb
-    let sep = Math.abs(a.ra - b.ra);               // of equal (0), mirrored (180) or either (the others)
+  const inAspect = (angle, a, b, orb) => {         // the rule of core.aspect_events, for every angle: RA within the orb of the
+    let sep = Math.abs(a.ra - b.ra);               // angle, and the Decs within the same orb of equal or mirrored
     if (sep > 180) sep = 360 - sep;
-    const same = Math.abs(a.dec - b.dec) <= orb[1], mirrored = Math.abs(a.dec + b.dec) <= orb[1];
-    if (angle === 0) return sep <= orb[0] && same;
-    if (angle === 180) return Math.abs(sep - 180) <= orb[0] && mirrored;
-    return Math.abs(sep - angle) <= orb[0] && (same || mirrored);
+    return Math.abs(sep - angle) <= orb && (Math.abs(a.dec - b.dec) <= orb || Math.abs(a.dec + b.dec) <= orb);
   };
   const pad2 = (n) => (n >= 0 ? "+" : "-") + Math.abs(n).toFixed(2);
   const clockLine = (s, t) => {                    // its date and time, at its place's UTC offset

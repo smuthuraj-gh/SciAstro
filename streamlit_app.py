@@ -151,9 +151,9 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                     "Each has its symbol inside its marker (☿ Me, ♀ Ve, ⊕ Ea, ☽ Mo, ♂ Ma, ♃ Ju, ♄ Sa, ☉ Su). Sizes follow the Size_Helio column of Symbols: usually a planet by how big it looks from the Earth at that moment (a logarithmic scale), the Sun and the Earth as their Sizes say. Point at a planet for its Dec/Lati, RA, Angular Size and distance from the Sun, or at a path for its span and distances. "
                     "Planet Path: which of the planets shown have their paths drawn. Time: Now is hollow with dashed paths, DOB solid; each path is a trail behind its planet, drawn only while time runs, kept for up to 72 years (with time standing still there are no trails, and each start begins new ones). "
                     "Scale: on Fit each tenfold distance takes the same room, so Mercury's path and Saturn's can be seen together; True is to scale. A label with no room is left off: point at its mark.",
-    "Aspects": "The aspects between the chosen planets, and the Moon's nodes (NN, SN; by their own orbs in Aspects Details, ☊-RA, ☊-De, ☋-RA, ☋-De, the larger of the pair's as for two planets; never with each other), over the period, as tables, newest first: one table per "
-               "angle, a row each time two planets came into it (RA within the angle's RA orb, Declination within "
-               "its Dec orb). Major Aspects: 0, 60, 90, 120, 180 degrees. Minor Aspects: 30, 45, 72, 135, 144, "
+    "Aspects": "The aspects between the chosen planets, and the Moon's nodes (NN, SN; by their own orbs in Aspects Details, ☊-RA, ☋-RA, the larger of the pair's as for two planets; never with each other), over the period, as tables, newest first: one table per "
+               "angle, a row each time two planets came into it (RA within the orb of the angle, and the two Declinations "
+               "within the same orb of equal or mirrored). Major Aspects: 0, 60, 90, 120, 180 degrees. Minor Aspects: 30, 45, 72, 135, 144, "
                "150 degrees. Dates and times are UT.",
     "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
                       "them are in a chosen major aspect (0 to 180 degrees). A tag with no room is left off: point at "
@@ -162,8 +162,10 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Symbols": "The Symbols table: the short name (SAbr), symbol (Symb), long name (SDesc) and colour (RGB, and its name, Color) of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
                "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SAbr is unique, and stays once a row is in the table. Symb is what the pages show in place of its SAbr, the SAbr itself when blank. On AstroGlobe and GeoCentric the conventional symbols are drawn, in the row's RGB colour; anything else is shown as typed, an emoji such as the baby in its own colours. RGB is rgb(r,g,b) or #rrggbb; Color is its name in words, for reference, and may be blank. Size_Globe says how AstroGlobe draws the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; Tiny, a dot with no symbol; Small, 9 pixels; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SAbr or SDesc (Bigger than Moon); blank, as usual (a planet by its angular size, Ea a dot, the nodes and places 9 pixels). Size_Geo says the same for GeoCentric, and Size_Helio for HelioCentric (it starts as Size_Geo, with the Moon Tiny). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on GeoCentric; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
-    "Aspects Details": "The orbs: for each aspect and planet, how far from exact (in RA and in Declination) still "
-                       "counts as the aspect. A pair of planets uses the larger of their two orbs. Changes here "
+    "Aspects Details": "The orbs: for each aspect and planet, how far from exact still counts as the aspect, the same "
+                       "for RA and for Declination. A pair of planets uses the larger of their two orbs. A new row's Aspect is "
+                       "one of Conjunction, Opposition, Square, Trine, Sextile, Semi-sextile, Semi-square, Quintile, "
+                       "Sesquiquadrate, Bi-quintile, Quincunx. Changes here "
                        "apply to every chart.",
     "Customers": "Insert for a new customer, type changes and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. ID is the record's number, set by the app. Required (*): Email (login), First Name, "
                  "Last Name, Country, State, City, the birth date and time (Year, Mon, Date, Hr24, Min), and where they "
@@ -713,12 +715,13 @@ def page_aspects():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     table = db.orb_table()
-    st.caption("A pair is in aspect when RA is within the RA orb of the angle and Dec within the Dec orb of equal "
-               "(conjunction), mirrored (opposition) or either (the others). A pair uses the larger of its two planets' "
+    st.caption("A pair is in aspect when RA is within the orb of the angle and the two Decs within the same orb of "
+               "equal or mirrored, at every angle. A pair uses the larger of its two planets' "
                "orbs; CB and CN take the planet's.")
-    crud_table("orb_editor", table.assign(_angle=table["Angle"]), db.orb_problems,
-               lambda rows: (db.save_orb_table(rows[rows["Angle"].notna()].drop(columns="_angle")), "Committed.")[1],
-               column_config={"_angle": None, "Angle": st.column_config.NumberColumn("Angle", format="%g", width="small"),
+    crud_table("orb_editor", table.assign(_angle=table["Angle"]), lambda rows: db.orb_problems(db.with_angles(rows)),
+               lambda rows: (db.save_orb_table(db.with_angles(rows).pipe(lambda r: r[r["Angle"].notna()]).drop(columns="_angle")),
+                             "Committed.")[1],
+               column_config={"_angle": None, "Angle": None,          # not shown: a new row's comes from its Aspect's name
                               **{c: st.column_config.NumberColumn(core.with_symbols(c)) for c in db.ORB_COLUMNS}})
     if st.button("Reset to defaults"):
         db.save_orb_table(core.default_orb_table())
