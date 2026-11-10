@@ -480,7 +480,8 @@ __SYMBOL_JS__
       const mark = make("g", markG, {style: "pointer-events:auto"});
       make("rect", mark, {x: -9, y: -9, width: 18, height: 18, fill: "transparent"});   // to point at, the gaps too
       drawShape(mark, name, colour, now ? 1.2 : 2.2);   // thinner for now, as the planets are hollow
-      nodes.push({name, turn, sign, pole, s, mark, tip: make("title", mark)});
+      nodes.push({name, turn, sign, pole, s, mark, tip: make("title", mark),      // with its RA and Dec lines, as the planets'
+                  raLine: D.show_ra ? line(colour, now) : null, decLine: D.show_dec ? line(colour, now) : null});
     });
   });
   const nodeAt = (node, t) => {                    // between its two nearest table rows
@@ -582,7 +583,17 @@ __SYMBOL_JS__
       if (!hidden) taken.push([x - r - 1, y - r - 1, x + r + 1, y + r + 1]);   // no label may cover a marker
     });
     nodes.forEach((node) => {
-      const at = nodeAt(node, t), [x, y, z] = point(at.ra, at.dec);
+      const at = nodeAt(node, t), [x, y, z] = point(at.ra, at.dec), tipName = symbolOf(node.name) + " " + node.s.clock;
+      if (node.raLine) {
+        const pts = [];
+        for (let v = -90; v !== 93; v += 3) pts.push([at.ra, v]);
+        node.raLine(pts, tipName + " RA: " + at.ra.toFixed(2));
+      }
+      if (node.decLine) {
+        const pts = [];
+        for (let v = -180; v !== 183; v += 3) pts.push([raFacing + v, at.dec]);
+        node.decLine(pts, tipName + " Dec/Lati: " + (at.dec >= 0 ? "+" : "") + at.dec.toFixed(2));
+      }
       const hidden = z < 0 && Math.hypot(x - D.cx, y - D.cy) < D.earth, fade = z >= 0 ? 1 : 0.55;
       Object.assign(node, {x, y, hidden, fade});
       const nr = radiusAt(D.size_rules[node.name], node.s.tables, t);   // by its Size in the Naming Conventions table
