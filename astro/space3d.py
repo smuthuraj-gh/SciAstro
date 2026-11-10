@@ -25,8 +25,8 @@ RINGS_SHOWN = 4
 RA_MARKS = (0, 90, 180, 270)
 RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroGlobe) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
-SCP_BEYOND_AU = 15.0              # the axis's SCP half reaches, on the page, past where a ring this far out would be drawn ...
-SCP_PAST_PX = 22                  # ... by this many pixels, its tag at its end
+SCP_BEYOND_AU = 15.0              # the axis reaches, both ways on the page, past where a ring this far out would be drawn ...
+SCP_PAST_PX = 22                  # ... by this many pixels, NCP and SCP at its ends
 SIDES = 96                        # a ring is drawn with this many straight pieces
 
 # HelioCentric: the Sun at the centre, the planets and the Earth round it, and the Moon round the Earth (seen from the Sun it is
@@ -301,30 +301,34 @@ __SYMBOL_JS__
     angles();
     rings.forEach((g) => g.draw(g.r.pts));
     spokes.forEach((g) => g.draw([[0, 0, 0], g.m.at]));
-    // the south half at least as long on the page as the north half: leaning away from the viewer it would look shorter, so it is drawn
-    // farther out, to the length that matches (found by halving, for the way the drawing is turned now)
-    const [cx, cy] = point([0, 0, 0]), [nx, ny] = point([0, 0, D.outer]), north = Math.hypot(nx - cx, ny - cy);
-    let lo = 0.2, hi = 4;
-    for (let i = 0; i !== 30; i++) {
-      const k = (lo + hi) / 2, [sx, sy] = point([0, 0, -k * D.outer]);
-      if (Math.hypot(sx - cx, sy - cy) > north) hi = k; else lo = k;
-    }
-    // and on the page past where a 15 AU ring would be drawn (round the centre, on the plane of the equator), its tag beyond it
-    const [sx0, sy0] = point([0, 0, -D.outer]), toward = Math.atan2(sy0 - cy, sx0 - cx);
-    let ring = 0, nearest = 9;
-    for (let i = 0; i !== D.sides; i++) {           // where that ring crosses the axis's line on the page
-      const a = 2 * Math.PI * i / D.sides, [rx, ry] = point([D.scp_ring * Math.cos(a), D.scp_ring * Math.sin(a), 0]);
-      const off = Math.abs(((Math.atan2(ry - cy, rx - cx) - toward + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
-      if (off < nearest) { nearest = off; ring = Math.hypot(rx - cx, ry - cy); }
-    }
-    const toViewer = point([0, 0, -D.outer])[2] / D.outer;   // leaning toward the viewer: not so far that the perspective turns over
-    let lo2 = lo, hi2 = toViewer > 0 ? Math.max(lo, Math.min(12, 3 / toViewer)) : 12;
-    for (let i = 0; i !== 30; i++) {
-      const k = (lo2 + hi2) / 2, [sx, sy] = point([0, 0, -k * D.outer]);
-      if (Math.hypot(sx - cx, sy - cy) > ring + D.scp_past) hi2 = k; else lo2 = k;
-    }
-    poles[1].at = [0, 0, -hi2 * D.outer];
-    axis([poles[1].at, [0, 0, D.outer]]);
+    // the axis reaches, both ways, past where a 15 AU ring would be drawn on the page (round the centre, on the plane of the
+    // equator), so that NCP and SCP are out beyond the planets; both halves as long on the page (the one leaning away from the
+    // viewer would look shorter), found by halving for the way the drawing is turned now
+    const [cx, cy] = point([0, 0, 0]);
+    const pageLength = (sign, k) => { const [x, y] = point([0, 0, sign * k * D.outer]); return Math.hypot(x - cx, y - cy); };
+    const ringAcross = (sign) => {                   // where that ring crosses the axis's line on the page, that way
+      const [px, py] = point([0, 0, sign * D.outer]), toward = Math.atan2(py - cy, px - cx);
+      let ring = 0, nearest = 9;
+      for (let i = 0; i !== D.sides; i++) {
+        const a = 2 * Math.PI * i / D.sides, [rx, ry] = point([D.scp_ring * Math.cos(a), D.scp_ring * Math.sin(a), 0]);
+        const off = Math.abs(((Math.atan2(ry - cy, rx - cx) - toward + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
+        if (off < nearest) { nearest = off; ring = Math.hypot(rx - cx, ry - cy); }
+      }
+      return ring;
+    };
+    const reachFor = (sign, length) => {             // how far out that half goes to be this long on the page
+      const toViewer = sign * point([0, 0, D.outer])[2] / D.outer;   // not so far toward the viewer that the perspective turns over
+      let lo = 0.05, hi = toViewer > 0 ? Math.min(12, 3 / toViewer) : 12;
+      for (let i = 0; i !== 30; i++) {
+        const k = (lo + hi) / 2;
+        if (pageLength(sign, k) > length) hi = k; else lo = k;
+      }
+      return hi;
+    };
+    const length = Math.max(pageLength(1, 1), ringAcross(1) + D.scp_past, ringAcross(-1) + D.scp_past);
+    poles[0].at = [0, 0, reachFor(1, length) * D.outer];
+    poles[1].at = [0, 0, -reachFor(-1, length) * D.outer];
+    axis([poles[1].at, poles[0].at]);
     const t = clock.t;
     paths.forEach((g) => {
       trail(g.p, t);
