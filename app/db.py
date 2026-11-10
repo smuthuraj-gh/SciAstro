@@ -120,11 +120,11 @@ def engine() -> sa.Engine:
 
 
 def _add_orb_nn_ra(eng: sa.Engine):
-    """An Aspects Details table made before its NN-RA and NN-De columns gets them, each row as its Ju-RA and Ju-De (as the
-    defaults have them)."""
+    """An Aspects Details table made before its NN-RA, SN-RA, NN-De and SN-De columns gets them, each row as its Ju-RA and Ju-De
+    (as the defaults have them)."""
     have = {c["name"] for c in sa.inspect(eng).get_columns("aspect_details")}
     with eng.begin() as c:
-        for col, like in (("nn_ra", "ju_ra"), ("nn_de", "ju_de")):
+        for col, like in (("nn_ra", "ju_ra"), ("sn_ra", "ju_ra"), ("nn_de", "ju_de"), ("sn_de", "ju_de")):
             if col not in have:
                 kind = aspect_details.c[col].type.compile(dialect=eng.dialect)
                 c.execute(sa.text(f"ALTER TABLE aspect_details ADD COLUMN {col} {kind}"))
