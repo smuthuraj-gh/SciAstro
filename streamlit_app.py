@@ -590,10 +590,9 @@ def _aspect_tables(events: list, angles: list[int], where):
             where.caption("None in this period.")
             continue
         rows = []
-        for jd, _, title, de1, de2 in ev:
-            p1, p2 = title.split("-")[1:3]
+        for jd, _, title, de1, de2 in ev:                 # (the Aspect names the two planets, in the order of Dec 1, Dec 2)
             rows.append({"Date / Time (UT)": core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M"), "Aspect": core.with_symbols(title),
-                         "Planet 1": core.symbol_of(p1), "Dec 1": de1, "Planet 2": core.symbol_of(p2), "Dec 2": de2})
+                         "Dec 1": de1, "Dec 2": de2})
         # sorted by clicking a column's name; Dec as numbers, so that they sort as numbers
         where.dataframe(pd.DataFrame(rows), hide_index=True, width="content",
                         column_config={"Dec 1": st.column_config.NumberColumn(format="%+.2f"),
