@@ -183,9 +183,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "live now (Country-N, State-N, City-N). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
-                 "(not used in the charts). The UTC offset is looked up from the birth place and date. Added, Updated "
-                 "and Accessed (UT) are set by the app: when the customer was added, last changed, and last opened "
-                 "their charts. Import adds customers from the workbook's Customers CSV.",
+                 "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
     "My details": "Your own birth details, used for all your charts. Edit my details to change them; your login "
                   "email stays the same.",
 }
@@ -926,20 +924,14 @@ def page_customers():
         st.warning("Saved in a local SQLite file. On Streamlit Community Cloud that file is lost on every restart: "
                    "set the secret db_url to a hosted Postgres database (see README).")
     df = db.all_customers()
-    # UTC is not shown (a blank one is looked up from the birth place; one already kept stays, see below); the times
-    # Added / Updated / Accessed are shown at the end, set by the app, not typed
+    # UTC is not shown (a blank one is looked up from the birth place; one already kept stays, see below); nor are the
+    # times Added / Updated / Accessed (still kept in the database, set by the app)
     shown_fields = [f for f in db.FIELDS if f != "utc"]
-    show = df[["id"] + shown_fields + list(db.STAMPS)].rename(columns={**db.LABELS, **db.STAMPS})
+    show = df[["id"] + shown_fields].rename(columns=db.LABELS)
     # First Name, A-Z, to begin with; the column headers sort by any column. Saving matches rows by their record, so the
     # order shown does not matter
     by_name = show[db.LABELS["name"]].map(lambda v: v.strip().lower() if isinstance(v, str) else v)
     show = show.loc[by_name.sort_values(na_position="last", kind="stable").index].reset_index(drop=True)
-    stamp_cols = {label: st.column_config.DatetimeColumn(label, format="YYYY-MM-DD HH:mm", disabled=True,
-                                                         help=help_text)
-                  for label, help_text in (("Added", "When the customer was added (UT)."),
-                                           ("Updated", "When the details last changed (UT)."),
-                                           ("Accessed", "When the customer last opened their charts (UT); "
-                                                        "an admin looking does not count."))}
     def for_store(rows: pd.DataFrame) -> pd.DataFrame:
         back = {v: k for k, v in db.LABELS.items()}
         out = rows.rename(columns=back).drop(columns=list(db.STAMPS.values()), errors="ignore")
@@ -954,7 +946,7 @@ def page_customers():
 
     crud_table("cust_editor", show, lambda rows: db.customer_problems(for_store(rows)), commit,
                height=min(27 * (len(st.session_state.get("cust_editor_working", show)) + 2), 700),   # above its scroll bar
-               column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The record's number, set by the app (blank on a new row until saved)."), **stamp_cols,
+               column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The record's number, set by the app (blank on a new row until saved)."),
                                 "First Name": st.column_config.TextColumn("First Name *", help="Required."),
                                 "Last Name": st.column_config.TextColumn("Last Name *", help="Required."),
                                 "Hr24": st.column_config.NumberColumn("Hr24 *", help="Birth time, hour 0-23: required.",
