@@ -25,6 +25,7 @@ RINGS_SHOWN = {FIT: 6, "True": 4}   # at most this many rings, the outermost one
 RA_MARKS = (0, 90, 180, 270)
 RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroGlobe) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
+SMALL_FONT = 12                   # the rings' AU tags and the RA names, in pixels (the other tags as all text, FONT)
 SCP_BEYOND_AU = 15.0              # the axis reaches, both ways on the page, past where a ring this far out would be drawn ...
 SCP_PAST_PX = 22                  # ... by this many pixels, NCP and SCP at its ends
 SIDES = 96                        # a ring is drawn with this many straight pieces
@@ -123,7 +124,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=at["log_from"], gap=at["gap"],
-                scp_ring=reach(SCP_BEYOND_AU), scp_past=SCP_PAST_PX, sides=SIDES, key=centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
+                scp_ring=reach(SCP_BEYOND_AU), scp_past=SCP_PAST_PX, sides=SIDES, small_font=SMALL_FONT, key=centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, int((day_seconds or 60.0) * 2.5)), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=CHART_FONT_FAMILY, ra_marks=[dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
@@ -140,7 +141,7 @@ _JS = r"""
   };
   const svg = make("svg", box, {viewBox: "0 0 " + D.width + " " + D.height, width: "100%",
                                 style: "display:block; cursor:grab; touch-action:none; user-select:none"});
-  const words = (fill) => make("text", svg, {"font-weight": "bold", "font-size": D.font, "font-family": D.family, stroke: "white",
+  const words = (fill, size) => make("text", svg, {"font-weight": "bold", "font-size": size || D.font, "font-family": D.family, stroke: "white",
                                              "stroke-width": 3, "paint-order": "stroke", "text-anchor": "middle", fill});
 __SYMBOL_JS__
   const view = window.space3dView || (window.space3dView = {yaw: 90, pitch: 45});
@@ -219,9 +220,9 @@ __SYMBOL_JS__
     return Math.max(1, D.radii[0] + (D.radii[1] - D.radii[0]) * share + rule.add);
   };
   const GREY = "rgb(150,150,150)", DARK = "rgb(60,60,60)";
-  const rings = D.rings.map((r) => ({r, draw: line(GREY, 1, false, r.text + " from " + D.centre_word + ", on the plane of the Earth's equator"), label: words("rgb(110,110,110)")}));
+  const rings = D.rings.map((r) => ({r, draw: line(GREY, 1, false, r.text + " from " + D.centre_word + ", on the plane of the Earth's equator"), label: words("rgb(110,110,110)", D.small_font)}));
   rings.forEach((g) => { g.label.textContent = g.r.text; });
-  const spokes = D.ra_marks.map((m) => ({m, draw: line("rgb(205,205,205)", 1, false, m.text), label: words("rgb(110,110,110)")}));
+  const spokes = D.ra_marks.map((m) => ({m, draw: line("rgb(205,205,205)", 1, false, m.text), label: words("rgb(110,110,110)", D.small_font)}));
   spokes.forEach((g) => { g.label.textContent = g.m.text; });
   const axis = line(DARK, 2, false, D.centre === "Ea" ? "The Earth's axis: north celestial pole to south" :
                      "Toward the north celestial pole and the south, as the Earth's axis");
