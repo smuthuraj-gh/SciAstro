@@ -25,7 +25,7 @@ RINGS_SHOWN = {FIT: 6, "True": 4}   # at most this many rings, the outermost one
 RA_MARKS = (0, 90, 180, 270)
 RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroGlobe) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
-SMALL_FONT = 11                   # the rings' AU tags and the RA names, in pixels (the other tags as all text, FONT)
+SMALL_FONT = 11                   # the rings' AU tags, the RA names and NCP, SCP, in pixels
 SCP_BEYOND_AU = 15.0              # the axis reaches, both ways on the page, past where a ring this far out would be drawn ...
 SCP_PAST_PX = 22                  # ... by this many pixels, NCP and SCP at its ends
 SIDES = 96                        # a ring is drawn with this many straight pieces
@@ -228,7 +228,7 @@ __SYMBOL_JS__
                      "Toward the north celestial pole and the south, as the Earth's axis");
   const paths = D.paths.map((p) => ({p, draw: line(p.colour, 1.8, p.dash, "", true)}));   // a path is one colour all round
   const poles = [["NCP", [0, 0, D.outer]], ["SCP", [0, 0, -D.outer]]].map(([name, at]) => {
-    const label = words(DARK);
+    const label = words(DARK, D.small_font);
     label.textContent = name;
     return {at, label};
   });
