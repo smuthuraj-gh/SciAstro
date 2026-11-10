@@ -151,7 +151,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                     "Each has its symbol inside its marker (☿ Me, ♀ Ve, ⊕ Ea, ☽ Mo, ♂ Ma, ♃ Ju, ♄ Sa, ☉ Su). Sizes follow the Size_Helio column of Naming Conventions: usually a planet by how big it looks from the Earth at that moment (a logarithmic scale), the Sun and the Earth as their Sizes say. Point at a planet for its Dec/Lati, RA, Angular Size and distance from the Sun, or at a path for its span and distances. "
                     "Planet Path: which of the planets shown have their paths drawn. Time: Now is hollow with dashed paths, DOB solid; each path is a trail behind its planet, drawn only while time runs, kept for up to 72 years (with time standing still there are no trails, and each start begins new ones). "
                     "Scale: on Fit each tenfold distance takes the same room, so Mercury's path and Saturn's can be seen together; True is to scale. A label with no room is left off: point at its mark.",
-    "Aspects": "The aspects between the chosen planets over the period, as tables, newest first: one table per "
+    "Aspects": "The aspects between the chosen planets, and the Moon's nodes (NN, SN; with the orbs of the planet each is paired with, never with each other), over the period, as tables, newest first: one table per "
                "angle, a row each time two planets came into it (RA within the angle's RA orb, Declination within "
                "its Dec orb). Major Aspects: 0, 60, 90, 120, 180 degrees. Minor Aspects: 30, 45, 72, 135, 144, "
                "150 degrees. Dates and times are UT.",
@@ -404,19 +404,21 @@ def period(prep: Prepared, row=None) -> tuple[float, float] | None:
     return core.jd_of_datetime(start), core.jd_of_datetime(end)
 
 
-def cycles_inputs(keys: str, aspect_buttons: bool = True):
+def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False):
     """The inputs of Planets Cycles (and Aspects, which shares them; keys keeps each page's buttons
     apart): (period as Julian days, planets, angles, minor on), or None when there is nothing to show yet.
     Planets Cycles has a button per major angle; Aspects (aspect_buttons False) has one Major Aspects and one
-    Minor Aspects on / off button instead, and its angles are all five major ones when Major Aspects is on."""
+    Minor Aspects on / off button instead, and its angles are all five major ones when Major Aspects is on. nodes: NN and SN
+    buttons too (Aspects)."""
     _, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return None
     jds = period(prep, head)
     # on / off buttons, as on Distance: every choice always in view
-    dec_on = core.in_order(head.pills("Planets", core.shown_order(core.BUTTON_ORDER), selection_mode="multi", format_func=core.symbol_of,
-                                      default=["Sa", "Ju"], key=f"{keys}dec_on_v2"), core.BUTTON_ORDER)
+    choices = core.BUTTON_ORDER + (["NN", "SN"] if nodes else [])
+    dec_on = core.in_order(head.pills("Planets", core.shown_order(choices), selection_mode="multi", format_func=core.symbol_of,
+                                      default=["Sa", "Ju"], key=f"{keys}dec_on_v2"), choices)
     ea_names = {v: k for k, v in rangechart.EA_NAME.items()}   # 0°, 60°, 90°, 120°, 180° -> their angles
     minor = False
     if aspect_buttons:
@@ -559,7 +561,7 @@ def page_range():
 def page_aspects_view():
     """Planets Cycles' aspects as tables: one per chosen angle, one row per time two of the planets come into it,
     newest first; then, with the Minor Aspects switch on, one per minor angle too."""
-    got = cycles_inputs("asp_", aspect_buttons=False)   # Major / Minor Aspects on / off buttons
+    got = cycles_inputs("asp_", aspect_buttons=False, nodes=True)   # Major / Minor Aspects on / off buttons; NN, SN too
     if got is None:
         return
     jds, dec_on, angles, minor = got

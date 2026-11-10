@@ -291,8 +291,10 @@ class AspectEvent:
 
 
 def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[int], orbs: Orbs) -> list[AspectEvent]:
-    """Each time two of the planets come into one of the aspects (C / O / Q / T / S) across the period."""
-    names = [p for p in BUTTON_ORDER if p in labels]
+    """Each time two of the planets come into one of the aspects (C / O / Q / T / S) across the period. The Moon's nodes (NN,
+    SN) may be among them, with the orbs of the planet they are paired with (the Aspects Details table has none of their own);
+    NN with SN is never one (they are always opposite)."""
+    names = [p for p in BUTTON_ORDER + ["NN", "SN"] if p in labels]
     if len(names) < 2 or not angles:
         return []
     span = jd_to - jd_from
@@ -307,7 +309,11 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
     ra = {p: np.empty(n + 1) for p in names}
     de = {p: np.empty(n + 1) for p in names}
     for k, jd in enumerate(jds):
+        node = moon_north_node(float(jd)) if {"NN", "SN"} & set(names) else None
         for p in names:
+            if p in ("NN", "SN"):                                    # the south node opposite the north
+                ra[p][k], de[p][k] = (node[0], node[1]) if p == "NN" else ((node[0] + 180.0) % 360.0, -node[1])
+                continue
             x, err = se.calc_ut(float(jd), PLANET_ID[p])
             if x is None:
                 raise RuntimeError(f"Swiss Ephemeris: {err}")
@@ -315,6 +321,8 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
     out = []
     for i, a in enumerate(names):
         for b in names[i + 1:]:
+            if {a, b} == {"NN", "SN"}:
+                continue
             sep = np.abs(ra[a] - ra[b])
             sep = np.where(sep > 180.0, 360.0 - sep, sep)
             same, mirror = np.abs(de[a] - de[b]), np.abs(de[a] + de[b])
