@@ -677,11 +677,20 @@ def log_view(email: str | None):
 
 
 def logins_table(limit: int = 5000) -> pd.DataFrame:
-    """The Logins table, newest first (at most limit rows): Email, Operation, Date_Time (UT)."""
+    """The Logins table, newest first (at most limit rows): Id, Email, Operation, Date_Time (UT)."""
     with engine().connect() as c:
         rows = c.execute(sa.select(logins).order_by(logins.c.date_time.desc(), logins.c.id.desc()).limit(limit)).mappings().all()
-    return pd.DataFrame([{"Email": r["email"], "Operation": r["operation"], "Date_Time": r["date_time"]} for r in rows],
-                        columns=["Email", "Operation", "Date_Time"])
+    return pd.DataFrame([{"Id": r["id"], "Email": r["email"], "Operation": r["operation"], "Date_Time": r["date_time"]} for r in rows],
+                        columns=["Id", "Email", "Operation", "Date_Time"])
+
+
+def delete_logins(ids: list[int] | None = None) -> int:
+    """Deletes these rows of the Logins table (by Id), or every row when ids is None; gives how many went."""
+    with engine().begin() as c:
+        q = sa.delete(logins)
+        if ids is not None:
+            q = q.where(logins.c.id.in_([int(i) for i in ids]))
+        return c.execute(q).rowcount
 
 
 def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None = None) -> tuple[int, int, int]:

@@ -14,7 +14,7 @@ zodiac), with the same rules.
 | Customers | admins | Insert, Update, Delete, Commit customers, click a column name to sort; import the workbook's Customers tab as CSV |
 | Symbols | admins | the table in the database: SAbr (unique), Symb (shown in place of the SAbr on the pages), SDesc, RGB (the charts' colours for the planets, Ea, NN, SN, CN and CB), Color (its name, for reference), Size_Globe (how AstroGlobe sizes the planets, Ea, the nodes and places), Size_Geo (the same, on GeoCentric), Size_Helio (on HelioCentric); Insert, Update, Delete, Commit; click a column name to sort |
 | Defaults | admins | the table in the database: Page, Title (a page input) and Options (what it starts as: the buttons on; DOB or Now; Start Date (UT) + a time), one row per Page and Title, read by every page as it is drawn; sorted by Page, Title, Options; Insert, Update, Delete, Commit; click a column name to sort |
-| Logins | admins | the table in the database, newest first: Email (who was signed in), Operation (View: opened a customer, once per visit; Create, Update, Delete: a customer added, changed or deleted), Date_Time (UT); read only |
+| Logins | admins | the table in the database, newest first: Email (who was signed in), Operation (View: opened a customer, once per visit; Create, Update, Delete: a customer added, changed or deleted), Date_Time (UT); tick rows and Delete, or Delete all (asks first) |
 | My details | users | their own birth details, with Edit my details to change them (the login email stays) |
 
 Users sign in with Google and see only the customers whose **Email (login)** is theirs. A new member (no customer

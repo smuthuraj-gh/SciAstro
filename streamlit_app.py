@@ -163,7 +163,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Operation) and when (Date_Time, "
               "UT). View: opened a customer's charts (once per customer per visit). Create, Update, Delete: added, changed or "
               "deleted a customer (on Customers, by import, or their own My details), a row per customer. Seen by admins only; "
-              "click a column name to sort.",
+              "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
+              "either asks first, and a deleted row cannot be brought back.",
     "Defaults": "The Defaults table: what each page's inputs start as. A row per input: its Page, its Title and its "
                 "Options. Buttons: the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0°, 180°; Manual), "
                 "blank for none; one on / off button (AU): On or Off. Start Date (UT): DOB or Now. End Date (UT): Now, or "
@@ -866,11 +867,44 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
 def page_logins():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
+    pressed = next((name for name in ("Delete", "Delete all")
+                    if TITLE_SLOT.button(name, key=f"logins_{name}")), None)
     table = db.logins_table()
-    st.dataframe(table, hide_index=True, width="content", height="auto" if len(table) <= 18 else 700,
-                 column_config={"Email": st.column_config.TextColumn(width=260), "Operation": st.column_config.TextColumn(width=100),
-                                "Date_Time": st.column_config.DatetimeColumn("Date_Time (UT)", format="YYYY-MM-DD HH:mm:ss", width=170)})
-    st.caption(f"{len(table)} row(s), newest first" + (" (the latest 5000)" if len(table) >= 5000 else "") + ".")
+    view = table.copy()
+    view.insert(0, "Del", False)
+    edited = st.data_editor(view, hide_index=True, width="content", num_rows="fixed", key=f"logins_table_{len(table)}",
+                            height="auto" if len(table) <= 18 else 700, disabled=["Email", "Operation", "Date_Time"],
+                            column_config={"Del": st.column_config.CheckboxColumn("Del", width="small", help="Tick, then press Delete."),
+                                           "Id": None, "Email": st.column_config.TextColumn(width=260),
+                                           "Operation": st.column_config.TextColumn(width=100),
+                                           "Date_Time": st.column_config.DatetimeColumn("Date_Time (UT)", format="YYYY-MM-DD HH:mm:ss",
+                                                                                        width=170)})
+    ticked = edited.loc[edited["Del"].fillna(False).astype(bool), "Id"].tolist()
+    said = st.session_state.pop("logins_said", None)
+    if said:
+        st.success(said)
+    else:
+        st.caption(f"{len(table)} row(s), newest first" + (" (the latest 5000)" if len(table) >= 5000 else "") + ".")
+    if pressed == "Delete":
+        if ticked:
+            st.session_state["logins_ask"] = ticked
+        else:
+            st.warning("Tick the rows to delete in the Del column first.")
+    elif pressed == "Delete all":
+        st.session_state["logins_ask"] = "all"
+    ask = st.session_state.get("logins_ask")
+    if ask:
+        what = "every row of the Logins table" if ask == "all" else f"{len(ask)} row(s)"
+        st.warning(f"Delete {what} for good? This cannot be undone.")
+        yes, no = st.columns(2, width=220)
+        if yes.button("Yes, delete", type="primary", key="logins_yes"):
+            n = db.delete_logins(None if ask == "all" else ask)
+            st.session_state.pop("logins_ask", None)
+            st.session_state["logins_said"] = f"Deleted {n} row(s)."
+            st.rerun()
+        if no.button("No", key="logins_no"):
+            st.session_state.pop("logins_ask", None)
+            st.rerun()
 
 
 def page_defaults():
