@@ -290,7 +290,7 @@ __SYMBOL_JS__
     return {h, n, k, e, tip: make("title", e), name: "H" + String((9 + k) % 12 + 1).padStart(2, "0")};
   })) : [];
   // flat: a line from the Earth through each body, out to the circle, to read its RA on the scale (under the marks)
-  const rays = (D.flat ? D.marks : []).map((m) => {
+  const rays = (D.flat && !D.pct ? D.marks : []).map((m) => {
     const e = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1, style: "pointer-events:stroke"});
     if (m.hollow) e.setAttribute("stroke-dasharray", "6 4");
     const head = make("path", svg, {fill: m.colour, stroke: "none"});   // its arrow head, the tip just touching the circle
@@ -307,8 +307,8 @@ __SYMBOL_JS__
     const k = (size || D.font) / 13, w = text.length * 8 * k;
     return [x - w / 2 - 3, y - 15 * k, x + w / 2 + 3, y + 3 * k];
   };
-  const scaleBoxes = [];                           // flat: the RA scale round the circle, 1 to 360 (drawn once: it does not turn)
-  if (D.flat) {
+  const scaleBoxes = [];                           // flat: the RA scale round the circle, 1 to 360 (drawn once: it does not turn; not on the Distance(%) page)
+  if (D.flat && !D.pct) {
     const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2;
     let ticks = "";
     for (let ra = 1; ra !== 361; ra++) {

@@ -615,7 +615,8 @@ def page_astroclock():
 
 def page_distance_clock():
     """Distance(%): AstroClock with each planet at its RA and its Distance(%) from the Earth: the centre is 0% (its nearest,
-    over 1800 to 2400), the circle 100% (its farthest). The nodes have no distance, so are not offered."""
+    over 1800 to 2400), the circle 100% (its farthest). Only the planets and the circle: no RA scale, houses or lines. The
+    nodes have no distance, so are not offered."""
     _, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
     if not need_chart(prep):
@@ -721,7 +722,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
                                       format_func=core.symbol_of), choices)
     if flat:      # no Planet Path, Scale or AU buttons: no paths, always Fit
         with_paths, scale, show_au = [], space3d.FIT, True
-        show_houses = bool(kept_pills(head, "Houses", ["Houses"], f"{key}_houses", "Houses", label_visibility="collapsed"))
+        show_houses = not pct and bool(kept_pills(head, "Houses", ["Houses"], f"{key}_houses", "Houses", label_visibility="collapsed"))
     else:
         with_paths = core.in_order(kept_pills(head, "Planet Path", core.shown_order(choices), f"{key}_paths", start("Planet Path"),
                                               selection_mode="multi", format_func=core.symbol_of), choices)
