@@ -1,5 +1,5 @@
-"""The Geo/Helio page, GeoCentric and HelioCentric: the paths of the Sun, Moon and planets around the Earth, or of the planets and the Earth
-around the Sun, each at its real distance, unlike AstroGlobe, where all are on one sphere. A point is placed by its RA, Dec and distance only (equatorial, no zodiac); north is up and the
+"""The Geo/Helio Model page, GeoCentric and HelioCentric: the paths of the Sun, Moon and planets around the Earth, or of the planets and the Earth
+around the Sun, each at its real distance, unlike AstroClock-3D, where all are on one sphere. A point is placed by its RA, Dec and distance only (equatorial, no zodiac); north is up and the
 Earth's equator is the flat plane. Drawn on the page in SVG, so its labels can be kept apart as it is turned."""
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ RINGS = {FIT: (0.01, 0.5, 1.0, 2.5, 5.0, 10.0),            # just past the Moon 
          "True": (0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)}   # AU; at most RINGS_SHOWN of them
 RINGS_SHOWN = {FIT: 6, "True": 4}   # at most this many rings, the outermost ones
 RA_MARKS = (0, 90, 180, 270)
-RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroGlobe) before it starts again, with the trails
+RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroClock-3D) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
 SMALL_FONT = 8                    # the rings' AU tags, in pixels
 POLE_FONT = 8                     # NCP, SCP and the RA names, in pixels
@@ -276,7 +276,7 @@ __SYMBOL_JS__
       make("title", e).textContent = symbolOf("NN") + " to " + symbolOf("SN") + " " + c + ": 180 degrees apart";
       return {c, e};
     });
-  // flat: the twelve house lines of CB and CN, as on AstroGlobe: 30 degrees apart from the place's RA, turning with the Earth
+  // flat: the twelve house lines of CB and CN, as on AstroClock-3D: 30 degrees apart from the place's RA, turning with the Earth
   const houses = D.flat ? D.houses.flatMap((h, n) => [...Array(12).keys()].map((k) => {
     const e = make("path", svg, {fill: "none", stroke: D.house_colour, "stroke-width": 1, style: "pointer-events:stroke"});
     if (h.place === "CN") e.setAttribute("stroke-dasharray", "2 3");
@@ -416,7 +416,7 @@ __SYMBOL_JS__
     });
     const placed = marks.map((g) => {
       const {s, p: at} = posAt(g.m.clock, g.m.name, t), [x, y, z] = point(at);
-      // sized by how wide it looks from the Earth then, on AstroGlobe's logarithmic scale (to true scale the planets would not show)
+      // sized by how wide it looks from the Earth then, on AstroClock-3D's logarithmic scale (to true scale the planets would not show)
       const seen = sizing(g.m.clock)[g.m.name], r = radiusAt(g.m.rule, sizing(g.m.clock), t);
       const arcsec = seen && seen.km ? arcsecOf(seen.km, sample(seen, t).dist) : null;   // how big it looks from the Earth (not for the Earth itself)
       const size = arcsec === null ? "" : "\nAngular Size: " + (arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec");

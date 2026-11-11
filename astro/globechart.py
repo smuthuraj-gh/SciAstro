@@ -1,4 +1,4 @@
-"""The AstroGlobe page: the Earth turning inside the celestial sphere. The sphere stands still, with the celestial equator
+"""The AstroClock-3D page: the Earth turning inside the celestial sphere. The sphere stands still, with the celestial equator
 and the celestial poles; the Earth inside it, with CB and CN on it, turns about the axis that joins those poles. As it turns,
 time runs, and each planet moves over the sphere as it really did, with its RA line (the circle of RA through it), Dec line
 (the circle of Dec through it) and size. At the start the Earth is set as it was at that moment, so a planet is straight

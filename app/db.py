@@ -70,30 +70,30 @@ defaults = sa.Table(
     sa.UniqueConstraint("page", "options", name="ux_defaults_page_options"),
 )
 DEFAULT_ROWS = [                                              # the app's own defaults: the rows the table starts with
-    ("AstroGlobe", "Time", "DOB"),
-    ("AstroGlobe", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
-    ("AstroGlobe", "Planet Path", "Su"),
-    ("AstroGlobe", "Maj Aspects", ""),
-    ("AstroGlobe", "Min Aspects", ""),
-    ("AstroGlobe", "Coordinates", "Celes"),
-    ("AstroGlobe", "Rotate in 1s", "Manual"),
-    ("Geo/Helio", "Centric Model", "Geo"),
-    ("Geo/Helio", "Geo Time", "DOB"),
-    ("Geo/Helio", "Geo Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio", "Geo Planet Path", "Mo, Su, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio", "Geo Scale", "Fit"),
-    ("Geo/Helio", "Geo AU", "On"),
-    ("Geo/Helio", "Geo Rotate in 1s", "Manual"),
-    ("Geo/Helio", "Helio Time", "DOB"),
-    ("Geo/Helio", "Helio Planets", "Mo, Ea, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio", "Helio Planet Path", "Mo, Ea, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio", "Helio Scale", "Fit"),
-    ("Geo/Helio", "Helio AU", "On"),
-    ("Geo/Helio", "Helio Rotate in 1s", "Manual"),
-    ("Aspects", "Start Date (UT)", "DOB"),
-    ("Aspects", "End Date (UT)", "Start Date (UT) + 5 days"),
-    ("Aspects", "Planets", "Ju, Sa"),
-    ("Aspects", "Aspects", "Major Aspects, Minor Aspects"),
+    ("AstroClock-3D", "Time", "DOB"),
+    ("AstroClock-3D", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
+    ("AstroClock-3D", "Planet Path", "Su"),
+    ("AstroClock-3D", "Maj Aspects", ""),
+    ("AstroClock-3D", "Min Aspects", ""),
+    ("AstroClock-3D", "Coordinates", "Celes"),
+    ("AstroClock-3D", "Rotate in 1s", "Manual"),
+    ("Geo/Helio Model", "Centric Model", "Geo"),
+    ("Geo/Helio Model", "Geo Time", "DOB"),
+    ("Geo/Helio Model", "Geo Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa"),
+    ("Geo/Helio Model", "Geo Planet Path", "Mo, Su, Me, Ve, Ma, Ju, Sa"),
+    ("Geo/Helio Model", "Geo Scale", "Fit"),
+    ("Geo/Helio Model", "Geo AU", "On"),
+    ("Geo/Helio Model", "Geo Rotate in 1s", "Manual"),
+    ("Geo/Helio Model", "Helio Time", "DOB"),
+    ("Geo/Helio Model", "Helio Planets", "Mo, Ea, Me, Ve, Ma, Ju, Sa"),
+    ("Geo/Helio Model", "Helio Planet Path", "Mo, Ea, Me, Ve, Ma, Ju, Sa"),
+    ("Geo/Helio Model", "Helio Scale", "Fit"),
+    ("Geo/Helio Model", "Helio AU", "On"),
+    ("Geo/Helio Model", "Helio Rotate in 1s", "Manual"),
+    ("Aspects Table", "Start Date (UT)", "DOB"),
+    ("Aspects Table", "End Date (UT)", "Start Date (UT) + 5 days"),
+    ("Aspects Table", "Planets", "Ju, Sa"),
+    ("Aspects Table", "Aspects", "Major Aspects, Minor Aspects"),
     ("Planets Cycles", "Start Date (UT)", "DOB"),
     ("Planets Cycles", "End Date (UT)", "Start Date (UT) + 30 years"),
     ("Planets Cycles", "Planets", "Ju, Sa"),
@@ -110,7 +110,7 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("name", sa.String(60)),
     sa.Column("color", sa.String(40)),
     sa.Column("color_name", sa.String(40)),                   # free text, for people; the charts use color
-    sa.Column("size_globe", sa.String(40)),                   # how the AstroGlobe chart sizes it: Size_Globe
+    sa.Column("size_globe", sa.String(40)),                   # how the AstroClock-3D chart sizes it: Size_Globe
     sa.Column("size", sa.String(40)),                         # how the GeoCentric chart sizes it: Size_Geo
     sa.Column("size_helio", sa.String(40)),                   # how the HelioCentric chart sizes it: Size_Helio
     sa.Column("size_clock", sa.String(40)),                   # how the AstroClock-2D chart sizes it: Size_Clock
@@ -177,6 +177,7 @@ def engine() -> sa.Engine:
     _seed_planets(eng)
     _add_orb_nn_ra(eng)
     _seed_aspect_details(eng)
+    _rename_defaults_page(eng)
     _seed_defaults(eng)
     return eng
 
@@ -201,6 +202,13 @@ def _rename_defaults_options(eng: sa.Engine):
             if "options" in have:
                 c.execute(sa.text("ALTER TABLE defaults RENAME COLUMN options TO choices"))
             c.execute(sa.text("ALTER TABLE defaults RENAME COLUMN title TO options"))
+
+
+def _rename_defaults_page(eng: sa.Engine):
+    """The Defaults rows of pages since renamed get the new names (their Choices kept)."""
+    with eng.begin() as c:
+        for old, new in (("astroglobe", "AstroClock-3D"), ("geo/helio", "Geo/Helio Model"), ("aspects", "Aspects Table")):
+            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == old).values(page=new))
 
 
 def _seed_defaults(eng: sa.Engine):
@@ -362,7 +370,7 @@ def _add_planet_size_helio(eng: sa.Engine):
 
 
 def _add_planet_size_globe(eng: sa.Engine):
-    """A table made before Size_Globe gets it, each row as its Size_Geo (as AstroGlobe drew them then)."""
+    """A table made before Size_Globe gets it, each row as its Size_Geo (as AstroClock-3D drew them then)."""
     if "size_globe" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
         return
     kind = planets.c.size_globe.type.compile(dialect=eng.dialect)
