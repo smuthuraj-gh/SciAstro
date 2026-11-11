@@ -34,6 +34,8 @@ st.html("""<style>
    its holder undoes the zoom, and its text is sized to match the page's */
 body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / var(--app-zoom, 1)); }
 [data-testid="stSelectboxVirtualDropdown"] * { font-size: calc(13px * var(--app-zoom, 1)) !important; }
+/* every selection button, on every page: the smallest shape its text allows */
+[data-testid="stButtonGroup"] button { padding: 0 5px !important; height: 24px !important; min-height: 24px !important; }
 /* AstroClock-3D's lists: two a line, the last alone not stretched across */
 .st-key-globe_bodies button, .st-key-globe_paths button, .st-key-globe_coords button, .st-key-globe_speed button,
 .st-key-globe_major button, .st-key-globe_minor button, .st-key-space_speed button
@@ -43,12 +45,18 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 /* every planet button (Planets, Planet Path), on every page: a circle round its symbol */
 :is(.st-key-sci_bodies, .st-key-globe_bodies, .st-key-globe_paths, .st-key-space_bodies, .st-key-space_paths, .st-key-helio_bodies, .st-key-helio_paths,
     [class*="dec_on_v2"], .st-key-dist_on_v2) button
-  { border-radius: 50% !important; width: 28px !important; min-width: 28px !important; height: 28px !important; min-height: 28px !important;
+  { border-radius: 50% !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important;
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
-/* HelioCentric's other short buttons: circles too, wide enough for their text (Manual is too long for one) */
-:is(.st-key-helio_time, .st-key-helio_scale, .st-key-helio_au) button, .st-key-helio_speed button:not(:first-child)
-  { border-radius: 50% !important; width: 34px !important; min-width: 34px !important; height: 34px !important; min-height: 34px !important;
+/* the other short buttons, on every page: circles too, each as small as its text allows (longer names stay small pills) */
+:is(.st-key-helio_time, .st-key-helio_scale, .st-key-helio_au, .st-key-space_time, .st-key-space_scale, .st-key-space_au, .st-key-sci_time,
+    .st-key-globe_Now, .st-key-globe_DOB, .st-key-globe_major, .st-key-globe_minor, [class*="ea_on_v5"]) button,
+:is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child)
+  { border-radius: 50% !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important;
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
+:is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:nth-child(7), :is(.st-key-globe_major, .st-key-globe_minor) button
+  { width: 28px !important; min-width: 28px !important; height: 28px !important; min-height: 28px !important; }
+:is(.st-key-helio_time, .st-key-helio_scale, .st-key-space_time, .st-key-space_scale, .st-key-sci_time, .st-key-globe_Now, .st-key-globe_DOB, [class*="ea_on_v5"]) button
+  { width: 32px !important; min-width: 32px !important; height: 32px !important; min-height: 32px !important; }
 /* the button that opens the sidebar (pages, customer) is titled Menu, so it is clear what it opens */
 [data-testid="stExpandSidebarButton"] { width: auto !important; padding: 0 6px !important; gap: 4px;
   display: inline-flex !important; align-items: center; }
