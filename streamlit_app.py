@@ -183,7 +183,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
                       "them are in a chosen major or minor aspect. A tag with no room is left off: point at "
                       "its dot to see it. Dates and times are UT.",
-    "AstroClock-2D": "Left of the clock, Dec: each planet's Declination on a scale from +31 to -31 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at DOB to the left of its line, and at Now to the right. Below the buttons: Distance(%) from earth (DOB+Now): the average of each planet's Distance(%) at birth and now, whatever time the clock shows; each planet's marker, with its symbol inside, is sized for that distance.",
+    "AstroClock-2D": "Left of the clock, Dec: each planet's Declination on a scale from +31 to -31 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at Ave. (the average, which stays put as time runs) and at DOB to the left of its line, and at Now to the right. Below the buttons: Distance(%) from earth (Ave.): the average of each planet's Distance(%) at birth and now, whatever time the clock shows; each planet's marker, with its symbol inside, is sized for that distance.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
@@ -769,8 +769,10 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     speed = titled(head, "Rotate in 1s", f"{key}_t_speed", SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (not flat)
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
+    averages = None
     if flat:                                                  # AstroClock-2D: the Distance(%) row, below the buttons
-        st.markdown(mapchart.average_key_html(prep.d_birth, now_values(core.now_jd())[1]), unsafe_allow_html=True)
+        averages = mapchart.average_values(prep.d_birth, now_values(core.now_jd())[1])
+        st.markdown(mapchart.average_key_html(averages), unsafe_allow_html=True)
     if not shown or not bodies:
         st.info("Choose a time and at least one planet.")
         # nothing drawn: no clock beside the name either (the last drawing's would stay there)
@@ -780,7 +782,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
     moments = [m for m in (("Now", core.now_jd(), utc_now), ("DOB", prep.jd_birth, prep.utc)) if m[0] in shown]
     st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre, flat,
-                               {"DOB": ("CB", prep.birth_lon), **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat and show_houses else None),
+                               {"DOB": ("CB", prep.birth_lon), **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat and show_houses else None, averages),
             unsafe_allow_javascript=True)
 
 

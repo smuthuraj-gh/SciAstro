@@ -11,12 +11,12 @@ from functools import lru_cache
 from . import core
 from .globechart import (MARKER_RANGE, MOTION_DAYS, NODE_CHOICES, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_table,
                          _node_table, symbol_shapes, EARTH_DEGREES_A_DAY, HOUSE_COLOUR)
-from .mapchart import CHART_FONT_FAMILY, FONT
+from .mapchart import CHART_FONT_FAMILY, FONT, _marker_radius
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
 RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
 VIEW = (130, 110, WIDTH, HEIGHT - 110)       # the part of the drawing shown (left, top, width, height): the drawing at the top left
-FLAT_VIEW = (25, 50, WIDTH, HEIGHT - 50)    # the same for the flat page
+FLAT_VIEW = (30, 50, WIDTH, HEIGHT - 50)    # the same for the flat page
 SCALES = (FIT := "Fit", "True")   # Fit: each tenfold distance the same room, without the empty space between the Moon and the planets
 GAP = (0.003, 0.25, 0.03)         # Fit: from just past the Moon's farthest (AU) to inside any planet's nearest (Venus about 0.26),
                                   # drawn as only this much (a tenth of a doubling: a thin space)
@@ -103,7 +103,7 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
 
 def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
-               centre: str = "Ea", flat: bool = False, places: dict | None = None) -> dict:
+               centre: str = "Ea", flat: bool = False, places: dict | None = None, averages: dict | None = None) -> dict:
     """For each moment and body: its table to move it by, and (those in with_paths; all with None) its path, which the page draws
     as a trail behind it, where it has really been since the moment, kept for the whole run (72 years).
     moments: (Now or DOB, Julian day, UTC offset). centre: Ea (GeoCentric) or Su (HelioCentric). The drawing's size does not
@@ -157,7 +157,8 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer,
-                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, view=FLAT_VIEW if flat else VIEW, flat_font=FLAT_FONT, flat_dec=FLAT_DEC, dist_range={p: (lo / core.AU_KM, hi / core.AU_KM) for p, (lo, hi) in core.DIST_RANGE.items()}, node_colour=core.colour("NN"), spin=EARTH_DEGREES_A_DAY, house_colour=HOUSE_COLOUR,
+                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, view=FLAT_VIEW if flat else VIEW, flat_font=FLAT_FONT, flat_dec=FLAT_DEC, dist_range={p: (lo / core.AU_KM, hi / core.AU_KM) for p, (lo, hi) in core.DIST_RANGE.items()},
+                ave_marks=[dict(name=p, colour=core.colour(p), pct=averages[p], r=_marker_radius(p, averages)) for p in bodies if p in (averages or {})], node_colour=core.colour("NN"), spin=EARTH_DEGREES_A_DAY, house_colour=HOUSE_COLOUR,
                 houses=[dict(clock=c, place=places[c][0], ra=core.lst(jd, places[c][1])) for c, jd, _ in moments if c in (places or {})],
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
@@ -307,13 +308,18 @@ __SYMBOL_JS__
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow)};
   });
-  const DIST_X = D.width - 85, DIST_NOW = 58;      // flat: the Distance(%) graph's line, right of the circle; how far right of it Now's planets stand (beyond its numbers)
+  const DIST_X = D.width - 46, DIST_NOW = 52, DIST_AVE = 82;   // flat: the Distance(%) graph's line, right of the circle; how far right of it Now's planets stand (beyond its numbers), and how far left the Ave. planets (beyond DOB's)
   const distY = (pct) => D.height / 2 + D.outer * D.fit * (2 * (100 - pct) / 100 - 1);
   const distMarks = (D.flat ? D.marks.filter((m) => D.dist_range[m.name]) : []).map((m) => {   // each planet on it: DOB to its left, Now to its right
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
     if (m.hollow) lead.setAttribute("stroke-dasharray", "3 2");
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow)};
+  });
+  const aveMarks = (D.flat ? D.ave_marks : []).map((m) => {   // each planet's Ave. average on it, which stays put as time runs
+    const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1, "stroke-dasharray": "1 2"});
+    const e = make("circle", svg, {fill: m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
+    return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, false)};
   });
   const marks = D.marks.map((m) => {
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
@@ -368,10 +374,10 @@ __SYMBOL_JS__
       }
     }
     const distScale = make("path", svg, {d: "M" + DIST_X + " " + distY(100).toFixed(1) + "V" + distY(0).toFixed(1) + distTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
-    make("title", distScale).textContent = "Distance(%) from earth, 0 nearest to 100 farthest: DOB to the left, Now to the right";
+    make("title", distScale).textContent = "Distance(%) from earth, 0 nearest to 100 farthest: Ave. and DOB to the left, Now to the right";
     const distTag = words("rgb(90,90,90)");
     distTag.setAttribute("x", DIST_X); distTag.setAttribute("y", (cy + R + 56).toFixed(1)); distTag.textContent = "Distance(%)";
-    [["DOB", DIST_X - DEC_LEAD], ["Now", DIST_X + DIST_NOW]].forEach(([name, x]) => {   // which side is which, above that tag
+    [["Ave.", DIST_X - DIST_AVE], ["DOB", DIST_X - DEC_LEAD], ["Now", DIST_X + DIST_NOW]].forEach(([name, x]) => {   // which side is which, above that tag
       const side = words("rgb(90,90,90)");
       side.setAttribute("x", x); side.setAttribute("y", (cy + R + 39).toFixed(1)); side.textContent = name;
     });
@@ -508,6 +514,14 @@ __SYMBOL_JS__
       fitSymbol(g.label, x, y, r);
       g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDistance(%) from earth: " + pct.toFixed(1);
     });
+    aveMarks.forEach((g) => {
+      const y = distY(g.m.pct), x = DIST_X - DIST_AVE;
+      g.e.setAttribute("r", g.m.r.toFixed(1));
+      g.lead.setAttribute("d", "M" + x.toFixed(1) + " " + y.toFixed(1) + "H" + DIST_X);
+      g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
+      fitSymbol(g.label, x, y, g.m.r);
+      g.tip.textContent = symbolOf(g.m.name) + " Ave.\nDistance(%) from earth: " + g.m.pct.toFixed(1);
+    });
     rays.forEach((g) => {
       const q = placed.find((p) => p.g.m === g.m), R = D.outer * D.fit, a = q.ra * RAD;
       const at = (r, side) => (D.width / 2 + r * Math.cos(a) - side * Math.sin(a)).toFixed(1) + " " + (D.height / 2 - r * Math.sin(a) - side * Math.cos(a)).toFixed(1);
@@ -608,7 +622,7 @@ __SYMBOL_JS__
 
 def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
-               centre: str = "Ea", flat: bool = False, places: dict | None = None) -> str:
+               centre: str = "Ea", flat: bool = False, places: dict | None = None, averages: dict | None = None) -> str:
     uid = "space-" + uuid.uuid4().hex[:8]
-    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places)).replace("<", chr(92) + "u003c")
+    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places, averages)).replace("<", chr(92) + "u003c")
     return f'<div id="{uid}"></div><script>{_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data).replace("__ID__", uid)}</script>'

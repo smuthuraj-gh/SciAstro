@@ -169,10 +169,12 @@ MARKER_ROOM = 30                 # pixels high for the markers in the Distance(%
 KEY_GAP_HTML = 8
 
 
-def average_key_html(d_birth: dict, d_now: dict) -> str:
-    """Each planet's Distance(%) from earth (DOB+Now): the average of D at birth and D-N now, from the least to the greatest.
-    Empty if none has both."""
-    da = [(n, round((d_birth[n] + d_now[n]) / 2, 2)) for n in core.PLANETS
-          if d_birth.get(n) is not None and d_now.get(n) is not None]
-    da.sort(key=lambda i: i[1])                                  # by its value: the nearest first
-    return _key_row(da, "Distance(%) from earth (DOB+Now)") if da else ""
+def average_values(d_birth: dict, d_now: dict) -> dict:
+    """Each planet's Distance(%) from earth (Ave.): the average of D at birth and D-N now."""
+    return {n: round((d_birth[n] + d_now[n]) / 2, 2) for n in core.PLANETS if d_birth.get(n) is not None and d_now.get(n) is not None}
+
+
+def average_key_html(averages: dict) -> str:
+    """The Distance(%) from earth (Ave.) row, from the least to the greatest. Empty if there are none."""
+    da = sorted(averages.items(), key=lambda i: i[1])            # by its value: the nearest first
+    return _key_row(da, "Distance(%) from earth (Ave.)") if da else ""
