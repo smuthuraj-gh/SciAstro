@@ -15,7 +15,7 @@ from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
 RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
-VIEW = (60, 110, WIDTH, HEIGHT - 110)       # the part of the drawing shown (left, top, width, height): the drawing at the top left
+VIEW = (130, 110, WIDTH, HEIGHT - 110)       # the part of the drawing shown (left, top, width, height): the drawing at the top left
 FLAT_VIEW = (150, 50, WIDTH, HEIGHT - 50)    # the same for the flat page
 SCALES = (FIT := "Fit", "True")   # Fit: each tenfold distance the same room, without the empty space between the Moon and the planets
 GAP = (0.003, 0.25, 0.03)         # Fit: from just past the Moon's farthest (AU) to inside any planet's nearest (Venus about 0.26),
@@ -30,14 +30,14 @@ RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on Astr
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
 SMALL_FONT = 8                    # the rings' AU tags, in pixels
 POLE_FONT = 8                     # NCP, SCP and the RA names, in pixels
-SCP_BEYOND_AU = 15.0              # the axis reaches, both ways on the page, past where a ring this far out would be drawn ...
+SCP_BEYOND_AU = 20.0              # the axis reaches, both ways on the page, past where a ring this far out would be drawn ...
 SCP_PAST_PX = 22                  # ... by this many pixels, NCP and SCP at its ends
 SIDES = 96                        # a ring is drawn with this many straight pieces
 # Flat (the AstroClock-2D page): GeoCentric seen from above the north celestial pole, each body at its RA and its distance
 # from the Earth (its Dec in its hover box only); only the FLAT_RING_AU circle, at the edge, with an RA scale round it,
 # 1 to 360 (a tick every degree, longer every 5, numbered every 10)
 FLAT_RING_AU = 12.0
-OUTER_RING_AU = 15.0              # Geo and Helio: a circle beyond the planets, with the AU button
+OUTER_RING_AU = 20.0              # Geo and Helio: a circle beyond the planets, with the AU button
 FLAT_RADIUS = 360.0               # pixels from the Earth to that circle
 FLAT_FONT = 9                     # the RA numbers, in pixels
 FLAT_DEC = (30.0, -31.0)          # the Declination graph beside the circle, as tall as it: its top and bottom, in degrees
@@ -152,6 +152,8 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
         wanted = wanted + [OUTER_RING_AU]
     if flat:                                                  # only the 12 AU circle, always, at the edge
         wanted, outer = [FLAT_RING_AU], reach(FLAT_RING_AU)
+    else:                                                     # the drawing sized to the outer circle, shown or not
+        outer = max(outer, reach(OUTER_RING_AU))
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer,
@@ -407,7 +409,7 @@ __SYMBOL_JS__
     angles();
     rings.forEach((g) => g.draw(g.r.pts));
     spokes.forEach((g) => g.draw([[0, 0, 0], g.m.at]));
-    // the axis reaches, both ways, past where a 15 AU ring would be drawn on the page (round the centre, on the plane of the
+    // the axis reaches, both ways, past where a 20 AU ring would be drawn on the page (round the centre, on the plane of the
     // equator), so that NCP and SCP are out beyond the planets; both halves as long on the page (the one leaning away from the
     // viewer would look shorter), found by halving for the way the drawing is turned now
     const [cx, cy] = point([0, 0, 0]);
