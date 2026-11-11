@@ -53,7 +53,6 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 :is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child):not(:nth-child(7))
   { border-radius: 50% !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important;
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
-[class*="ea_on_v5"] button:nth-child(-n+3) { width: 28px !important; min-width: 28px !important; height: 28px !important; min-height: 28px !important; }
 /* every action button (Insert, Commit, Delete, Yes, Sign out ..): a small pill */
 :is([data-testid="stBaseButton-primary"], [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-primaryFormSubmit"], [data-testid="stBaseButton-secondaryFormSubmit"])
   { padding: 0 10px !important; height: 24px !important; min-height: 24px !important; border-radius: 12px !important; }
@@ -453,7 +452,7 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
         out |= {(page, "Start Date (UT)"): (START, False, "DOB"), (page, "End Date (UT)"): (END, False, end),
                 (page, "Planets"): (list(planets), True, ["Sa", "Ju"])}
     out[("Aspects Table", "Aspects")] = (["Major Aspects", "Minor Aspects"], True, ["Major Aspects", "Minor Aspects"])
-    out[("Planets Cycles", "Major Aspects")] = (list(rangechart.EA_NAME.values()), True, ["0°", "180°"])
+    out[("Planets Cycles", "Major Aspects")] = ([str(a) for a in rangechart.EA_NAME], True, ["0", "180"])
     return out
 
 
@@ -611,7 +610,7 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
     choices = core.BUTTON_ORDER + (["NN", "SN"] if nodes else [])
     dec_on = core.in_order(head.pills("Planets", core.shown_order(choices), selection_mode="multi", format_func=core.symbol_of,
                                       default=default_choice(page, "Planets"), key=f"{keys}dec_on_v2"), choices)
-    ea_names = {v: k for k, v in rangechart.EA_NAME.items()}   # 0°, 60°, 90°, 120°, 180° -> their angles
+    ea_names = {str(a): a for a in rangechart.EA_NAME}         # the buttons 0, 60, 90, 120, 180 -> their angles
     minor = False
     if aspect_buttons:
         ea = head.pills("Major Aspects", list(ea_names), selection_mode="multi", default=default_choice(page, "Major Aspects"),
