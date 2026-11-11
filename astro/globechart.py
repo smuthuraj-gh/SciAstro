@@ -20,7 +20,7 @@ MARGIN = 10
 TILT = 23.44                      # degrees the Earth's axis leans from upright (its obliquity)
 LEAN_TOWARD = 45.0                # the way the axis leans: 0 = toward the viewer, 90 = to the right; here between them
 # the seconds one day of the clock takes: an hour, a day, a week, a month (30.44 days) or a year (365.25 days) to a second
-SPEEDS = {"1h": 24.0, "1d": 1.0, "1w": 1.0 / 7.0, "1m": 1.0 / 30.44, "1y": 1.0 / 365.25}
+SPEEDS = {"1s": 86400.0, "1m": 1440.0, "1h": 24.0, "1d": 1.0, "1w": 1.0 / 7.0, "1mo": 1.0 / 30.44, "1y": 1.0 / 365.25}   # 1m a minute, 1mo a month
 EARTH_RADIUS = 165.0              # pixels, in the chart's own layout
 SKY_RADIUS = 315.0                # the celestial sphere, pixels (it fits the chart's height with its pole labels)
 AXIS_COLOUR = "rgb(60,60,60)"
@@ -303,7 +303,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
                 node_names=[n for n in NODE_CHOICES if n in g.bodies], name_order=ASPECT_NAMES, shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p, texts=core.SIZE_TEXTS_GLOBE) for p in core.BUTTON_ORDER + ["NN", "SN", "CB", "CN"]}, family=CHART_FONT_FAMILY, node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
-                house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, int((day_seconds or 60.0) * 2.5)))
+                house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, min(1000, int((day_seconds or 60.0) * 2.5))))
 
 
 def globe_figure(g: GlobeInput) -> go.Figure:
