@@ -165,24 +165,43 @@ def _sky_point(ra: float, dec: float, ra_facing: float) -> tuple[float, float, f
     return CX + SKY_RADIUS * x, CY - SKY_RADIUS * y, z
 
 
-@lru_cache(maxsize=24)
-def _motion_table(planet: str, jd: float, days: int = MOTION_DAYS) -> dict:
-    """A body's RA, Dec and distance from jd on, for the page to move it by: what it needs to size it and name its Distance(%)
-    too. (To true scale the Sun and Moon would be about 3 px wide and the planets far less than 1 px, so the page sizes the
-    markers on a logarithmic scale of how wide they look from the Earth: bigger always means looks bigger.)"""
+def day_start(jd: float) -> float:
+    """The start (0h UT) of jd's day. The tables start there, so that Now's are made once a day, not on every rerun: the
+    page reads them shift days on, and has each body's exact place at the moment itself (at0) for when time stands still."""
+    return math.floor(jd - 0.5) + 0.5
+
+
+@lru_cache(maxsize=48)
+def _motion_rows(planet: str, start: float, days: int) -> dict:
     step = MOTION_STEP_DAYS[planet]
-    pts = [core.position(planet, jd + i * step) for i in range(int(days / step) + 2)]
+    pts = [core.position(planet, start + i * step) for i in range(int((days + 1) / step) + 2)]   # (a day more: the shift)
     return {"step": step, "ra": [round(p.ra, 3) for p in pts], "dec": [round(p.dec, 3) for p in pts],
             "dist": [round(p.dist_au, 8) for p in pts], "dec_speed": [round(p.dec_speed, 4) for p in pts],
             "km": BODY_RADIUS_KM[planet],
             "lo": core.DIST_RANGE[planet][0], "hi": core.DIST_RANGE[planet][1]}
 
 
-@lru_cache(maxsize=24)
-def _node_table(jd: float) -> dict:
-    """The Moon's north node from jd on, for the page to move NN and SN by (the south node is opposite it)."""
-    pts = [core.moon_north_node(jd + i * NODE_STEP_DAYS) for i in range(int(MOTION_DAYS / NODE_STEP_DAYS) + 2)]
+def _motion_table(planet: str, jd: float, days: int = MOTION_DAYS) -> dict:
+    """A body's RA, Dec and distance from jd on, for the page to move it by: what it needs to size it and name its Distance(%)
+    too. (To true scale the Sun and Moon would be about 3 px wide and the planets far less than 1 px, so the page sizes the
+    markers on a logarithmic scale of how wide they look from the Earth: bigger always means looks bigger.) The rows start
+    at jd's day_start; shift is how far on jd is, and at0 its exact place."""
+    start, p = day_start(jd), core.position(planet, jd)
+    return {**_motion_rows(planet, start, days), "shift": jd - start,
+            "at0": {"ra": round(p.ra, 3), "dec": round(p.dec, 3), "dist": round(p.dist_au, 8), "dec_speed": round(p.dec_speed, 4)}}
+
+
+@lru_cache(maxsize=8)
+def _node_rows(start: float) -> dict:
+    pts = [core.moon_north_node(start + i * NODE_STEP_DAYS) for i in range(int((MOTION_DAYS + 1) / NODE_STEP_DAYS) + 2)]
     return {"step": NODE_STEP_DAYS, "ra": [round(p[0], 3) for p in pts], "dec": [round(p[1], 3) for p in pts]}
+
+
+def _node_table(jd: float) -> dict:
+    """The Moon's north node from jd on, for the page to move NN and SN by (the south node is opposite it); rows, shift and
+    at0 as _motion_table's."""
+    start, (ra, dec) = day_start(jd), core.moon_north_node(jd)
+    return {**_node_rows(start), "shift": jd - start, "at0": [round(ra, 3), round(dec, 3)]}
 
 
 def _sky_line(pts: list[tuple[float, float]], ra_facing: float, colour: str, width: float, dash: bool, tip: str,
@@ -264,9 +283,9 @@ def sky_svg(g: GlobeInput) -> tuple[str, list]:
 
 def _paths(g: GlobeInput) -> list[dict]:
     """The paths to draw, for the page, which draws each as a trail behind its body while time runs: where it has really been
-    since time started running (solid at birth, dashed now)."""
+    since time started running (dashed at birth, solid now)."""
     out = []
-    for show, when, dash, clock in ((g.show_birth, g.jd_birth, False, "DOB"), (g.show_now, g.jd_now, True, "Now")):
+    for show, when, dash, clock in ((g.show_birth, g.jd_birth, True, "DOB"), (g.show_now, g.jd_now, False, "Now")):
         if show and when is not None:
             for p in BODY_CHOICES + NODE_CHOICES:
                 if p in g.paths:
@@ -321,8 +340,8 @@ def globe_figure(g: GlobeInput) -> go.Figure:
                         continue
                     fig.add_trace(go.Scattergeo(
                         lon=line_lon, lat=line_lat, mode="lines", showlegend=False,
-                        line=dict(color=core.colour(label), width=1.4, dash="dash" if label == "CN" else "solid"),
-                        hoverinfo="text", text=text, opacity=0.7 if label == "CN" else 0.9))
+                        line=dict(color=core.colour(label), width=1.4, dash="dash" if label == "CB" else "solid"),
+                        hoverinfo="text", text=text, opacity=0.7 if label == "CB" else 0.9))
             fig.add_trace(go.Scattergeo(
                 lon=[lon], lat=[lat], mode="markers", showlegend=False, text=[label],
                 marker=dict(size=18, color=core.colour(label), opacity=0), hoverinfo="text",   # not seen: there to point at; the page draws its icon
@@ -376,12 +395,19 @@ __SYMBOL_JS__
     const y1 = y * cp - z * sp, z1 = y * sp + z * cp;
     return [D.cx + D.sky * (x * cr + y1 * sr), D.cy - D.sky * (-x * sr + y1 * cr), z1];
   };
-  const sample = (b, t) => {                       // between its two nearest table rows
-    const u = t / b.step, i = Math.min(Math.floor(u), b.ra.length - 2), f = u - i;
+  const sample = (b, t) => {                       // between its two nearest table rows (its exact place at the start)
+    if (t === 0 && b.at0) return b.at0;
+    const u = (t + (b.shift || 0)) / b.step, i = Math.min(Math.floor(u), b.ra.length - 2), f = u - i;
     const turn = ((b.ra[i + 1] - b.ra[i] + 540) % 360) - 180;
     return {ra: (b.ra[i] + turn * f + 360) % 360, dec: b.dec[i] + (b.dec[i + 1] - b.dec[i]) * f,
             dist: b.dist[i] + (b.dist[i + 1] - b.dist[i]) * f,
             dec_speed: b.dec_speed[i] + (b.dec_speed[i + 1] - b.dec_speed[i]) * f};
+  };
+  const nodeSample = (n, t) => {                   // the north node's RA and Dec, the same way
+    if (t === 0 && n.at0) return n.at0;
+    const u = (t + (n.shift || 0)) / n.step, i = Math.min(Math.floor(u), n.ra.length - 2), f = u - i;
+    const change = ((n.ra[i + 1] - n.ra[i] + 540) % 360) - 180;
+    return [n.ra[i] + change * f, n.dec[i] + (n.dec[i + 1] - n.dec[i]) * f];
   };
   const curve = (pts) => {                         // the path data of a line's near side and of its far side
     let near = "", far = "", side = null, last = "";
@@ -414,16 +440,16 @@ __SYMBOL_JS__
   const bodies = [];
   D.sets.forEach((s) => s.shown.forEach((p) => {
     const b = s.tables[p];
-    const body = {name: p, tipName: symbolOf(p) + " " + s.clock, b, set: s, now: s.clock === "Now"};   // Now: hollow, dashed
-    if (D.show_ra) body.raLine = line(b.colour, body.now);
-    if (D.show_dec) body.decLine = line(b.colour, body.now);
+    const body = {name: p, tipName: symbolOf(p) + " " + s.clock, b, set: s, hollow: s.clock === "DOB"};   // DOB: hollow, dashed
+    if (D.show_ra) body.raLine = line(b.colour, body.hollow);
+    if (D.show_dec) body.decLine = line(b.colour, body.hollow);
     bodies.push(body);
   }));
   bodies.forEach((body) => {
     const c = body.b.colour;
-    body.mark = make("circle", markG, {fill: body.now ? "white" : c, stroke: c, "stroke-width": 2, style: "pointer-events:auto"});
+    body.mark = make("circle", markG, {fill: body.hollow ? "white" : c, stroke: c, "stroke-width": 2, style: "pointer-events:auto"});
     body.tip = make("title", body.mark);
-    body.label = symbolTag(markG, body.name, c, body.now);
+    body.label = symbolTag(markG, body.name, c, body.hollow);
   });
   const houses = [];                               // each of CB's and CN's twelve: its line and its name, in the middle of its span
   if (D.show_houses) D.places.forEach((pl) => {
@@ -431,14 +457,14 @@ __SYMBOL_JS__
       const label = words(markG, {"text-anchor": "middle", fill: D.house_colour});
       label.textContent = "H" + String((9 + k) % 12 + 1).padStart(2, "0");
       const value = words(markG, {"text-anchor": "start", fill: D.house_colour});
-      houses.push({pl, k, label, value, draw: line(D.house_colour, pl.label === "CN")});
+      houses.push({pl, k, label, value, draw: line(D.house_colour, pl.label === "CB")});
     }
   });
   const aspectLines = [];                          // each pair of the bodies shown, at each moment: its line when in aspect
   const named = (s) => D.name_order.filter((p) => s.shown.includes(p) || (s.node && D.node_names.includes(p)));   // with NN, SN;
   if (D.aspects.length) D.sets.forEach((s) => named(s).forEach((p, i) => named(s).slice(i + 1).forEach((q) => {   // named in the
     if ((p + q).length === 4 && p[1] === "N" && q[1] === "N") return;           // order of the buttons: 0-Mo-Su; NN-SN always opposite
-    aspectLines.push({s, p, q, draw: line("black", s.clock === "Now" ? "2 3" : false),
+    aspectLines.push({s, p, q, draw: line("black", s.clock === "DOB" ? "2 3" : false),
                       tag: words(markG, {"text-anchor": "middle"})});
   })));
   const aspectAt = (s, name, t) => (name === "NN" || name === "SN"      // where a planet, or a node, is then
@@ -478,20 +504,19 @@ __SYMBOL_JS__
   const nodes = [];                                // where the Moon's path crosses the Sun's, north (NN) and south (SN), those picked
   D.sets.forEach((s) => {
     if (!s.node) return;
-    const now = s.clock === "Now";
+    const hollow = s.clock === "DOB";
     [["NN", 0, 1, "north"], ["SN", 180, -1, "south"]].filter(([name]) => D.node_names.includes(name)).forEach(([name, turn, sign, pole]) => {
       const colour = D.node_colours[name];
       const mark = make("g", markG, {style: "pointer-events:auto"});
       make("rect", mark, {x: -9, y: -9, width: 18, height: 18, fill: "transparent"});   // to point at, the gaps too
-      drawShape(mark, name, colour, now ? 1.2 : 2.2);   // thinner for now, as the planets are hollow
+      drawShape(mark, name, colour, hollow ? 1.2 : 2.2);   // thinner for DOB, as the planets are hollow
       nodes.push({name, turn, sign, pole, s, mark, tip: make("title", mark),      // with its RA and Dec lines, as the planets'
-                  raLine: D.show_ra ? line(colour, now) : null, decLine: D.show_dec ? line(colour, now) : null});
+                  raLine: D.show_ra ? line(colour, hollow) : null, decLine: D.show_dec ? line(colour, hollow) : null});
     });
   });
   const nodeAt = (node, t) => {                    // between its two nearest table rows
-    const n = node.s.node, u = t / n.step, i = Math.min(Math.floor(u), n.ra.length - 2), f = u - i;
-    const change = ((n.ra[i + 1] - n.ra[i] + 540) % 360) - 180;
-    return {ra: (n.ra[i] + change * f + node.turn + 720) % 360, dec: node.sign * (n.dec[i] + (n.dec[i + 1] - n.dec[i]) * f)};
+    const [ra, dec] = nodeSample(node.s.node, t);
+    return {ra: (ra + node.turn + 720) % 360, dec: node.sign * dec};
   };
   const placeIcons = D.places.map((pl) => {        // the baby at the birth place, the house at the place now, on the Earth
     const tag = make("g", markG, {style: "pointer-events:none"});
@@ -520,9 +545,8 @@ __SYMBOL_JS__
   const TRAIL_MOST = 1500;                         // the most points a trail is drawn with: a long one is thinned, evenly
   const trailAt = (p, s) => {                      // where the body was, s days on
     if (!p.node) { const q = sample(p.table, s); return [q.ra, q.dec]; }
-    const n = p.set.node, u = s / n.step, i = Math.min(Math.floor(u), n.ra.length - 2), f = u - i;
-    const change = ((n.ra[i + 1] - n.ra[i] + 540) % 360) - 180;
-    return [(n.ra[i] + change * f + p.turn + 720) % 360, p.sign * (n.dec[i] + (n.dec[i + 1] - n.dec[i]) * f)];
+    const [ra, dec] = nodeSample(p.set.node, s);
+    return [(ra + p.turn + 720) % 360, p.sign * dec];
   };
   const trail = (p, t) => {                        // where the body has really been since time started running
     const run = trailFrom === null ? 0 : t - trailFrom;
@@ -610,7 +634,7 @@ __SYMBOL_JS__
       if (!hidden) taken.push([x - nr, y - nr, x + nr, y + nr]);
     });
     // a small planet is drawn over a big one (only when the order changes: moving a mark would lose its hover box)
-    const stacked = [...bodies, ...nodes].sort((a, b) => b.r - a.r), order = stacked.map((m) => m.name + (m.now ? "N" : "D") + (m.s ? m.s.clock : "")).join();
+    const stacked = [...bodies, ...nodes].sort((a, b) => b.r - a.r), order = stacked.map((m) => m.name + (m.hollow ? "D" : "N") + (m.s ? m.s.clock : "")).join();
     if (order !== markOrder) {
       stacked.forEach((m) => { markG.appendChild(m.mark); if (m.label) markG.appendChild(m.label); });
       placeIcons.forEach((p) => markG.appendChild(p.tag));   // (the baby and the house stay on top)

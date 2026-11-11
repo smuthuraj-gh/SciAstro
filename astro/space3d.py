@@ -9,9 +9,9 @@ import uuid
 from functools import lru_cache
 
 from . import core
-from .globechart import (MARKER_RANGE, MOTION_DAYS, NODE_CHOICES, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_table,
-                         _node_table, symbol_shapes, ASPECT_COLOURS, ASPECT_NAMES, EARTH_DEGREES_A_DAY, HOUSE_COLOUR)
-from .mapchart import CHART_FONT_FAMILY, FONT, _marker_radius
+from .globechart import (MARKER_RANGE, MOTION_DAYS, NODE_CHOICES, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_rows, _motion_table,
+                         _node_rows, _node_table, day_start, symbol_shapes, ASPECT_COLOURS, ASPECT_NAMES, EARTH_DEGREES_A_DAY, HOUSE_COLOUR)
+from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
 RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
@@ -61,30 +61,47 @@ CENTRES = {"Ea": dict(log_from=LOG_FROM_AU, gap=GAP, rings=RINGS, rings_shown=RI
            "Su": dict(log_from=HELIO_LOG_FROM_AU, gap=NO_GAP, rings=HELIO_RINGS, rings_shown={FIT: 5, "True": 4}, spans=HELIO_SPANS, word="the Sun")}
 
 
-@lru_cache(maxsize=24)
-def _helio_table(planet: str, jd: float, days: int = RUN_DAYS) -> dict:
-    """A body's RA, Dec and distance as seen from the Sun, from jd on, for the page to move it by."""
+TABLE_KEYS = ("step", "ra", "dec", "dist", "km", "shift", "at0")   # what the page reads of a table
+
+
+@lru_cache(maxsize=48)
+def _helio_rows(planet: str, start: float, days: int) -> dict:
     step = HELIO_STEP_DAYS[planet]
-    pts = [core.helio_position(planet, jd + i * step) for i in range(int(days / step) + 2)]
+    pts = [core.helio_position(planet, start + i * step) for i in range(int((days + 1) / step) + 2)]   # (a day more: the shift)
     return {"step": step, "ra": [round(p.ra, 3) for p in pts], "dec": [round(p.dec, 3) for p in pts],
             "dist": [round(p.dist_au, 6) for p in pts], "km": 0.0}
 
 
-@lru_cache(maxsize=24)
+def _helio_table(planet: str, jd: float, days: int = RUN_DAYS) -> dict:
+    """A body's RA, Dec and distance as seen from the Sun, from jd on, for the page to move it by (rows from jd's day_start,
+    shift and at0, as globechart._motion_table)."""
+    start, p = day_start(jd), core.helio_position(planet, jd)
+    return {**_helio_rows(planet, start, days), "shift": jd - start,
+            "at0": {"ra": round(p.ra, 3), "dec": round(p.dec, 3), "dist": round(p.dist_au, 6)}}
+
+
 def _node_geo_table(name: str, jd: float, days: int = RUN_DAYS) -> dict:
     """NN or SN as a body round the Earth (the flat page): on the Moon's path, so at the Moon's distance then, at the node's
-    own RA and Dec (the south node opposite the north), on the Moon's table's times."""
+    own RA and Dec (the south node opposite the north)."""
     moon, node = _motion_table("Mo", jd, days), _node_table(jd)
-    ra, dec = [], []
-    for i in range(len(moon["ra"])):
-        u = i * moon["step"] / node["step"]
-        k = min(int(u), len(node["ra"]) - 2)
+    ra0, dec0 = node["at0"] if name == "NN" else ((node["at0"][0] + 180.0) % 360.0, -node["at0"][1])
+    return {**_node_geo_rows(name, day_start(jd), days), "shift": moon["shift"],
+            "at0": {"ra": round(ra0, 3), "dec": round(dec0, 3), "dist": moon["at0"]["dist"]}}
+
+
+@lru_cache(maxsize=8)
+def _node_geo_rows(name: str, start: float, days: int) -> dict:
+    """On the node's own table's times (every NODE_STEP_DAYS: a quarter of the Moon's rows), with the Moon's distance then."""
+    moon, node = _motion_rows("Mo", start, days), _node_rows(start)
+    flip = name != "NN"                                       # the south node: opposite the north
+    dist = []
+    for i in range(len(node["ra"])):
+        u = i * node["step"] / moon["step"]
+        k = min(int(u), len(moon["dist"]) - 2)
         f = u - k
-        turn = ((node["ra"][k + 1] - node["ra"][k] + 540.0) % 360.0) - 180.0
-        r, d = (node["ra"][k] + turn * f) % 360.0, node["dec"][k] + (node["dec"][k + 1] - node["dec"][k]) * f
-        ra.append(round(r if name == "NN" else (r + 180.0) % 360.0, 3))
-        dec.append(round(d if name == "NN" else -d, 3))
-    return {"step": moon["step"], "ra": ra, "dec": dec, "dist": moon["dist"], "km": 0.0}
+        dist.append(round(moon["dist"][k] + (moon["dist"][k + 1] - moon["dist"][k]) * f, 8))
+    return {"step": node["step"], "ra": [round((r + 180.0) % 360.0, 3) if flip else r for r in node["ra"]],
+            "dec": [-d if flip else d for d in node["dec"]], "dist": dist, "km": 0.0}
 
 
 def _reach(au: float, scale: str, log_from: float = LOG_FROM_AU, gap: tuple = GAP) -> float:
@@ -104,12 +121,14 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
 
 def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
-               centre: str = "Ea", flat: bool = False, places: dict | None = None, averages: dict | None = None,
+               centre: str = "Ea", flat: bool = False, places: dict | None = None, ave_jds: dict | None = None,
                aspects: tuple = (), orbs: core.Orbs | None = None) -> dict:
     """For each moment and body: its table to move it by, and (those in with_paths; all with None) its path, which the page draws
     as a trail behind it, where it has really been since the moment, kept for the whole run (72 years).
     moments: (Now or DOB, Julian day, UTC offset). centre: Ea (GeoCentric) or Su (HelioCentric). The drawing's size does not
-    change with the paths shown. The sizes are always by how big a body looks from the Earth (the tables seen from the Earth)."""
+    change with the paths shown. The sizes are always by how big a body looks from the Earth (the tables seen from the Earth).
+    ave_jds (the flat page): {"DOB": Julian day, "Now": Julian day}, for the Ave planets on the Distance(%) graph, each the
+    average of its Distance(%) at DOB and at Now as time runs (the tables of a moment not shown are sent for them alone)."""
     at = CENTRES[centre]
     sizes = core.SIZE_TEXTS_CLOCK if flat else core.SIZE_TEXTS if centre == "Ea" else core.SIZE_TEXTS_HELIO   # the Size_Clock-2D, Size_Geo or Size_Helio column
     reach = lambda au: _reach(au, scale, at["log_from"], at["gap"])
@@ -119,35 +138,45 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
         tables[clock], sizing[clock] = {}, {}
         if centre == "Su" and "Mo" in bodies:                 # the Moon goes round the Earth: the Earth's table, shown or not
             whole = _helio_table("Ea", jd, RUN_DAYS)
-            tables[clock]["Ea"] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
+            tables[clock]["Ea"] = {k: whole[k] for k in TABLE_KEYS}
             outer = max(outer, reach(max(whole["dist"])))
         for p in bodies:
             around = centre == "Su" and p == "Mo"                # its table as seen from the Earth
             whole = (_node_geo_table(p, jd, RUN_DAYS) if p in NODE_CHOICES else       # (the flat page's NN, SN)
                      _motion_table(p, jd, RUN_DAYS) if centre == "Ea" or around else _helio_table(p, jd, RUN_DAYS))
-            tables[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
+            tables[clock][p] = {k: whole[k] for k in TABLE_KEYS}
             if not around:
                 outer = max(outer, reach(max(whole["dist"])))
             rule = core.size_rule(p, texts=sizes)
-            marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "Now", clock=clock, rule=rule))
+            marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "DOB", clock=clock, rule=rule))
             if with_paths is None or p in with_paths:         # the page draws it as time runs, from the body's own table
                 days, steps, name = at["spans"][p]
-                paths.append(dict(colour=core.colour(p), dash=clock == "Now", name=name, body=p, clock=clock, days=days, steps=steps, pts=[]))
+                paths.append(dict(colour=core.colour(p), dash=clock == "DOB", name=name, body=p, clock=clock, days=days, steps=steps, pts=[]))
     # what the sizes are measured from: each body as seen from the Earth (Bigger than Moon needs the Moon's table, shown or not)
     centre_rule = core.size_rule(centre, texts=sizes)
     for clock, jd, _ in moments:
         for p in bodies:
             if p in core.PLANET_ID:
                 whole = _motion_table(p, jd, RUN_DAYS)
-                sizing[clock][p] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
+                sizing[clock][p] = {k: whole[k] for k in TABLE_KEYS}
         for rule in [centre_rule] + [m["rule"] for m in marks]:
             if "of" in rule and rule["of"] not in sizing[clock]:
                 whole = _motion_table(rule["of"], jd, RUN_DAYS)
-                sizing[clock][rule["of"]] = {k: whole[k] for k in ("step", "ra", "dec", "dist", "km")}
+                sizing[clock][rule["of"]] = {k: whole[k] for k in TABLE_KEYS}
     if centre == "Ea":                                         # the same tables: not sent twice
         for clock in tables:
             tables[clock].update(sizing[clock])
         sizing = None
+    ave_marks, ave_tables = [], {}
+    if flat and ave_jds:                                      # the Ave planets: from both moments' tables, as seen from the Earth
+        for p in [b for b in bodies if b in core.PLANETS]:
+            rule = core.size_rule(p, texts=sizes)
+            ave_marks.append(dict(name=p, colour=core.colour(p), rule=rule))
+            for clock, jd in ave_jds.items():
+                for q in {p, rule.get("of", p)}:
+                    if q not in tables.get(clock, {}):
+                        whole = _motion_table(q, jd, RUN_DAYS)
+                        ave_tables.setdefault(clock, {})[q] = {k: whole[k] for k in TABLE_KEYS}
     outer = outer or 1.0
     wanted = [au for au in at["rings"][scale] if reach(au) <= outer][-at["rings_shown"][scale]:] if show_au else []
     if show_au:                                               # the outer circle too, beyond the planets
@@ -163,7 +192,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                    for a in aspects] if orbs is not None else []
     return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer, aspects=aspect_rows, name_order=ASPECT_NAMES,
                 fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, drag_days=FLAT_DRAG_DAYS, view=FLAT_VIEW if flat else VIEW, flat_font=FLAT_FONT, flat_dec=FLAT_DEC, dist_range={p: (lo / core.AU_KM, hi / core.AU_KM) for p, (lo, hi) in core.DIST_RANGE.items()},
-                ave_marks=[dict(name=p, colour=core.colour(p), pct=averages[p], r=_marker_radius(p, averages)) for p in bodies if p in (averages or {})], node_colour=core.colour("NN"), spin=EARTH_DEGREES_A_DAY, house_colour=HOUSE_COLOUR,
+                ave_marks=ave_marks, ave_tables=ave_tables, node_colour=core.colour("NN"), spin=EARTH_DEGREES_A_DAY, house_colour=HOUSE_COLOUR,
                 houses=[dict(clock=c, place=places[c][0], ra=core.lst(jd, places[c][1])) for c, jd, _ in moments if c in (places or {})],
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
@@ -191,8 +220,9 @@ __SYMBOL_JS__
   const view = window.space3dView || (window.space3dView = {yaw: 90, pitch: 45});
   if (!window.space3dClock || window.space3dClock.key !== D.key) window.space3dClock = {key: D.key, t: 0};
   const clock = window.space3dClock;              // the days run since each moment: kept when a button is pressed
-  const sample = (b, t) => {                       // between its two nearest table rows
-    const u = t / b.step, i = Math.min(Math.floor(u), b.ra.length - 2), f = u - i;
+  const sample = (b, t) => {                       // between its two nearest table rows (its exact place at the start)
+    if (t === 0 && b.at0) return b.at0;
+    const u = (t + (b.shift || 0)) / b.step, i = Math.min(Math.floor(u), b.ra.length - 2), f = u - i;
     const turn = ((b.ra[i + 1] - b.ra[i] + 540) % 360) - 180;
     return {ra: (b.ra[i] + turn * f + 360) % 360, dec: b.dec[i] + (b.dec[i + 1] - b.dec[i]) * f, dist: b.dist[i] + (b.dist[i + 1] - b.dist[i]) * f};
   };
@@ -286,14 +316,14 @@ __SYMBOL_JS__
     .filter((c) => D.marks.some((m) => m.clock === c && m.name === "NN") && D.marks.some((m) => m.clock === c && m.name === "SN"))
     .map((c) => {
       const e = make("path", svg, {fill: "none", stroke: D.node_colour, "stroke-width": 1.5, style: "pointer-events:stroke"});
-      if (c === "Now") e.setAttribute("stroke-dasharray", "6 4");
+      if (c === "DOB") e.setAttribute("stroke-dasharray", "6 4");
       make("title", e).textContent = symbolOf("NN") + " to " + symbolOf("SN") + " " + c + ": 180 degrees apart";
       return {c, e};
     });
   // flat: the twelve house lines of CB and CN, as on AstroClock-3D: 30 degrees apart from the place's RA, turning with the Earth
   const houses = D.flat ? D.houses.flatMap((h, n) => [...Array(12).keys()].map((k) => {
     const e = make("path", svg, {fill: "none", stroke: D.house_colour, "stroke-width": 1, style: "pointer-events:stroke"});
-    if (h.place === "CN") e.setAttribute("stroke-dasharray", "2 3");
+    if (h.place === "CB") e.setAttribute("stroke-dasharray", "2 3");
     return {h, n, k, e, tip: make("title", e), name: "H" + String((9 + k) % 12 + 1).padStart(2, "0")};
   })) : [];
   // flat: a line from the Earth through each body, out to the circle, to read its RA on the scale (under the marks)
@@ -328,7 +358,7 @@ __SYMBOL_JS__
     here.forEach((p, i) => here.slice(i + 1).forEach((q) => {
       if (p[1] === "N" && q[1] === "N" && p.length === 2 && q.length === 2) return;   // NN-SN: always opposite
       const e = make("path", svg, {fill: "none", style: "pointer-events:stroke"});
-      if (c === "Now") e.setAttribute("stroke-dasharray", "2 3");
+      if (c === "DOB") e.setAttribute("stroke-dasharray", "2 3");
       aspectLines.push({c, p, q, e, tip: make("title", e), tag: words("black")});
     }));
   });
@@ -337,7 +367,19 @@ __SYMBOL_JS__
     if (sep > 180) sep = 360 - sep;
     return Math.abs(sep - angle) <= orb && (Math.abs(a.dec - b.dec) <= orb || Math.abs(a.dec + b.dec) <= orb);
   };
-  const aveMarks = (D.flat ? D.ave_marks : []).map((m) => {   // each planet's Ave average on it, which stays put as time runs
+  const aveTable = (clock, p) => (D.tables[clock] && D.tables[clock][p]) || D.ave_tables[clock][p];
+  const pctAt = (clock, p, t) => {                 // a planet's Distance(%) from earth at that moment, t days on
+    const [lo, hi] = D.dist_range[p];
+    return Math.max(0, Math.min(100, (sample(aveTable(clock, p), t).dist - lo) / (hi - lo) * 100));
+  };
+  const avePct = (p, t) => (pctAt("DOB", p, t) + pctAt("Now", p, t)) / 2;
+  const aveRadius = (rule, t) => {                 // as radiusAt, the planet at its Ave distance
+    if (rule.px !== undefined) return rule.px;
+    const [lo, hi] = D.dist_range[rule.of], au = lo + (hi - lo) * avePct(rule.of, t) / 100;
+    const share = Math.max(0, Math.min(1, (Math.log(arcsecOf(aveTable("Now", rule.of).km, au)) - LOW) / (HIGH - LOW)));
+    return Math.max(1, D.radii[0] + (D.radii[1] - D.radii[0]) * share + rule.add);
+  };
+  const aveMarks = (D.flat ? D.ave_marks : []).map((m) => {   // each planet's Ave: the average of its DOB and Now, moving as time runs
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1, "stroke-dasharray": "1 2"});
     const e = make("circle", svg, {fill: m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, false)};
@@ -528,7 +570,7 @@ __SYMBOL_JS__
     // the Distance(%) graph, the same way: marks at the same distance overlap
     distMarks.forEach((g) => {
       const s = posAt(g.m.clock, g.m.name, t).s, r = radiusAt(g.m.rule, sizing(g.m.clock), t), [lo, hi] = D.dist_range[g.m.name];
-      const pct = Math.max(0, Math.min(100, (s.dist - lo) / (hi - lo) * 100)), y = distY(pct), x = DIST_X - (g.m.hollow ? DEC_LEAD : DIST_DOB);
+      const pct = Math.max(0, Math.min(100, (s.dist - lo) / (hi - lo) * 100)), y = distY(pct), x = DIST_X - (g.m.clock === "Now" ? DEC_LEAD : DIST_DOB);
       g.e.setAttribute("r", r.toFixed(1));
       g.lead.setAttribute("d", "M" + x.toFixed(1) + " " + y.toFixed(1) + "H" + DIST_X);
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
@@ -536,12 +578,12 @@ __SYMBOL_JS__
       g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDistance(%) from earth: " + pct.toFixed(1);
     });
     aveMarks.forEach((g) => {
-      const y = distY(g.m.pct), x = DIST_X + DIST_AVE;
-      g.e.setAttribute("r", g.m.r.toFixed(1));
+      const pct = avePct(g.m.name, t), r = aveRadius(g.m.rule, t), y = distY(pct), x = DIST_X + DIST_AVE;
+      g.e.setAttribute("r", r.toFixed(1));
       g.lead.setAttribute("d", "M" + x.toFixed(1) + " " + y.toFixed(1) + "H" + DIST_X);
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
-      fitSymbol(g.label, x, y, g.m.r);
-      g.tip.textContent = symbolOf(g.m.name) + " Ave\nDistance(%) from earth: " + g.m.pct.toFixed(1);
+      fitSymbol(g.label, x, y, r);
+      g.tip.textContent = symbolOf(g.m.name) + " Ave\nDistance(%) from earth: " + pct.toFixed(1);
     });
     [decMarks, distMarks, aveMarks].forEach((list) => {   // on each graph too, the smallest on top (only when that changes, as below)
       const order = [...list].sort((a, b) => b.e.getAttribute("r") - a.e.getAttribute("r"));
@@ -671,8 +713,8 @@ __SYMBOL_JS__
 
 def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
-               centre: str = "Ea", flat: bool = False, places: dict | None = None, averages: dict | None = None,
+               centre: str = "Ea", flat: bool = False, places: dict | None = None, ave_jds: dict | None = None,
                aspects: tuple = (), orbs: core.Orbs | None = None) -> str:
     uid = "space-" + uuid.uuid4().hex[:8]
-    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places, averages, aspects, orbs)).replace("<", chr(92) + "u003c")
+    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places, ave_jds, aspects, orbs)).replace("<", chr(92) + "u003c")
     return f'<div id="{uid}"></div><script>{_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data).replace("__ID__", uid)}</script>'

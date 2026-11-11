@@ -1,6 +1,6 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
-Pages: AstroClock-2D, AstroClock-3D, Geo/Helio Model, Planets Distance(%), Planets Cycles, Aspects Table (its aspects as tables) for everyone (their own customers only);
+Pages: AstroClock-2D, AstroClock-3D, Geo/Helio Model, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only);
 Aspect Rules, Customers, Symbols, Defaults and Logins for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
@@ -14,7 +14,7 @@ import pandas as pd
 import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
 
-from app import auth, db
+from app import auth, db, location
 from app.chartdata import NOW_ONLY, Prepared, locate_cached, now_values, prepare
 from astro import core, distancechart, globechart, mapchart, places, rangechart, se, space3d
 
@@ -126,6 +126,7 @@ st.html("""<script>
 </script>""", unsafe_allow_javascript=True)
 
 user = auth.current_user()
+location.visitor_location()                                   # where they are: looked up once per visit, before any Logins row is written
 
 
 # ---------------------------------------------------------------- who can see which customers
@@ -159,31 +160,31 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "to the start). Below it, Manual: the Earth, the celestial sphere, House, RA, Dec, Lati and Long are frozen together; drag the chart sideways to turn them as one unit and see the other side of the AstroClock-3D. Or pick a speed to start, how much time passes each second: 1s a second, 1m a minute, 1h an hour, 1d a day, 1w a week, 1mo a month, 1y a year; with none picked it holds still. The Earth starts as it was at that "
                   "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, with its symbol inside its marker (☉ Su, ☽ Mo, ☿ Me, ♀ Ve, ♂ Ma, ♃ Ju, ♄ Sa), sized as the Size_Clock-3D column of Symbols says, usually by how big it looks from the Earth then (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its Dec/Lati, RA, Angular Size, Distance from earth and the others approaching and leaving it in Dec/Lati; at CB or CN for its Long, Dec/Lati, RA and the planets approaching and leaving its Dec/Lati). The far side of the sphere is "
-                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines, and the Moon's north and south nodes (NN, SN), where its path crosses the Sun's, drawn with their symbols (☊ and ☋; point at one for its details). Major Aspects (0, 60, 90, 120, 180; black) and Minor Aspects (30, 45, 72, 135, 144, 150; grey): pick the angles to draw a line between any two planets or nodes shown (not NN with SN) that are in that aspect, by the orbs in Aspect Rules, as time runs; dotted for Now, each with its tag, as 0-Ma-Ju, along it where there is room, or beside it when the two are too close (point at a line for its name). Coordinates, with House, Celes, RA, Dec, Lati and Long below it: which lines to show. Celes: the axis with the names NCP and SCP and the dots at the poles, and the celestial equator with the names WCE and ECE. House: twelve lines on the sphere, 30 degrees apart from the RA of CB (solid) and of CN (dashed), named H01 to H12, turning with the Earth, with each line's RA at its lower right (on the near side, where there is room). RA, Dec: the RA lines and the Dec lines of each planet, and of NN and SN, on the sphere, and "
+                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines, and the Moon's north and south nodes (NN, SN), where its path crosses the Sun's, drawn with their symbols (☊ and ☋; point at one for its details). Major Aspects (0, 60, 90, 120, 180; black) and Minor Aspects (30, 45, 72, 135, 144, 150; grey): pick the angles to draw a line between any two planets or nodes shown (not NN with SN) that are in that aspect, by the orbs in Aspect Rules, as time runs; dotted for DOB, each with its tag, as 0-Ma-Ju, along it where there is room, or beside it when the two are too close (point at a line for its name). Coordinates, with House, Celes, RA, Dec, Lati and Long below it: which lines to show. Celes: the axis with the names NCP and SCP and the dots at the poles, and the celestial equator with the names WCE and ECE. House: twelve lines on the sphere, 30 degrees apart from the RA of CB (dashed) and of CN (solid), named H01 to H12, turning with the Earth, with each line's RA at its lower right (on the near side, where there is room). RA, Dec: the RA lines and the Dec lines of each planet, and of NN and SN, on the sphere, and "
                   "of CB and CN on the Earth. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Planet Path, picking from the list below it: a trail behind each body picked, drawn only while time runs, "
-                  "where it has really been since time started running (none while it stands still; each start begins new ones; up to 72 years). DOB: at birth, solid lines, with CB, a baby, at the birth place. Now: the planets "
-                  "now, hollow, dashed lines, with CN, a house, at the place now.",
+                  "where it has really been since time started running (none while it stands still; each start begins new ones; up to 72 years). DOB: at birth, hollow, dashed lines, with CB, a baby, at the birth place. Now: the planets "
+                  "now, solid lines, with CN, a house, at the place now.",
     "Geo/Helio Model": "Centric Model: Geo, GeoCentric, the Earth at the centre, or Helio, HelioCentric, the Sun at the centre; each keeps its own choices on the other buttons. "
                   "GeoCentric: the paths of the Sun, Moon and planets around the Earth (Ea), each at its own distance from the Earth (on AstroClock-3D all are on one sphere). "
                   "Each point is placed by its RA, Dec and distance. North is up, the axis from NCP to SCP tilted 23.44 degrees on the page, with everything else leaning with it. AU: all the tags, NCP, SCP and the RA names, and rings on the plane of the Earth's equator, each with its distance from the Earth in AU, out to 20 AU (1 AU is about the Sun's distance); off, the drawing has no tags. "
                   "Rotate in 1s: Manual: time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second: 1s a second, 1m a minute, 1h an hour, 1d a day, 1w a week, 1mo a month, 1y a year: the clock beside the name gives the date and time, and the Sun, Moon and planets move as they really did, nearer and farther, the Moon's path going with it (time starts again after 72 years; refresh the page to go back to the start). With none picked it holds still. Each has its symbol inside its marker (☉ Su, ☽ Mo, ☿ Me, ♀ Ve, ♂ Ma, ♃ Ju, ♄ Sa, ⊕ Ea). Sizes follow the Size_Geo column of Symbols: usually a planet by how big it looks from the Earth at that moment (a logarithmic scale, as to true scale the planets would not show), so it grows as it comes nearer, and the Earth as its Size says (Tiny, a dot, when it says nothing readable; to true scale it would be far smaller still). Point at a planet for its Dec/Lati, RA, Angular Size and distance, or at a path for its span and distances. "
-                  "Planet Path: which of the planets shown have their paths drawn. Time: Now is hollow with dashed paths, DOB solid; each path is a trail behind its planet, drawn only while time runs: where it has really been since time started running, kept for up to 72 years, when time starts again (a trail over many years is drawn with fewer points). With time standing still there are no trails, and each start begins new ones. "
+                  "Planet Path: which of the planets shown have their paths drawn. Time: DOB is hollow with dashed paths, Now solid; each path is a trail behind its planet, drawn only while time runs: where it has really been since time started running, kept for up to 72 years, when time starts again (a trail over many years is drawn with fewer points). With time standing still there are no trails, and each start begins new ones. "
                   "Coordinates: Fit, True and AU below it. On Fit each tenfold distance takes the same room, so the Moon's path and Saturn's can be seen together, and the empty space between the Moon's path and the planets' is taken out (it alone is not to scale); True is to scale, where the Moon's path is too small to tell from the Earth (pick Mo alone to see it). A label with no room is left off: point at its mark. "
                     "HelioCentric: as GeoCentric, with the Sun (Su) at the centre: the paths of the planets and the Earth (Ea) around the Sun, each at its own distance from the Sun, "
                     "placed by its RA, Dec and distance as seen from the Sun, on the same frame as from the Earth (the plane of the Earth's equator, north up). The Moon (Mo) goes round the Earth: seen from the Sun it is where the Earth is, so it is drawn close round the Earth's mark (a dot when its Size_Helio is Tiny, as it starts), farther out than to scale, in its real direction from the Earth and nearer and farther with its real distance (its path loops round the Earth's). "
                     "AU: all the tags, NCP, SCP and the RA names, and rings on the plane of the Earth's equator, each with its distance from the Sun in AU (1 AU is about the Earth's distance; on Fit 0.5, 1, 2.5, 5, 10 and 20 AU, on True 1, 2.5, 5, 10 and 20 AU, nearer ones being inside the Sun's mark there); off, the drawing has no tags. "
                     "Rotate in 1s: Manual: time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second (1s, 1m, 1h, 1d, 1w, 1mo, 1y): the clock beside the name gives the date and time, and the planets and the Earth move round the Sun as they really did (time starts again after 72 years; refresh the page to go back to the start). With none picked it holds still. "
                     "Each has its symbol inside its marker (☿ Me, ♀ Ve, ⊕ Ea, ☽ Mo, ♂ Ma, ♃ Ju, ♄ Sa, ☉ Su). Sizes follow the Size_Helio column of Symbols: usually a planet by how big it looks from the Earth at that moment (a logarithmic scale), the Sun and the Earth as their Sizes say. Point at a planet for its Dec/Lati, RA, Angular Size and distance from the Sun, or at a path for its span and distances. "
-                    "Planet Path: which of the planets shown have their paths drawn. Time: Now is hollow with dashed paths, DOB solid; each path is a trail behind its planet, drawn only while time runs, kept for up to 72 years (with time standing still there are no trails, and each start begins new ones). "
+                    "Planet Path: which of the planets shown have their paths drawn. Time: DOB is hollow with dashed paths, Now solid; each path is a trail behind its planet, drawn only while time runs, kept for up to 72 years (with time standing still there are no trails, and each start begins new ones). "
                     "Coordinates: Fit, True and AU below it. On Fit each tenfold distance takes the same room, so Mercury's path and Saturn's can be seen together; True is to scale. A label with no room is left off: point at its mark.",
-    "Aspects Table": "The aspects between the chosen planets, and the Moon's nodes (NN, SN; by their own orbs in Aspect Rules, ☊ and ☋, the larger of the pair's as for two planets; never with each other), over the period, as tables, newest first: one table per "
+    "Aspects": "The aspects between the chosen planets, and the Moon's nodes (NN, SN; by their own orbs in Aspect Rules, ☊ and ☋, the larger of the pair's as for two planets; never with each other), over the period, as tables, newest first: one table per "
                "angle, a row each time two planets came into it (RA within the orb of the angle, and the two Declinations "
                "within the same orb of equal or mirrored). Major Aspects: on or off, with the angles 0, 60, 90, 120, 180 to pick from below it. Minor Aspects: "
                "the same, with 30, 45, 72, 135, 144, 150. Dates and times are UT.",
     "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
                       "them are in a chosen major or minor aspect. A tag with no room is left off: point at "
                       "its dot to see it. Dates and times are UT.",
-    "AstroClock-2D": "Left of the clock, Dec: each planet's Declination on a scale from +31 to -31 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at DOB and at Now to the left of its line, and at Ave (the average, which stays put as time runs) to the right. Major Aspects and Minor Aspects: the angles to draw; two planets at the same time in one of them, by the orbs in Aspect Rules, are joined by a line tagged as 0-Ma-Ju. Rotate in 1s: pick a speed for time to run; with none picked it stands still, and dragging the drawing moves it by hand: right is later, left is back, as far as where it started, 6 hours a pixel.",
+    "AstroClock-2D": "Left of the clock, Dec: each planet's Declination on a scale from +31 to -31 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at DOB and at Now to the left of its line, and at Ave (the average of the two, moving as time runs) to the right. Major Aspects and Minor Aspects: the angles to draw; two planets at the same time in one of them, by the orbs in Aspect Rules, are joined by a line tagged as 0-Ma-Ju. Rotate in 1s: pick a speed for time to run; with none picked it stands still, and dragging the drawing moves it by hand: right is later, left is back, as far as where it started, 6 hours a pixel.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
@@ -480,13 +481,13 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
                 ("Geo/Helio Model", f"{model} Coordinates"): (list(space3d.SCALES), False, space3d.FIT),
                 ("Geo/Helio Model", f"{model} AU"): (["AU"], False, "AU"),
                 ("Geo/Helio Model", f"{model} Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL)}
-    for page, end, planets in (("Aspects Table", (0, 5), core.BUTTON_ORDER + ["NN", "SN"]), ("Planets Cycles", (360, 0), core.BUTTON_ORDER),
+    for page, end, planets in (("Aspects", (0, 5), core.BUTTON_ORDER + ["NN", "SN"]), ("Planets Cycles", (360, 0), core.BUTTON_ORDER),
                                ("Planets Distance(%)", (24, 0), core.BUTTON_ORDER)):
         out |= {(page, "Start Date (UT)"): (START, False, "DOB"), (page, "End Date (UT)"): (END, False, end),
                 (page, "Planets"): (list(planets), True, ["Sa", "Ju"])}
-    out[("Aspects Table", "Aspects")] = (["Major Aspects", "Minor Aspects"], True, ["Major Aspects", "Minor Aspects"])
-    out[("Aspects Table", "Major Aspects")] = (GLOBE_MAJOR, True, GLOBE_MAJOR)
-    out[("Aspects Table", "Minor Aspects")] = (GLOBE_MINOR, True, GLOBE_MINOR)
+    out[("Aspects", "Aspects")] = (["Major Aspects", "Minor Aspects"], True, ["Major Aspects", "Minor Aspects"])
+    out[("Aspects", "Major Aspects")] = (GLOBE_MAJOR, True, GLOBE_MAJOR)
+    out[("Aspects", "Minor Aspects")] = (GLOBE_MINOR, True, GLOBE_MINOR)
     out[("Planets Cycles", "Major Aspects")] = ([str(a) for a in rangechart.EA_NAME], True, ["0", "180"])
     out[("Planets Cycles", "Minor Aspects")] = (GLOBE_MINOR, True, [])
     return out
@@ -632,9 +633,9 @@ def period(prep: Prepared, row=None, page: str = "") -> tuple[float, float] | No
 
 
 def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, page: str = "Planets Cycles"):
-    """The inputs of Planets Cycles (and Aspects Table, which shares them; keys keeps each page's buttons
+    """The inputs of Planets Cycles (and Aspects, which shares them; keys keeps each page's buttons
     apart): (period as Julian days, planets, major angles, minor angles), or None when there is nothing to show yet.
-    Planets Cycles has a button per major and per minor angle; Aspects Table (aspect_buttons False) has a Major Aspects and a
+    Planets Cycles has a button per major and per minor angle; Aspects (aspect_buttons False) has a Major Aspects and a
     Minor Aspects on / off button instead, each with its angles to pick from below it. nodes: NN and SN
     buttons too (Aspects)."""
     _, prep = pick_customer()
@@ -815,9 +816,10 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     speed = titled(head, "Rotate in 1s", f"{key}_t_speed", FLAT_SPEED_CHOICES if flat else SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (not on the flat page: no Manual there)
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
-    averages = None
-    if flat and not prep.now_only:                            # AstroClock-2D: the Ave planets on its Distance(%) graph
-        averages = mapchart.average_values(prep.d_birth, now_values(core.now_jd())[1])
+    jd_now = core.now_jd()
+    ave_jds = None
+    if flat and not prep.now_only:                            # AstroClock-2D: the Ave planets on its Distance(%) graph, moving as time runs
+        ave_jds = {"DOB": prep.jd_birth, "Now": jd_now}
     if not shown or not bodies:
         st.info("Choose a time and at least one planet.")
         # nothing drawn: no clock beside the name either (the last drawing's would stay there)
@@ -825,10 +827,10 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
                 unsafe_allow_javascript=True)
         return
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
-    moments = [m for m in (("Now", core.now_jd(), utc_now), ("DOB", prep.jd_birth, prep.utc)) if m[0] in shown]
+    moments = [m for m in (("Now", jd_now, utc_now), ("DOB", prep.jd_birth, prep.utc)) if m[0] in shown]
     st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre, flat,
                                {**({"DOB": ("CB", prep.birth_lon)} if prep.birth_lon is not None else {}),
-                                **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat and show_houses else None, averages,
+                                **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat and show_houses else None, ave_jds,
                                aspects, orbs() if aspects else None),
             unsafe_allow_javascript=True)
 
@@ -849,7 +851,7 @@ def page_range():
 def page_aspects_view():
     """Planets Cycles' aspects as tables: one per chosen angle, one row per time two of the planets come into it,
     newest first; then, with the Minor Aspects switch on, one per minor angle too."""
-    got = cycles_inputs("asp_", aspect_buttons=False, nodes=True, page="Aspects Table")   # Major / Minor Aspects on / off buttons; NN, SN too
+    got = cycles_inputs("asp_", aspect_buttons=False, nodes=True, page="Aspects")   # Major / Minor Aspects on / off buttons; NN, SN too
     if got is None:
         return
     jds, dec_on, angles, minor = got
@@ -994,12 +996,15 @@ def page_logins():
     # (ticks are kept by row position: a new key when the rows move, so that a tick cannot land on another row)
     edited = st.data_editor(view, hide_index=True, width="content", num_rows="fixed",
                             key=f"logins_table_{len(table)}_{table['Id'].iloc[0] if len(table) else 0}",
-                            height="auto" if len(table) <= 18 else 700, disabled=["Email", "Activity", "Date_Time"],
+                            height="auto" if len(table) <= 18 else 700, disabled=["Email", "Activity", "Date_Time", "Location"],
                             column_config={"Del": st.column_config.CheckboxColumn("Del", width="small", help="Tick, then press Delete."),
                                            "Id": None, "Email": st.column_config.TextColumn(width=260),
                                            "Activity": st.column_config.TextColumn(width=100),
                                            "Date_Time": st.column_config.DatetimeColumn("Date_Time (UT)", format="YYYY-MM-DD HH:mm:ss",
-                                                                                        width=170)})
+                                                                                        width=170),
+                                           "Location": st.column_config.TextColumn(width=260, help="Where the visitor was: City, State, "
+                                                                                   "Country from their IP address (approximate); Local on a "
+                                                                                   "local network; blank when not known.")})
     ticked = edited.loc[edited["Del"].fillna(False).astype(bool), "Id"].tolist()
     said = st.session_state.pop("logins_said", None)
     if said:
@@ -1192,9 +1197,9 @@ core.SYMBOL_TEXTS = db.planet_symbols()                       # and their symbol
 DEFAULT_TEXTS = db.defaults_map()                             # what each page's inputs start as (the Defaults table)
 core.COLOURS.update(core.DEFAULT_COLOURS | db.planet_colours())   # every chart's colours are the Symbols table's (a deleted row's, the usual one)
 pages = [st.Page(page_astroclock, title="AstroClock-2D", icon=":material/science:", url_path="astroclock-2d"),
-         st.Page(page_globe, title="AstroClock-3D", icon=":material/language:", url_path="astroclock-3d", default=True),
+         st.Page(page_globe, title="AstroClock-3D", icon=":material/language:", url_path="astroclock-3d"),
          st.Page(page_centric, title="Geo/Helio Model", icon=":material/orbit:", url_path="geo-helio-model"),
-         st.Page(page_aspects_view, title="Aspects Table", icon=":material/scatter_plot:", url_path="aspects-table"),
+         st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
 if user.is_admin:                                             # the Aspect Rules, Customers, Symbols, Defaults, Logins pages: admins only
@@ -1205,8 +1210,11 @@ if user.is_admin:                                             # the Aspect Rules
               st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols")]
 else:
     pages.append(st.Page(page_my_details, title="My details", icon=":material/person:", url_path="me"))
-nav = st.navigation(pages)
+home = st.Page(lambda: None, title="Home", url_path="home", default=True, visibility="hidden")   # the root URL: sends to AstroClock-2D
+nav = st.navigation([home] + pages)
 PAGE_BY_PATH = {p.url_path: p for p in pages}                 # (to go to a page from another)
+if nav is home:                                               # / opens /astroclock-2d, keeping any query
+    st.switch_page(PAGE_BY_PATH["astroclock-2d"], query_params=st.query_params.to_dict())
 _chosen = _pick_customer()                                    # the sidebar's customer, for every page
 top_line(nav.title, _chosen[0])
 nav.run()

@@ -1,12 +1,10 @@
-"""What the charts share: the text size, keeping labels apart (Spots), the page's chart holder (fit_html) and the Distance(%) averages."""
+"""What the charts share: the text size, keeping labels apart (Spots), and the page's chart holder (fit_html)."""
 from __future__ import annotations
 
-import math
 import re
 
 import plotly.graph_objects as go
 
-from . import core
 
 FONT = 12                         # all text on all pages, charts too (pixels; the most allowed, the least is 10)
 ROW = round(FONT * 1.3)           # pixels per line of text (Plotly's line height)
@@ -109,23 +107,6 @@ def fit_html(fig: go.Figure, after_js: str = "") -> str:
 </script>"""
 
 
-def _marker_radius(name: str, pcts: dict) -> float:
-    """A planet's marker radius, as AstroClock-2D draws it, by its Size_Clock-2D in the Symbols table, at these distances (%)."""
-    from .globechart import BODY_RADIUS_KM, MARKER_RANGE, SIZE_RANGE_ARCSEC
-    rule = core.size_rule(name, texts=core.SIZE_TEXTS_CLOCK)
-    if "px" in rule:
-        return rule["px"]
-    low, high = core.DIST_RANGE[rule["of"]]
-    km = low + (high - low) * pcts[rule["of"]] / 100.0
-    arcsec = math.degrees(2 * math.atan(BODY_RADIUS_KM[rule["of"]] / km)) * 3600
-    share = (math.log(arcsec) - math.log(SIZE_RANGE_ARCSEC[0])) / (math.log(SIZE_RANGE_ARCSEC[1]) - math.log(SIZE_RANGE_ARCSEC[0]))
-    return max(1.0, MARKER_RANGE[0] + (MARKER_RANGE[1] - MARKER_RANGE[0]) * min(max(share, 0.0), 1.0) + rule["add"])
-
-
 CHART_FONT_FAMILY = "'Open Sans', verdana, arial, sans-serif"     # Plotly's default, which the charts are drawn in
 CHART_TEXT = "#444"                                              # Plotly's text colour
 
-
-def average_values(d_birth: dict, d_now: dict) -> dict:
-    """Each planet's Distance(%) from earth (Ave): the average of D at birth and D-N now."""
-    return {n: round((d_birth[n] + d_now[n]) / 2, 2) for n in core.PLANETS if d_birth.get(n) is not None and d_now.get(n) is not None}

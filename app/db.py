@@ -15,6 +15,8 @@ import streamlit as st
 
 from astro import core
 
+from .location import visitor_location
+
 ROOT = Path(__file__).resolve().parent.parent
 # the customer columns in table order; Email (login) first, as it is the key
 FIELDS = ["email", "name", "last_name", "country", "state", "city", "other", "year", "mon", "day", "hr", "mn",
@@ -48,7 +50,7 @@ sa.Index(EMAIL_INDEX, customers.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
 # The Logins table: a row each time a signed-in person (Email) opens a customer (View; once per customer per visit),
 # adds, changes or deletes one (Create, Update, Delete: a row per customer), or signs in with no birth details yet (Login;
-# once per visit): the Activity, at Date_Time (UT); seen by admins only
+# once per visit): the Activity, at Date_Time (UT), from Location (where the visitor was, by IP); seen by admins only
 ACTIVITIES = ("View", "Create", "Update", "Delete", "Login")
 logins = sa.Table(
     "logins", meta,
@@ -56,6 +58,7 @@ logins = sa.Table(
     sa.Column("email", sa.String(320), nullable=False),
     sa.Column("activity", sa.String(10), nullable=False),
     sa.Column("date_time", sa.DateTime, nullable=False),
+    sa.Column("location", sa.String(200)),                   # City, State, Country of the visitor's IP ("Local", or blank when unknown)
     sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete', 'Login')", name="ck_logins_activity"),
 )
 sa.Index("ix_logins_date_time", logins.c.date_time)
@@ -97,12 +100,12 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Geo/Helio Model", "Helio Coordinates", "Fit"),
     ("Geo/Helio Model", "Helio AU", "On"),
     ("Geo/Helio Model", "Helio Rotate in 1s", "Manual"),
-    ("Aspects Table", "Start Date (UT)", "DOB"),
-    ("Aspects Table", "End Date (UT)", "Start Date (UT) + 5 days"),
-    ("Aspects Table", "Planets", "Ju, Sa"),
-    ("Aspects Table", "Aspects", "Major Aspects, Minor Aspects"),
-    ("Aspects Table", "Major Aspects", "0, 60, 90, 120, 180"),
-    ("Aspects Table", "Minor Aspects", "30, 45, 72, 135, 144, 150"),
+    ("Aspects", "Start Date (UT)", "DOB"),
+    ("Aspects", "End Date (UT)", "Start Date (UT) + 5 days"),
+    ("Aspects", "Planets", "Ju, Sa"),
+    ("Aspects", "Aspects", "Major Aspects, Minor Aspects"),
+    ("Aspects", "Major Aspects", "0, 60, 90, 120, 180"),
+    ("Aspects", "Minor Aspects", "30, 45, 72, 135, 144, 150"),
     ("Planets Cycles", "Start Date (UT)", "DOB"),
     ("Planets Cycles", "End Date (UT)", "Start Date (UT) + 30 years"),
     ("Planets Cycles", "Planets", "Ju, Sa"),
@@ -112,7 +115,7 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Planets Distance(%)", "End Date (UT)", "Start Date (UT) + 2 years"),
     ("Planets Distance(%)", "Planets", "Ju, Sa"),
 ]
-DEFAULTS_VERSION = "5"                                        # 5: AstroClock-2D's aspects; 4: Aspects Table's angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
+DEFAULTS_VERSION = "5"                                        # 5: AstroClock-2D's aspects; 4: Aspects' angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
@@ -175,6 +178,7 @@ def engine() -> sa.Engine:
     _rename_defaults_options(eng)
     meta.create_all(eng)
     _allow_login_activity(eng)
+    _add_logins_location(eng)
     _add_missing_columns(eng)
     _rename_planet_columns(eng)
     _rename_planet_size_columns(eng)
@@ -216,6 +220,13 @@ def _allow_login_activity(eng: sa.Engine):
             c.execute(sa.text(f"ALTER TABLE logins ADD CONSTRAINT ck_logins_activity CHECK ({rule})"))
 
 
+def _add_logins_location(eng: sa.Engine):
+    """A Logins table made before the Location column gets it (its rows kept, with no Location)."""
+    if "location" not in {c["name"] for c in sa.inspect(eng).get_columns("logins")}:
+        with eng.begin() as c:
+            c.execute(sa.text(f"ALTER TABLE logins ADD COLUMN location {logins.c.location.type.compile(dialect=eng.dialect)}"))
+
+
 def _rename_logins_operation(eng: sa.Engine):
     """A Logins table made with an operation column has it renamed activity (its rows and check kept)."""
     if not sa.inspect(eng).has_table("logins"):
@@ -247,7 +258,10 @@ def _add_defaults_index(eng: sa.Engine):
 def _rename_defaults_page(eng: sa.Engine):
     """The Defaults rows of pages since renamed get the new names (their Choices kept)."""
     with eng.begin() as c:
-        for old, new in (("astroglobe", "AstroClock-3D"), ("geo/helio", "Geo/Helio Model"), ("aspects", "Aspects Table")):
+        for old, new in (("astroglobe", "AstroClock-3D"), ("geo/helio", "Geo/Helio Model"), ("aspects", "Aspects"), ("aspects table", "Aspects")):
+            if old != new.lower():                            # a row the new name already has wins (Page and Options are unique)
+                taken = sa.select(sa.func.lower(defaults.c.options)).where(sa.func.lower(defaults.c.page) == new.lower())
+                c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == old, sa.func.lower(defaults.c.options).in_(taken)))
             c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == old).values(page=new))
         c.execute(defaults.update().where(defaults.c.page == "Planets Cycles", defaults.c.options == "Major Aspects")   # its buttons have no degree sign now
                   .values(choices=sa.func.replace(defaults.c.choices, "\u00b0", "")))
@@ -259,7 +273,7 @@ def _rename_defaults_page(eng: sa.Engine):
             c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio model", sa.func.lower(defaults.c.options) == old).values(options=new))
 
 
-NEW_IN_4 = (("Aspects Table", "Major Aspects"), ("Aspects Table", "Minor Aspects"), ("Planets Cycles", "Minor Aspects"))
+NEW_IN_4 = (("Aspects", "Major Aspects"), ("Aspects", "Minor Aspects"), ("Planets Cycles", "Minor Aspects"))
 NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects"))
 
 
@@ -791,11 +805,12 @@ def customer_problems(rows: pd.DataFrame) -> list[str]:
 
 
 def _log(c, email: str | None, activity: str, times: int = 1):
-    """Rows in the Logins table: this person did this, times times (one row per customer), now."""
+    """Rows in the Logins table: this person did this, times times (one row per customer), now, from where they are."""
     if email and times > 0:
         assert activity in ACTIVITIES
         now = _now()
-        c.execute(logins.insert(), [dict(email=email.lower(), activity=activity, date_time=now)] * times)
+        where = visitor_location() or None
+        c.execute(logins.insert(), [dict(email=email.lower(), activity=activity, date_time=now, location=where)] * times)
 
 
 def log_view(email: str | None):
@@ -811,11 +826,12 @@ def log_login(email: str | None):
 
 
 def logins_table(limit: int = 5000) -> pd.DataFrame:
-    """The Logins table, newest first (at most limit rows): Id, Email, Activity, Date_Time (UT)."""
+    """The Logins table, newest first (at most limit rows): Id, Email, Activity, Date_Time (UT), Location."""
     with engine().connect() as c:
         rows = c.execute(sa.select(logins).order_by(logins.c.date_time.desc(), logins.c.id.desc()).limit(limit)).mappings().all()
-    return pd.DataFrame([{"Id": r["id"], "Email": r["email"], "Activity": r["activity"], "Date_Time": r["date_time"]} for r in rows],
-                        columns=["Id", "Email", "Activity", "Date_Time"])
+    return pd.DataFrame([{"Id": r["id"], "Email": r["email"], "Activity": r["activity"], "Date_Time": r["date_time"],
+                          "Location": r["location"] or ""} for r in rows],
+                        columns=["Id", "Email", "Activity", "Date_Time", "Location"])
 
 
 def delete_logins(ids: list[int] | None = None) -> int:
