@@ -39,6 +39,7 @@ SIDES = 96                        # a ring is drawn with this many straight piec
 FLAT_RING_AU = 12.0
 OUTER_RING_AU = 20.0              # Geo and Helio: a circle beyond the planets, with the AU button
 FLAT_RADIUS = 360.0               # pixels from the Earth to that circle
+FLAT_DRAG_DAYS = 0.25             # Manual on the flat page: how many days a pixel of dragging moves time
 FLAT_FONT = 10                    # the RA numbers, in pixels
 FLAT_DEC = (31.0, -31.0)          # the Declination graph left of the circle, as tall as it: its top and bottom, in degrees
 
@@ -161,7 +162,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                         orbs={f"{p}|{q}": orbs.pair(a, p, q) for i, p in enumerate(ASPECT_NAMES) for q in ASPECT_NAMES[i + 1:] if {p, q} != set(NODE_CHOICES)})
                    for a in aspects] if orbs is not None else []
     return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer, aspects=aspect_rows, name_order=ASPECT_NAMES,
-                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, view=FLAT_VIEW if flat else VIEW, flat_font=FLAT_FONT, flat_dec=FLAT_DEC, dist_range={p: (lo / core.AU_KM, hi / core.AU_KM) for p, (lo, hi) in core.DIST_RANGE.items()},
+                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, drag_days=FLAT_DRAG_DAYS, view=FLAT_VIEW if flat else VIEW, flat_font=FLAT_FONT, flat_dec=FLAT_DEC, dist_range={p: (lo / core.AU_KM, hi / core.AU_KM) for p, (lo, hi) in core.DIST_RANGE.items()},
                 ave_marks=[dict(name=p, colour=core.colour(p), pct=averages[p], r=_marker_radius(p, averages)) for p in bodies if p in (averages or {})], node_colour=core.colour("NN"), spin=EARTH_DEGREES_A_DAY, house_colour=HOUSE_COLOUR,
                 houses=[dict(clock=c, place=places[c][0], ra=core.lst(jd, places[c][1])) for c, jd, _ in moments if c in (places or {})],
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
@@ -639,8 +640,8 @@ __SYMBOL_JS__
       draw();
     }, D.step_ms);
   }
-  if (!D.manual || D.flat) { svg.style.cursor = "default"; return; }   // (flat: nothing to turn)
-  let from = null, due = false;                    // Manual: time stands still, and dragging turns the drawing
+  if (!D.manual) { svg.style.cursor = "default"; return; }
+  let from = null, due = false;                    // Manual: time stands still, and dragging turns the drawing (flat: moves time)
   svg.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
     from = [e.clientX, e.clientY];
@@ -650,8 +651,11 @@ __SYMBOL_JS__
   });
   svg.addEventListener("pointermove", (e) => {
     if (!from) return;
-    view.yaw += (e.clientX - from[0]) * 0.5;
-    view.pitch = Math.max(-85, Math.min(85, view.pitch + (e.clientY - from[1]) * 0.5));
+    if (D.flat) clock.t = Math.max(0, Math.min(D.days, clock.t + (e.clientX - from[0]) * D.drag_days));   // right: later; left: back, as far as the start
+    else {
+      view.yaw += (e.clientX - from[0]) * 0.5;
+      view.pitch = Math.max(-85, Math.min(85, view.pitch + (e.clientY - from[1]) * 0.5));
+    }
     from = [e.clientX, e.clientY];
     if (!due) {
       due = true;

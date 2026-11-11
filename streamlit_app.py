@@ -183,7 +183,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
                       "them are in a chosen major or minor aspect. A tag with no room is left off: point at "
                       "its dot to see it. Dates and times are UT.",
-    "AstroClock-2D": "Left of the clock, Dec: each planet's Declination on a scale from +31 to -31 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at DOB and at Now to the left of its line, and at Ave (the average, which stays put as time runs) to the right. Major Aspects and Minor Aspects: the angles to draw; two planets at the same time in one of them, by the orbs in Aspect Rules, are joined by a line tagged as 0-Ma-Ju.",
+    "AstroClock-2D": "Left of the clock, Dec: each planet's Declination on a scale from +31 to -31 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at DOB and at Now to the left of its line, and at Ave (the average, which stays put as time runs) to the right. Major Aspects and Minor Aspects: the angles to draw; two planets at the same time in one of them, by the orbs in Aspect Rules, are joined by a line tagged as 0-Ma-Ju. Rotate in 1s: pick a speed for time to run; on Manual it stands still, and dragging the drawing moves it by hand: right is later, left is back, as far as where it started, 6 hours a pixel.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
@@ -649,7 +649,7 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
 def page_astroclock():
     """AstroClock-2D: the top page of the menu, for everyone: the Geo drawing in 2D, seen from above the north celestial
     pole, with only the 12 AU circle and an RA scale round it, 1 to 360, always on the Fit scale, an arrow from the Earth through each body out to the circle, and the twelve house lines of CB and CN (the Houses button under Coordinates, on to start). Its buttons, Time, Planets
-    (with NN, SN: on the Moon's path, at the Moon's distance, joined by a line, 180 degrees apart) and Rotate in 1s (how fast time runs; Manual: it stands still),
+    (with NN, SN: on the Moon's path, at the Moon's distance, joined by a line, 180 degrees apart) and Rotate in 1s (how fast time runs; Manual: it stands still until the drawing is dragged sideways),
     are its own, and start as the Defaults table says."""
     _, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="top", gap="small")
@@ -779,7 +779,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
             scale = kept_pills(below, "Which Coordinates", space3d.SCALES, f"{key}_scale", start("Coordinates"), label_visibility="collapsed") or space3d.FIT
             show_au = bool(kept_pills(below, "AU", ["AU"], f"{key}_au", start("AU"), label_visibility="collapsed"))
     speed = titled(head, "Rotate in 1s", f"{key}_t_speed", SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
-    manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (not flat)
+    manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (flat: dragging moves time)
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
     averages = None
     if flat:                                                  # AstroClock-2D: the Ave planets on its Distance(%) graph
