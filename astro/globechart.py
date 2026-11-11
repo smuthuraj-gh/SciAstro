@@ -49,7 +49,7 @@ EARTH_DEGREES_A_DAY = 360.98565  # the Earth's turn against the still sky in one
 MOTION_DAYS = 26298               # how far time runs (72 years) before it starts again, the trails too, and the tables' reach ...
 NODE_STEP_DAYS = 2.0              # the Moon's true node wobbles over days
 MOTION_STEP_DAYS = {"Mo": 0.5, "Me": 2.0, "Ve": 4.0, "Su": 5.0, "Ma": 5.0, "Ju": 20.0, "Sa": 20.0}    # ... and their steps
-CX, CY = WIDTH - SKY_RADIUS - 58.0, HEIGHT / 2.0   # at the right, room left for the name ECE
+CX, CY = SKY_RADIUS + 58.0, HEIGHT / 2.0   # at the left, room left for the name WCE
 TEXT_W, TEXT_H = 8.0, 18.0      # a character's width and a line's height, for keeping labels apart
 
 

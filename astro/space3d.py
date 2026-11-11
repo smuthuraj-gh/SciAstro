@@ -15,8 +15,8 @@ from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
 RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
-VIEW = (-130, 110, WIDTH, HEIGHT - 110)      # the part of the drawing shown (left, top, width, height): the drawing at the top right
-FLAT_VIEW = (-27, 50, WIDTH, HEIGHT - 50)    # the same for the flat page
+VIEW = (130, 110, WIDTH, HEIGHT - 110)       # the part of the drawing shown (left, top, width, height): the drawing at the top left
+FLAT_VIEW = (150, 50, WIDTH, HEIGHT - 50)    # the same for the flat page
 SCALES = (FIT := "Fit", "True")   # Fit: each tenfold distance the same room, without the empty space between the Moon and the planets
 GAP = (0.003, 0.25, 0.03)         # Fit: from just past the Moon's farthest (AU) to inside any planet's nearest (Venus about 0.26),
                                   # drawn as only this much (a tenth of a doubling: a thin space)
