@@ -74,8 +74,8 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("AstroClock-3D", "Time", "DOB"),
     ("AstroClock-3D", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
     ("AstroClock-3D", "Planet Path", "Su"),
-    ("AstroClock-3D", "Maj Aspects", ""),
-    ("AstroClock-3D", "Min Aspects", ""),
+    ("AstroClock-3D", "Major Aspects", ""),
+    ("AstroClock-3D", "Minor Aspects", ""),
     ("AstroClock-3D", "Coordinates", "Celes"),
     ("AstroClock-3D", "Rotate in 1s", "Manual"),
     ("Geo/Helio Model", "Centric Model", "Geo"),
@@ -217,6 +217,8 @@ def _rename_defaults_page(eng: sa.Engine):
     with eng.begin() as c:
         for old, new in (("astroglobe", "AstroClock-3D"), ("geo/helio", "Geo/Helio Model"), ("aspects", "Aspects Table")):
             c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == old).values(page=new))
+        for old, new in (("maj aspects", "Major Aspects"), ("min aspects", "Minor Aspects")):   # and the inputs since renamed
+            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-3d", sa.func.lower(defaults.c.options) == old).values(options=new))
 
 
 def _seed_defaults(eng: sa.Engine):
