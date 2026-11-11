@@ -111,10 +111,10 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("name", sa.String(60)),
     sa.Column("color", sa.String(40)),
     sa.Column("color_name", sa.String(40)),                   # free text, for people; the charts use color
-    sa.Column("size_globe", sa.String(40)),                   # how the AstroClock-3D chart sizes it: Size_Globe
+    sa.Column("size_clock_3d", sa.String(40)),                   # how the AstroClock-3D chart sizes it: Size_Clock-3D
     sa.Column("size", sa.String(40)),                         # how the GeoCentric chart sizes it: Size_Geo
     sa.Column("size_helio", sa.String(40)),                   # how the HelioCentric chart sizes it: Size_Helio
-    sa.Column("size_clock", sa.String(40)),                   # how the AstroClock-2D chart sizes it: Size_Clock
+    sa.Column("size_clock_2d", sa.String(40)),                   # how the AstroClock-2D chart sizes it: Size_Clock-2D
 )
 # The Aspect Rules table: a row per aspect, with its orb per planet (for RA and Dec alike); pos keeps the order shown
 # (a store made when it had -De columns keeps them, unused)
@@ -167,6 +167,7 @@ def engine() -> sa.Engine:
     meta.create_all(eng)
     _add_missing_columns(eng)
     _rename_planet_columns(eng)
+    _rename_planet_size_columns(eng)
     _add_planet_color_name(eng)
     _add_planet_size(eng)
     _add_planet_size_helio(eng)
@@ -342,6 +343,15 @@ def _rename_planet_columns(eng: sa.Engine):
                 c.execute(sa.text(f'ALTER TABLE naming_conventions RENAME COLUMN "{old}" TO {new}'))
 
 
+def _rename_planet_size_columns(eng: sa.Engine):
+    """A table with the columns size_globe and size_clock has them renamed size_clock_3d and size_clock_2d (rows kept)."""
+    have = {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}
+    with eng.begin() as c:
+        for old, new in (("size_clock", "size_clock_2d"), ("size_globe", "size_clock_3d")):
+            if old in have:
+                c.execute(sa.text(f"ALTER TABLE naming_conventions RENAME COLUMN {old} TO {new}"))
+
+
 def _add_planet_color_name(eng: sa.Engine):
     """A table made before Color_Name gets it, named for the colours the charts start with; others stay blank."""
     if "color_name" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
@@ -380,23 +390,23 @@ def _add_planet_size_helio(eng: sa.Engine):
 
 
 def _add_planet_size_globe(eng: sa.Engine):
-    """A table made before Size_Globe gets it, each row as its Size_Geo (as AstroClock-3D drew them then)."""
-    if "size_globe" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
+    """A table made before Size_Clock-3D gets it, each row as its Size_Geo (as AstroClock-3D drew them then)."""
+    if "size_clock_3d" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
         return
-    kind = planets.c.size_globe.type.compile(dialect=eng.dialect)
+    kind = planets.c.size_clock_3d.type.compile(dialect=eng.dialect)
     with eng.begin() as c:
-        c.execute(sa.text(f"ALTER TABLE naming_conventions ADD COLUMN size_globe {kind}"))
-        c.execute(sa.text("UPDATE naming_conventions SET size_globe = size"))
+        c.execute(sa.text(f"ALTER TABLE naming_conventions ADD COLUMN size_clock_3d {kind}"))
+        c.execute(sa.text("UPDATE naming_conventions SET size_clock_3d = size"))
 
 
 def _add_planet_size_clock(eng: sa.Engine):
-    """A table made before Size_Clock gets it, each row as its Size_Geo (as AstroClock-2D drew them then)."""
-    if "size_clock" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
+    """A table made before Size_Clock-2D gets it, each row as its Size_Geo (as AstroClock-2D drew them then)."""
+    if "size_clock_2d" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
         return
-    kind = planets.c.size_clock.type.compile(dialect=eng.dialect)
+    kind = planets.c.size_clock_2d.type.compile(dialect=eng.dialect)
     with eng.begin() as c:
-        c.execute(sa.text(f"ALTER TABLE naming_conventions ADD COLUMN size_clock {kind}"))
-        c.execute(sa.text("UPDATE naming_conventions SET size_clock = size"))
+        c.execute(sa.text(f"ALTER TABLE naming_conventions ADD COLUMN size_clock_2d {kind}"))
+        c.execute(sa.text("UPDATE naming_conventions SET size_clock_2d = size"))
 
 
 def _add_planet_symbol(eng: sa.Engine):
@@ -440,21 +450,21 @@ def _seed_planets(eng: sa.Engine):
             row["symbol"] = SYMBOLS.get(row["sn"])
             row["size"] = "Angular Size" if row["sn"] in core.PLANET_ID else None   # the Earth: as its Size says, none given
             row["size_helio"] = "Tiny" if row["sn"] == "Mo" else row["size"]         # the Moon round the Earth: a dot
-            row["size_globe"] = row["size"]
-            row["size_clock"] = row["size"]
+            row["size_clock_3d"] = row["size"]
+            row["size_clock_2d"] = row["size"]
         if new:
             c.execute(planets.insert(), new)
 
 
 def all_planets() -> pd.DataFrame:
-    """The Symbols table: SN, Symbol, Name, Color, Color_Name, Size_Globe, Size (Size_Geo), Size_Helio, Size_Clock, Sun first."""
+    """The Symbols table: SN, Symbol, Name, Color, Color_Name, Size_Clock-3D, Size (Size_Geo), Size_Helio, Size_Clock-2D, Sun first."""
     with engine().connect() as c:
         rows = c.execute(sa.select(planets)).mappings().all()
     order = {p: i for i, p in enumerate(PLANET_NAMES)}
     rows = sorted(rows, key=lambda r: order.get(r["sn"], len(order)))
-    return pd.DataFrame([{"SN": r["sn"], "Symbol": r["symbol"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"], "Size_Globe": r["size_globe"],
-                          "Size": r["size"], "Size_Helio": r["size_helio"], "Size_Clock": r["size_clock"]}
-                         for r in rows], columns=["SN", "Symbol", "Name", "Color", "Color_Name", "Size_Globe", "Size", "Size_Helio", "Size_Clock"])
+    return pd.DataFrame([{"SN": r["sn"], "Symbol": r["symbol"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"], "Size_Clock-3D": r["size_clock_3d"],
+                          "Size": r["size"], "Size_Helio": r["size_helio"], "Size_Clock-2D": r["size_clock_2d"]}
+                         for r in rows], columns=["SN", "Symbol", "Name", "Color", "Color_Name", "Size_Clock-3D", "Size", "Size_Helio", "Size_Clock-2D"])
 
 
 def planet_colours() -> dict[str, str]:
@@ -465,10 +475,10 @@ def planet_colours() -> dict[str, str]:
 
 def planet_sizes() -> tuple[dict[str, str], dict[str, str], dict[str, str], dict[str, str], dict[str, str]]:
     """The Size (Size_Geo) of each row by its SN; its SN and Name, in lower case, to its SN (for "Bigger than Moon"); its
-    Size_Helio by its SN; its Size_Globe by its SN; and its Size_Clock by its SN."""
+    Size_Helio by its SN; its Size_Clock-3D by its SN; and its Size_Clock-2D by its SN."""
     with engine().connect() as c:
-        rows = c.execute(sa.select(planets.c.sn, planets.c.name, planets.c.size, planets.c.size_helio, planets.c.size_globe,
-                                   planets.c.size_clock)).all()
+        rows = c.execute(sa.select(planets.c.sn, planets.c.name, planets.c.size, planets.c.size_helio, planets.c.size_clock_3d,
+                                   planets.c.size_clock_2d)).all()
     words = {w.strip().lower(): sn for sn, name, *_ in rows for w in (name, sn) if w}
     return ({sn: size or "" for sn, _, size, *_ in rows}, words, {sn: helio or "" for sn, _, _, helio, *_ in rows},
             {sn: globe or "" for sn, _, _, _, globe, _ in rows}, {sn: clock or "" for sn, *_, clock in rows})
@@ -493,8 +503,8 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
     for _, r in rows.iterrows():
         sn, name, colour, kept = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
         colour_name = _cell(r["Color_Name"])
-        if not (kept or sn or name or colour or colour_name or _cell(r["Size_Globe"]) or _cell(r["Size"]) or _cell(r["Size_Helio"])
-                or _cell(r["Size_Clock"]) or _cell(r["Symbol"])):
+        if not (kept or sn or name or colour or colour_name or _cell(r["Size_Clock-3D"]) or _cell(r["Size"]) or _cell(r["Size_Helio"])
+                or _cell(r["Size_Clock-2D"]) or _cell(r["Symbol"])):
             continue
         label = sn or kept or "New row"
         if kept and sn != kept:
@@ -513,7 +523,7 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
             out.append(f"{label}: RGB must look like rgb(0,112,192) or #0070c0")
         if len(colour_name) > 40:
             out.append(f"{label}: Color can be at most 40 characters")
-        for column, shown in (("Size_Globe", "Size_Globe"), ("Size", "Size_Geo"), ("Size_Helio", "Size_Helio"), ("Size_Clock", "Size_Clock")):
+        for column, shown in (("Size_Clock-3D", "Size_Clock-3D"), ("Size", "Size_Geo"), ("Size_Helio", "Size_Helio"), ("Size_Clock-2D", "Size_Clock-2D")):
             if len(_cell(r[column])) > 40:
                 out.append(f"{label}: {shown} can be at most 40 characters")
             elif not core.size_readable(_cell(r[column]), words):    # it would not change how anything is drawn
@@ -526,8 +536,8 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
 
 def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
     """Makes the Symbols table these rows: (added, changed, deleted)."""
-    old = {r["SN"]: (_cell(r["Name"]), _cell(r["Color"]), _cell(r["Color_Name"]), _cell(r["Size_Globe"]), _cell(r["Size"]), _cell(r["Size_Helio"]),
-               _cell(r["Size_Clock"]), _cell(r["Symbol"])) for _, r in all_planets().iterrows()}
+    old = {r["SN"]: (_cell(r["Name"]), _cell(r["Color"]), _cell(r["Color_Name"]), _cell(r["Size_Clock-3D"]), _cell(r["Size"]), _cell(r["Size_Helio"]),
+               _cell(r["Size_Clock-2D"]), _cell(r["Symbol"])) for _, r in all_planets().iterrows()}
     added = changed = 0
     kept = {_cell(v) for v in rows["_sn"]} - {""}
     with engine().begin() as c:
@@ -536,15 +546,15 @@ def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
         for _, r in rows.iterrows():
             sn, name, colour, was = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
             colour_name = _cell(r["Color_Name"])
-            size_globe, size, size_helio, size_clock, symbol = (_cell(r["Size_Globe"]), _cell(r["Size"]), _cell(r["Size_Helio"]),
-                                                                _cell(r["Size_Clock"]), _cell(r["Symbol"]))
-            values = dict(name=name, color=colour, color_name=colour_name or None, size_globe=size_globe or None, size=size or None,
-                          size_helio=size_helio or None, size_clock=size_clock or None, symbol=symbol or None)
+            size_clock_3d, size, size_helio, size_clock_2d, symbol = (_cell(r["Size_Clock-3D"]), _cell(r["Size"]), _cell(r["Size_Helio"]),
+                                                                _cell(r["Size_Clock-2D"]), _cell(r["Symbol"]))
+            values = dict(name=name, color=colour, color_name=colour_name or None, size_clock_3d=size_clock_3d or None, size=size or None,
+                          size_helio=size_helio or None, size_clock_2d=size_clock_2d or None, symbol=symbol or None)
             if was:
-                if old.get(was) != (name, colour, colour_name, size_globe, size, size_helio, size_clock, symbol):
+                if old.get(was) != (name, colour, colour_name, size_clock_3d, size, size_helio, size_clock_2d, symbol):
                     c.execute(planets.update().where(planets.c.sn == was).values(**values))
                     changed += 1
-            elif sn or name or colour or colour_name or size_globe or size or size_helio or size_clock or symbol:
+            elif sn or name or colour or colour_name or size_clock_3d or size or size_helio or size_clock_2d or symbol:
                 c.execute(planets.insert().values(sn=sn, **values))
                 added += 1
     _seed_planets(engine())                                   # the rows that are always in the table come back if deleted
