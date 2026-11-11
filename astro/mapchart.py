@@ -1,4 +1,4 @@
-"""What the charts share: the text size, keeping labels apart (Spots), the page's chart holder (fit_html) and the Distance(%) rows."""
+"""What the charts share: the text size, keeping labels apart (Spots), the page's chart holder (fit_html) and the Distance(%) row."""
 from __future__ import annotations
 
 import html
@@ -164,8 +164,8 @@ def _key_row(items: list[tuple[str, float | None]], label: str = "") -> str:
 
 CHART_FONT_FAMILY = "'Open Sans', verdana, arial, sans-serif"     # Plotly's default, which the charts are drawn in
 CHART_TEXT = "#444"                                              # Plotly's text colour
-MARKER_ROOM = 30                 # pixels high for the markers in the Distance(%) rows, the biggest fitting
-# The space between one planet and the next in the Distance(%) rows, so that the three fit on one line
+MARKER_ROOM = 30                 # pixels high for the markers in the Distance(%) row, the biggest fitting
+# The space between one planet and the next in the Distance(%) row
 KEY_GAP_HTML = 8
 
 
@@ -176,13 +176,3 @@ def average_key_html(d_birth: dict, d_now: dict) -> str:
           if d_birth.get(n) is not None and d_now.get(n) is not None]
     da.sort(key=lambda i: i[1])                                  # by its value: the nearest first
     return _key_row(da, "Distance(%) from earth (DOB+Now)") if da else ""
-
-
-def globe_key_html(d_birth: dict, d_now: dict, show_dob: bool, show_now: bool = False) -> str:
-    """AstroClock-2D's rows, side by side (wrapping only where the page is too narrow): with Now chosen Distance(%) from earth
-    (Now), with DOB chosen (DOB), then (DOB+Now)."""
-    dob = sorted(((n, d_birth[n]) for n in core.PLANETS if d_birth.get(n) is not None), key=lambda i: i[1])   # the nearest first
-    now = sorted(((n, d_now[n]) for n in core.PLANETS if d_now.get(n) is not None), key=lambda i: i[1])
-    rows = [_key_row(now, "Distance(%) from earth (Now)") if now and show_now else "",
-            _key_row(dob, "Distance(%) from earth (DOB)") if dob and show_dob else "", average_key_html(d_birth, d_now)]
-    return '<div style="display:flex; flex-wrap:wrap; column-gap:28px; row-gap:6px">' + "".join(rows) + "</div>"
