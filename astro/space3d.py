@@ -275,6 +275,16 @@ __SYMBOL_JS__
       make("title", e).textContent = symbolOf("NN") + " to " + symbolOf("SN") + " " + c + ": 180 degrees apart";
       return {c, e};
     });
+  // flat: a line from the Earth through each body, out to the circle, to read its RA on the scale (under the marks)
+  const rays = (D.flat ? D.marks : []).map((m) => {
+    const e = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1, style: "pointer-events:stroke"});
+    if (m.hollow) e.setAttribute("stroke-dasharray", "6 4");
+    return {m, e, tip: make("title", e)};
+  });
+  if (D.flat) {                                    // the Earth and the circle's tag stay on top of the lines
+    svg.appendChild(earth); svg.appendChild(earthLabel);
+    rings.forEach((g) => svg.appendChild(g.label));
+  }
   const marks = D.marks.map((m) => {
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
     const tip = make("title", e), label = symbolTag(svg, m.name, m.colour, m.hollow);
@@ -411,8 +421,13 @@ __SYMBOL_JS__
       g.e.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       g.label.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       fitSymbol(g.label, x, y, r);
-      return {g, x, y, z, r};
+      return {g, x, y, z, r, ra: s.ra};
     }).sort((a, b) => a.z - b.z);
+    rays.forEach((g) => {
+      const q = placed.find((p) => p.g.m === g.m), R = D.outer * D.fit, a = q.ra * RAD;
+      g.e.setAttribute("d", "M" + D.width / 2 + " " + D.height / 2 + "L" + (D.width / 2 + R * Math.cos(a)).toFixed(1) + " " + (D.height / 2 - R * Math.sin(a)).toFixed(1));
+      g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + ": RA " + q.ra.toFixed(2);
+    });
     nodeLines.forEach((g) => {
       const [n, s] = ["NN", "SN"].map((name) => placed.find((q) => q.g.m.clock === g.c && q.g.m.name === name));
       g.e.setAttribute("d", "M" + n.x.toFixed(1) + " " + n.y.toFixed(1) + "L" + s.x.toFixed(1) + " " + s.y.toFixed(1));
