@@ -707,7 +707,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     shown = kept_pills(head, "Time", ["Now", "DOB"], f"{key}_time", start("Time"), selection_mode="multi") or []
     bodies = core.in_order(kept_pills(head, "Planets", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
                                       format_func=core.symbol_of), choices)
-    if flat:      # no Planet Path, Scale or AU buttons: no paths, always Fit, the 12 AU tag shown
+    if flat:      # no Planet Path, Scale or AU buttons: no paths, always Fit
         with_paths, scale, show_au = [], space3d.FIT, True
     else:
         with_paths = core.in_order(kept_pills(head, "Planet Path", core.shown_order(choices), f"{key}_paths", start("Planet Path"),

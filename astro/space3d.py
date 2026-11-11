@@ -282,10 +282,7 @@ __SYMBOL_JS__
     const head = make("path", svg, {fill: m.colour, stroke: "none"});   // its arrow head, the tip just touching the circle
     return {m, e, head, tip: make("title", e)};
   });
-  if (D.flat) {                                    // the Earth and the circle's tag stay on top of the lines
-    svg.appendChild(earth); svg.appendChild(earthLabel);
-    rings.forEach((g) => svg.appendChild(g.label));
-  }
+  if (D.flat) { svg.appendChild(earth); svg.appendChild(earthLabel); }   // the Earth stays on top of the lines
   const marks = D.marks.map((m) => {
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
     const tip = make("title", e), label = symbolTag(svg, m.name, m.colour, m.hollow);
@@ -461,6 +458,7 @@ __SYMBOL_JS__
       put(g.label, around(x, y, 2, 24), taken);
     });
     rings.forEach((g) => {                         // on the side of the ring nearest the viewer
+      if (D.flat) { g.label.style.display = "none"; return; }   // flat: the circle has no tag (its hover box says what it is)
       let best = null;
       g.r.pts.forEach((q) => { const p = point(q); if (!best || p[1] > best[1]) best = p; });
       put(g.label, around(best[0], best[1], 0, 20), taken);
