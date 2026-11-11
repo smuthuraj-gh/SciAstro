@@ -174,7 +174,7 @@ def _motion_table(planet: str, jd: float, days: int = MOTION_DAYS) -> dict:
     step = MOTION_STEP_DAYS[planet]
     pts = [core.position(planet, jd + i * step) for i in range(int(days / step) + 2)]
     return {"step": step, "ra": [round(p.ra, 3) for p in pts], "dec": [round(p.dec, 3) for p in pts],
-            "dist": [round(p.dist_au, 6) for p in pts], "dec_speed": [round(p.dec_speed, 4) for p in pts],
+            "dist": [round(p.dist_au, 8) for p in pts], "dec_speed": [round(p.dec_speed, 4) for p in pts],
             "km": BODY_RADIUS_KM[planet],
             "lo": core.DIST_RANGE[planet][0], "hi": core.DIST_RANGE[planet][1]}
 

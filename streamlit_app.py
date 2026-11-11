@@ -158,6 +158,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
                       "them are in a chosen major aspect (0 to 180 degrees). A tag with no room is left off: point at "
                       "its dot to see it. Dates and times are UT.",
+    "Distance(%)": "Like AstroClock, each planet at its RA, but as far out as its Distance(%) from the Earth: the centre is 0% "
+                   "(its nearest over 1800 to 2400), the circle 100% (its farthest). Point at a planet for its value.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
@@ -213,7 +215,7 @@ def top_line(title: str, row: pd.Series | None):
         f'flex-wrap:nowrap; font-weight:600">'
         f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
-        + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("AstroClock", "AstroGlobe", "Geo/Helio") else "") +   # its script writes it
+        + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("AstroClock", "Distance(%)", "AstroGlobe", "Geo/Helio") else "") +   # its script writes it
         f'</div>')
     # the slot fills the rest of the line
     TITLE_SLOT = line.container(width="stretch", horizontal=True, gap="small")
@@ -611,6 +613,16 @@ def page_astroclock():
     space_page(head, prep, "sci", "Ea", globechart.BODY_CHOICES + globechart.NODE_CHOICES, model="Geo", flat=True)
 
 
+def page_distance_clock():
+    """Distance(%): AstroClock with each planet at its RA and its Distance(%) from the Earth: the centre is 0% (its nearest,
+    over 1800 to 2400), the circle 100% (its farthest). The nodes have no distance, so are not offered."""
+    _, prep = pick_customer()
+    head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
+    if not need_chart(prep):
+        return
+    space_page(head, prep, "pct", "Ea", globechart.BODY_CHOICES, model="Geo", flat=True, pct=True)
+
+
 def page_globe():
     """The Earth turning inside the celestial sphere: the planets and their RA and Dec lines on the sphere, CB, CN on it."""
     _, prep = pick_customer()
@@ -699,7 +711,7 @@ def kept_pills(box, label: str, options, key: str, default=None, **kw):
     return value
 
 
-def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "Geo", flat: bool = False):
+def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "Geo", flat: bool = False, pct: bool = False):
     """GeoCentric (centre Ea) or HelioCentric (centre Su): its buttons each keep their own choice (key), also while the other
     model is shown; they start as the Defaults table says (Geo Time .. Helio Rotate in 1s)."""
     def start(title: str):
@@ -727,7 +739,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
     moments = [m for m in (("Now", core.now_jd(), utc_now), ("DOB", prep.jd_birth, prep.utc)) if m[0] in shown]
     st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre, flat,
-                               {"DOB": ("CB", prep.birth_lon), **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat and show_houses else None),
+                               {"DOB": ("CB", prep.birth_lon), **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat and show_houses else None, pct),
             unsafe_allow_javascript=True)
 
 
@@ -1075,6 +1087,7 @@ core.SYMBOL_TEXTS = db.planet_symbols()                       # and their symbol
 DEFAULT_TEXTS = db.defaults_map()                             # what each page's inputs start as (the Defaults table)
 core.COLOURS.update(core.DEFAULT_COLOURS | db.planet_colours())   # every chart's colours are the Symbols table's (a deleted row's, the usual one)
 pages = [st.Page(page_astroclock, title="AstroClock", icon=":material/science:", url_path="astroclock"),
+         st.Page(page_distance_clock, title="Distance(%)", icon=":material/radar:", url_path="distance-percent"),
          st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe", default=True),
          st.Page(page_centric, title="Geo/Helio", icon=":material/orbit:", url_path="geo-helio"),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
