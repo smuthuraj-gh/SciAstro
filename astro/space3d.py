@@ -10,7 +10,7 @@ from functools import lru_cache
 
 from . import core
 from .globechart import (MARKER_RANGE, MOTION_DAYS, NODE_CHOICES, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_table,
-                         _node_table, symbol_shapes)
+                         _node_table, symbol_shapes, EARTH_DEGREES_A_DAY, HOUSE_COLOUR)
 from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
@@ -99,7 +99,7 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
 
 def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
-               centre: str = "Ea", flat: bool = False) -> dict:
+               centre: str = "Ea", flat: bool = False, places: dict | None = None) -> dict:
     """For each moment and body: its table to move it by, and (those in with_paths; all with None) its path, which the page draws
     as a trail behind it, where it has really been since the moment, kept for the whole run (72 years).
     moments: (Now or DOB, Julian day, UTC offset). centre: Ea (GeoCentric) or Su (HelioCentric). The drawing's size does not
@@ -149,7 +149,8 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer,
-                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, flat_font=FLAT_FONT, node_colour=core.colour("NN"),
+                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, flat_font=FLAT_FONT, node_colour=core.colour("NN"), spin=EARTH_DEGREES_A_DAY, house_colour=HOUSE_COLOUR,
+                houses=[dict(clock=c, place=places[c][0], ra=core.lst(jd, places[c][1])) for c, jd, _ in moments if c in (places or {})],
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=at["log_from"], gap=at["gap"],
@@ -275,6 +276,12 @@ __SYMBOL_JS__
       make("title", e).textContent = symbolOf("NN") + " to " + symbolOf("SN") + " " + c + ": 180 degrees apart";
       return {c, e};
     });
+  // flat: the twelve house lines of CB and CN, as on AstroGlobe: 30 degrees apart from the place's RA, turning with the Earth
+  const houses = D.flat ? D.houses.flatMap((h, n) => [...Array(12).keys()].map((k) => {
+    const e = make("path", svg, {fill: "none", stroke: D.house_colour, "stroke-width": 1, style: "pointer-events:stroke"});
+    if (h.place === "CN") e.setAttribute("stroke-dasharray", "2 3");
+    return {h, n, k, e, tip: make("title", e), name: "H" + String((9 + k) % 12 + 1).padStart(2, "0")};
+  })) : [];
   // flat: a line from the Earth through each body, out to the circle, to read its RA on the scale (under the marks)
   const rays = (D.flat ? D.marks : []).map((m) => {
     const e = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1, style: "pointer-events:stroke"});
@@ -282,6 +289,7 @@ __SYMBOL_JS__
     const head = make("path", svg, {fill: m.colour, stroke: "none"});   // its arrow head, the tip just touching the circle
     return {m, e, head, tip: make("title", e)};
   });
+  houses.forEach((g) => { g.label = words(D.house_colour, D.flat_font); g.label.textContent = g.name; });   // above the lines
   if (D.flat) { svg.appendChild(earth); svg.appendChild(earthLabel); }   // the Earth stays on top of the lines
   const marks = D.marks.map((m) => {
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
@@ -444,6 +452,15 @@ __SYMBOL_JS__
       lastStack = stack;
     }
     const taken = placed.map((q) => [q.x - q.r - 2, q.y - q.r - 2, q.x + q.r + 2, q.y + q.r + 2]).concat([[ex - earthR - 1, ey - earthR - 1, ex + earthR + 1, ey + earthR + 1]], scaleBoxes);
+    houses.forEach((g) => {                        // each from the Earth to the circle, named in the middle of its span where there is room
+      const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2, ra = (g.h.ra + D.spin * t + 30 * g.k) % 360, a = ra * RAD;
+      g.e.setAttribute("d", "M" + cx + " " + cy + "L" + (cx + R * Math.cos(a)).toFixed(1) + " " + (cy - R * Math.sin(a)).toFixed(1));
+      g.tip.textContent = g.name + " " + symbolOf(g.h.place) + " RA: " + ra.toFixed(2);
+      const b = (ra + 15) * RAD, r = R - (g.n ? 48 : 26), x = cx + r * Math.cos(b), y = cy - r * Math.sin(b) + D.flat_font / 3;
+      const box = boxOf(x, y, g.name, D.flat_font), seen = clear(box, taken);
+      g.label.style.display = seen ? "" : "none";
+      if (seen) { g.label.setAttribute("x", x.toFixed(1)); g.label.setAttribute("y", y.toFixed(1)); taken.push(box); }
+    });
     if (!D.show_tags) {                            // AU off: no tags at all (the lines stay)
       poles.concat(spokes).forEach((g) => { g.label.style.display = "none"; });
       showClocks(t);
@@ -505,7 +522,7 @@ __SYMBOL_JS__
 
 def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
-               centre: str = "Ea", flat: bool = False) -> str:
+               centre: str = "Ea", flat: bool = False, places: dict | None = None) -> str:
     uid = "space-" + uuid.uuid4().hex[:8]
-    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat)).replace("<", chr(92) + "u003c")
+    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places)).replace("<", chr(92) + "u003c")
     return f'<div id="{uid}"></div><script>{_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data).replace("__ID__", uid)}</script>'
