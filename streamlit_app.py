@@ -34,32 +34,28 @@ st.html("""<style>
    its holder undoes the zoom, and its text is sized to match the page's */
 body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / var(--app-zoom, 1)); }
 [data-testid="stSelectboxVirtualDropdown"] * { font-size: calc(13px * var(--app-zoom, 1)) !important; }
-/* every selection button, on every page: the smallest shape its text allows */
-[data-testid="stButtonGroup"] button { padding: 0 5px !important; height: 24px !important; min-height: 24px !important; }
+/* one set of shapes on every page, all 24px high: a word is a small pill; a planet, an angle or a speed is a small circle */
+[data-testid="stButtonGroup"] button { padding: 0 7px !important; height: 24px !important; min-height: 24px !important; border-radius: 12px !important; }
 /* AstroClock-3D's lists: two a line, the last alone not stretched across */
 .st-key-globe_bodies button, .st-key-globe_paths button, .st-key-globe_coords button, .st-key-globe_speed button,
 .st-key-globe_major button, .st-key-globe_minor button, .st-key-space_speed button
   { flex: 0 0 auto !important; width: auto !important; }
-/* AstroClock-3D's speed buttons, as small as their text allows */
-.st-key-globe_speed button, .st-key-space_speed button { padding-left: 4px !important; padding-right: 4px !important; }
-/* every planet button (Planets, Planet Path), on every page: a circle round its symbol */
+/* the circles: every planet, every angle, every speed but Manual */
 :is(.st-key-sci_bodies, .st-key-globe_bodies, .st-key-globe_paths, .st-key-space_bodies, .st-key-space_paths, .st-key-helio_bodies, .st-key-helio_paths,
-    [class*="dec_on_v2"], .st-key-dist_on_v2) button
+    [class*="dec_on_v2"], .st-key-dist_on_v2) button,
+:is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button,
+:is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child)
   { border-radius: 50% !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important;
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
-/* the other shortest buttons, on every page: small circles (anything longer stays a small pill) */
-:is(.st-key-helio_au, .st-key-space_au) button, .st-key-globe_coords_RA button:first-child,
-:is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button:nth-child(-n+3),
-:is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child):not(:nth-child(7))
-  { border-radius: 50% !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important;
-    padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
-/* Aspects Table's 3 digit angles: small circles too, so that each group's angles fit on one line */
-:is(.st-key-asp_major, .st-key-asp_minor) button:nth-child(n+4)
-  { border-radius: 50% !important; width: 28px !important; min-width: 28px !important; height: 28px !important; min-height: 28px !important;
-    padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
-/* every action button (Insert, Commit, Delete, Yes, Sign out ..): a small pill */
+/* angles and speeds in a smaller type, so that 120 and 1mo fit the same circle as 0 and 1s */
+:is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button p,
+:is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child) p
+  { font-size: 11px !important; }
+/* every action button (Insert, Commit, Delete, Yes, Sign out ..): the same small pill */
 :is([data-testid="stBaseButton-primary"], [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-primaryFormSubmit"], [data-testid="stBaseButton-secondaryFormSubmit"])
-  { padding: 0 10px !important; height: 24px !important; min-height: 24px !important; border-radius: 12px !important; }
+  { padding: 0 7px !important; height: 24px !important; min-height: 24px !important; border-radius: 12px !important; }
+:is([data-testid="stBaseButton-primary"], [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-primaryFormSubmit"], [data-testid="stBaseButton-secondaryFormSubmit"]) p
+  { font-size: 13px !important; }
 /* the button that opens the sidebar (pages, customer) is titled Menu, so it is clear what it opens */
 [data-testid="stExpandSidebarButton"] { width: auto !important; padding: 0 6px !important; gap: 4px;
   display: inline-flex !important; align-items: center; }
@@ -613,21 +609,21 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
     Minor Aspects on / off button instead, each with its angles to pick from below it. nodes: NN and SN
     buttons too (Aspects)."""
     _, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
+    head = st.container(horizontal=True, vertical_alignment="top", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return None
     jds = period(prep, head, page)
     # on / off buttons, as on Distance: every choice always in view
     choices = core.BUTTON_ORDER + (["NN", "SN"] if nodes else [])
-    dec_on = core.in_order(head.pills("Planets", core.shown_order(choices), selection_mode="multi", format_func=core.symbol_of,
-                                      default=default_choice(page, "Planets"), key=f"{keys}dec_on_v2"), choices)
+    dec_on = core.in_order(titled(head, "Planets", f"{keys}t_planets", core.shown_order(choices), f"{keys}dec_on_v2", default_choice(page, "Planets"),
+                                  selection_mode="multi", format_func=core.symbol_of), choices)
     ea_names = {str(a): a for a in rangechart.EA_NAME}         # the buttons 0, 60, 90, 120, 180 -> their angles
     minor = []
     if aspect_buttons:
-        ea = head.pills("Major Aspects", list(ea_names), selection_mode="multi", default=default_choice(page, "Major Aspects"),
-                        key=f"{keys}ea_on_v5") or []
-        minor = [int(a) for a in core.in_order(head.pills("Minor Aspects", GLOBE_MINOR, selection_mode="multi", default=default_choice(page, "Minor Aspects"),
-                                                          key=f"{keys}minor_on_v1"), GLOBE_MINOR)]
+        ea = core.in_order(titled(head, "Major Aspects", f"{keys}t_major", list(ea_names), f"{keys}ea_on_v5", default_choice(page, "Major Aspects"),
+                                  selection_mode="multi"), list(ea_names))
+        minor = [int(a) for a in core.in_order(titled(head, "Minor Aspects", f"{keys}t_minor", GLOBE_MINOR, f"{keys}minor_on_v1",
+                                                      default_choice(page, "Minor Aspects"), selection_mode="multi"), GLOBE_MINOR)]
     else:                                                     # an on / off button for each group, with its angles below it
         groups = default_choice(page, "Aspects")
 
@@ -651,7 +647,7 @@ def page_astroclock():
     (with NN, SN: on the Moon's path, at the Moon's distance, joined by a line, 180 degrees apart) and Rotate in 1s (how fast time runs; Manual: it stands still),
     are its own, and start as the Defaults table says."""
     _, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
+    head = st.container(horizontal=True, vertical_alignment="top", gap="small")
     if not need_chart(prep):
         return
     space_page(head, prep, "sci", "Ea", globechart.BODY_CHOICES + globechart.NODE_CHOICES, model="Geo", flat=True)
@@ -699,7 +695,7 @@ def page_globe():
     day_seconds, manual = None, False
     if spin.pills("Rotate in 1s", ["Rotate in 1s"], default="Rotate in 1s", key="globe_rotate", label_visibility="collapsed"):
         speed = spin.pills("Rotate speed", SPEED_CHOICES, default=default_choice("AstroClock-3D", "Rotate in 1s"), key="globe_speed",
-                           label_visibility="collapsed", width=124)   # (Manual, 1s on a line; 1m, 1h, 1d on the next; then 1w, 1mo, 1y)
+                           label_visibility="collapsed", width=96)   # (Manual, 1s on a line; 1m, 1h, 1d on the next; then 1w, 1mo, 1y)
         manual = speed == globechart.MANUAL                           # the Earth is dragged round by hand
         day_seconds = globechart.SPEEDS.get(speed)                    # nothing picked: it holds still
     jd_now = core.now_jd()
@@ -725,11 +721,11 @@ CENTRIC_MODELS = {"Geo": ("space", "Ea", globechart.BODY_CHOICES),        # GeoC
 def page_centric():
     """The paths at their real distances, in 3D, around the Earth (GeoCentric) or the Sun (HelioCentric)."""
     _, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
+    head = st.container(horizontal=True, vertical_alignment="top", gap="small")
     if not need_chart(prep):
         return
-    model = head.pills("Centric Model", list(CENTRIC_MODELS), default=default_choice("Geo/Helio Model", "Centric Model"),
-                       key="centric_model") or "Geo"
+    model = (titled(head, "Centric Model", "t_centric", list(CENTRIC_MODELS), "centric_model", default_choice("Geo/Helio Model", "Centric Model"))
+             or st.session_state.get("_kept_centric_model") or "Geo")   # (with the title off, the model last picked)
     space_page(head, prep, *CENTRIC_MODELS[model], model=model)
 
 
@@ -742,23 +738,32 @@ def kept_pills(box, label: str, options, key: str, default=None, **kw):
     return value
 
 
+def titled(head, title: str, title_key: str, options, key: str, default=None, **kw):
+    """As AstroClock-3D's: a title button with its choices below it. The choices picked; nothing while the title is off (they
+    come back as they were when it is turned on again)."""
+    box = head.container(width="content", gap="xxsmall")
+    if not kept_pills(box, title, [title], title_key, title, label_visibility="collapsed"):
+        return None
+    return kept_pills(box, f"Which {title}", options, key, default, label_visibility="collapsed", **kw)
+
+
 def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "Geo", flat: bool = False):
     """GeoCentric (centre Ea) or HelioCentric (centre Su): its buttons each keep their own choice (key), also while the other
     model is shown; they start as the Defaults table says (Geo Time .. Helio Rotate in 1s)."""
     def start(title: str):
         return default_choice("AstroClock-2D", title) if flat else default_choice("Geo/Helio Model", f"{model} {title}")
-    shown = kept_pills(head, "Time", ["Now", "DOB"], f"{key}_time", start("Time"), selection_mode="multi") or []
-    bodies = core.in_order(kept_pills(head, "Planets", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
-                                      format_func=core.symbol_of), choices)
+    shown = titled(head, "Time", f"{key}_t_time", ["Now", "DOB"], f"{key}_time", start("Time"), selection_mode="multi") or []
+    bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
+                                  format_func=core.symbol_of), choices)
     if flat:      # no Planet Path, Scale or AU buttons: no paths, always Fit
         with_paths, scale, show_au = [], space3d.FIT, True
         show_houses = bool(kept_pills(head, "Houses", ["Houses"], f"{key}_houses", start("Houses"), label_visibility="collapsed"))
     else:
-        with_paths = core.in_order(kept_pills(head, "Planet Path", core.shown_order(choices), f"{key}_paths", start("Planet Path"),
-                                              selection_mode="multi", format_func=core.symbol_of), choices)
-        scale = kept_pills(head, "Scale", space3d.SCALES, f"{key}_scale", start("Scale")) or space3d.FIT
+        with_paths = core.in_order(titled(head, "Planet Path", f"{key}_t_paths", core.shown_order(choices), f"{key}_paths", start("Planet Path"),
+                                          selection_mode="multi", format_func=core.symbol_of), choices)
+        scale = titled(head, "Scale", f"{key}_t_scale", space3d.SCALES, f"{key}_scale", start("Scale")) or space3d.FIT
         show_au = bool(kept_pills(head, "AU", ["AU"], f"{key}_au", start("AU"), label_visibility="collapsed"))
-    speed = kept_pills(head, "Rotate in 1s", SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
+    speed = titled(head, "Rotate in 1s", f"{key}_t_speed", SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (not flat)
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
     if flat:                                                  # AstroClock-2D: the Distance(%) rows, on a line below the buttons
@@ -850,13 +855,13 @@ def _range_cached(dec_on, ea, jd_from, jd_to, orb_csv):
 
 def page_distance():
     _, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
+    head = st.container(horizontal=True, vertical_alignment="top", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return
     jds = period(prep, head, "Planets Distance(%)")
     # on / off buttons: all seven planets always in view (a selection box would hide some, or not fit on the line)
-    dist_on = core.in_order(head.pills("Planets", core.shown_order(core.BUTTON_ORDER), selection_mode="multi", format_func=core.symbol_of,
-                                       default=default_choice("Planets Distance(%)", "Planets"), key="dist_on_v2"), core.BUTTON_ORDER)
+    dist_on = core.in_order(titled(head, "Planets", "t_dist", core.shown_order(core.BUTTON_ORDER), "dist_on_v2", default_choice("Planets Distance(%)", "Planets"),
+                                   selection_mode="multi", format_func=core.symbol_of), core.BUTTON_ORDER)
     if jds is None:
         return
     with st.spinner("Drawing..."):
