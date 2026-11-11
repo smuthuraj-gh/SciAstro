@@ -44,12 +44,12 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 /* the circles: every planet, every angle, every speed but Manual */
 :is(.st-key-sci_bodies, .st-key-globe_bodies, .st-key-globe_paths, .st-key-space_bodies, .st-key-space_paths, .st-key-helio_bodies, .st-key-helio_paths,
     [class*="dec_on_v2"], .st-key-dist_on_v2) button,
-:is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button,
+:is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, .st-key-sci_major, .st-key-sci_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button,
 :is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child)
   { border-radius: 50% !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important;
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
 /* angles and speeds in a smaller type, so that 120 and 1mo fit the same circle as 0 and 1s */
-.stApp :is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button :is(p, span, div),
+.stApp :is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, .st-key-sci_major, .st-key-sci_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button :is(p, span, div),
 .stApp :is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child) :is(p, span, div)
   { font-size: 10px !important; }
 /* every action button (Insert, Commit, Delete, Yes, Sign out ..): the same small pill */
@@ -183,7 +183,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
                       "them are in a chosen major or minor aspect. A tag with no room is left off: point at "
                       "its dot to see it. Dates and times are UT.",
-    "AstroClock-2D": "Left of the clock, Dec: each planet's Declination on a scale from +31 to -31 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at DOB and at Now to the left of its line, and at Ave (the average, which stays put as time runs) to the right.",
+    "AstroClock-2D": "Left of the clock, Dec: each planet's Declination on a scale from +31 to -31 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at DOB and at Now to the left of its line, and at Ave (the average, which stays put as time runs) to the right. Major Aspects and Minor Aspects: the angles to draw; two planets at the same time in one of them, by the orbs in Aspect Rules, are joined by a line tagged as 0-Ma-Ju.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
@@ -437,6 +437,8 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
     globe = list(globechart.BODY_CHOICES) + list(globechart.NODE_CHOICES)
     out = {("AstroClock-2D", "Time"): (["Now", "DOB"], True, ["DOB"]),
            ("AstroClock-2D", "Planets"): (globe, True, globe),
+           ("AstroClock-2D", "Major Aspects"): (GLOBE_MAJOR, True, []),
+           ("AstroClock-2D", "Minor Aspects"): (GLOBE_MINOR, True, []),
            ("AstroClock-2D", "Houses"): (["Houses"], False, "Houses"),
            ("AstroClock-2D", "Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL),
            ("AstroClock-3D", "Time"): (["Now", "DOB"], True, ["DOB"]),
@@ -758,7 +760,11 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     shown = titled(head, "Time", f"{key}_t_time", ["Now", "DOB"], f"{key}_time", start("Time"), selection_mode="multi") or []
     bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
                                   format_func=core.symbol_of), choices)
+    aspects = ()
     if flat:      # no Planet Path, Coordinates or AU buttons: no paths, always Fit
+        major = core.in_order(titled(head, "Major Aspects", f"{key}_t_major", GLOBE_MAJOR, f"{key}_major", start("Major Aspects"), selection_mode="multi"), GLOBE_MAJOR)
+        minor = core.in_order(titled(head, "Minor Aspects", f"{key}_t_minor", GLOBE_MINOR, f"{key}_minor", start("Minor Aspects"), selection_mode="multi"), GLOBE_MINOR)
+        aspects = tuple(int(a) for a in major + minor)
         with_paths, scale, show_au = [], space3d.FIT, True
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Houses below it (the title off: no houses)
         show_houses = bool(kept_pills(coords, "Coordinates", ["Coordinates"], f"{key}_t_coords", "Coordinates", label_visibility="collapsed")
@@ -787,7 +793,8 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
     moments = [m for m in (("Now", core.now_jd(), utc_now), ("DOB", prep.jd_birth, prep.utc)) if m[0] in shown]
     st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre, flat,
-                               {"DOB": ("CB", prep.birth_lon), **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat and show_houses else None, averages),
+                               {"DOB": ("CB", prep.birth_lon), **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat and show_houses else None, averages,
+                               aspects, orbs() if aspects else None),
             unsafe_allow_javascript=True)
 
 

@@ -10,7 +10,7 @@ from functools import lru_cache
 
 from . import core
 from .globechart import (MARKER_RANGE, MOTION_DAYS, NODE_CHOICES, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_table,
-                         _node_table, symbol_shapes, EARTH_DEGREES_A_DAY, HOUSE_COLOUR)
+                         _node_table, symbol_shapes, ASPECT_COLOURS, ASPECT_NAMES, EARTH_DEGREES_A_DAY, HOUSE_COLOUR)
 from .mapchart import CHART_FONT_FAMILY, FONT, _marker_radius
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
@@ -103,7 +103,8 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
 
 def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
-               centre: str = "Ea", flat: bool = False, places: dict | None = None, averages: dict | None = None) -> dict:
+               centre: str = "Ea", flat: bool = False, places: dict | None = None, averages: dict | None = None,
+               aspects: tuple = (), orbs: core.Orbs | None = None) -> dict:
     """For each moment and body: its table to move it by, and (those in with_paths; all with None) its path, which the page draws
     as a trail behind it, where it has really been since the moment, kept for the whole run (72 years).
     moments: (Now or DOB, Julian day, UTC offset). centre: Ea (GeoCentric) or Su (HelioCentric). The drawing's size does not
@@ -156,7 +157,10 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
         outer = max(outer, reach(OUTER_RING_AU))
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
-    return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer,
+    aspect_rows = [dict(angle=a, colour=ASPECT_COLOURS[a in core.MINOR], width=1.0 if a in core.MINOR else 1.5,
+                        orbs={f"{p}|{q}": orbs.pair(a, p, q) for i, p in enumerate(ASPECT_NAMES) for q in ASPECT_NAMES[i + 1:] if {p, q} != set(NODE_CHOICES)})
+                   for a in aspects] if orbs is not None else []
+    return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer, aspects=aspect_rows, name_order=ASPECT_NAMES,
                 fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, view=FLAT_VIEW if flat else VIEW, flat_font=FLAT_FONT, flat_dec=FLAT_DEC, dist_range={p: (lo / core.AU_KM, hi / core.AU_KM) for p, (lo, hi) in core.DIST_RANGE.items()},
                 ave_marks=[dict(name=p, colour=core.colour(p), pct=averages[p], r=_marker_radius(p, averages)) for p in bodies if p in (averages or {})], node_colour=core.colour("NN"), spin=EARTH_DEGREES_A_DAY, house_colour=HOUSE_COLOUR,
                 houses=[dict(clock=c, place=places[c][0], ra=core.lst(jd, places[c][1])) for c, jd, _ in moments if c in (places or {})],
@@ -316,6 +320,22 @@ __SYMBOL_JS__
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow)};
   });
+  // flat: each pair of the planets shown, at each moment: its line and tag when in aspect (under the planets, drawn after)
+  const aspectLines = [];
+  if (D.flat && D.aspects.length) D.clocks.forEach(({clock: c}) => {
+    const here = D.name_order.filter((n) => D.marks.some((m) => m.clock === c && m.name === n));
+    here.forEach((p, i) => here.slice(i + 1).forEach((q) => {
+      if (p[1] === "N" && q[1] === "N" && p.length === 2 && q.length === 2) return;   // NN-SN: always opposite
+      const e = make("path", svg, {fill: "none", style: "pointer-events:stroke"});
+      if (c === "Now") e.setAttribute("stroke-dasharray", "2 3");
+      aspectLines.push({c, p, q, e, tip: make("title", e), tag: words("black")});
+    }));
+  });
+  const inAspect = (angle, a, b, orb) => {         // the rule of core.aspect_events: RA within the orb of the angle, Decs within it of equal or mirrored
+    let sep = Math.abs(a.ra - b.ra);
+    if (sep > 180) sep = 360 - sep;
+    return Math.abs(sep - angle) <= orb && (Math.abs(a.dec - b.dec) <= orb || Math.abs(a.dec + b.dec) <= orb);
+  };
   const aveMarks = (D.flat ? D.ave_marks : []).map((m) => {   // each planet's Ave average on it, which stays put as time runs
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1, "stroke-dasharray": "1 2"});
     const e = make("circle", svg, {fill: m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
@@ -550,6 +570,26 @@ __SYMBOL_JS__
       lastStack = stack;
     }
     const taken = placed.map((q) => [q.x - q.r - 2, q.y - q.r - 2, q.x + q.r + 2, q.y + q.r + 2]).concat([[ex - earthR - 1, ey - earthR - 1, ex + earthR + 1, ey + earthR + 1]], scaleBoxes);
+    aspectLines.forEach((l) => {                   // straight between the two; its tag, as 0-Ma-Ju, in the first free place along it
+      const [a, b] = [l.p, l.q].map((n) => placed.find((q) => q.g.m.clock === l.c && q.g.m.name === n));
+      const on = D.aspects.filter((d) => inAspect(d.angle, posAt(l.c, l.p, t).s, posAt(l.c, l.q, t).s, d.orbs[l.p + "|" + l.q]));
+      l.tag.style.display = "none";
+      if (!on.length) { l.e.setAttribute("d", ""); return; }
+      l.e.setAttribute("d", "M" + a.x.toFixed(1) + " " + a.y.toFixed(1) + "L" + b.x.toFixed(1) + " " + b.y.toFixed(1));
+      l.e.setAttribute("stroke", on[0].colour); l.e.setAttribute("stroke-width", on[0].width);
+      l.tip.textContent = on.map((d) => d.angle + "-" + symbolOf(l.p) + "-" + symbolOf(l.q) + " " + l.c).join(", ");
+      const text = on[0].angle + "-" + symbolOf(l.p) + "-" + symbolOf(l.q);
+      l.tag.textContent = text; l.tag.setAttribute("fill", on[0].colour);
+      const had = l.tagAt === undefined ? 0.5 : l.tagAt;
+      for (const f of [0.5, 0.35, 0.65, 0.2, 0.8].sort((u, v) => Math.abs(u - had) - Math.abs(v - had))) {
+        const x = a.x + (b.x - a.x) * f, y = a.y + (b.y - a.y) * f + 4, box = boxOf(x, y, text);
+        if (inside(box) && clear(box, taken)) {
+          l.tag.setAttribute("x", x.toFixed(1)); l.tag.setAttribute("y", y.toFixed(1));
+          l.tag.style.display = ""; l.tagAt = f; taken.push(box);
+          break;
+        }
+      }
+    });
     houses.forEach((g) => {                        // each from the Earth to the circle, named in the middle of its span where there is room
       const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2, ra = (g.h.ra + D.spin * t + 30 * g.k) % 360, a = ra * RAD;
       g.e.setAttribute("d", "M" + cx + " " + cy + "L" + (cx + R * Math.cos(a)).toFixed(1) + " " + (cy - R * Math.sin(a)).toFixed(1));
@@ -627,7 +667,8 @@ __SYMBOL_JS__
 
 def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
-               centre: str = "Ea", flat: bool = False, places: dict | None = None, averages: dict | None = None) -> str:
+               centre: str = "Ea", flat: bool = False, places: dict | None = None, averages: dict | None = None,
+               aspects: tuple = (), orbs: core.Orbs | None = None) -> str:
     uid = "space-" + uuid.uuid4().hex[:8]
-    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places, averages)).replace("<", chr(92) + "u003c")
+    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places, averages, aspects, orbs)).replace("<", chr(92) + "u003c")
     return f'<div id="{uid}"></div><script>{_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data).replace("__ID__", uid)}</script>'

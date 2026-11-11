@@ -73,6 +73,8 @@ sa.Index(DEFAULTS_INDEX, defaults.c.page, defaults.c.options, unique=True)
 DEFAULT_ROWS = [                                              # the app's own defaults: the rows the table starts with
     ("AstroClock-2D", "Time", "DOB"),
     ("AstroClock-2D", "Planets", "Su, Mo, Me, Ve, Ma, Ju, Sa, NN, SN"),
+    ("AstroClock-2D", "Major Aspects", ""),
+    ("AstroClock-2D", "Minor Aspects", ""),
     ("AstroClock-2D", "Houses", "On"),
     ("AstroClock-2D", "Rotate in 1s", "Manual"),
     ("AstroClock-3D", "Time", "DOB"),
@@ -110,7 +112,7 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Planets Distance(%)", "End Date (UT)", "Start Date (UT) + 2 years"),
     ("Planets Distance(%)", "Planets", "Ju, Sa"),
 ]
-DEFAULTS_VERSION = "4"                                        # 4: Aspects Table's angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
+DEFAULTS_VERSION = "5"                                        # 5: AstroClock-2D's aspects; 4: Aspects Table's angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
@@ -234,6 +236,7 @@ def _rename_defaults_page(eng: sa.Engine):
 
 
 NEW_IN_4 = (("Aspects Table", "Major Aspects"), ("Aspects Table", "Minor Aspects"), ("Planets Cycles", "Minor Aspects"))
+NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects"))
 
 
 def _seed_defaults(eng: sa.Engine):
@@ -244,7 +247,7 @@ def _seed_defaults(eng: sa.Engine):
         if done == DEFAULTS_VERSION:
             return
         have = {(p.lower(), t.lower()) for p, t in c.execute(sa.select(defaults.c.page, defaults.c.options)).all()}
-        added_since = {"2": lambda r: r[0] == "AstroClock-2D" or r[:2] in NEW_IN_4, "3": lambda r: r[:2] in NEW_IN_4}
+        added_since = {"2": lambda r: r[0] == "AstroClock-2D" or r[:2] in NEW_IN_4, "3": lambda r: r[:2] in NEW_IN_4 + NEW_IN_5, "4": lambda r: r[:2] in NEW_IN_5}
         wanted = [r for r in DEFAULT_ROWS if added_since[done](r)] if done in added_since else DEFAULT_ROWS   # (a row deleted before stays deleted)
         new = [dict(page=p, options=t, choices=o or None) for p, t, o in wanted if (p.lower(), t.lower()) not in have]
         if new:
