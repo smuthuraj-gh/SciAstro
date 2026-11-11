@@ -20,6 +20,8 @@ zodiac), with the same rules.
 
 Drawing rule: wherever planets are drawn, on every page and graph, a smaller planet sits on top of a bigger one, so that it stays visible when they are close.
 
+Layout rule: everything on all pages stays aligned to the top left.
+
 Users sign in with Google and see only the customers whose **Email (login)** is theirs. A new member (no customer
 has their email yet) gets a form to enter their own birth details, saved with their login email; a member already
 there goes straight to their charts. The login email is the key: one customer per email (First Names may repeat).
