@@ -474,6 +474,7 @@ __SYMBOL_JS__
     });
     return "\nApproaching: " + names(near) + "\nLeaving: " + names(away);
   };
+  let markOrder = "";                              // the order the planets are stacked in, the smallest on top
   const nodes = [];                                // where the Moon's path crosses the Sun's, north (NN) and south (SN), those picked
   D.sets.forEach((s) => {
     if (!s.node) return;
@@ -600,6 +601,7 @@ __SYMBOL_JS__
       const hidden = z < 0 && Math.hypot(x - D.cx, y - D.cy) < D.earth, fade = z >= 0 ? 1 : 0.55;
       Object.assign(node, {x, y, hidden, fade});
       const nr = radiusAt(D.size_rules[node.name], node.s.tables, t);   // by its Size in the Symbols table
+      node.r = nr;
       node.mark.setAttribute("transform", "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ") scale(" + (nr / 9).toFixed(3) + ")");
       node.mark.setAttribute("opacity", fade);
       node.mark.style.display = hidden ? "none" : "";
@@ -607,6 +609,13 @@ __SYMBOL_JS__
         " side of the sphere)\nDec/Lati: " + (at.dec >= 0 ? "+" : "") + at.dec.toFixed(2) + "\nRA: " + at.ra.toFixed(2);
       if (!hidden) taken.push([x - nr, y - nr, x + nr, y + nr]);
     });
+    // a small planet is drawn over a big one (only when the order changes: moving a mark would lose its hover box)
+    const stacked = [...bodies, ...nodes].sort((a, b) => b.r - a.r), order = stacked.map((m) => m.name + (m.now ? "N" : "D") + (m.s ? m.s.clock : "")).join();
+    if (order !== markOrder) {
+      stacked.forEach((m) => { markG.appendChild(m.mark); if (m.label) markG.appendChild(m.label); });
+      placeIcons.forEach((p) => markG.appendChild(p.tag));   // (the baby and the house stay on top)
+      markOrder = order;
+    }
     const icons = placeIcons.map((i) => ({i, at: placeOnEarth(i.pl, t)})).filter((q) => {
       const seen = q.at[2] >= 0;
       q.i.tag.style.display = seen ? "" : "none";

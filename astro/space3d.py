@@ -492,7 +492,7 @@ __SYMBOL_JS__
       g.label.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       fitSymbol(g.label, x, y, r);
       return {g, x, y, z, r, ra: s.ra};
-    }).sort((a, b) => a.z - b.z);
+    }).sort((a, b) => b.r - a.r || a.z - b.z);       // the biggest first, so that a small planet is drawn over a big one
     // the Declination graph, each mark sized as on the clock, all in one column on lines of one length: marks at the same
     // Dec overlap, which shows a possible conjunction
     decMarks.forEach((g) => {
@@ -522,6 +522,11 @@ __SYMBOL_JS__
       fitSymbol(g.label, x, y, g.m.r);
       g.tip.textContent = symbolOf(g.m.name) + " Ave\nDistance(%) from earth: " + g.m.pct.toFixed(1);
     });
+    [decMarks, distMarks, aveMarks].forEach((list) => {   // on each graph too, the smallest on top (only when that changes, as below)
+      const order = [...list].sort((a, b) => b.e.getAttribute("r") - a.e.getAttribute("r"));
+      const stack = order.map((g) => g.m.name + g.m.clock).join();
+      if (stack !== list.stack) { order.forEach((g) => { svg.appendChild(g.e); svg.appendChild(g.label); }); list.stack = stack; }
+    });
     rays.forEach((g) => {
       const q = placed.find((p) => p.g.m === g.m), R = D.outer * D.fit, a = q.ra * RAD;
       const at = (r, side) => (D.width / 2 + r * Math.cos(a) - side * Math.sin(a)).toFixed(1) + " " + (D.height / 2 - r * Math.sin(a) - side * Math.cos(a)).toFixed(1);
@@ -537,7 +542,7 @@ __SYMBOL_JS__
     earth.setAttribute("r", earthR.toFixed(1));
     fitSymbol(earthLabel, ex, ey, earthR);
     earth.setAttribute("cx", ex.toFixed(1)); earth.setAttribute("cy", ey.toFixed(1));
-    // in the order of depth, what is nearest on top (only when that changes: moving a mark would lose its hover box);
+    // the smallest on top, then what is nearest (only when that changes: moving a mark would lose its hover box);
     // every label kept off every mark and every other label
     const stack = placed.map((q) => q.g.m.name + q.g.m.clock).join();
     if (stack !== lastStack) {

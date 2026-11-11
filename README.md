@@ -18,6 +18,8 @@ zodiac), with the same rules.
 | Logins | admins | the table in the database, newest first: Email (who was signed in), Activity (View: opened a customer, once per visit; Create, Update, Delete: a customer added, changed or deleted), Date_Time (UT); tick rows and Delete, or Delete all (asks first) |
 | My details | users | their own birth details, with Edit my details to change them (the login email stays) |
 
+Drawing rule: wherever planets are drawn, on every page and graph, a smaller planet sits on top of a bigger one, so that it stays visible when they are close.
+
 Users sign in with Google and see only the customers whose **Email (login)** is theirs. A new member (no customer
 has their email yet) gets a form to enter their own birth details, saved with their login email; a member already
 there goes straight to their charts. The login email is the key: one customer per email (First Names may repeat).
