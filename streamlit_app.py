@@ -459,13 +459,13 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
     """Every page input the Defaults table can set, by (Page, Options): (its choices, or START / END; more than one may be
     picked; the app's own default, used when the table has no row for it)."""
     globe = list(globechart.BODY_CHOICES) + list(globechart.NODE_CHOICES)
-    out = {("AstroClock-2D", "Time"): (["Now", "DOB"], True, ["DOB"]),
+    out = {("AstroClock-2D", "Time"): (["Now", "DOB"], True, ["Now"]),
            ("AstroClock-2D", "Planets"): (globe, True, globe),
            ("AstroClock-2D", "Major Aspects"): (GLOBE_MAJOR, True, []),
            ("AstroClock-2D", "Minor Aspects"): (GLOBE_MINOR, True, []),
            ("AstroClock-2D", "Houses"): (["Houses"], False, "Houses"),
            ("AstroClock-2D", "Rotate in 1s"): (FLAT_SPEED_CHOICES, False, None),
-           ("AstroClock-3D", "Time"): (["Now", "DOB"], True, ["DOB"]),
+           ("AstroClock-3D", "Time"): (["Now", "DOB"], True, ["Now"]),
            ("AstroClock-3D", "Planets"): (globe, True, globe),
            ("AstroClock-3D", "Planet Path"): (globe, True, ["Su"]),
            ("AstroClock-3D", "Major Aspects"): (GLOBE_MAJOR, True, []),
@@ -474,7 +474,7 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
            ("AstroClock-3D", "Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL),
            ("Geo/Helio Model", "Centric Model"): (["Geo", "Helio"], False, "Geo")}
     for model, bodies in (("Geo", globechart.BODY_CHOICES), ("Helio", space3d.HELIO_BODIES)):
-        out |= {("Geo/Helio Model", f"{model} Time"): (["Now", "DOB"], True, ["DOB"]),
+        out |= {("Geo/Helio Model", f"{model} Time"): (["Now", "DOB"], True, ["Now"]),
                 ("Geo/Helio Model", f"{model} Planets"): (list(bodies), True, list(bodies)),
                 ("Geo/Helio Model", f"{model} Planet Path"): (list(bodies), True, list(bodies)),
                 ("Geo/Helio Model", f"{model} Coordinates"): (list(space3d.SCALES), False, space3d.FIT),

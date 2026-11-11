@@ -71,13 +71,13 @@ defaults = sa.Table(
 DEFAULTS_INDEX = "ux_defaults_page_options"                   # one row per Page and Options
 sa.Index(DEFAULTS_INDEX, defaults.c.page, defaults.c.options, unique=True)
 DEFAULT_ROWS = [                                              # the app's own defaults: the rows the table starts with
-    ("AstroClock-2D", "Time", "DOB"),
+    ("AstroClock-2D", "Time", "Now"),
     ("AstroClock-2D", "Planets", "Su, Mo, Me, Ve, Ma, Ju, Sa, NN, SN"),
     ("AstroClock-2D", "Major Aspects", ""),
     ("AstroClock-2D", "Minor Aspects", ""),
     ("AstroClock-2D", "Houses", "On"),
     ("AstroClock-2D", "Rotate in 1s", ""),
-    ("AstroClock-3D", "Time", "DOB"),
+    ("AstroClock-3D", "Time", "Now"),
     ("AstroClock-3D", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
     ("AstroClock-3D", "Planet Path", "Su"),
     ("AstroClock-3D", "Major Aspects", ""),
@@ -85,13 +85,13 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("AstroClock-3D", "Coordinates", "Celes"),
     ("AstroClock-3D", "Rotate in 1s", "Manual"),
     ("Geo/Helio Model", "Centric Model", "Geo"),
-    ("Geo/Helio Model", "Geo Time", "DOB"),
+    ("Geo/Helio Model", "Geo Time", "Now"),
     ("Geo/Helio Model", "Geo Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa"),
     ("Geo/Helio Model", "Geo Planet Path", "Mo, Su, Me, Ve, Ma, Ju, Sa"),
     ("Geo/Helio Model", "Geo Coordinates", "Fit"),
     ("Geo/Helio Model", "Geo AU", "On"),
     ("Geo/Helio Model", "Geo Rotate in 1s", "Manual"),
-    ("Geo/Helio Model", "Helio Time", "DOB"),
+    ("Geo/Helio Model", "Helio Time", "Now"),
     ("Geo/Helio Model", "Helio Planets", "Mo, Ea, Me, Ve, Ma, Ju, Sa"),
     ("Geo/Helio Model", "Helio Planet Path", "Mo, Ea, Me, Ve, Ma, Ju, Sa"),
     ("Geo/Helio Model", "Helio Coordinates", "Fit"),
@@ -192,6 +192,7 @@ def engine() -> sa.Engine:
     _rename_defaults_page(eng)
     _add_defaults_index(eng)
     _seed_defaults(eng)
+    _set_time_now(eng)
     return eng
 
 
@@ -260,6 +261,21 @@ def _rename_defaults_page(eng: sa.Engine):
 
 NEW_IN_4 = (("Aspects Table", "Major Aspects"), ("Aspects Table", "Minor Aspects"), ("Planets Cycles", "Minor Aspects"))
 NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects"))
+
+
+TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio model", "geo time"), ("geo/helio model", "helio time"))
+
+
+def _set_time_now(eng: sa.Engine):
+    """Once (a note among the settings says it is done, so a Time changed since stays as it is): every page's Time row of
+    the Defaults table starts as Now."""
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "time_now_set")).scalar():
+            return
+        for page, title in TIME_ROWS:
+            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == page, sa.func.lower(defaults.c.options) == title)
+                      .values(choices="Now"))
+        c.execute(settings.insert().values(key="time_now_set", value="1"))
 
 
 def _seed_defaults(eng: sa.Engine):
