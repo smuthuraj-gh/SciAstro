@@ -45,6 +45,10 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
     [class*="dec_on_v2"], .st-key-dist_on_v2) button
   { border-radius: 50% !important; width: 28px !important; min-width: 28px !important; height: 28px !important; min-height: 28px !important;
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
+/* HelioCentric's other short buttons: circles too, wide enough for their text (Manual is too long for one) */
+:is(.st-key-helio_time, .st-key-helio_scale, .st-key-helio_au) button, .st-key-helio_speed button:not(:first-child)
+  { border-radius: 50% !important; width: 34px !important; min-width: 34px !important; height: 34px !important; min-height: 34px !important;
+    padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
 /* the button that opens the sidebar (pages, customer) is titled Menu, so it is clear what it opens */
 [data-testid="stExpandSidebarButton"] { width: auto !important; padding: 0 6px !important; gap: 4px;
   display: inline-flex !important; align-items: center; }
