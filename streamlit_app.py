@@ -213,7 +213,7 @@ def top_line(title: str, row: pd.Series | None):
         f'flex-wrap:nowrap; font-weight:600">'
         f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
-        + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("ScientificAstrology", "AstroGlobe", "Geo/Helio") else "") +   # its script writes it
+        + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("AstroClock", "AstroGlobe", "Geo/Helio") else "") +   # its script writes it
         f'</div>')
     # the slot fills the rest of the line
     TITLE_SLOT = line.container(width="stretch", horizontal=True, gap="small")
@@ -599,8 +599,8 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
     return jds, dec_on, [ea_names[e] for e in ea], minor
 
 
-def page_scientific():
-    """ScientificAstrology: the top page of the menu, for everyone: the Geo drawing in 2D, seen from above the north celestial
+def page_astroclock():
+    """AstroClock: the top page of the menu, for everyone: the Geo drawing in 2D, seen from above the north celestial
     pole, with only the 12 AU circle and an RA scale round it, 1 to 360, always on the Fit scale, an arrow from the Earth through each body out to the circle, and the twelve house lines of CB and CN (the Houses button, on to start). Its buttons, Time, Planets
     (with NN, SN: on the Moon's path, at the Moon's distance, joined by a line, 180 degrees apart) and Rotate in 1s (how fast time runs; Manual: it stands still),
     are its own, and start as Geo's."""
@@ -1074,7 +1074,7 @@ core.SIZE_TEXTS, core.SIZE_WORDS, core.SIZE_TEXTS_HELIO, core.SIZE_TEXTS_GLOBE =
 core.SYMBOL_TEXTS = db.planet_symbols()                       # and their symbols, shown in place of the SNs
 DEFAULT_TEXTS = db.defaults_map()                             # what each page's inputs start as (the Defaults table)
 core.COLOURS.update(core.DEFAULT_COLOURS | db.planet_colours())   # every chart's colours are the Symbols table's (a deleted row's, the usual one)
-pages = [st.Page(page_scientific, title="ScientificAstrology", icon=":material/science:", url_path="scientific-astrology"),
+pages = [st.Page(page_astroclock, title="AstroClock", icon=":material/science:", url_path="astroclock"),
          st.Page(page_globe, title="AstroGlobe", icon=":material/language:", url_path="astroglobe", default=True),
          st.Page(page_centric, title="Geo/Helio", icon=":material/orbit:", url_path="geo-helio"),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
