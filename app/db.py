@@ -113,6 +113,7 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("size_globe", sa.String(40)),                   # how the AstroGlobe chart sizes it: Size_Globe
     sa.Column("size", sa.String(40)),                         # how the GeoCentric chart sizes it: Size_Geo
     sa.Column("size_helio", sa.String(40)),                   # how the HelioCentric chart sizes it: Size_Helio
+    sa.Column("size_clock", sa.String(40)),                   # how the AstroClock chart sizes it: Size_Clock
 )
 # The Aspect Rules table: a row per aspect, with its orb per planet (for RA and Dec alike); pos keeps the order shown
 # (a store made when it had -De columns keeps them, unused)
@@ -169,6 +170,7 @@ def engine() -> sa.Engine:
     _add_planet_size(eng)
     _add_planet_size_helio(eng)
     _add_planet_size_globe(eng)
+    _add_planet_size_clock(eng)
     _add_planet_symbol(eng)
     _update_earth_symbol(eng)
     _set_recommended_colours(eng)
@@ -369,6 +371,16 @@ def _add_planet_size_globe(eng: sa.Engine):
         c.execute(sa.text("UPDATE naming_conventions SET size_globe = size"))
 
 
+def _add_planet_size_clock(eng: sa.Engine):
+    """A table made before Size_Clock gets it, each row as its Size_Geo (as AstroClock drew them then)."""
+    if "size_clock" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
+        return
+    kind = planets.c.size_clock.type.compile(dialect=eng.dialect)
+    with eng.begin() as c:
+        c.execute(sa.text(f"ALTER TABLE naming_conventions ADD COLUMN size_clock {kind}"))
+        c.execute(sa.text("UPDATE naming_conventions SET size_clock = size"))
+
+
 def _add_planet_symbol(eng: sa.Engine):
     """A table made before Symbol gets it, filled in for the rows that have a conventional one; others stay blank."""
     if "symbol" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
@@ -411,19 +423,20 @@ def _seed_planets(eng: sa.Engine):
             row["size"] = "Angular Size" if row["sn"] in core.PLANET_ID else None   # the Earth: as its Size says, none given
             row["size_helio"] = "Tiny" if row["sn"] == "Mo" else row["size"]         # the Moon round the Earth: a dot
             row["size_globe"] = row["size"]
+            row["size_clock"] = row["size"]
         if new:
             c.execute(planets.insert(), new)
 
 
 def all_planets() -> pd.DataFrame:
-    """The Symbols table: SN, Symbol, Name, Color, Color_Name, Size_Globe, Size (Size_Geo), Size_Helio, Sun first."""
+    """The Symbols table: SN, Symbol, Name, Color, Color_Name, Size_Globe, Size (Size_Geo), Size_Helio, Size_Clock, Sun first."""
     with engine().connect() as c:
         rows = c.execute(sa.select(planets)).mappings().all()
     order = {p: i for i, p in enumerate(PLANET_NAMES)}
     rows = sorted(rows, key=lambda r: order.get(r["sn"], len(order)))
     return pd.DataFrame([{"SN": r["sn"], "Symbol": r["symbol"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"], "Size_Globe": r["size_globe"],
-                          "Size": r["size"], "Size_Helio": r["size_helio"]}
-                         for r in rows], columns=["SN", "Symbol", "Name", "Color", "Color_Name", "Size_Globe", "Size", "Size_Helio"])
+                          "Size": r["size"], "Size_Helio": r["size_helio"], "Size_Clock": r["size_clock"]}
+                         for r in rows], columns=["SN", "Symbol", "Name", "Color", "Color_Name", "Size_Globe", "Size", "Size_Helio", "Size_Clock"])
 
 
 def planet_colours() -> dict[str, str]:
@@ -432,14 +445,15 @@ def planet_colours() -> dict[str, str]:
         return {sn: color for sn, color in c.execute(sa.select(planets.c.sn, planets.c.color)) if color}
 
 
-def planet_sizes() -> tuple[dict[str, str], dict[str, str], dict[str, str], dict[str, str]]:
+def planet_sizes() -> tuple[dict[str, str], dict[str, str], dict[str, str], dict[str, str], dict[str, str]]:
     """The Size (Size_Geo) of each row by its SN; its SN and Name, in lower case, to its SN (for "Bigger than Moon"); its
-    Size_Helio by its SN; and its Size_Globe by its SN."""
+    Size_Helio by its SN; its Size_Globe by its SN; and its Size_Clock by its SN."""
     with engine().connect() as c:
-        rows = c.execute(sa.select(planets.c.sn, planets.c.name, planets.c.size, planets.c.size_helio, planets.c.size_globe)).all()
+        rows = c.execute(sa.select(planets.c.sn, planets.c.name, planets.c.size, planets.c.size_helio, planets.c.size_globe,
+                                   planets.c.size_clock)).all()
     words = {w.strip().lower(): sn for sn, name, *_ in rows for w in (name, sn) if w}
-    return ({sn: size or "" for sn, _, size, _, _ in rows}, words, {sn: helio or "" for sn, _, _, helio, _ in rows},
-            {sn: globe or "" for sn, _, _, _, globe in rows})
+    return ({sn: size or "" for sn, _, size, *_ in rows}, words, {sn: helio or "" for sn, _, _, helio, *_ in rows},
+            {sn: globe or "" for sn, _, _, _, globe, _ in rows}, {sn: clock or "" for sn, *_, clock in rows})
 
 
 def planet_symbols() -> dict[str, str]:
@@ -462,7 +476,7 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
         sn, name, colour, kept = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
         colour_name = _cell(r["Color_Name"])
         if not (kept or sn or name or colour or colour_name or _cell(r["Size_Globe"]) or _cell(r["Size"]) or _cell(r["Size_Helio"])
-                or _cell(r["Symbol"])):
+                or _cell(r["Size_Clock"]) or _cell(r["Symbol"])):
             continue
         label = sn or kept or "New row"
         if kept and sn != kept:
@@ -481,7 +495,7 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
             out.append(f"{label}: RGB must look like rgb(0,112,192) or #0070c0")
         if len(colour_name) > 40:
             out.append(f"{label}: Color can be at most 40 characters")
-        for column, shown in (("Size_Globe", "Size_Globe"), ("Size", "Size_Geo"), ("Size_Helio", "Size_Helio")):
+        for column, shown in (("Size_Globe", "Size_Globe"), ("Size", "Size_Geo"), ("Size_Helio", "Size_Helio"), ("Size_Clock", "Size_Clock")):
             if len(_cell(r[column])) > 40:
                 out.append(f"{label}: {shown} can be at most 40 characters")
             elif not core.size_readable(_cell(r[column]), words):    # it would not change how anything is drawn
@@ -495,7 +509,7 @@ def planet_problems(rows: pd.DataFrame) -> list[str]:
 def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
     """Makes the Symbols table these rows: (added, changed, deleted)."""
     old = {r["SN"]: (_cell(r["Name"]), _cell(r["Color"]), _cell(r["Color_Name"]), _cell(r["Size_Globe"]), _cell(r["Size"]), _cell(r["Size_Helio"]),
-               _cell(r["Symbol"])) for _, r in all_planets().iterrows()}
+               _cell(r["Size_Clock"]), _cell(r["Symbol"])) for _, r in all_planets().iterrows()}
     added = changed = 0
     kept = {_cell(v) for v in rows["_sn"]} - {""}
     with engine().begin() as c:
@@ -504,14 +518,15 @@ def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
         for _, r in rows.iterrows():
             sn, name, colour, was = _cell(r["SN"]), _cell(r["Name"]), _cell(r["Color"]), _cell(r["_sn"])
             colour_name = _cell(r["Color_Name"])
-            size_globe, size, size_helio, symbol = _cell(r["Size_Globe"]), _cell(r["Size"]), _cell(r["Size_Helio"]), _cell(r["Symbol"])
+            size_globe, size, size_helio, size_clock, symbol = (_cell(r["Size_Globe"]), _cell(r["Size"]), _cell(r["Size_Helio"]),
+                                                                _cell(r["Size_Clock"]), _cell(r["Symbol"]))
             values = dict(name=name, color=colour, color_name=colour_name or None, size_globe=size_globe or None, size=size or None,
-                          size_helio=size_helio or None, symbol=symbol or None)
+                          size_helio=size_helio or None, size_clock=size_clock or None, symbol=symbol or None)
             if was:
-                if old.get(was) != (name, colour, colour_name, size_globe, size, size_helio, symbol):
+                if old.get(was) != (name, colour, colour_name, size_globe, size, size_helio, size_clock, symbol):
                     c.execute(planets.update().where(planets.c.sn == was).values(**values))
                     changed += 1
-            elif sn or name or colour or colour_name or size_globe or size or size_helio or symbol:
+            elif sn or name or colour or colour_name or size_globe or size or size_helio or size_clock or symbol:
                 c.execute(planets.insert().values(sn=sn, **values))
                 added += 1
     _seed_planets(engine())                                   # the rows that are always in the table come back if deleted

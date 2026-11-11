@@ -105,7 +105,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     moments: (Now or DOB, Julian day, UTC offset). centre: Ea (GeoCentric) or Su (HelioCentric). The drawing's size does not
     change with the paths shown. The sizes are always by how big a body looks from the Earth (the tables seen from the Earth)."""
     at = CENTRES[centre]
-    sizes = core.SIZE_TEXTS if centre == "Ea" else core.SIZE_TEXTS_HELIO      # the Size_Geo or the Size_Helio column
+    sizes = core.SIZE_TEXTS_CLOCK if flat else core.SIZE_TEXTS if centre == "Ea" else core.SIZE_TEXTS_HELIO   # the Size_Clock, Size_Geo or Size_Helio column
     reach = lambda au: _reach(au, scale, at["log_from"], at["gap"])
     paths, marks, tables, sizing = [], [], {}, {}
     outer = 0.0

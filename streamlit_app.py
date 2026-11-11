@@ -182,7 +182,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                 "Rows are sorted by Page, Options, Choices; click a column name to sort by it. Changes apply when a page is next opened (a button already changed this visit keeps its choice). Seen by admins "
                 "only, who can Insert, Update, Delete and Commit rows.",
     "Symbols": "The Symbols table: the short name (SAbr), symbol (Symb), long name (SDesc) and colour (RGB, and its name, Color) of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
-               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SAbr is unique, and stays once a row is in the table. Symb is what the pages show in place of its SAbr, the SAbr itself when blank. On AstroGlobe and GeoCentric the conventional symbols are drawn, in the row's RGB colour; anything else is shown as typed, an emoji such as the baby in its own colours. RGB is rgb(r,g,b) or #rrggbb; Color is its name in words, for reference, and may be blank. Size_Globe says how AstroGlobe draws the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; Tiny, a dot with no symbol; Small, 9 pixels; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SAbr or SDesc (Bigger than Moon); blank, as usual (a planet by its angular size, Ea a dot, the nodes and places 9 pixels). Size_Geo says the same for GeoCentric, and Size_Helio for HelioCentric (it starts as Size_Geo, with the Moon Tiny). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on GeoCentric; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
+               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SAbr is unique, and stays once a row is in the table. Symb is what the pages show in place of its SAbr, the SAbr itself when blank. On AstroGlobe and GeoCentric the conventional symbols are drawn, in the row's RGB colour; anything else is shown as typed, an emoji such as the baby in its own colours. RGB is rgb(r,g,b) or #rrggbb; Color is its name in words, for reference, and may be blank. Size_Globe says how AstroGlobe draws the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; Tiny, a dot with no symbol; Small, 9 pixels; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SAbr or SDesc (Bigger than Moon); blank, as usual (a planet by its angular size, Ea a dot, the nodes and places 9 pixels). Size_Geo says the same for GeoCentric, Size_Helio for HelioCentric (it starts as Size_Geo, with the Moon Tiny), and Size_Clock for AstroClock and its Distance(%) rows (it starts as Size_Geo). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on GeoCentric; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
     "Aspect Rules": "The orbs: for each aspect and planet, how far from exact still counts as the aspect, the same "
                        "for RA and for Declination. A pair of planets uses the larger of their two orbs. A new row's Angle, "
                        "if left blank, comes from its Aspect's name, one of Conjunction, Opposition, Square, Trine, Sextile, Semi-sextile, Semi-square, Quintile, "
@@ -958,12 +958,12 @@ def page_naming():
     # the page's names for the table's columns (the store keeps its own)
     shown_as = {"SN": "SAbr", "Symbol": "Symb", "Name": "SDesc", "Color": "RGB", "Color_Name": "Color", "Size": "Size_Geo"}   # (Size_Globe, Size_Helio as they are)
     back = {v: k for k, v in shown_as.items()}
-    table = db.all_planets().assign(_sn=lambda d: d["SN"]).rename(columns=shown_as)[["Symb", "SAbr", "SDesc", "RGB", "Color", "Size_Globe", "Size_Geo", "Size_Helio", "_sn"]]
+    table = db.all_planets().assign(_sn=lambda d: d["SN"]).rename(columns=shown_as)[["Symb", "SAbr", "SDesc", "RGB", "Color", "Size_Globe", "Size_Geo", "Size_Helio", "Size_Clock", "_sn"]]
     crud_table("planets_table", table, lambda rows: db.planet_problems(rows.rename(columns=back)),
                lambda rows: "Committed: {} added, {} changed, {} deleted.".format(*db.save_planets(rows.rename(columns=back))),
-               height=28 * (len(st.session_state.get("planets_table_working", table)) + 1) + 3,   # every row in view
+               height=30 * (len(st.session_state.get("planets_table_working", table)) + 1) + 24,   # every row in view, above the scroll bar
                column_config={"_sn": None, "Symb": st.column_config.TextColumn(width="small"), "SDesc": st.column_config.TextColumn(width=135),
-                              "RGB": st.column_config.TextColumn(width=118), "Size_Globe": st.column_config.TextColumn(width=112), "Size_Geo": st.column_config.TextColumn(width=112), "Size_Helio": st.column_config.TextColumn(width=112)}, width="content")
+                              "RGB": st.column_config.TextColumn(width=118), "Size_Globe": st.column_config.TextColumn(width=112), "Size_Geo": st.column_config.TextColumn(width=112), "Size_Helio": st.column_config.TextColumn(width=112), "Size_Clock": st.column_config.TextColumn(width=112)}, width="content")
 
 
 def page_aspects():
@@ -1097,7 +1097,7 @@ def page_my_details():
         details_form(row)
 
 
-core.SIZE_TEXTS, core.SIZE_WORDS, core.SIZE_TEXTS_HELIO, core.SIZE_TEXTS_GLOBE = db.planet_sizes()   # and their sizes
+core.SIZE_TEXTS, core.SIZE_WORDS, core.SIZE_TEXTS_HELIO, core.SIZE_TEXTS_GLOBE, core.SIZE_TEXTS_CLOCK = db.planet_sizes()   # and their sizes
 core.SYMBOL_TEXTS = db.planet_symbols()                       # and their symbols, shown in place of the SNs
 DEFAULT_TEXTS = db.defaults_map()                             # what each page's inputs start as (the Defaults table)
 core.COLOURS.update(core.DEFAULT_COLOURS | db.planet_colours())   # every chart's colours are the Symbols table's (a deleted row's, the usual one)
