@@ -121,7 +121,7 @@ SYMBOL_JS = r"""
   const drawShape = (parent, name, colour, width) => {   // as the Symbol column says: a shape in its colour, or a text
     const s = D.shapes[name];
     if (s.d) return make("path", parent, {d: s.d, fill: "none", stroke: colour, "stroke-width": width, "stroke-linecap": "round", "stroke-linejoin": "round"});
-    const text = make("text", parent, {x: 0, y: 3.5, "text-anchor": "middle", "font-size": D.font, "font-weight": "bold", "font-family": D.family, fill: colour});
+    const text = make("text", parent, {x: 0, y: D.font * 0.35, "text-anchor": "middle", "font-size": D.font, "font-weight": "bold", "font-family": D.family, fill: colour});
     text.textContent = s.text;
     return text;
   };
