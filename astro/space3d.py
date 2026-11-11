@@ -309,9 +309,10 @@ __SYMBOL_JS__
   });
   const DIST_X = DEC_X + 130;                      // flat: the Distance(%) graph's line, to the right of the Declination graph
   const distY = (pct) => D.height / 2 + D.outer * D.fit * (2 * (100 - pct) / 100 - 1);
-  const distMarks = (D.flat ? D.marks.filter((m) => m.clock === "DOB" && D.dist_range[m.name]) : []).map((m) => {   // each planet at DOB on it
+  const distMarks = (D.flat ? D.marks.filter((m) => D.dist_range[m.name]) : []).map((m) => {   // each planet on it: DOB to its left, Now to its right
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
-    const e = make("circle", svg, {fill: m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
+    if (m.hollow) lead.setAttribute("stroke-dasharray", "3 2");
+    const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow)};
   });
   const marks = D.marks.map((m) => {
@@ -363,11 +364,11 @@ __SYMBOL_JS__
       distTicks += "M" + DIST_X + " " + y + "L" + (DIST_X + long) + " " + y;
       if (v % 10 === 0) {
         const n = words("rgb(90,90,90)", D.flat_font);
-        n.setAttribute("x", DIST_X + 32); n.setAttribute("y", (distY(v) + D.flat_font / 3).toFixed(1)); n.textContent = v;
+        n.setAttribute("x", DIST_X + 72); n.setAttribute("y", (distY(v) + D.flat_font / 3).toFixed(1)); n.textContent = v;   // (beyond the Now planets)
       }
     }
     const distScale = make("path", svg, {d: "M" + DIST_X + " " + distY(100).toFixed(1) + "V" + distY(0).toFixed(1) + distTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
-    make("title", distScale).textContent = "Distance(%) from earth (DOB), 0 nearest to 100 farthest";
+    make("title", distScale).textContent = "Distance(%) from earth, 0 nearest to 100 farthest: DOB to the left, Now to the right";
     const distTag = words("rgb(90,90,90)");
     distTag.setAttribute("x", DIST_X); distTag.setAttribute("y", (cy + R + 56).toFixed(1)); distTag.textContent = "Distance(%)";
   }
@@ -496,7 +497,7 @@ __SYMBOL_JS__
     // the Distance(%) graph, the same way: marks at the same distance overlap
     distMarks.forEach((g) => {
       const s = posAt(g.m.clock, g.m.name, t).s, r = radiusAt(g.m.rule, sizing(g.m.clock), t), [lo, hi] = D.dist_range[g.m.name];
-      const pct = Math.max(0, Math.min(100, (s.dist - lo) / (hi - lo) * 100)), y = distY(pct), x = DIST_X - DEC_LEAD;
+      const pct = Math.max(0, Math.min(100, (s.dist - lo) / (hi - lo) * 100)), y = distY(pct), x = DIST_X + (g.m.hollow ? DEC_LEAD : -DEC_LEAD);
       g.e.setAttribute("r", r.toFixed(1));
       g.lead.setAttribute("d", "M" + x.toFixed(1) + " " + y.toFixed(1) + "H" + DIST_X);
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
