@@ -317,6 +317,8 @@ __SYMBOL_JS__
     }
     const scale = make("path", svg, {d: ticks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
     make("title", scale).textContent = "RA, 1 to 360 degrees";
+    const tag = words("rgb(90,90,90)");            // what the scale is, below the clock
+    tag.setAttribute("x", cx); tag.setAttribute("y", (cy + R + 56).toFixed(1)); tag.textContent = "RA";
   }
   const clear = (a, taken) => taken.every((b) => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
   const inside = (a) => a[0] > 0 && a[1] > 0 && a[2] < D.width && a[3] < D.height;
