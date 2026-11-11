@@ -47,15 +47,14 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
     [class*="dec_on_v2"], .st-key-dist_on_v2) button
   { border-radius: 50% !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important;
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
-/* the other short buttons, on every page: circles too, each as small as its text allows (longer names stay small pills) */
-:is(.st-key-helio_time, .st-key-helio_scale, .st-key-helio_au, .st-key-space_time, .st-key-space_scale, .st-key-space_au, .st-key-sci_time,
-    .st-key-globe_Now, .st-key-globe_DOB, .st-key-globe_major, .st-key-globe_minor, [class*="ea_on_v5"]) button,
-:is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child)
+/* the other short buttons, on every page: circles too, each as small as its text allows (Now, DOB, 1mo and longer names stay small pills) */
+:is(.st-key-helio_scale, .st-key-helio_au, .st-key-space_scale, .st-key-space_au, .st-key-globe_major, .st-key-globe_minor, [class*="ea_on_v5"]) button,
+:is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child):not(:nth-child(7))
   { border-radius: 50% !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important;
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
-:is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:nth-child(7), :is(.st-key-globe_major, .st-key-globe_minor) button
+:is(.st-key-globe_major, .st-key-globe_minor) button
   { width: 28px !important; min-width: 28px !important; height: 28px !important; min-height: 28px !important; }
-:is(.st-key-helio_time, .st-key-helio_scale, .st-key-space_time, .st-key-space_scale, .st-key-sci_time, .st-key-globe_Now, .st-key-globe_DOB, [class*="ea_on_v5"]) button
+:is(.st-key-helio_scale, .st-key-space_scale, [class*="ea_on_v5"]) button
   { width: 32px !important; min-width: 32px !important; height: 32px !important; min-height: 32px !important; }
 /* the rest of the short buttons: circles wide enough for their names */
 :is(.st-key-centric_model, .st-key-globe_coords_RA, .st-key-globe_coords_Lati) button
