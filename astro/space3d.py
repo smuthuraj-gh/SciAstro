@@ -40,7 +40,7 @@ FLAT_RING_AU = 12.0
 OUTER_RING_AU = 20.0              # Geo and Helio: a circle beyond the planets, with the AU button
 FLAT_RADIUS = 360.0               # pixels from the Earth to that circle
 FLAT_FONT = 9                     # the RA numbers, in pixels
-FLAT_DEC = (30.0, -31.0)          # the Declination graph left of the circle, as tall as it: its top and bottom, in degrees
+FLAT_DEC = (31.0, -31.0)          # the Declination graph left of the circle, as tall as it: its top and bottom, in degrees
 
 # HelioCentric: the Sun at the centre, the planets and the Earth round it, and the Moon round the Earth (seen from the Sun it is
 # where the Earth is, so it is drawn round the Earth's mark, larger than to scale: in its real direction from the Earth, at
@@ -348,7 +348,7 @@ __SYMBOL_JS__
     for (let v = D.flat_dec[1]; v !== D.flat_dec[0] + 1; v++) {
       const long = v === 0 ? 14 : v % 5 === 0 ? 8 : 4, y = decY(v).toFixed(1);
       decTicks += "M" + DEC_X + " " + y + "L" + (DEC_X + long) + " " + y;
-      if (v % 5 === 0 || v === D.flat_dec[1]) {
+      if (v % 5 === 0 || v === D.flat_dec[0] || v === D.flat_dec[1]) {
         const n = words("rgb(90,90,90)", D.flat_font);
         n.setAttribute("x", DEC_X + 32); n.setAttribute("y", (decY(v) + D.flat_font / 3).toFixed(1)); n.textContent = (v > 0 ? "+" : "") + v;
       }
