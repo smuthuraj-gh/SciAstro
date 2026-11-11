@@ -279,7 +279,8 @@ __SYMBOL_JS__
   const rays = (D.flat ? D.marks : []).map((m) => {
     const e = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1, style: "pointer-events:stroke"});
     if (m.hollow) e.setAttribute("stroke-dasharray", "6 4");
-    return {m, e, tip: make("title", e)};
+    const head = make("path", svg, {fill: m.colour, stroke: "none"});   // its arrow head, the tip just touching the circle
+    return {m, e, head, tip: make("title", e)};
   });
   if (D.flat) {                                    // the Earth and the circle's tag stay on top of the lines
     svg.appendChild(earth); svg.appendChild(earthLabel);
@@ -425,7 +426,9 @@ __SYMBOL_JS__
     }).sort((a, b) => a.z - b.z);
     rays.forEach((g) => {
       const q = placed.find((p) => p.g.m === g.m), R = D.outer * D.fit, a = q.ra * RAD;
-      g.e.setAttribute("d", "M" + D.width / 2 + " " + D.height / 2 + "L" + (D.width / 2 + R * Math.cos(a)).toFixed(1) + " " + (D.height / 2 - R * Math.sin(a)).toFixed(1));
+      const at = (r, side) => (D.width / 2 + r * Math.cos(a) - side * Math.sin(a)).toFixed(1) + " " + (D.height / 2 - r * Math.sin(a) - side * Math.cos(a)).toFixed(1);
+      g.e.setAttribute("d", "M" + at(0, 0) + "L" + at(R - 8, 0));          // to the arrow head's base
+      g.head.setAttribute("d", "M" + at(R, 0) + "L" + at(R - 10, 4) + "L" + at(R - 10, -4) + "Z");
       g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + ": RA " + q.ra.toFixed(2);
     });
     nodeLines.forEach((g) => {

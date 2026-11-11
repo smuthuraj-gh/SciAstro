@@ -601,7 +601,7 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
 
 def page_scientific():
     """ScientificAstrology: the top page of the menu, for everyone: the Geo drawing in 2D, seen from above the north celestial
-    pole, with only the 12 AU circle and an RA scale round it, 1 to 360, always on the Fit scale, and a line from the Earth through each body out to the circle. Its buttons, Time, Planets
+    pole, with only the 12 AU circle and an RA scale round it, 1 to 360, always on the Fit scale, and an arrow from the Earth through each body out to the circle. Its buttons, Time, Planets
     (with NN, SN: on the Moon's path, at the Moon's distance, joined by a line, 180 degrees apart) and Rotate in 1s (how fast time runs; Manual: it stands still),
     are its own, and start as Geo's."""
     _, prep = pick_customer()
