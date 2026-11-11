@@ -21,19 +21,19 @@ from astro import core, distancechart, globechart, mapchart, places, rangechart,
 # wide pages, the sidebar (menu, customer) starting closed so the charts get the whole window; » opens it
 st.set_page_config(page_title="Equatorial charts", page_icon=":material/public:", layout="wide",
                    initial_sidebar_state="collapsed")
-# all text on all pages is 13 px: the theme (.streamlit/config.toml) sets body text and headings; this also brings
-# Streamlit's smaller text (captions, buttons, labels, menus, tooltips) up to 13 px. Icons keep their own size.
+# all text on all pages is 10 px (the most allowed; the least is 8): the theme (.streamlit/config.toml) sets body text and
+# headings; this also brings Streamlit's other text (captions, buttons, labels, menus, tooltips) to 10 px. Icons keep their own size.
 st.html("""<style>
 .stApp :is(p, span, div, label, small, a, li, input, textarea, button, td, th, code, h1, h2, h3, h4, h5, h6):not([data-testid="stIconMaterial"]),
 [data-baseweb="popover"] :is(p, span, div, li):not([data-testid="stIconMaterial"]),
 [role="dialog"] :is(p, span, div, li, h1, h2, h3, button):not([data-testid="stIconMaterial"]),
-[data-testid="stTooltipContent"] * { font-size: 13px !important; }
+[data-testid="stTooltipContent"] * { font-size: 10px !important; }
 /* an editable table's cell editor opens outside the table: it undoes the page's zoom, as the table does, to open on its cell */
 #portal { zoom: calc(1 / var(--app-zoom, 1)); }
 /* a pulldown list is placed by screen position outside the page, so the page's zoom would move it again and off its box:
    its holder undoes the zoom, and its text is sized to match the page's */
 body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / var(--app-zoom, 1)); }
-[data-testid="stSelectboxVirtualDropdown"] * { font-size: calc(13px * var(--app-zoom, 1)) !important; }
+[data-testid="stSelectboxVirtualDropdown"] * { font-size: calc(10px * var(--app-zoom, 1)) !important; }
 /* one set of shapes on every page, all 24px high: a word is a small pill; a planet, an angle or a speed is a small circle */
 [data-testid="stButtonGroup"] button { padding: 0 7px !important; height: 24px !important; min-height: 24px !important; border-radius: 12px !important; }
 /* AstroClock-3D's lists: two a line, the last alone not stretched across */
@@ -47,24 +47,18 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 :is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child)
   { border-radius: 50% !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important;
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
-/* angles and speeds in a smaller type, so that 120 and 1mo fit the same circle as 0 and 1s */
-:is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button p,
-:is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child) p
-  { font-size: 11px !important; }
 /* every action button (Insert, Commit, Delete, Yes, Sign out ..): the same small pill */
 :is([data-testid="stBaseButton-primary"], [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-primaryFormSubmit"], [data-testid="stBaseButton-secondaryFormSubmit"])
   { padding: 0 7px !important; height: 24px !important; min-height: 24px !important; border-radius: 12px !important; }
-:is([data-testid="stBaseButton-primary"], [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-primaryFormSubmit"], [data-testid="stBaseButton-secondaryFormSubmit"]) p
-  { font-size: 13px !important; }
 /* the button that opens the sidebar (pages, customer) is titled Menu, so it is clear what it opens */
 [data-testid="stExpandSidebarButton"] { width: auto !important; padding: 0 6px !important; gap: 4px;
   display: inline-flex !important; align-items: center; }
-[data-testid="stExpandSidebarButton"]::after { content: "Menu"; font-size: 13px; font-weight: 600;
+[data-testid="stExpandSidebarButton"]::after { content: "Menu"; font-size: 10px; font-weight: 600;
   color: rgba(47, 45, 43, 0.8); white-space: nowrap; }
 </style>""")
 # Everything (text, buttons, tables, charts, map) resizes with the window, as one picture: the whole app is zoomed so
 # that the page's content column is always WIDTH (1100) px before zooming, the width the charts are laid out at. So the
-# charts are never scaled on their own and all text, chart text too, is always the same size (13 px x the zoom).
+# charts are never scaled on their own and all text, chart text too, is always the same size (10 px x the zoom).
 st.html("""<script>
 (() => {
   if (window.__appZoom) { window.__appZoom(); return; }

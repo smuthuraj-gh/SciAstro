@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 
 from . import core
 
-FONT = 13                         # all text on all pages, charts too (pixels)
+FONT = 10                         # all text on all pages, charts too (pixels; the most allowed, the least is 8)
 ROW = round(FONT * 1.3)           # pixels per line of text (Plotly's line height)
 TEXT_H = ROW + 1                  # the height Plotly gives a line of text (its box, with padding)
 # The charts have a fixed width, so every label's place is known in pixels and can be kept clear of the others
@@ -139,7 +139,7 @@ def _marker_svg(name: str, pcts: dict, shape: dict) -> str:
     ink = _ink_on(colour)
     inside = (f'<path d="{shape["d"]}" fill="none" stroke="{ink}" stroke-width="{1.5 / k:.2f}" stroke-linecap="round" stroke-linejoin="round"/>'
               if "d" in shape else
-              f'<text y="4.5" text-anchor="middle" font-size="13" font-weight="bold" fill="{ink}">{html.escape(shape["text"])}</text>')
+              f'<text y="3.5" text-anchor="middle" font-size="{FONT}" font-weight="bold" fill="{ink}">{html.escape(shape["text"])}</text>')
     return (f'<svg width="{2 * half:.1f}" height="{2 * half:.1f}" viewBox="{-half:.1f} {-half:.1f} {2 * half:.1f} {2 * half:.1f}" style="display:block">'
             f'<circle r="{r:.1f}" fill="{colour}"/><g transform="scale({k:.3f})">{inside}</g></svg>')
 
