@@ -57,6 +57,13 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
   { width: 28px !important; min-width: 28px !important; height: 28px !important; min-height: 28px !important; }
 :is(.st-key-helio_time, .st-key-helio_scale, .st-key-space_time, .st-key-space_scale, .st-key-sci_time, .st-key-globe_Now, .st-key-globe_DOB, [class*="ea_on_v5"]) button
   { width: 32px !important; min-width: 32px !important; height: 32px !important; min-height: 32px !important; }
+/* the rest of the short buttons: circles wide enough for their names */
+:is(.st-key-centric_model, .st-key-globe_coords_RA, .st-key-globe_coords_Lati) button
+  { border-radius: 50% !important; width: 38px !important; min-width: 38px !important; height: 38px !important; min-height: 38px !important;
+    padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
+/* every action button (Insert, Commit, Delete, Yes, Sign out ..): a small pill */
+:is([data-testid="stBaseButton-primary"], [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-primaryFormSubmit"], [data-testid="stBaseButton-secondaryFormSubmit"])
+  { padding: 0 10px !important; height: 24px !important; min-height: 24px !important; border-radius: 12px !important; }
 /* the button that opens the sidebar (pages, customer) is titled Menu, so it is clear what it opens */
 [data-testid="stExpandSidebarButton"] { width: auto !important; padding: 0 6px !important; gap: 4px;
   display: inline-flex !important; align-items: center; }
