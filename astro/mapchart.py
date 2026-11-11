@@ -127,5 +127,5 @@ CHART_TEXT = "#444"                                              # Plotly's text
 
 
 def average_values(d_birth: dict, d_now: dict) -> dict:
-    """Each planet's Distance(%) from earth (Ave.): the average of D at birth and D-N now."""
+    """Each planet's Distance(%) from earth (Ave): the average of D at birth and D-N now."""
     return {n: round((d_birth[n] + d_now[n]) / 2, 2) for n in core.PLANETS if d_birth.get(n) is not None and d_now.get(n) is not None}

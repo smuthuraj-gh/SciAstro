@@ -308,7 +308,7 @@ __SYMBOL_JS__
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow)};
   });
-  const DIST_X = D.width - 46, DIST_NOW = 52, DIST_AVE = 82;   // flat: the Distance(%) graph's line, right of the circle; how far right of it Now's planets stand (beyond its numbers), and how far left the Ave. planets (beyond DOB's)
+  const DIST_X = D.width - 46, DIST_NOW = 52, DIST_AVE = 82;   // flat: the Distance(%) graph's line, right of the circle; how far right of it Now's planets stand (beyond its numbers), and how far left the Ave planets (beyond DOB's)
   const distY = (pct) => D.height / 2 + D.outer * D.fit * (2 * (100 - pct) / 100 - 1);
   const distMarks = (D.flat ? D.marks.filter((m) => D.dist_range[m.name]) : []).map((m) => {   // each planet on it: DOB to its left, Now to its right
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
@@ -316,7 +316,7 @@ __SYMBOL_JS__
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow)};
   });
-  const aveMarks = (D.flat ? D.ave_marks : []).map((m) => {   // each planet's Ave. average on it, which stays put as time runs
+  const aveMarks = (D.flat ? D.ave_marks : []).map((m) => {   // each planet's Ave average on it, which stays put as time runs
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1, "stroke-dasharray": "1 2"});
     const e = make("circle", svg, {fill: m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, false)};
@@ -374,10 +374,10 @@ __SYMBOL_JS__
       }
     }
     const distScale = make("path", svg, {d: "M" + DIST_X + " " + distY(100).toFixed(1) + "V" + distY(0).toFixed(1) + distTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
-    make("title", distScale).textContent = "Distance(%) from earth, 0 nearest to 100 farthest: Ave. and DOB to the left, Now to the right";
+    make("title", distScale).textContent = "Distance(%) from earth, 0 nearest to 100 farthest: Ave and DOB to the left, Now to the right";
     const distTag = words("rgb(90,90,90)");
     distTag.setAttribute("x", DIST_X); distTag.setAttribute("y", (cy + R + 56).toFixed(1)); distTag.textContent = "Distance(%)";
-    [["Ave.", DIST_X - DIST_AVE], ["DOB", DIST_X - DEC_LEAD], ["Now", DIST_X + DIST_NOW]].forEach(([name, x]) => {   // which side is which, above that tag
+    [["Ave", DIST_X - DIST_AVE], ["DOB", DIST_X - DEC_LEAD], ["Now", DIST_X + DIST_NOW]].forEach(([name, x]) => {   // which side is which, above that tag
       const side = words("rgb(90,90,90)");
       side.setAttribute("x", x); side.setAttribute("y", (cy + R + 39).toFixed(1)); side.textContent = name;
     });
@@ -520,7 +520,7 @@ __SYMBOL_JS__
       g.lead.setAttribute("d", "M" + x.toFixed(1) + " " + y.toFixed(1) + "H" + DIST_X);
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
       fitSymbol(g.label, x, y, g.m.r);
-      g.tip.textContent = symbolOf(g.m.name) + " Ave.\nDistance(%) from earth: " + g.m.pct.toFixed(1);
+      g.tip.textContent = symbolOf(g.m.name) + " Ave\nDistance(%) from earth: " + g.m.pct.toFixed(1);
     });
     rays.forEach((g) => {
       const q = placed.find((p) => p.g.m === g.m), R = D.outer * D.fit, a = q.ra * RAD;

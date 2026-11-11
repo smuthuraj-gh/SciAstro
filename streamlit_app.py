@@ -183,7 +183,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
                       "them are in a chosen major or minor aspect. A tag with no room is left off: point at "
                       "its dot to see it. Dates and times are UT.",
-    "AstroClock-2D": "Left of the clock, Dec: each planet's Declination on a scale from +31 to -31 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at Ave. (the average, which stays put as time runs) and at DOB to the left of its line, and at Now to the right.",
+    "AstroClock-2D": "Left of the clock, Dec: each planet's Declination on a scale from +31 to -31 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at Ave (the average, which stays put as time runs) and at DOB to the left of its line, and at Now to the right.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
@@ -770,7 +770,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (not flat)
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
     averages = None
-    if flat:                                                  # AstroClock-2D: the Ave. planets on its Distance(%) graph
+    if flat:                                                  # AstroClock-2D: the Ave planets on its Distance(%) graph
         averages = mapchart.average_values(prep.d_birth, now_values(core.now_jd())[1])
     if not shown or not bodies:
         st.info("Choose a time and at least one planet.")
