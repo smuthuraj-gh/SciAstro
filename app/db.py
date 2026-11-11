@@ -189,7 +189,7 @@ def _rename_logins_operation(eng: sa.Engine):
 
 
 def _rename_defaults_options(eng: sa.Engine):
-    """A Defaults table made with Page, Options, Options gets the names Page, Options, Choices: its options column is
+    """A Defaults table made with Page, Title, Options gets the names Page, Options, Choices: its options column is
     renamed choices, then its title column options (rows kept)."""
     if not sa.inspect(eng).has_table("defaults"):
         return
@@ -236,7 +236,7 @@ def defaults_map() -> dict[tuple[str, str], str]:
 
 
 def defaults_problems(rows: pd.DataFrame) -> list[str]:
-    """What is wrong with the Defaults rows: each needs a Page and a Options (at most 60 characters), one row per Page and
+    """What is wrong with the Defaults rows: each needs a Page and Options (at most 60 characters), one row per Page and
     Options, and Choices of at most 500 characters. A wholly empty row does not count."""
     out, seen = [], set()
     for _, r in rows.iterrows():
@@ -514,6 +514,7 @@ def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
             elif sn or name or colour or colour_name or size_globe or size or size_helio or symbol:
                 c.execute(planets.insert().values(sn=sn, **values))
                 added += 1
+    _seed_planets(engine())                                   # the rows that are always in the table come back if deleted
     return added, changed, len(set(old) - kept)
 
 
@@ -645,6 +646,7 @@ def _clean(rec: dict) -> dict:
 
 
 BIRTH_FIELDS = ("year", "mon", "day", "hr", "mn", "country", "state", "city")   # the UTC offset depends on these
+BIRTH_YEARS = (1800, 2399)                                     # what the ephemeris files and the date boxes cover
 REQUIRED = {"email": "Email (login)", "name": "First Name", "last_name": "Last Name", "country": "Country",
             "state": "State", "city": "City", "country_n": "Country-N", "state_n": "State-N", "city_n": "City-N"}
 # (and the birth date and time: Year, Mon, Date, Hr24, Min)
@@ -660,8 +662,9 @@ def missing_required(df: pd.DataFrame) -> list[str]:
         lacks = [label for f, label in REQUIRED.items() if not data.get(f)]
         try:
             from datetime import date
-            date(data["year"], data["mon"], data["day"])
-        except (TypeError, ValueError):
+            if not BIRTH_YEARS[0] <= date(data["year"], data["mon"], data["day"]).year <= BIRTH_YEARS[1]:
+                lacks.append(f"Birth date (the year must be from {BIRTH_YEARS[0]} to {BIRTH_YEARS[1]})")
+        except (TypeError, ValueError, OverflowError):
             lacks.append("Birth date")
         if data.get("hr") is None or not 0 <= data["hr"] <= 23:     # the birth time: Hr24 0-23, Min 0-59
             lacks.append("Hr24")

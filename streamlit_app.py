@@ -1,7 +1,7 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
-Pages: AstroGlobe, Geo/Helio, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only); Aspect Rules,
-Customers and Symbols for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
+Pages: AstroClock, AstroGlobe, Geo/Helio, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only);
+Aspect Rules, Customers, Symbols, Defaults and Logins for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 /* AstroGlobe's speed buttons, as small as their text allows */
 .st-key-globe_speed button, .st-key-space_speed button { padding-left: 4px !important; padding-right: 4px !important; }
 /* every planet button (Planets, Planet Path), on every page: a circle round its symbol */
-:is(.st-key-globe_bodies, .st-key-globe_paths, .st-key-space_bodies, .st-key-space_paths, .st-key-helio_bodies, .st-key-helio_paths,
+:is(.st-key-sci_bodies, .st-key-globe_bodies, .st-key-globe_paths, .st-key-space_bodies, .st-key-space_paths, .st-key-helio_bodies, .st-key-helio_paths,
     [class*="dec_on_v2"], .st-key-dist_on_v2) button
   { border-radius: 50% !important; width: 28px !important; min-width: 28px !important; height: 28px !important; min-height: 28px !important;
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
@@ -86,6 +86,14 @@ st.html("""<script>
                        '{ height: calc(100dvh / var(--app-zoom, 1)) !important; ' +
                        'max-height: calc(100dvh / var(--app-zoom, 1)) !important; }';
     }
+    // a table undoes the page's zoom, so it is drawn taller or shorter than the room the page keeps for it: the room is set
+    // to what is drawn, so that nothing below it is covered
+    const now = parseFloat(root.style.zoom) || 1;
+    document.querySelectorAll('[data-testid="stDataFrame"]').forEach((table) => {
+      const room = table.closest('[data-testid="stElementContainer"]');
+      const drawn = Math.max(0, ...[...table.querySelectorAll("canvas")].map((c) => c.getBoundingClientRect().height));
+      if (room && Math.abs((parseFloat(room.style.minHeight) || 0) - drawn / now) > 1) room.style.minHeight = (drawn / now) + "px";
+    });
   }
   window.__appZoom = zoom;
   window.addEventListener("resize", zoom);
@@ -307,6 +315,8 @@ def details_form(row: pd.Series | None):
             born0 = datetime(int(val("year")), int(val("mon")), int(val("day"))).date()
         except ValueError:
             pass
+        if born0 and not datetime(1800, 1, 1).date() <= born0 <= datetime.now().date():
+            born0 = None                                      # outside what the date box allows: to be typed again
     if row is not None and val("hr") is not None:
         at0 = f"{int(val('hr')):02d}:{int(val('mn') or 0):02d}"
     with st.form("member_details" if row is None else "edit_details"):
@@ -448,7 +458,7 @@ def read_options(choices, multi: bool, text: str):
     if choices == END:
         if _word(text) == "now":
             return "Now", []
-        m = re.fullmatch(r"(?i)\s*(?:start(?:\s*date)?(?:\s*\(ut\))?)?\s*\+?\s*(.*?)\s*", text)
+        m = re.fullmatch(r"(?is)\s*(?:start(?:\s*date)?(?:\s*\(ut\))?)?\s*\+?\s*(.*?)\s*", text)
         months = days = 0
         parts = re.findall(r"(?i)(\d+)\s*(years?|yrs?|y|months?|mons?|mo|weeks?|wks?|w|days?|d)\b", m[1])
         if not parts or re.sub(r"(?i)(\d+)\s*(years?|yrs?|y|months?|mons?|mo|weeks?|wks?|w|days?|d)\b|,|and", "", m[1]).strip():
@@ -505,7 +515,7 @@ def options_problems(rows: pd.DataFrame) -> list[str]:
     inputs = {(p.lower(), t.lower()): (p, t, spec) for (p, t), spec in default_inputs().items()}
     out = []
     for _, r in rows.iterrows():
-        page, title = str(r["Page"] or "").strip(), str(r["Options"] or "").strip()
+        page, title = db._cell(r["Page"]), db._cell(r["Options"])
         if not (page and title):
             continue                                          # (said by db.defaults_problems)
         known = inputs.get((page.lower(), title.lower()))
@@ -513,7 +523,7 @@ def options_problems(rows: pd.DataFrame) -> list[str]:
             out.append(f"{page} / {title}: no page has that input")
             continue
         choices, multi, _ = known[2]
-        _, wrong = read_options(choices, multi, "" if pd.isna(r["Choices"]) else str(r["Choices"]))
+        _, wrong = read_options(choices, multi, db._cell(r["Choices"]))
         if wrong:
             if choices == START:
                 hint = "DOB or Now"
@@ -545,8 +555,9 @@ def period(prep: Prepared, row=None, page: str = "") -> tuple[float, float] | No
     c = [row] * 4 if row is not None else st.columns(4)
     dw, tw = (125, 80) if row is not None else ("stretch", "stretch")
     start0 = now_dt if default_choice(page, "Start Date (UT)") == "Now" else birth_dt
+    start0 = min(max(start0, datetime(1800, 1, 1)), datetime(2399, 12, 31))   # (the dates allowed)
     d0 = c[0].date_input("Start Date (UT)", value=start0.date(), min_value=datetime(1800, 1, 1),
-                         max_value=datetime(2399, 12, 31), width=dw, key=f"start_date_{page}_{start0.date()}")
+                         max_value=datetime(2399, 12, 31), width=dw, key=f"start_date_{page}_{prep.jd_birth}_{start0.date()}")
     t0 = c[1].time_input("Time (UT)", key=f"start_time_{page}_{prep.jd_birth}_{start0 is now_dt}",
                          value=time(start0.hour, start0.minute), width=tw)
     after = default_choice(page, "End Date (UT)")             # (months, days) after the Start, or "Now"
@@ -890,7 +901,9 @@ def page_logins():
     table = db.logins_table()
     view = table.copy()
     view.insert(0, "Del", False)
-    edited = st.data_editor(view, hide_index=True, width="content", num_rows="fixed", key=f"logins_table_{len(table)}",
+    # (ticks are kept by row position: a new key when the rows move, so that a tick cannot land on another row)
+    edited = st.data_editor(view, hide_index=True, width="content", num_rows="fixed",
+                            key=f"logins_table_{len(table)}_{table['Id'].iloc[0] if len(table) else 0}",
                             height="auto" if len(table) <= 18 else 700, disabled=["Email", "Activity", "Date_Time"],
                             column_config={"Del": st.column_config.CheckboxColumn("Del", width="small", help="Tick, then press Delete."),
                                            "Id": None, "Email": st.column_config.TextColumn(width=260),
@@ -911,6 +924,9 @@ def page_logins():
     elif pressed == "Delete all":
         st.session_state["logins_ask"] = "all"
     ask = st.session_state.get("logins_ask")
+    if ask and ask != "all" and ask != ticked:                # the ticks changed since: the question no longer fits them
+        st.session_state.pop("logins_ask", None)
+        ask = None
     if ask:
         what = "every row of the Logins table" if ask == "all" else f"{len(ask)} row(s)"
         st.warning(f"Delete {what} for good? This cannot be undone.")
@@ -963,15 +979,24 @@ def page_aspects():
                column_config={"_angle": None, "Angle": st.column_config.NumberColumn("Angle", format="%g", width="small"),   # a new row's, if blank, from its Aspect's name
                               **{c: st.column_config.NumberColumn(core.with_symbols(c.removesuffix("-RA"))) for c in db.ORB_COLUMNS}})   # ☽︎, ☉︎ ..
     if st.button("Reset to defaults"):
-        db.save_orb_table(core.default_orb_table())
-        st.session_state.pop("orb_editor_working", None)
-        st.session_state.pop("orb_editor_base", None)
-        st.session_state.pop("orb_editor", None)
-        st.cache_data.clear()
-        st.rerun()
+        st.session_state["orb_reset_ask"] = True
+    if st.session_state.get("orb_reset_ask"):
+        st.warning("Put every orb back to its default for good? This cannot be undone.")
+        yes, no = st.columns(2, width=220)
+        if yes.button("Yes, reset", type="primary", key="orb_reset_yes"):
+            db.save_orb_table(core.default_orb_table())
+            for name in ("orb_reset_ask", "orb_editor_working", "orb_editor_base", "orb_editor"):
+                st.session_state.pop(name, None)
+            st.cache_data.clear()
+            st.rerun()
+        if no.button("No", key="orb_reset_no"):
+            st.session_state.pop("orb_reset_ask", None)
+            st.rerun()
 
 
 def page_customers():
+    if not user.is_admin:                                     # admins only (not in a user's menu either)
+        st.stop()
     if db.is_local_sqlite() and not auth._secret("dev_user"):
         st.warning("Saved in a local SQLite file. On Streamlit Community Cloud that file is lost on every restart: "
                    "set the secret db_url to a hosted Postgres database (see README).")
@@ -1008,8 +1033,9 @@ def page_customers():
                                 "Min": st.column_config.NumberColumn("Min *", help="Birth time, minute 0-59: required.",
                                                                      format="%d", step=1, min_value=0, max_value=59,
                                                                      width="small"),
-                                "Year": st.column_config.NumberColumn("Year *", help="Birth date: required.",
-                                                                      format="%d", step=1, width="small"),
+                                "Year": st.column_config.NumberColumn("Year *", help="Birth date: required, 1800 to 2399.",
+                                                                      format="%d", step=1, min_value=1800, max_value=2399,
+                                                                      width="small"),
                                 "Mon": st.column_config.NumberColumn("Mon *", help="Birth date: required.",
                                                                      format="%d", step=1, min_value=1, max_value=12,
                                                                      width="small"),
@@ -1040,7 +1066,7 @@ def page_customers():
         if up is not None and st.button("Import"):
             try:
                 n = db.import_workbook_csv(up.getvalue(), by=user.email)
-            except ValueError as exc:                          # nothing is saved
+            except (ValueError, OverflowError, SQLAlchemyError) as exc:   # nothing is saved
                 st.error(f"That file could not be imported, so nothing was added: {exc}")
             else:
                 st.cache_data.clear()

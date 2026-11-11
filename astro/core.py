@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
@@ -337,5 +337,5 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
 
 
 def jd_to_datetime(jd: float) -> datetime:
-    """UT datetime of a Julian day (Gregorian)."""
-    return datetime(2000, 1, 1, 12) + pd.Timedelta(days=jd - 2451545.0)
+    """UT datetime of a Julian day (Gregorian), to the nearest second (a Julian day's last digits are rounding error)."""
+    return datetime(2000, 1, 1, 12) + timedelta(seconds=round(float(jd - 2451545.0) * 86400.0))

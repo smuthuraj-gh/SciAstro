@@ -290,7 +290,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 places.append(dict(label=label, title=title, lat=place[0], lon=place[1], ra=core.lst(when, place[1]),
                                    colour=core.colour(label), set=len(sets)))
             sets.append(dict(clock=name, jd=when, offset=offset, shown=[p for p in core.BUTTON_ORDER if p in g.bodies],
-                             tables={p: {**_motion_table(p, when), "colour": core.colour(p)} for p in core.BUTTON_ORDER},
+                             tables={p: {**_motion_table(p, when, MOTION_DAYS), "colour": core.colour(p)} for p in core.BUTTON_ORDER},
                              node=_node_table(when) if set(NODE_CHOICES) & (set(g.bodies) | set(g.paths)) else None))
     aspects = [dict(angle=a, colour=ASPECT_COLOURS[a in core.MINOR], width=1.0 if a in core.MINOR else 1.5,
                     orbs={f"{p}|{q}": g.orbs.pair(a, p, q)
