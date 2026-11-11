@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 
 from . import core
 
-FONT = 12                         # all text on all pages, charts too (pixels; the most allowed, the least is 9)
+FONT = 12                         # all text on all pages, charts too (pixels; the most allowed, the least is 10)
 ROW = round(FONT * 1.3)           # pixels per line of text (Plotly's line height)
 TEXT_H = ROW + 1                  # the height Plotly gives a line of text (its box, with padding)
 # The charts have a fixed width, so every label's place is known in pixels and can be kept clear of the others

@@ -28,8 +28,8 @@ RINGS_SHOWN = {FIT: 6, "True": 4}   # at most this many rings, the outermost one
 RA_MARKS = (0, 90, 180, 270)
 RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroClock-3D) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
-SMALL_FONT = 9                    # the rings' AU tags, in pixels
-POLE_FONT = 9                     # NCP, SCP and the RA names, in pixels
+SMALL_FONT = 10                   # the rings' AU tags, in pixels
+POLE_FONT = 10                    # NCP, SCP and the RA names, in pixels
 SCP_BEYOND_AU = 20.0              # the axis reaches, both ways on the page, past where a ring this far out would be drawn ...
 SCP_PAST_PX = 22                  # ... by this many pixels, NCP and SCP at its ends
 SIDES = 96                        # a ring is drawn with this many straight pieces
@@ -39,7 +39,7 @@ SIDES = 96                        # a ring is drawn with this many straight piec
 FLAT_RING_AU = 12.0
 OUTER_RING_AU = 20.0              # Geo and Helio: a circle beyond the planets, with the AU button
 FLAT_RADIUS = 360.0               # pixels from the Earth to that circle
-FLAT_FONT = 9                     # the RA numbers, in pixels
+FLAT_FONT = 10                    # the RA numbers, in pixels
 FLAT_DEC = (31.0, -31.0)          # the Declination graph left of the circle, as tall as it: its top and bottom, in degrees
 
 # HelioCentric: the Sun at the centre, the planets and the Earth round it, and the Moon round the Earth (seen from the Sun it is

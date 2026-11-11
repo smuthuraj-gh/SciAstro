@@ -22,6 +22,8 @@ Drawing rule: wherever planets are drawn, on every page and graph, a smaller pla
 
 Layout rule: everything on all pages stays aligned to the top left.
 
+Font rule: on all pages, text is at most 12 px and at least 10 px.
+
 Users sign in with Google and see only the customers whose **Email (login)** is theirs. A new member (no customer
 has their email yet) gets a form to enter their own birth details, saved with their login email; a member already
 there goes straight to their charts. The login email is the key: one customer per email (First Names may repeat).
