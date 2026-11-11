@@ -42,7 +42,6 @@ customers = sa.Table(
     # when (UT): the record was added, last changed, and last opened by the customer themself (set by the app)
     sa.Column("added_at", sa.DateTime), sa.Column("updated_at", sa.DateTime), sa.Column("accessed_at", sa.DateTime),
 )
-STAMPS = {"added_at": "Added", "updated_at": "Updated", "accessed_at": "Accessed"}
 # One customer per login email (kept in lower case); blank emails are allowed for any number of customers
 EMAIL_INDEX = "ux_customers_email"
 sa.Index(EMAIL_INDEX, customers.c.email, unique=True)

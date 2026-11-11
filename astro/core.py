@@ -209,7 +209,7 @@ def now_points(jd_now: float) -> dict[str, tuple[float, float]]:
 
 
 # ---------------------------------------------------------------- orbs
-def start_orb(angle: float, is_dec: bool = False) -> float:
+def start_orb(angle: float) -> float:
     """The orb used where the table has none (the same for RA and Dec)."""
     if angle in (0, 180):
         return 8.0
@@ -239,12 +239,12 @@ class Orbs:
                     if pd.notna(v) and v >= 0:
                         self._lookup[(ang, c[:2])] = float(v)
 
-    def planet(self, angle: float, name: str, is_dec: bool = False) -> float:
+    def planet(self, angle: float, name: str) -> float:
         return self._lookup.get((float(angle), name), -1.0)       # the RA orb, used for Dec too
 
-    def pair(self, angle: float, n1: str, n2: str, is_dec: bool = False) -> float:
-        o = max(self.planet(angle, n1, is_dec), self.planet(angle, n2, is_dec))
-        return o if o >= 0 else start_orb(angle, is_dec)
+    def pair(self, angle: float, n1: str, n2: str) -> float:
+        o = max(self.planet(angle, n1), self.planet(angle, n2))
+        return o if o >= 0 else start_orb(angle)
 
 
 def default_orb_table() -> pd.DataFrame:
@@ -326,7 +326,7 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
             sep = np.where(sep > 180.0, 360.0 - sep, sep)
             same, mirror = np.abs(de[a] - de[b]), np.abs(de[a] + de[b])
             for ang in angles:
-                o = orbs.pair(ang, a, b, False)                       # one orb for RA and Dec; one rule for every angle
+                o = orbs.pair(ang, a, b)                       # one orb for RA and Dec; one rule for every angle
                 h = (np.abs(sep - ang) <= o) & ((same <= o) | (mirror <= o))
                 start = h & ~np.concatenate(([False], h[:-1]))      # coming into the aspect
                 for k in np.flatnonzero(start):

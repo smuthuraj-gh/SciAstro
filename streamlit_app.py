@@ -987,7 +987,7 @@ def page_customers():
     show = show.loc[by_name.sort_values(na_position="last", kind="stable").index].reset_index(drop=True)
     def for_store(rows: pd.DataFrame) -> pd.DataFrame:
         back = {v: k for k, v in db.LABELS.items()}
-        out = rows.rename(columns=back).drop(columns=list(db.STAMPS.values()) + list(stamps.values()), errors="ignore")
+        out = rows.rename(columns=back).drop(columns=list(stamps.values()), errors="ignore")
         out["utc"] = out["id"].map(df.set_index("id")["utc"])   # each customer's kept UTC, unchanged (new: blank)
         return out
 
