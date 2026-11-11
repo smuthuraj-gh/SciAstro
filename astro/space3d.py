@@ -15,7 +15,7 @@ from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
 RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
-VIEW = (130, 110, WIDTH, HEIGHT - 110)       # the part of the drawing shown (left, top, width, height): the drawing at the top left
+VIEW = (60, 110, WIDTH, HEIGHT - 110)       # the part of the drawing shown (left, top, width, height): the drawing at the top left
 FLAT_VIEW = (150, 50, WIDTH, HEIGHT - 50)    # the same for the flat page
 SCALES = (FIT := "Fit", "True")   # Fit: each tenfold distance the same room, without the empty space between the Moon and the planets
 GAP = (0.003, 0.25, 0.03)         # Fit: from just past the Moon's farthest (AU) to inside any planet's nearest (Venus about 0.26),
@@ -37,6 +37,7 @@ SIDES = 96                        # a ring is drawn with this many straight piec
 # from the Earth (its Dec in its hover box only); only the FLAT_RING_AU circle, at the edge, with an RA scale round it,
 # 1 to 360 (a tick every degree, longer every 5, numbered every 10)
 FLAT_RING_AU = 12.0
+OUTER_RING_AU = 15.0              # Geo and Helio: a circle beyond the planets, with the AU button
 FLAT_RADIUS = 360.0               # pixels from the Earth to that circle
 FLAT_FONT = 9                     # the RA numbers, in pixels
 FLAT_DEC = (30.0, -31.0)          # the Declination graph beside the circle, as tall as it: its top and bottom, in degrees
@@ -147,8 +148,8 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
         sizing = None
     outer = outer or 1.0
     wanted = [au for au in at["rings"][scale] if reach(au) <= outer][-at["rings_shown"][scale]:] if show_au else []
-    if show_au and FLAT_RING_AU not in wanted:                # the 12 AU circle too, beyond the planets
-        wanted = wanted + [FLAT_RING_AU]
+    if show_au:                                               # the outer circle too, beyond the planets
+        wanted = wanted + [OUTER_RING_AU]
     if flat:                                                  # only the 12 AU circle, always, at the edge
         wanted, outer = [FLAT_RING_AU], reach(FLAT_RING_AU)
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
