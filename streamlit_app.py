@@ -601,7 +601,7 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
 
 def page_scientific():
     """ScientificAstrology: the top page of the menu, for everyone: the Geo drawing in 2D, seen from above the north celestial
-    pole, with only the 12 AU circle and an RA scale round it, 1 to 360, always on the Fit scale, an arrow from the Earth through each body out to the circle, and the twelve house lines of CB and CN. Its buttons, Time, Planets
+    pole, with only the 12 AU circle and an RA scale round it, 1 to 360, always on the Fit scale, an arrow from the Earth through each body out to the circle, and the twelve house lines of CB and CN (the Houses button, on to start). Its buttons, Time, Planets
     (with NN, SN: on the Moon's path, at the Moon's distance, joined by a line, 180 degrees apart) and Rotate in 1s (how fast time runs; Manual: it stands still),
     are its own, and start as Geo's."""
     _, prep = pick_customer()
@@ -709,6 +709,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
                                       format_func=core.symbol_of), choices)
     if flat:      # no Planet Path, Scale or AU buttons: no paths, always Fit
         with_paths, scale, show_au = [], space3d.FIT, True
+        show_houses = bool(kept_pills(head, "Houses", ["Houses"], f"{key}_houses", "Houses", label_visibility="collapsed"))
     else:
         with_paths = core.in_order(kept_pills(head, "Planet Path", core.shown_order(choices), f"{key}_paths", start("Planet Path"),
                                               selection_mode="multi", format_func=core.symbol_of), choices)
@@ -726,7 +727,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
     moments = [m for m in (("Now", core.now_jd(), utc_now), ("DOB", prep.jd_birth, prep.utc)) if m[0] in shown]
     st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre, flat,
-                               {"DOB": ("CB", prep.birth_lon), **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat else None),
+                               {"DOB": ("CB", prep.birth_lon), **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat and show_houses else None),
             unsafe_allow_javascript=True)
 
 
