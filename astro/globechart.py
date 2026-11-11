@@ -49,7 +49,7 @@ EARTH_DEGREES_A_DAY = 360.98565  # the Earth's turn against the still sky in one
 MOTION_DAYS = 26298               # how far time runs (72 years) before it starts again, the trails too, and the tables' reach ...
 NODE_STEP_DAYS = 2.0              # the Moon's true node wobbles over days
 MOTION_STEP_DAYS = {"Mo": 0.5, "Me": 2.0, "Ve": 4.0, "Su": 5.0, "Ma": 5.0, "Ju": 20.0, "Sa": 20.0}    # ... and their steps
-CX, CY = WIDTH / 2.0, HEIGHT / 2.0
+CX, CY = WIDTH - SKY_RADIUS - 58.0, HEIGHT / 2.0   # at the right, room left for the name ECE
 TEXT_W, TEXT_H = 8.0, 18.0      # a character's width and a line's height, for keeping labels apart
 
 
@@ -332,11 +332,12 @@ def globe_figure(g: GlobeInput) -> go.Figure:
 
     lat0, roll0 = _view()
     half = EARTH_RADIUS / (HEIGHT - 2 * MARGIN)               # the Earth's part of the chart's height, about its middle
+    half_x, across = EARTH_RADIUS / (WIDTH - 2 * MARGIN), (CX - MARGIN) / (WIDTH - 2 * MARGIN)   # and of its width, about CX
     fig.update_layout(
         dragmode=False,                                       # fixed on its axis: it cannot be dragged off it
         width=WIDTH, height=HEIGHT, autosize=False, margin=dict(l=MARGIN, r=MARGIN, t=MARGIN, b=MARGIN),
         paper_bgcolor="white", font=dict(size=FONT, color=CHART_TEXT), hoverlabel=dict(font_size=FONT),
-        geo=dict(domain=dict(y=[0.5 - half, 0.5 + half]),
+        geo=dict(domain=dict(x=[across - half_x, across + half_x], y=[0.5 - half, 0.5 + half]),
                  projection=dict(type="orthographic", rotation=dict(lon=_start(g)[1], lat=lat0, roll=roll0)),
                  showland=True, landcolor="rgb(236,236,230)", showocean=True, oceancolor="rgb(220,232,245)",
                  showcoastlines=True, coastlinecolor="rgb(150,150,150)", showcountries=True,

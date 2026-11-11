@@ -15,6 +15,8 @@ from .mapchart import CHART_FONT_FAMILY, FONT
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
 RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
+VIEW = (-130, 110, WIDTH, HEIGHT - 110)      # the part of the drawing shown (left, top, width, height): the drawing at the top right
+FLAT_VIEW = (-27, 50, WIDTH, HEIGHT - 50)    # the same for the flat page
 SCALES = (FIT := "Fit", "True")   # Fit: each tenfold distance the same room, without the empty space between the Moon and the planets
 GAP = (0.003, 0.25, 0.03)         # Fit: from just past the Moon's farthest (AU) to inside any planet's nearest (Venus about 0.26),
                                   # drawn as only this much (a tenth of a doubling: a thin space)
@@ -150,7 +152,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer,
-                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, flat_font=FLAT_FONT, flat_dec=FLAT_DEC, node_colour=core.colour("NN"), spin=EARTH_DEGREES_A_DAY, house_colour=HOUSE_COLOUR,
+                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, view=FLAT_VIEW if flat else VIEW, flat_font=FLAT_FONT, flat_dec=FLAT_DEC, node_colour=core.colour("NN"), spin=EARTH_DEGREES_A_DAY, house_colour=HOUSE_COLOUR,
                 houses=[dict(clock=c, place=places[c][0], ra=core.lst(jd, places[c][1])) for c, jd, _ in moments if c in (places or {})],
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
@@ -170,7 +172,7 @@ _JS = r"""
     parent.appendChild(e);
     return e;
   };
-  const svg = make("svg", box, {viewBox: "0 0 " + D.width + " " + D.height, width: "100%",
+  const svg = make("svg", box, {viewBox: D.view.join(" "), width: "100%",
                                 style: "display:block; cursor:grab; touch-action:none; user-select:none"});
   const words = (fill, size) => make("text", svg, {"font-weight": "bold", "font-size": size || D.font, "font-family": D.family, stroke: "white",
                                              "stroke-width": 3, "paint-order": "stroke", "text-anchor": "middle", fill});
@@ -344,7 +346,7 @@ __SYMBOL_JS__
     decTag.setAttribute("x", DEC_X); decTag.setAttribute("y", (cy + R + 56).toFixed(1)); decTag.textContent = "Dec";
   }
   const clear = (a, taken) => taken.every((b) => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
-  const inside = (a) => a[0] > 0 && a[1] > 0 && a[2] < D.width && a[3] < D.height;
+  const inside = (a) => a[0] > D.view[0] && a[1] > D.view[1] && a[2] < D.view[0] + D.view[2] && a[3] < D.view[1] + D.view[3];
   const put = (label, spots, taken) => {           // its last place while that stays free, else the first free near it; left off if none
     const text = label.textContent;
     const free = (i) => {

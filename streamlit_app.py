@@ -34,6 +34,8 @@ st.html("""<style>
    its holder undoes the zoom, and its text is sized to match the page's */
 body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / var(--app-zoom, 1)); }
 [data-testid="stSelectboxVirtualDropdown"] * { font-size: calc(13px * var(--app-zoom, 1)) !important; }
+/* every page's text to the right, as its buttons and charts are */
+[data-testid="stMain"] [data-testid="stMarkdownContainer"], [data-testid="stMain"] [data-testid="stCaptionContainer"] { text-align: right; }
 /* every selection button, on every page: the smallest shape its text allows */
 [data-testid="stButtonGroup"] button { padding: 0 5px !important; height: 24px !important; min-height: 24px !important; }
 /* AstroClock-3D's lists: two a line, the last alone not stretched across */
@@ -231,7 +233,7 @@ def top_line(title: str, row: pd.Series | None):
     # the First Name right after the title (and its help), on the same line; then a slot (TITLE_SLOT) where a page may
     # put more on this line
     global TITLE_SLOT
-    line = st.container(horizontal=True, vertical_alignment="top", gap="large")
+    line = st.container(horizontal=True, vertical_alignment="top", gap="large", horizontal_alignment="right")
     line.container(width="content").html(
         f'<div style="display:flex; align-items:baseline; justify-content:flex-start; gap:24px; '
         f'flex-wrap:nowrap; font-weight:600">'
@@ -239,8 +241,8 @@ def top_line(title: str, row: pd.Series | None):
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
         + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("AstroClock-2D", "AstroClock-3D", "Geo/Helio Model") else "") +   # its script writes it
         f'</div>')
-    # the slot fills the rest of the line
-    TITLE_SLOT = line.container(width="stretch", horizontal=True, gap="small")
+    # the slot follows, at the right of the line
+    TITLE_SLOT = line.container(width="content", horizontal=True, gap="small")
 
 
 TITLE_SLOT = None                                             # set by top_line for the page being shown
@@ -603,7 +605,7 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
     Minor Aspects on / off button instead, and its angles are all five major ones when Major Aspects is on. nodes: NN and SN
     buttons too (Aspects)."""
     _, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
+    head = st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return None
     jds = period(prep, head, page)
@@ -632,7 +634,7 @@ def page_astroclock():
     (with NN, SN: on the Moon's path, at the Moon's distance, joined by a line, 180 degrees apart) and Rotate in 1s (how fast time runs; Manual: it stands still),
     are its own, and start as Geo's."""
     _, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
+    head = st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="bottom", gap="small")
     if not need_chart(prep):
         return
     space_page(head, prep, "sci", "Ea", globechart.BODY_CHOICES + globechart.NODE_CHOICES, model="Geo", flat=True)
@@ -641,7 +643,7 @@ def page_astroclock():
 def page_globe():
     """The Earth turning inside the celestial sphere: the planets and their RA and Dec lines on the sphere, CB, CN on it."""
     _, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="top", gap="small")
+    head = st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="top", gap="small")
     if not need_chart(prep):
         return
 
@@ -706,7 +708,7 @@ CENTRIC_MODELS = {"Geo": ("space", "Ea", globechart.BODY_CHOICES),        # GeoC
 def page_centric():
     """The paths at their real distances, in 3D, around the Earth (GeoCentric) or the Sun (HelioCentric)."""
     _, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
+    head = st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="bottom", gap="small")
     if not need_chart(prep):
         return
     model = head.pills("Centric Model", list(CENTRIC_MODELS), default=default_choice("Geo/Helio Model", "Centric Model"),
@@ -786,7 +788,7 @@ def page_aspects_view():
         return
     orb_csv = db.orb_table().to_csv(index=False)
     # major aspects on the left, minor right next to them (each as wide as its tables, not half the page)
-    both = st.container(horizontal=True, gap="large", vertical_alignment="top")
+    both = st.container(horizontal=True, gap="large", vertical_alignment="top", horizontal_alignment="right")
     left, right = both.container(width="content"), both.container(width="content")
     if angles:                                                # all five major angles
         with st.spinner("Finding aspects..."):
@@ -831,7 +833,7 @@ def _range_cached(dec_on, ea, jd_from, jd_to, orb_csv):
 
 def page_distance():
     _, prep = pick_customer()
-    head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
+    head = st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return
     jds = period(prep, head, "Planets Distance(%)")
@@ -917,7 +919,7 @@ def page_logins():
     view = table.copy()
     view.insert(0, "Del", False)
     # (ticks are kept by row position: a new key when the rows move, so that a tick cannot land on another row)
-    edited = st.data_editor(view, hide_index=True, width="content", num_rows="fixed",
+    edited = st.data_editor(view, hide_index=True, width="stretch", num_rows="fixed",
                             key=f"logins_table_{len(table)}_{table['Id'].iloc[0] if len(table) else 0}",
                             height="auto" if len(table) <= 18 else 700, disabled=["Email", "Activity", "Date_Time"],
                             column_config={"Del": st.column_config.CheckboxColumn("Del", width="small", help="Tick, then press Delete."),
@@ -945,7 +947,7 @@ def page_logins():
     if ask:
         what = "every row of the Logins table" if ask == "all" else f"{len(ask)} row(s)"
         st.warning(f"Delete {what} for good? This cannot be undone.")
-        yes, no = st.columns(2, width=220)
+        yes = no = st.container(horizontal=True, horizontal_alignment="right")
         if yes.button("Yes, delete", type="primary", key="logins_yes"):
             n = db.delete_logins(None if ask == "all" else ask)
             st.session_state.pop("logins_ask", None)
@@ -978,7 +980,7 @@ def page_naming():
                lambda rows: "Committed: {} added, {} changed, {} deleted.".format(*db.save_planets(rows.rename(columns=back))),
                height=30 * (len(st.session_state.get("planets_table_working", table)) + 1) + 24,   # every row in view, above the scroll bar
                column_config={"_sn": None, "Symb": st.column_config.TextColumn(width="small"), "SDesc": st.column_config.TextColumn(width=135),
-                              "RGB": st.column_config.TextColumn(width=118), "Size_Globe": st.column_config.TextColumn(width=112), "Size_Geo": st.column_config.TextColumn(width=112), "Size_Helio": st.column_config.TextColumn(width=112), "Size_Clock": st.column_config.TextColumn(width=112)}, width="content")
+                              "RGB": st.column_config.TextColumn(width=118), "Size_Globe": st.column_config.TextColumn(width=112), "Size_Geo": st.column_config.TextColumn(width=112), "Size_Helio": st.column_config.TextColumn(width=112), "Size_Clock": st.column_config.TextColumn(width=112)})
 
 
 def page_aspects():
@@ -993,11 +995,11 @@ def page_aspects():
                              "Committed.")[1],
                column_config={"_angle": None, "Angle": st.column_config.NumberColumn("Angle", format="%g", width="small"),   # a new row's, if blank, from its Aspect's name
                               **{c: st.column_config.NumberColumn(core.with_symbols(c.removesuffix("-RA"))) for c in db.ORB_COLUMNS}})   # ☽︎, ☉︎ ..
-    if st.button("Reset to defaults"):
+    if st.container(horizontal_alignment="right").button("Reset to defaults"):
         st.session_state["orb_reset_ask"] = True
     if st.session_state.get("orb_reset_ask"):
         st.warning("Put every orb back to its default for good? This cannot be undone.")
-        yes, no = st.columns(2, width=220)
+        yes = no = st.container(horizontal=True, horizontal_alignment="right")
         if yes.button("Yes, reset", type="primary", key="orb_reset_yes"):
             db.save_orb_table(core.default_orb_table())
             for name in ("orb_reset_ask", "orb_editor_working", "orb_editor_base", "orb_editor"):

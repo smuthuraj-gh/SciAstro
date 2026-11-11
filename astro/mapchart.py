@@ -185,4 +185,4 @@ def globe_key_html(d_birth: dict, d_now: dict, show_dob: bool, show_now: bool = 
     now = sorted(((n, d_now[n]) for n in core.PLANETS if d_now.get(n) is not None), key=lambda i: i[1])
     rows = [_key_row(now, "Distance(%) from earth at Now") if now and show_now else "",
             _key_row(dob, "Distance(%) from earth on DOB") if dob and show_dob else "", average_key_html(d_birth, d_now)]
-    return '<div style="display:flex; flex-wrap:wrap; column-gap:28px; row-gap:6px">' + "".join(rows) + "</div>"
+    return '<div style="display:flex; flex-wrap:wrap; justify-content:flex-end; column-gap:28px; row-gap:6px">' + "".join(rows) + "</div>"
