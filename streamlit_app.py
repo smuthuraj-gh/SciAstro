@@ -71,6 +71,7 @@ st.html("""<script>
   if (window.__appZoom) { window.__appZoom(); return; }
   const WIDTH = """ + str(mapchart.WIDTH - mapchart.INSET_L - mapchart.INSET_R) + """;   // the text column
   function zoom() {
+    if (window.__appZooming) return;                         // (the resize sent below comes back here)
     const root = document.documentElement, main = document.querySelector('[data-testid="stMain"]');
     const block = document.querySelector('[data-testid="stMainBlockContainer"]');
     if (!main || !block) return;
@@ -83,7 +84,9 @@ st.html("""<script>
     if (Math.abs(want - z) > 0.001) {
       root.style.zoom = want;
       root.style.setProperty("--app-zoom", want);
+      window.__appZooming = true;
       window.dispatchEvent(new Event("resize"));             // the charts fit themselves again (mapchart.fit_html)
+      window.__appZooming = false;
       // Plotly measures text in its own hidden element, and the editable tables (drawn on a canvas) size themselves
       // from the zoomed width: keep those unzoomed, so charts lay out as at 1:1 and the tables fit the page
       let st = document.getElementById("app-zoom-style");
@@ -178,7 +181,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
                       "them are in a chosen major aspect (0 to 180 degrees). A tag with no room is left off: point at "
                       "its dot to see it. Dates and times are UT.",
-    "AstroClock-2D": "Below the buttons, on one line: Distance(%) from earth (DOB+Now)/2: the average of each planet's Distance(%) at birth and now, whatever time the clock shows; before it, with Now chosen, Distance(%) from earth at Now, and with DOB chosen, Distance(%) from earth on DOB; each planet's marker, with its symbol inside, is sized for that distance.",
+    "AstroClock-2D": "Beside the clock, Dec: each planet's Declination on a scale from +30 to -31 degrees, moving as time runs (point at one for its value). Below the buttons, on one line: Distance(%) from earth (DOB+Now)/2: the average of each planet's Distance(%) at birth and now, whatever time the clock shows; before it, with Now chosen, Distance(%) from earth at Now, and with DOB chosen, Distance(%) from earth on DOB; each planet's marker, with its symbol inside, is sized for that distance.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "

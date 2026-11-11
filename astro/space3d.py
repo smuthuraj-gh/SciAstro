@@ -37,6 +37,7 @@ SIDES = 96                        # a ring is drawn with this many straight piec
 FLAT_RING_AU = 12.0
 FLAT_RADIUS = 360.0               # pixels from the Earth to that circle
 FLAT_FONT = 9                     # the RA numbers, in pixels
+FLAT_DEC = (30.0, -31.0)          # the Declination graph beside the circle, as tall as it: its top and bottom, in degrees
 
 # HelioCentric: the Sun at the centre, the planets and the Earth round it, and the Moon round the Earth (seen from the Sun it is
 # where the Earth is, so it is drawn round the Earth's mark, larger than to scale: in its real direction from the Earth, at
@@ -149,7 +150,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer,
-                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, flat_font=FLAT_FONT, node_colour=core.colour("NN"), spin=EARTH_DEGREES_A_DAY, house_colour=HOUSE_COLOUR,
+                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, flat_font=FLAT_FONT, flat_dec=FLAT_DEC, node_colour=core.colour("NN"), spin=EARTH_DEGREES_A_DAY, house_colour=HOUSE_COLOUR,
                 houses=[dict(clock=c, place=places[c][0], ra=core.lst(jd, places[c][1])) for c, jd, _ in moments if c in (places or {})],
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
@@ -291,6 +292,14 @@ __SYMBOL_JS__
   });
   houses.forEach((g) => { g.label = words(D.house_colour, D.flat_font); g.label.textContent = g.name; });   // above the lines
   if (D.flat) { svg.appendChild(earth); svg.appendChild(earthLabel); }   // the Earth stays on top of the lines
+  const DEC_X = D.width - 75, DEC_R = 7, DEC_LANES = 4;   // flat: the Declination graph's line, its marks' radius, and how many fit side by side
+  const decY = (dec) => D.height / 2 + D.outer * D.fit * (2 * (D.flat_dec[0] - dec) / (D.flat_dec[0] - D.flat_dec[1]) - 1);
+  const decMarks = (D.flat ? D.marks : []).map((m) => {   // each body on the Declination graph, joined to its place on the line
+    const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
+    if (m.hollow) lead.setAttribute("stroke-dasharray", "3 2");
+    const e = make("circle", svg, {r: DEC_R, fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
+    return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow)};
+  });
   const marks = D.marks.map((m) => {
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
     const tip = make("title", e), label = symbolTag(svg, m.name, m.colour, m.hollow);
@@ -319,6 +328,20 @@ __SYMBOL_JS__
     make("title", scale).textContent = "RA, 1 to 360 degrees";
     const tag = words("rgb(90,90,90)");            // what the scale is, below the clock
     tag.setAttribute("x", cx); tag.setAttribute("y", (cy + R + 56).toFixed(1)); tag.textContent = "RA";
+    // the Declination graph, as tall as the circle: a tick every degree, longer every 5, numbered every 5 and at its ends
+    let decTicks = "";
+    for (let v = D.flat_dec[1]; v !== D.flat_dec[0] + 1; v++) {
+      const long = v === 0 ? 14 : v % 5 === 0 ? 8 : 4, y = decY(v).toFixed(1);
+      decTicks += "M" + DEC_X + " " + y + "L" + (DEC_X + long) + " " + y;
+      if (v % 5 === 0 || v === D.flat_dec[1]) {
+        const n = words("rgb(90,90,90)", D.flat_font);
+        n.setAttribute("x", DEC_X + 32); n.setAttribute("y", (decY(v) + D.flat_font / 3).toFixed(1)); n.textContent = (v > 0 ? "+" : "") + v;
+      }
+    }
+    const decScale = make("path", svg, {d: "M" + DEC_X + " " + decY(D.flat_dec[0]).toFixed(1) + "V" + decY(D.flat_dec[1]).toFixed(1) + decTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
+    make("title", decScale).textContent = "Declination, " + D.flat_dec[1] + " to +" + D.flat_dec[0] + " degrees";
+    const decTag = words("rgb(90,90,90)");
+    decTag.setAttribute("x", DEC_X); decTag.setAttribute("y", (cy + R + 56).toFixed(1)); decTag.textContent = "Dec";
   }
   const clear = (a, taken) => taken.every((b) => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
   const inside = (a) => a[0] > 0 && a[1] > 0 && a[2] < D.width && a[3] < D.height;
@@ -431,6 +454,18 @@ __SYMBOL_JS__
       fitSymbol(g.label, x, y, r);
       return {g, x, y, z, r, ra: s.ra};
     }).sort((a, b) => a.z - b.z);
+    const lanes = [];                              // the Declination graph: top to bottom, each in the first lane with room
+    decMarks.map((g) => ({g, s: posAt(g.m.clock, g.m.name, t).s})).sort((a, b) => b.s.dec - a.s.dec).forEach(({g, s}) => {
+      const y = decY(Math.max(D.flat_dec[1], Math.min(D.flat_dec[0], s.dec)));
+      let lane = lanes.findIndex((v) => y - v >= 2 * DEC_R + 2);
+      if (lane === -1) lane = lanes.length !== DEC_LANES ? lanes.length : lanes.indexOf(Math.min(...lanes));
+      lanes[lane] = y;
+      const x = DEC_X - 16 - lane * (2 * DEC_R + 2);
+      g.lead.setAttribute("d", "M" + x.toFixed(1) + " " + y.toFixed(1) + "H" + DEC_X);
+      g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
+      fitSymbol(g.label, x, y, DEC_R);
+      g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDec: " + signed(s.dec);
+    });
     rays.forEach((g) => {
       const q = placed.find((p) => p.g.m === g.m), R = D.outer * D.fit, a = q.ra * RAD;
       const at = (r, side) => (D.width / 2 + r * Math.cos(a) - side * Math.sin(a)).toFixed(1) + " " + (D.height / 2 - r * Math.sin(a) - side * Math.cos(a)).toFixed(1);
