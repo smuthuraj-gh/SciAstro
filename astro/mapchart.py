@@ -170,19 +170,19 @@ KEY_GAP_HTML = 8
 
 
 def average_key_html(d_birth: dict, d_now: dict) -> str:
-    """Each planet's Distance(%) from earth (DOB+Now)/2: the average of D at birth and D-N now, from the least to the greatest.
+    """Each planet's Distance(%) from earth Ave of (DOB,Now): the average of D at birth and D-N now, from the least to the greatest.
     Empty if none has both."""
     da = [(n, round((d_birth[n] + d_now[n]) / 2, 2)) for n in core.PLANETS
           if d_birth.get(n) is not None and d_now.get(n) is not None]
     da.sort(key=lambda i: i[1])                                  # by its value: the nearest first
-    return _key_row(da, "Distance(%) from earth (DOB+Now)/2") if da else ""
+    return _key_row(da, "Distance(%) from earth Ave of (DOB,Now)") if da else ""
 
 
 def globe_key_html(d_birth: dict, d_now: dict, show_dob: bool, show_now: bool = False) -> str:
-    """AstroClock-2D's rows, side by side (wrapping only where the page is too narrow): with Now chosen Distance(%) from earth at
-    Now, with DOB chosen on DOB, then (DOB+Now)/2."""
+    """AstroClock-2D's rows, side by side (wrapping only where the page is too narrow): with Now chosen Distance(%) from earth
+    (Now), with DOB chosen (DOB), then Ave of (DOB,Now)."""
     dob = sorted(((n, d_birth[n]) for n in core.PLANETS if d_birth.get(n) is not None), key=lambda i: i[1])   # the nearest first
     now = sorted(((n, d_now[n]) for n in core.PLANETS if d_now.get(n) is not None), key=lambda i: i[1])
-    rows = [_key_row(now, "Distance(%) from earth at Now") if now and show_now else "",
-            _key_row(dob, "Distance(%) from earth on DOB") if dob and show_dob else "", average_key_html(d_birth, d_now)]
+    rows = [_key_row(now, "Distance(%) from earth (Now)") if now and show_now else "",
+            _key_row(dob, "Distance(%) from earth (DOB)") if dob and show_dob else "", average_key_html(d_birth, d_now)]
     return '<div style="display:flex; flex-wrap:wrap; column-gap:28px; row-gap:6px">' + "".join(rows) + "</div>"
