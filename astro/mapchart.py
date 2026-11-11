@@ -111,7 +111,7 @@ def fit_html(fig: go.Figure, after_js: str = "") -> str:
 
 
 def _marker_radius(name: str, pcts: dict) -> float:
-    """A planet's marker radius, as AstroClock draws it, by its Size_Clock in the Symbols table, at the distances (%) of this row."""
+    """A planet's marker radius, as AstroClock-2D draws it, by its Size_Clock in the Symbols table, at the distances (%) of this row."""
     from .globechart import BODY_RADIUS_KM, MARKER_RANGE, SIZE_RANGE_ARCSEC
     rule = core.size_rule(name, texts=core.SIZE_TEXTS_CLOCK)
     if "px" in rule:
@@ -179,7 +179,7 @@ def average_key_html(d_birth: dict, d_now: dict) -> str:
 
 
 def globe_key_html(d_birth: dict, d_now: dict, show_dob: bool, show_now: bool = False) -> str:
-    """AstroClock's rows, side by side (wrapping only where the page is too narrow): with Now chosen Distance(%) from earth at
+    """AstroClock-2D's rows, side by side (wrapping only where the page is too narrow): with Now chosen Distance(%) from earth at
     Now, with DOB chosen on DOB, then (DOB+Now)/2."""
     dob = sorted(((n, d_birth[n]) for n in core.PLANETS if d_birth.get(n) is not None), key=lambda i: i[1])   # the nearest first
     now = sorted(((n, d_now[n]) for n in core.PLANETS if d_now.get(n) is not None), key=lambda i: i[1])

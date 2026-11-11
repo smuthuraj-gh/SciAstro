@@ -31,7 +31,7 @@ POLE_FONT = 8                     # NCP, SCP and the RA names, in pixels
 SCP_BEYOND_AU = 15.0              # the axis reaches, both ways on the page, past where a ring this far out would be drawn ...
 SCP_PAST_PX = 22                  # ... by this many pixels, NCP and SCP at its ends
 SIDES = 96                        # a ring is drawn with this many straight pieces
-# Flat (the AstroClock page): GeoCentric seen from above the north celestial pole, each body at its RA and its distance
+# Flat (the AstroClock-2D page): GeoCentric seen from above the north celestial pole, each body at its RA and its distance
 # from the Earth (its Dec in its hover box only); only the FLAT_RING_AU circle, at the edge, with an RA scale round it,
 # 1 to 360 (a tick every degree, longer every 5, numbered every 10)
 FLAT_RING_AU = 12.0

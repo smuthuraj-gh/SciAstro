@@ -113,7 +113,7 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("size_globe", sa.String(40)),                   # how the AstroGlobe chart sizes it: Size_Globe
     sa.Column("size", sa.String(40)),                         # how the GeoCentric chart sizes it: Size_Geo
     sa.Column("size_helio", sa.String(40)),                   # how the HelioCentric chart sizes it: Size_Helio
-    sa.Column("size_clock", sa.String(40)),                   # how the AstroClock chart sizes it: Size_Clock
+    sa.Column("size_clock", sa.String(40)),                   # how the AstroClock-2D chart sizes it: Size_Clock
 )
 # The Aspect Rules table: a row per aspect, with its orb per planet (for RA and Dec alike); pos keeps the order shown
 # (a store made when it had -De columns keeps them, unused)
@@ -372,7 +372,7 @@ def _add_planet_size_globe(eng: sa.Engine):
 
 
 def _add_planet_size_clock(eng: sa.Engine):
-    """A table made before Size_Clock gets it, each row as its Size_Geo (as AstroClock drew them then)."""
+    """A table made before Size_Clock gets it, each row as its Size_Geo (as AstroClock-2D drew them then)."""
     if "size_clock" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
         return
     kind = planets.c.size_clock.type.compile(dialect=eng.dialect)
