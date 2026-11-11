@@ -265,7 +265,7 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
         if not st.session_state.get("login_logged"):
             db.log_login(user.email)
             st.session_state["login_logged"] = True
-        st.sidebar.caption("Now charts only: add your birth details in My details for DOB.")
+        st.sidebar.caption("Now charts only: pick DOB to add your birth details.")
         return None, NOW_ONLY
     # chosen by record (names need not be unique: the login email is the key), shown as First and Last Name, with the
     # email added where two customers share both
@@ -317,10 +317,21 @@ def orbs() -> core.Orbs:
     return core.Orbs(db.orb_table())
 
 
+def dob_asked(picked: bool, *keys_reset) -> None:
+    """A member with no birth details picked DOB: their Time is set back (keys_reset: (key, value) pairs, set before the
+    buttons are drawn) and the form opens on My details; once saved, they come back to this page."""
+    if not picked:
+        return
+    for k, v in keys_reset:
+        st.session_state[k] = v
+    st.session_state["_back_to"] = nav.url_path
+    st.switch_page(PAGE_BY_PATH["me"])
+
+
 def new_member_form():
     """A member signing in for the first time (no record has their email yet) enters their own birth details; the
     record is saved with their login email, so they see their charts at once. One record per email."""
-    st.write("Welcome! Enter your birth details to see your charts. They are kept private: only you (and the admin) "
+    st.write("Welcome! Enter your birth details to see your DOB charts. They are kept private: only you (and the admin) "
              "can see them.")
     details_form(None)
 
@@ -409,6 +420,9 @@ def details_form(row: pd.Series | None):
            "country_n": country_n, "state_n": state_n, "city_n": city_n}
     if row is None:
         db.add_own_customer(rec, user.email)   # an email that already has a record keeps it (nothing is changed)
+        back = st.session_state.pop("_back_to", None)
+        if back in PAGE_BY_PATH:                              # they came from a chart's DOB: back to it
+            st.switch_page(PAGE_BY_PATH[back])
     else:
         def num(v):
             return None if v is None else int(float(v))
@@ -693,7 +707,11 @@ def page_globe():
                                              key=f"globe_{key}", format_func=core.symbol_of, label_visibility="collapsed", width=width),
                                    names))
 
-    shown = stacked(("Now",), ("Now",), title="Time") if prep.now_only else stacked(("Now", "DOB"), default_choice("AstroClock-3D", "Time"), title="Time")
+    if prep.now_only:                                         # no birth details: DOB opens the form for them
+        dob_asked(bool(st.session_state.get("globe_DOB")), ("globe_DOB", None))
+        shown = stacked(("Now", "DOB"), ("Now",), title="Time")
+    else:
+        shown = stacked(("Now", "DOB"), default_choice("AstroClock-3D", "Time"), title="Time")
     all_bodies = list(globechart.BODY_CHOICES)
     with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # shown three a line: Mo Su Me, Ve Ma Ju, Sa NN SN
     bodies = options_under("Planets", "bodies", with_nodes, default_choice("AstroClock-3D", "Planets"), width=112)
@@ -769,8 +787,9 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     model is shown; they start as the Defaults table says (Geo Time .. Helio Rotate in 1s)."""
     def start(title: str):
         return default_choice("AstroClock-2D", title) if flat else default_choice("Geo/Helio Model", f"{model} {title}")
-    if prep.now_only:                                         # no birth details: Now only
-        shown = titled(head, "Time", f"{key}_t_time", ["Now"], f"{key}_time", ["Now"], selection_mode="multi") or []
+    if prep.now_only:                                         # no birth details: Now, and DOB opens the form for them
+        dob_asked("DOB" in (st.session_state.get(f"{key}_time") or []), (f"{key}_time", ["Now"]), (f"_kept_{key}_time", ["Now"]))
+        shown = titled(head, "Time", f"{key}_t_time", ["Now", "DOB"], f"{key}_time", ["Now"], selection_mode="multi") or []
     else:
         shown = titled(head, "Time", f"{key}_t_time", ["Now", "DOB"], f"{key}_time", start("Time"), selection_mode="multi") or []
     bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
@@ -1187,6 +1206,7 @@ if user.is_admin:                                             # the Aspect Rules
 else:
     pages.append(st.Page(page_my_details, title="My details", icon=":material/person:", url_path="me"))
 nav = st.navigation(pages)
+PAGE_BY_PATH = {p.url_path: p for p in pages}                 # (to go to a page from another)
 _chosen = _pick_customer()                                    # the sidebar's customer, for every page
 top_line(nav.title, _chosen[0])
 nav.run()

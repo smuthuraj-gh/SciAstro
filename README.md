@@ -25,8 +25,9 @@ Layout rule: everything on all pages stays aligned to the top left.
 Font rule: on all pages, text is at most 12 px and at least 10 px.
 
 Users sign in with Google and see only the customers whose **Email (login)** is theirs. A new member (no customer
-has their email yet) is not asked for anything: a Login row goes into the Logins table and they see the Now charts
-(Time: Now only); they may add their birth details in My details, saved with their login email, for the DOB charts.
+has their email yet) is not asked for anything: a Login row goes into the Logins table and they see the Now charts;
+picking DOB opens the form for their birth details (also in My details), saved with their login email, and brings
+them back to the chart, now with DOB.
 A member already there goes straight to their charts. The login email is the key: one customer per email (First Names may repeat).
 Admins are listed in the `admins` secret.
 
