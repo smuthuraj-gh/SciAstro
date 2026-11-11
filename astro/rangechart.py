@@ -1,5 +1,5 @@
 """The Planets Cycles chart (the workbook's Range tab; the page was called Range): each chosen planet's Dec (-M) from the start (birth) to the end (now),
-with dots where two -M planets come into an aspect (0°, 60°, 90°, 120°, 180°) joined pair by pair and tagged.
+with dots where two -M planets come into an aspect (major or minor) joined pair by pair and tagged.
 The distance lines (-D) have their own chart (distancechart.py)."""
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ import plotly.graph_objects as go
 from . import core
 from .mapchart import FONT, Spots
 
-DOT_COLOUR = {0: "rgb(0,0,0)", 180: "rgb(128,128,128)", 90: "rgb(150,75,0)", 120: "rgb(199,21,133)", 60: "rgb(0,128,128)"}
+DOT_COLOUR = {0: "rgb(0,0,0)", 180: "rgb(128,128,128)", 90: "rgb(150,75,0)", 120: "rgb(199,21,133)", 60: "rgb(0,128,128)",
+              30: "rgb(230,120,0)", 45: "rgb(70,130,180)", 72: "rgb(46,139,87)", 135: "rgb(148,0,211)", 144: "rgb(205,92,92)", 150: "rgb(107,142,35)"}
 EA_NAME = {a: f"{a}°" for a in (0, 60, 90, 120, 180)}  # the workbook's EA-C, EA-S, EA-Q, EA-T, EA-O
 MAX_PLACED = 1500                                      # more aspects than this: the later ones are not tagged
 # A fixed size (scaled down whole to fit a narrower column), so each tag's place is known in pixels and kept clear
@@ -34,7 +35,7 @@ def range_figure(dec_on: list[str], ea_on: list[int], jd_from: float, jd_to: flo
         fig.add_trace(go.Scatter(x=t, y=rows[f"{p}-De"], mode="lines", name=f"{core.symbol_of(p)}-M", line=dict(color=core.colour(p), width=1.5),
                                  hovertemplate=f"{core.symbol_of(p)}-M %{{x|%Y-%m-%d %H:%M}}<br>Dec %{{y:+.2f}}<extra></extra>"))
     events = core.aspect_events(labels, jd_from, jd_to, ea_on, orbs)
-    for ang in (0, 60, 90, 120, 180):
+    for ang in sorted(DOT_COLOUR):
         ev = [e for e in events if e.angle == ang]
         if not ev:
             continue
@@ -42,7 +43,7 @@ def range_figure(dec_on: list[str], ea_on: list[int], jd_from: float, jd_to: flo
         for e in ev:
             when = core.jd_to_datetime(e.jd)
             xs += [when, when, None]; ys += [e.de1, e.de2, None]; hov += [core.with_symbols(e.title)] * 2 + [None]
-        fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines+markers", name=EA_NAME[ang], hovertext=hov,
+        fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines+markers", name=f"{ang}°", hovertext=hov,
                                  hovertemplate="%{hovertext}<br>%{x|%Y-%m-%d %H:%M}<extra></extra>",
                                  marker=dict(size=7, color=DOT_COLOUR[ang]), line=dict(color=DOT_COLOUR[ang], width=1),
                                  connectgaps=False))

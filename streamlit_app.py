@@ -49,7 +49,7 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
 /* the other shortest buttons, on every page: small circles (anything longer stays a small pill) */
 :is(.st-key-helio_au, .st-key-space_au) button, .st-key-globe_coords_RA button:first-child,
-:is(.st-key-globe_major, .st-key-globe_minor, [class*="ea_on_v5"]) button:nth-child(-n+3),
+:is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button:nth-child(-n+3),
 :is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child):not(:nth-child(7))
   { border-radius: 50% !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important;
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
@@ -175,10 +175,10 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                     "Scale: on Fit each tenfold distance takes the same room, so Mercury's path and Saturn's can be seen together; True is to scale. A label with no room is left off: point at its mark.",
     "Aspects Table": "The aspects between the chosen planets, and the Moon's nodes (NN, SN; by their own orbs in Aspect Rules, ☊ and ☋, the larger of the pair's as for two planets; never with each other), over the period, as tables, newest first: one table per "
                "angle, a row each time two planets came into it (RA within the orb of the angle, and the two Declinations "
-               "within the same orb of equal or mirrored). Major Aspects: 0, 60, 90, 120, 180 degrees. Minor Aspects: 30, 45, 72, 135, 144, "
-               "150 degrees. Dates and times are UT.",
+               "within the same orb of equal or mirrored). Major Aspects: on or off, with the angles 0, 60, 90, 120, 180 to pick from below it. Minor Aspects: "
+               "the same, with 30, 45, 72, 135, 144, 150. Dates and times are UT.",
     "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
-                      "them are in a chosen major aspect (0 to 180 degrees). A tag with no room is left off: point at "
+                      "them are in a chosen major or minor aspect. A tag with no room is left off: point at "
                       "its dot to see it. Dates and times are UT.",
     "AstroClock-2D": "Beside the clock, Dec: each planet's Declination on a scale from +30 to -31 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Below the buttons, on one line: Distance(%) from earth (DOB+Now): the average of each planet's Distance(%) at birth and now, whatever time the clock shows; before it, with Now chosen, Distance(%) from earth (Now), and with DOB chosen, Distance(%) from earth (DOB); each planet's marker, with its symbol inside, is sized for that distance.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
@@ -456,7 +456,10 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
         out |= {(page, "Start Date (UT)"): (START, False, "DOB"), (page, "End Date (UT)"): (END, False, end),
                 (page, "Planets"): (list(planets), True, ["Sa", "Ju"])}
     out[("Aspects Table", "Aspects")] = (["Major Aspects", "Minor Aspects"], True, ["Major Aspects", "Minor Aspects"])
+    out[("Aspects Table", "Major Aspects")] = (GLOBE_MAJOR, True, GLOBE_MAJOR)
+    out[("Aspects Table", "Minor Aspects")] = (GLOBE_MINOR, True, GLOBE_MINOR)
     out[("Planets Cycles", "Major Aspects")] = ([str(a) for a in rangechart.EA_NAME], True, ["0", "180"])
+    out[("Planets Cycles", "Minor Aspects")] = (GLOBE_MINOR, True, [])
     return out
 
 
@@ -601,9 +604,9 @@ def period(prep: Prepared, row=None, page: str = "") -> tuple[float, float] | No
 
 def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, page: str = "Planets Cycles"):
     """The inputs of Planets Cycles (and Aspects Table, which shares them; keys keeps each page's buttons
-    apart): (period as Julian days, planets, angles, minor on), or None when there is nothing to show yet.
-    Planets Cycles has a button per major angle; Aspects (aspect_buttons False) has one Major Aspects and one
-    Minor Aspects on / off button instead, and its angles are all five major ones when Major Aspects is on. nodes: NN and SN
+    apart): (period as Julian days, planets, major angles, minor angles), or None when there is nothing to show yet.
+    Planets Cycles has a button per major and per minor angle; Aspects Table (aspect_buttons False) has a Major Aspects and a
+    Minor Aspects on / off button instead, each with its angles to pick from below it. nodes: NN and SN
     buttons too (Aspects)."""
     _, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="xsmall")   # the inputs (title: top line)
@@ -615,15 +618,24 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
     dec_on = core.in_order(head.pills("Planets", core.shown_order(choices), selection_mode="multi", format_func=core.symbol_of,
                                       default=default_choice(page, "Planets"), key=f"{keys}dec_on_v2"), choices)
     ea_names = {str(a): a for a in rangechart.EA_NAME}         # the buttons 0, 60, 90, 120, 180 -> their angles
-    minor = False
+    minor = []
     if aspect_buttons:
         ea = head.pills("Major Aspects", list(ea_names), selection_mode="multi", default=default_choice(page, "Major Aspects"),
                         key=f"{keys}ea_on_v5") or []
-    else:                                                     # one on / off button for each group
-        groups = head.pills("Aspects", ["Major Aspects", "Minor Aspects"], selection_mode="multi",
-                            default=default_choice(page, "Aspects"), key=f"{keys}groups_v2") or []
-        ea = list(ea_names) if "Major Aspects" in groups else []
-        minor = "Minor Aspects" in groups
+        minor = [int(a) for a in core.in_order(head.pills("Minor Aspects", GLOBE_MINOR, selection_mode="multi", default=default_choice(page, "Minor Aspects"),
+                                                          key=f"{keys}minor_on_v1"), GLOBE_MINOR)]
+    else:                                                     # an on / off button for each group, with its angles below it
+        groups = default_choice(page, "Aspects")
+
+        def group(title: str, key: str, names: list) -> list:
+            box = head.container(width="content", gap="xxsmall")
+            if not box.pills(title, [title], default=title if title in groups else None, key=f"{keys}{key}_on", label_visibility="collapsed"):
+                return []
+            return core.in_order(box.pills(f"Which {title}", names, selection_mode="multi", default=default_choice(page, title),
+                                           key=f"{keys}{key}", label_visibility="collapsed", width=124), names)
+
+        ea = group("Major Aspects", "major", GLOBE_MAJOR)
+        minor = [int(a) for a in group("Minor Aspects", "minor", GLOBE_MINOR)]
     if jds is None:
         return None
     return jds, dec_on, [ea_names[e] for e in ea], minor
@@ -765,9 +777,9 @@ def page_range():
     got = cycles_inputs("", page="Planets Cycles")
     if got is None:
         return
-    jds, dec_on, angles, _ = got
+    jds, dec_on, angles, minor = got
     with st.spinner("Drawing..."):
-        fig, note = _range_cached(tuple(dec_on), tuple(angles), *jds, db.orb_table().to_csv(index=False))
+        fig, note = _range_cached(tuple(dec_on), tuple(angles + minor), *jds, db.orb_table().to_csv(index=False))
     # fixed size, scaled down whole to fit (its tags are placed for that size)
     st.html(mapchart.fit_html(fig), unsafe_allow_javascript=True)
     if note:
@@ -785,18 +797,18 @@ def page_aspects_view():
         st.info("Choose at least two planets.")
         return
     if not angles and not minor:
-        st.info("Turn on Major Aspects or Minor Aspects.")
+        st.info("Turn on Major Aspects or Minor Aspects, and pick at least one angle.")
         return
     orb_csv = db.orb_table().to_csv(index=False)
     # major aspects on the left, minor right next to them (each as wide as its tables, not half the page)
     both = st.container(horizontal=True, gap="large", vertical_alignment="top")
     left, right = both.container(width="content"), both.container(width="content")
-    if angles:                                                # all five major angles
+    if angles:                                                # the major angles picked
         with st.spinner("Finding aspects..."):
             _aspect_tables(_events_cached(tuple(dec_on), tuple(angles), *jds, orb_csv), angles, left)
-    if minor:                                                 # 30, 45, 72, 135, 144, 150 degrees
+    if minor:                                                 # the minor angles picked
         with st.spinner("Finding minor aspects..."):
-            _aspect_tables(_events_cached(tuple(dec_on), tuple(core.MINOR), *jds, orb_csv), core.MINOR, right)
+            _aspect_tables(_events_cached(tuple(dec_on), tuple(minor), *jds, orb_csv), minor, right)
 
 
 def _aspect_tables(events: list, angles: list[int], where):

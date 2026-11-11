@@ -99,15 +99,18 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Aspects Table", "End Date (UT)", "Start Date (UT) + 5 days"),
     ("Aspects Table", "Planets", "Ju, Sa"),
     ("Aspects Table", "Aspects", "Major Aspects, Minor Aspects"),
+    ("Aspects Table", "Major Aspects", "0, 60, 90, 120, 180"),
+    ("Aspects Table", "Minor Aspects", "30, 45, 72, 135, 144, 150"),
     ("Planets Cycles", "Start Date (UT)", "DOB"),
     ("Planets Cycles", "End Date (UT)", "Start Date (UT) + 30 years"),
     ("Planets Cycles", "Planets", "Ju, Sa"),
     ("Planets Cycles", "Major Aspects", "0, 180"),
+    ("Planets Cycles", "Minor Aspects", ""),
     ("Planets Distance(%)", "Start Date (UT)", "DOB"),
     ("Planets Distance(%)", "End Date (UT)", "Start Date (UT) + 2 years"),
     ("Planets Distance(%)", "Planets", "Ju, Sa"),
 ]
-DEFAULTS_VERSION = "3"                                        # 3: AstroClock-2D's rows added (2: rows for every input; 1: the End Dates only)
+DEFAULTS_VERSION = "4"                                        # 4: Aspects Table's angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
@@ -228,6 +231,9 @@ def _rename_defaults_page(eng: sa.Engine):
             c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-3d", sa.func.lower(defaults.c.options) == old).values(options=new))
 
 
+NEW_IN_4 = (("Aspects Table", "Major Aspects"), ("Aspects Table", "Minor Aspects"), ("Planets Cycles", "Minor Aspects"))
+
+
 def _seed_defaults(eng: sa.Engine):
     """The Defaults table gets the rows of DEFAULT_ROWS it lacks, once per DEFAULTS_VERSION (a note among the settings says
     which, so a row deleted since stays deleted); rows already there are left as they are."""
@@ -236,7 +242,8 @@ def _seed_defaults(eng: sa.Engine):
         if done == DEFAULTS_VERSION:
             return
         have = {(p.lower(), t.lower()) for p, t in c.execute(sa.select(defaults.c.page, defaults.c.options)).all()}
-        wanted = [r for r in DEFAULT_ROWS if r[0] == "AstroClock-2D"] if done == "2" else DEFAULT_ROWS   # (a row deleted before stays deleted)
+        added_since = {"2": lambda r: r[0] == "AstroClock-2D" or r[:2] in NEW_IN_4, "3": lambda r: r[:2] in NEW_IN_4}
+        wanted = [r for r in DEFAULT_ROWS if added_since[done](r)] if done in added_since else DEFAULT_ROWS   # (a row deleted before stays deleted)
         new = [dict(page=p, options=t, choices=o or None) for p, t, o in wanted if (p.lower(), t.lower()) not in have]
         if new:
             c.execute(defaults.insert(), new)
