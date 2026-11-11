@@ -363,12 +363,12 @@ __SYMBOL_JS__
     make("title", decScale).textContent = "Declination, " + D.flat_dec[1] + " to +" + D.flat_dec[0] + " degrees";
     const decTag = words("rgb(90,90,90)");
     decTag.setAttribute("x", DEC_X); decTag.setAttribute("y", (cy + R + 56).toFixed(1)); decTag.textContent = "Dec";
-    // the Distance(%) graph, as tall as the circle: 100 (farthest) at the top, a tick every 1, longer every 5, numbered every 10
+    // the Distance(%) graph, as tall as the circle: 100 (farthest) at the top, a tick every 1, longer every 5, numbered every 5
     let distTicks = "";
     for (let v = 0; v !== 101; v++) {
       const long = v % 10 === 0 ? 14 : v % 5 === 0 ? 8 : 4, y = distY(v).toFixed(1);
       distTicks += "M" + DIST_X + " " + y + "L" + (DIST_X + long) + " " + y;
-      if (v % 10 === 0) {
+      if (v % 5 === 0) {
         const n = words("rgb(90,90,90)", D.flat_font);
         n.setAttribute("x", DIST_X + 26); n.setAttribute("y", (distY(v) + D.flat_font / 3).toFixed(1)); n.textContent = v;   // (between DOB's planets and Now's)
       }
