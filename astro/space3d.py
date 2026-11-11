@@ -16,7 +16,7 @@ from .mapchart import CHART_FONT_FAMILY, FONT
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
 RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
 VIEW = (130, 110, WIDTH, HEIGHT - 110)       # the part of the drawing shown (left, top, width, height): the drawing at the top left
-FLAT_VIEW = (150, 50, WIDTH, HEIGHT - 50)    # the same for the flat page
+FLAT_VIEW = (25, 50, WIDTH, HEIGHT - 50)    # the same for the flat page
 SCALES = (FIT := "Fit", "True")   # Fit: each tenfold distance the same room, without the empty space between the Moon and the planets
 GAP = (0.003, 0.25, 0.03)         # Fit: from just past the Moon's farthest (AU) to inside any planet's nearest (Venus about 0.26),
                                   # drawn as only this much (a tenth of a doubling: a thin space)
@@ -40,7 +40,7 @@ FLAT_RING_AU = 12.0
 OUTER_RING_AU = 20.0              # Geo and Helio: a circle beyond the planets, with the AU button
 FLAT_RADIUS = 360.0               # pixels from the Earth to that circle
 FLAT_FONT = 9                     # the RA numbers, in pixels
-FLAT_DEC = (30.0, -31.0)          # the Declination graph beside the circle, as tall as it: its top and bottom, in degrees
+FLAT_DEC = (30.0, -31.0)          # the Declination graph left of the circle, as tall as it: its top and bottom, in degrees
 
 # HelioCentric: the Sun at the centre, the planets and the Earth round it, and the Moon round the Earth (seen from the Sun it is
 # where the Earth is, so it is drawn round the Earth's mark, larger than to scale: in its real direction from the Earth, at
@@ -299,7 +299,7 @@ __SYMBOL_JS__
   });
   houses.forEach((g) => { g.label = words(D.house_colour, D.flat_font); g.label.textContent = g.name; });   // above the lines
   if (D.flat) { svg.appendChild(earth); svg.appendChild(earthLabel); }   // the Earth stays on top of the lines
-  const DEC_X = D.width - 75, DEC_LEAD = 36;       // flat: the Declination graph's line, and how far its marks stand from it
+  const DEC_X = 95, DEC_LEAD = 36;                 // flat: the Declination graph's line, left of the circle, and how far its marks stand from it
   const decY = (dec) => D.height / 2 + D.outer * D.fit * (2 * (D.flat_dec[0] - dec) / (D.flat_dec[0] - D.flat_dec[1]) - 1);
   const decMarks = (D.flat ? D.marks : []).map((m) => {   // each body on the Declination graph, joined to its place on the line
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
@@ -307,7 +307,7 @@ __SYMBOL_JS__
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow)};
   });
-  const DIST_X = DEC_X + 130, DIST_NOW = 58;       // flat: the Distance(%) graph's line, right of the Declination graph; how far right of it Now's planets stand (beyond its numbers)
+  const DIST_X = D.width - 85, DIST_NOW = 58;      // flat: the Distance(%) graph's line, right of the circle; how far right of it Now's planets stand (beyond its numbers)
   const distY = (pct) => D.height / 2 + D.outer * D.fit * (2 * (100 - pct) / 100 - 1);
   const distMarks = (D.flat ? D.marks.filter((m) => D.dist_range[m.name]) : []).map((m) => {   // each planet on it: DOB to its left, Now to its right
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
