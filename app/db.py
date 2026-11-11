@@ -67,8 +67,9 @@ defaults = sa.Table(
     sa.Column("page", sa.String(60), nullable=False),
     sa.Column("options", sa.String(60), nullable=False),
     sa.Column("choices", sa.String(500)),
-    sa.UniqueConstraint("page", "options", name="ux_defaults_page_options"),
 )
+DEFAULTS_INDEX = "ux_defaults_page_options"                   # one row per Page and Options
+sa.Index(DEFAULTS_INDEX, defaults.c.page, defaults.c.options, unique=True)
 DEFAULT_ROWS = [                                              # the app's own defaults: the rows the table starts with
     ("AstroClock-3D", "Time", "DOB"),
     ("AstroClock-3D", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
@@ -178,6 +179,7 @@ def engine() -> sa.Engine:
     _add_orb_nn_ra(eng)
     _seed_aspect_details(eng)
     _rename_defaults_page(eng)
+    _add_defaults_index(eng)
     _seed_defaults(eng)
     return eng
 
@@ -202,6 +204,12 @@ def _rename_defaults_options(eng: sa.Engine):
             if "options" in have:
                 c.execute(sa.text("ALTER TABLE defaults RENAME COLUMN options TO choices"))
             c.execute(sa.text("ALTER TABLE defaults RENAME COLUMN title TO options"))
+
+
+def _add_defaults_index(eng: sa.Engine):
+    """A Defaults table made before the unique index on Page and Options gets it (it already had a rule allowing no two the same)."""
+    with eng.begin() as c:
+        c.execute(sa.text(f"CREATE UNIQUE INDEX IF NOT EXISTS {DEFAULTS_INDEX} ON defaults (page, options)"))
 
 
 def _rename_defaults_page(eng: sa.Engine):
