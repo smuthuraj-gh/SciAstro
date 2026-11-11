@@ -135,7 +135,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, with its symbol inside its marker (☉ Su, ☽ Mo, ☿ Me, ♀ Ve, ♂ Ma, ♃ Ju, ♄ Sa), sized as the Size_Globe column of Symbols says, usually by how big it looks from the Earth then (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its Dec/Lati, RA, Angular Size, Distance from earth and the others approaching and leaving it in Dec/Lati; at CB or CN for its Long, Dec/Lati, RA and the planets approaching and leaving its Dec/Lati). The far side of the sphere is "
                   "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines, and the Moon's north and south nodes (NN, SN), where its path crosses the Sun's, drawn with their symbols (☊ and ☋; point at one for its details). Maj Aspects (0, 60, 90, 120, 180; black) and Min Aspects (30, 45, 72, 135, 144, 150; grey): pick the angles to draw a line between any two planets or nodes shown (not NN with SN) that are in that aspect, by the orbs in Aspect Rules, as time runs; dotted for Now, each with its tag, as 0-Ma-Ju, along it where there is room, or beside it when the two are too close (point at a line for its name). Coordinates, with House, Celes, RA, Dec, Lati and Long below it: which lines to show. Celes: the axis with the names NCP and SCP and the dots at the poles, and the celestial equator with the names WCE and ECE. House: twelve lines on the sphere, 30 degrees apart from the RA of CB (solid) and of CN (dashed), named H01 to H12, turning with the Earth, with each line's RA at its lower right (on the near side, where there is room). RA, Dec: the RA lines and the Dec lines of each planet, and of NN and SN, on the sphere, and "
-                  "of CB and CN on the Earth. Distance(%) from earth (DOB+Now)/2, at the end of the buttons' line: the average of each planet's Distance(%) at birth and now, whatever time the clock shows; below it, with DOB chosen, Distance(%) from earth on DOB; each planet's marker, with its symbol inside, is sized as on the sphere for that distance. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Planet Path, picking from the list below it: a trail behind each body picked, drawn only while time runs, "
+                  "of CB and CN on the Earth. Lati, Long: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Planet Path, picking from the list below it: a trail behind each body picked, drawn only while time runs, "
                   "where it has really been since time started running (none while it stands still; each start begins new ones; up to 72 years). DOB: at birth, solid lines, with CB, a baby, at the birth place. Now: the planets "
                   "now, hollow, dashed lines, with CN, a house, at the place now.",
     "Geo/Helio": "Centric Model: Geo, GeoCentric, the Earth at the centre, or Helio, HelioCentric, the Sun at the centre; each keeps its own choices on the other buttons. "
@@ -158,6 +158,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
                       "them are in a chosen major aspect (0 to 180 degrees). A tag with no room is left off: point at "
                       "its dot to see it. Dates and times are UT.",
+    "AstroClock": "Distance(%) from earth (DOB+Now)/2, at the end of the buttons' line: the average of each planet's Distance(%) at birth and now, whatever time the clock shows; below it, with DOB chosen, Distance(%) from earth on DOB; each planet's marker, with its symbol inside, is sized for that distance.",
     "Distance(%)": "Like AstroClock, each planet at its RA, but as far out as its Distance(%) from the Earth: the centre is 0% "
                    "(its nearest over 1800 to 2400), the circle 100% (its farthest). Each planet's value is beside it, on the Earth's side.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
@@ -670,10 +671,7 @@ def page_globe():
         manual = speed == globechart.MANUAL                           # the Earth is dragged round by hand
         day_seconds = globechart.SPEEDS.get(speed)                    # nothing picked: it holds still
     jd_now = core.now_jd()
-    now_pts, d_now = now_values(jd_now)
-    key = mapchart.globe_key_html(prep.d_birth, d_now, "DOB" in shown)
-    if key:                                                   # at the end of the buttons' line, after Rotate in 1s
-        head.container(width="stretch", horizontal_alignment="right").markdown(key, unsafe_allow_html=True, width="content")
+    now_pts, _ = now_values(jd_now)
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
     g = globechart.GlobeInput(
         birth=prep.birth, now=now_pts, jd_birth=prep.jd_birth, jd_now=jd_now,
@@ -731,6 +729,9 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     speed = kept_pills(head, "Rotate in 1s", SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (not flat)
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
+    if flat and not pct:                                      # AstroClock: the Distance(%) rows, at the end of the buttons' line
+        rows = mapchart.globe_key_html(prep.d_birth, now_values(core.now_jd())[1], "DOB" in shown)
+        head.container(width="stretch", horizontal_alignment="right").markdown(rows, unsafe_allow_html=True, width="content")
     if not shown or not bodies:
         st.info("Choose a time and at least one planet.")
         # nothing drawn: no clock beside the name either (the last drawing's would stay there)

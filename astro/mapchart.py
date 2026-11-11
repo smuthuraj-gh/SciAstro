@@ -179,7 +179,7 @@ def average_key_html(d_birth: dict, d_now: dict) -> str:
 
 
 def globe_key_html(d_birth: dict, d_now: dict, show_dob: bool) -> str:
-    """AstroGlobe's rows, one below the other: Distance(%) from earth (DOB+Now)/2, then with DOB chosen on DOB."""
+    """AstroClock's rows, one below the other: Distance(%) from earth (DOB+Now)/2, then with DOB chosen on DOB."""
     dob = sorted(((n, d_birth[n]) for n in core.PLANETS if d_birth.get(n) is not None), key=lambda i: i[1])   # the nearest first
     rows = [average_key_html(d_birth, d_now), _key_row(dob, "Distance(%) from earth on DOB") if dob and show_dob else ""]
     return '<div style="display:flex; flex-direction:column; row-gap:6px">' + "".join(rows) + "</div>"
