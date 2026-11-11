@@ -646,7 +646,7 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
 
 def page_astroclock():
     """AstroClock-2D: the top page of the menu, for everyone: the Geo drawing in 2D, seen from above the north celestial
-    pole, with only the 12 AU circle and an RA scale round it, 1 to 360, always on the Fit scale, an arrow from the Earth through each body out to the circle, and the twelve house lines of CB and CN (the Houses button, on to start). Its buttons, Time, Planets
+    pole, with only the 12 AU circle and an RA scale round it, 1 to 360, always on the Fit scale, an arrow from the Earth through each body out to the circle, and the twelve house lines of CB and CN (the Houses button under Coordinates, on to start). Its buttons, Time, Planets
     (with NN, SN: on the Moon's path, at the Moon's distance, joined by a line, 180 degrees apart) and Rotate in 1s (how fast time runs; Manual: it stands still),
     are its own, and start as the Defaults table says."""
     _, prep = pick_customer()
@@ -760,7 +760,9 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
                                   format_func=core.symbol_of), choices)
     if flat:      # no Planet Path, Coordinates or AU buttons: no paths, always Fit
         with_paths, scale, show_au = [], space3d.FIT, True
-        show_houses = bool(kept_pills(head, "Houses", ["Houses"], f"{key}_houses", start("Houses"), label_visibility="collapsed"))
+        coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Houses below it (the title off: no houses)
+        show_houses = bool(kept_pills(coords, "Coordinates", ["Coordinates"], f"{key}_t_coords", "Coordinates", label_visibility="collapsed")
+                           and kept_pills(coords, "Houses", ["Houses"], f"{key}_houses", start("Houses"), label_visibility="collapsed"))
     else:
         with_paths = core.in_order(titled(head, "Planet Path", f"{key}_t_paths", core.shown_order(choices), f"{key}_paths", start("Planet Path"),
                                           selection_mode="multi", format_func=core.symbol_of), choices)
