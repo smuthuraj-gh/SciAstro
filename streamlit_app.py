@@ -158,7 +158,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
                       "them are in a chosen major aspect (0 to 180 degrees). A tag with no room is left off: point at "
                       "its dot to see it. Dates and times are UT.",
-    "AstroClock": "Distance(%) from earth (DOB+Now)/2, at the end of the buttons' line: the average of each planet's Distance(%) at birth and now, whatever time the clock shows; below it, with DOB chosen, Distance(%) from earth on DOB; each planet's marker, with its symbol inside, is sized for that distance.",
+    "AstroClock": "Distance(%) from earth (DOB+Now)/2, at the end of the buttons' line: the average of each planet's Distance(%) at birth and now, whatever time the clock shows; below it, with DOB chosen, Distance(%) from earth on DOB, and with Now chosen, Distance(%) from earth at Now; each planet's marker, with its symbol inside, is sized for that distance.",
     "Distance(%)": "Like AstroClock, each planet at its RA, but as far out as its Distance(%) from the Earth: the centre is 0% "
                    "(its nearest over 1800 to 2400), the circle 100% (its farthest). Each planet's value is beside it, on the Earth's side.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
@@ -730,7 +730,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (not flat)
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
     if flat and not pct:                                      # AstroClock: the Distance(%) rows, at the end of the buttons' line
-        rows = mapchart.globe_key_html(prep.d_birth, now_values(core.now_jd())[1], "DOB" in shown)
+        rows = mapchart.globe_key_html(prep.d_birth, now_values(core.now_jd())[1], "DOB" in shown, "Now" in shown)
         head.container(width="stretch", horizontal_alignment="right").markdown(rows, unsafe_allow_html=True, width="content")
     if not shown or not bodies:
         st.info("Choose a time and at least one planet.")
