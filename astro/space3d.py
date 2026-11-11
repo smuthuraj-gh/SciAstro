@@ -458,10 +458,17 @@ __SYMBOL_JS__
       const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2, ra = (g.h.ra + D.spin * t + 30 * g.k) % 360, a = ra * RAD;
       g.e.setAttribute("d", "M" + cx + " " + cy + "L" + (cx + R * Math.cos(a)).toFixed(1) + " " + (cy - R * Math.sin(a)).toFixed(1));
       g.tip.textContent = g.name + " " + symbolOf(g.h.place) + " RA: " + ra.toFixed(2);
-      const b = (ra + 15) * RAD, r = R - (g.n ? 48 : 26), x = cx + r * Math.cos(b), y = cy - r * Math.sin(b) + D.flat_font / 3;
-      const box = boxOf(x, y, g.name, D.flat_font), seen = clear(box, taken);
+      const b = (ra + 15) * RAD, r = R - (g.n ? 48 : 26), x = cx + r * Math.cos(b), mid = cy - r * Math.sin(b);
+      // along the circle, and never upside down
+      let turn = ((90 - ra - 15) % 360 + 360) % 360;
+      if (turn > 90 && turn <= 270) turn -= 180; else if (turn > 270) turn -= 360;
+      const half = g.name.length * 4 * D.flat_font / 13 + 3, box = [x - half, mid - half, x + half, mid + half], seen = clear(box, taken);   // room for it at any turn
       g.label.style.display = seen ? "" : "none";
-      if (seen) { g.label.setAttribute("x", x.toFixed(1)); g.label.setAttribute("y", y.toFixed(1)); taken.push(box); }
+      if (seen) {
+        g.label.setAttribute("x", x.toFixed(1)); g.label.setAttribute("y", (mid + D.flat_font / 3).toFixed(1));
+        g.label.setAttribute("transform", "rotate(" + turn.toFixed(1) + " " + x.toFixed(1) + " " + mid.toFixed(1) + ")");
+        taken.push(box);
+      }
     });
     if (!D.show_tags) {                            // AU off: no tags at all (the lines stay)
       poles.concat(spokes).forEach((g) => { g.label.style.display = "none"; });
