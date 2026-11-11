@@ -86,13 +86,13 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Geo/Helio Model", "Geo Time", "DOB"),
     ("Geo/Helio Model", "Geo Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa"),
     ("Geo/Helio Model", "Geo Planet Path", "Mo, Su, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio Model", "Geo Scale", "Fit"),
+    ("Geo/Helio Model", "Geo Coordinates", "Fit"),
     ("Geo/Helio Model", "Geo AU", "On"),
     ("Geo/Helio Model", "Geo Rotate in 1s", "Manual"),
     ("Geo/Helio Model", "Helio Time", "DOB"),
     ("Geo/Helio Model", "Helio Planets", "Mo, Ea, Me, Ve, Ma, Ju, Sa"),
     ("Geo/Helio Model", "Helio Planet Path", "Mo, Ea, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio Model", "Helio Scale", "Fit"),
+    ("Geo/Helio Model", "Helio Coordinates", "Fit"),
     ("Geo/Helio Model", "Helio AU", "On"),
     ("Geo/Helio Model", "Helio Rotate in 1s", "Manual"),
     ("Aspects Table", "Start Date (UT)", "DOB"),
@@ -229,6 +229,8 @@ def _rename_defaults_page(eng: sa.Engine):
                   .values(choices=sa.func.replace(defaults.c.choices, "\u00b0", "")))
         for old, new in (("maj aspects", "Major Aspects"), ("min aspects", "Minor Aspects")):   # and the inputs since renamed
             c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-3d", sa.func.lower(defaults.c.options) == old).values(options=new))
+        for old, new in (("geo scale", "Geo Coordinates"), ("helio scale", "Helio Coordinates")):
+            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio model", sa.func.lower(defaults.c.options) == old).values(options=new))
 
 
 NEW_IN_4 = (("Aspects Table", "Major Aspects"), ("Aspects Table", "Minor Aspects"), ("Planets Cycles", "Minor Aspects"))

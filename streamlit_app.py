@@ -168,14 +168,14 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "Each point is placed by its RA, Dec and distance. North is up, the axis from NCP to SCP tilted 23.44 degrees on the page, with everything else leaning with it. AU: all the tags, NCP, SCP and the RA names, and rings on the plane of the Earth's equator, each with its distance from the Earth in AU, out to 20 AU (1 AU is about the Sun's distance); off, the drawing has no tags. "
                   "Rotate in 1s: Manual: time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second: 1s a second, 1m a minute, 1h an hour, 1d a day, 1w a week, 1mo a month, 1y a year: the clock beside the name gives the date and time, and the Sun, Moon and planets move as they really did, nearer and farther, the Moon's path going with it (time starts again after 72 years; refresh the page to go back to the start). With none picked it holds still. Each has its symbol inside its marker (☉ Su, ☽ Mo, ☿ Me, ♀ Ve, ♂ Ma, ♃ Ju, ♄ Sa, ⊕ Ea). Sizes follow the Size_Geo column of Symbols: usually a planet by how big it looks from the Earth at that moment (a logarithmic scale, as to true scale the planets would not show), so it grows as it comes nearer, and the Earth as its Size says (Tiny, a dot, when it says nothing readable; to true scale it would be far smaller still). Point at a planet for its Dec/Lati, RA, Angular Size and distance, or at a path for its span and distances. "
                   "Planet Path: which of the planets shown have their paths drawn. Time: Now is hollow with dashed paths, DOB solid; each path is a trail behind its planet, drawn only while time runs: where it has really been since time started running, kept for up to 72 years, when time starts again (a trail over many years is drawn with fewer points). With time standing still there are no trails, and each start begins new ones. "
-                  "Scale: on Fit each tenfold distance takes the same room, so the Moon's path and Saturn's can be seen together, and the empty space between the Moon's path and the planets' is taken out (it alone is not to scale); True is to scale, where the Moon's path is too small to tell from the Earth (pick Mo alone to see it). A label with no room is left off: point at its mark. "
+                  "Coordinates: Fit, True and AU below it. On Fit each tenfold distance takes the same room, so the Moon's path and Saturn's can be seen together, and the empty space between the Moon's path and the planets' is taken out (it alone is not to scale); True is to scale, where the Moon's path is too small to tell from the Earth (pick Mo alone to see it). A label with no room is left off: point at its mark. "
                     "HelioCentric: as GeoCentric, with the Sun (Su) at the centre: the paths of the planets and the Earth (Ea) around the Sun, each at its own distance from the Sun, "
                     "placed by its RA, Dec and distance as seen from the Sun, on the same frame as from the Earth (the plane of the Earth's equator, north up). The Moon (Mo) goes round the Earth: seen from the Sun it is where the Earth is, so it is drawn close round the Earth's mark (a dot when its Size_Helio is Tiny, as it starts), farther out than to scale, in its real direction from the Earth and nearer and farther with its real distance (its path loops round the Earth's). "
                     "AU: all the tags, NCP, SCP and the RA names, and rings on the plane of the Earth's equator, each with its distance from the Sun in AU (1 AU is about the Earth's distance; on Fit 0.5, 1, 2.5, 5, 10 and 20 AU, on True 1, 2.5, 5, 10 and 20 AU, nearer ones being inside the Sun's mark there); off, the drawing has no tags. "
                     "Rotate in 1s: Manual: time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second (1s, 1m, 1h, 1d, 1w, 1mo, 1y): the clock beside the name gives the date and time, and the planets and the Earth move round the Sun as they really did (time starts again after 72 years; refresh the page to go back to the start). With none picked it holds still. "
                     "Each has its symbol inside its marker (☿ Me, ♀ Ve, ⊕ Ea, ☽ Mo, ♂ Ma, ♃ Ju, ♄ Sa, ☉ Su). Sizes follow the Size_Helio column of Symbols: usually a planet by how big it looks from the Earth at that moment (a logarithmic scale), the Sun and the Earth as their Sizes say. Point at a planet for its Dec/Lati, RA, Angular Size and distance from the Sun, or at a path for its span and distances. "
                     "Planet Path: which of the planets shown have their paths drawn. Time: Now is hollow with dashed paths, DOB solid; each path is a trail behind its planet, drawn only while time runs, kept for up to 72 years (with time standing still there are no trails, and each start begins new ones). "
-                    "Scale: on Fit each tenfold distance takes the same room, so Mercury's path and Saturn's can be seen together; True is to scale. A label with no room is left off: point at its mark.",
+                    "Coordinates: Fit, True and AU below it. On Fit each tenfold distance takes the same room, so Mercury's path and Saturn's can be seen together; True is to scale. A label with no room is left off: point at its mark.",
     "Aspects Table": "The aspects between the chosen planets, and the Moon's nodes (NN, SN; by their own orbs in Aspect Rules, ☊ and ☋, the larger of the pair's as for two planets; never with each other), over the period, as tables, newest first: one table per "
                "angle, a row each time two planets came into it (RA within the orb of the angle, and the two Declinations "
                "within the same orb of equal or mirrored). Major Aspects: on or off, with the angles 0, 60, 90, 120, 180 to pick from below it. Minor Aspects: "
@@ -451,7 +451,7 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
         out |= {("Geo/Helio Model", f"{model} Time"): (["Now", "DOB"], True, ["DOB"]),
                 ("Geo/Helio Model", f"{model} Planets"): (list(bodies), True, list(bodies)),
                 ("Geo/Helio Model", f"{model} Planet Path"): (list(bodies), True, list(bodies)),
-                ("Geo/Helio Model", f"{model} Scale"): (list(space3d.SCALES), False, space3d.FIT),
+                ("Geo/Helio Model", f"{model} Coordinates"): (list(space3d.SCALES), False, space3d.FIT),
                 ("Geo/Helio Model", f"{model} AU"): (["AU"], False, "AU"),
                 ("Geo/Helio Model", f"{model} Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL)}
     for page, end, planets in (("Aspects Table", (0, 5), core.BUTTON_ORDER + ["NN", "SN"]), ("Planets Cycles", (360, 0), core.BUTTON_ORDER),
@@ -758,14 +758,18 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     shown = titled(head, "Time", f"{key}_t_time", ["Now", "DOB"], f"{key}_time", start("Time"), selection_mode="multi") or []
     bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
                                   format_func=core.symbol_of), choices)
-    if flat:      # no Planet Path, Scale or AU buttons: no paths, always Fit
+    if flat:      # no Planet Path, Coordinates or AU buttons: no paths, always Fit
         with_paths, scale, show_au = [], space3d.FIT, True
         show_houses = bool(kept_pills(head, "Houses", ["Houses"], f"{key}_houses", start("Houses"), label_visibility="collapsed"))
     else:
         with_paths = core.in_order(titled(head, "Planet Path", f"{key}_t_paths", core.shown_order(choices), f"{key}_paths", start("Planet Path"),
                                           selection_mode="multi", format_func=core.symbol_of), choices)
-        scale = titled(head, "Scale", f"{key}_t_scale", space3d.SCALES, f"{key}_scale", start("Scale")) or space3d.FIT
-        show_au = bool(kept_pills(head, "AU", ["AU"], f"{key}_au", start("AU"), label_visibility="collapsed"))
+        coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Fit, True and AU below it
+        scale, show_au = space3d.FIT, False                   # (with the title off: Fit, no tags)
+        if kept_pills(coords, "Coordinates", ["Coordinates"], f"{key}_t_scale", "Coordinates", label_visibility="collapsed"):
+            below = coords.container(horizontal=True, width="content", gap="xxsmall")
+            scale = kept_pills(below, "Which Coordinates", space3d.SCALES, f"{key}_scale", start("Coordinates"), label_visibility="collapsed") or space3d.FIT
+            show_au = bool(kept_pills(below, "AU", ["AU"], f"{key}_au", start("AU"), label_visibility="collapsed"))
     speed = titled(head, "Rotate in 1s", f"{key}_t_speed", SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (not flat)
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
