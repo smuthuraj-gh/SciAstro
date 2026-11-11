@@ -1110,9 +1110,9 @@ pages = [st.Page(page_astroclock, title="AstroClock-2D", icon=":material/science
 if user.is_admin:                                             # the Aspect Rules, Customers, Symbols, Defaults, Logins pages: admins only
     pages += [st.Page(page_aspects, title="Aspect Rules", icon=":material/tune:", url_path="aspect-rules"),
               st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers"),
-              st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols"),
               st.Page(page_defaults, title="Defaults", icon=":material/settings:", url_path="defaults"),
-              st.Page(page_logins, title="Logins", icon=":material/history:", url_path="logins")]
+              st.Page(page_logins, title="Logins", icon=":material/history:", url_path="logins"),
+              st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols")]
 else:
     pages.append(st.Page(page_my_details, title="My details", icon=":material/person:", url_path="me"))
 nav = st.navigation(pages)
