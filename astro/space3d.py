@@ -294,7 +294,7 @@ __SYMBOL_JS__
   });
   houses.forEach((g) => { g.label = words(D.house_colour, D.flat_font); g.label.textContent = g.name; });   // above the lines
   if (D.flat) { svg.appendChild(earth); svg.appendChild(earthLabel); }   // the Earth stays on top of the lines
-  const DEC_X = D.width + 40, DEC_ROOM = 175;       // flat: the Declination graph's line, and the room beside it for its marks
+  const DEC_X = D.width - 75, DEC_LEAD = 36;       // flat: the Declination graph's line, and how far its marks stand from it
   const decY = (dec) => D.height / 2 + D.outer * D.fit * (2 * (D.flat_dec[0] - dec) / (D.flat_dec[0] - D.flat_dec[1]) - 1);
   const decMarks = (D.flat ? D.marks : []).map((m) => {   // each body on the Declination graph, joined to its place on the line
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
@@ -456,15 +456,11 @@ __SYMBOL_JS__
       fitSymbol(g.label, x, y, r);
       return {g, x, y, z, r, ra: s.ra};
     }).sort((a, b) => a.z - b.z);
-    // the Declination graph, each mark sized as on the clock: top to bottom, each in the first lane with room
-    const onGraph = decMarks.map((g) => ({g, s: posAt(g.m.clock, g.m.name, t).s, r: radiusAt(g.m.rule, sizing(g.m.clock), t)}));
-    const widest = Math.max(0, ...onGraph.map((q) => q.r)), pitch = 2 * widest + 3, most = Math.max(1, Math.floor(DEC_ROOM / pitch)), lanes = [];
-    onGraph.sort((a, b) => b.s.dec - a.s.dec).forEach(({g, s, r}) => {
-      const y = decY(Math.max(D.flat_dec[1], Math.min(D.flat_dec[0], s.dec)));
-      let lane = lanes.findIndex((v) => y - v.y >= v.r + r + 2);
-      if (lane === -1) lane = lanes.length !== most ? lanes.length : lanes.indexOf(lanes.reduce((a, b) => (a.y + a.r > b.y + b.r ? b : a)));
-      lanes[lane] = {y, r};
-      const x = DEC_X - 8 - widest - lane * pitch;
+    // the Declination graph, each mark sized as on the clock, all in one column on lines of one length: marks at the same
+    // Dec overlap, which shows a possible conjunction
+    decMarks.forEach((g) => {
+      const s = posAt(g.m.clock, g.m.name, t).s, r = radiusAt(g.m.rule, sizing(g.m.clock), t);
+      const y = decY(Math.max(D.flat_dec[1], Math.min(D.flat_dec[0], s.dec))), x = DEC_X - DEC_LEAD;
       g.e.setAttribute("r", r.toFixed(1));
       g.lead.setAttribute("d", "M" + x.toFixed(1) + " " + y.toFixed(1) + "H" + DEC_X);
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
