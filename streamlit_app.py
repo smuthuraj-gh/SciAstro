@@ -159,7 +159,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                       "them are in a chosen major aspect (0 to 180 degrees). A tag with no room is left off: point at "
                       "its dot to see it. Dates and times are UT.",
     "Distance(%)": "Like AstroClock, each planet at its RA, but as far out as its Distance(%) from the Earth: the centre is 0% "
-                   "(its nearest over 1800 to 2400), the circle 100% (its farthest). Point at a planet for its value.",
+                   "(its nearest over 1800 to 2400), the circle 100% (its farthest). Each planet's value is beside it, on the Earth's side.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "

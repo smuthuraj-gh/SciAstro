@@ -283,6 +283,7 @@ __SYMBOL_JS__
       make("title", e).textContent = symbolOf("NN") + " to " + symbolOf("SN") + " " + c + ": 180 degrees apart";
       return {c, e};
     });
+  const PCT_FONT = 11;
   // flat: the twelve house lines of CB and CN, as on AstroGlobe: 30 degrees apart from the place's RA, turning with the Earth
   const houses = D.flat ? D.houses.flatMap((h, n) => [...Array(12).keys()].map((k) => {
     const e = make("path", svg, {fill: "none", stroke: D.house_colour, "stroke-width": 1, style: "pointer-events:stroke"});
@@ -301,7 +302,8 @@ __SYMBOL_JS__
   const marks = D.marks.map((m) => {
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
     const tip = make("title", e), label = symbolTag(svg, m.name, m.colour, m.hollow);
-    return {m, e, tip, label, table: D.tables[m.clock][m.name]};
+    const value = D.pct ? words(m.colour, PCT_FONT) : null;   // the Distance(%) page: its value, on the Earth's side of it
+    return {m, e, tip, label, value, table: D.tables[m.clock][m.name]};
   });
   const boxOf = (x, y, text, size) => {             // the room a tag takes, by its font size (13 px: 8 a character, 18 high)
     const k = (size || D.font) / 13, w = text.length * 8 * k;
@@ -435,7 +437,7 @@ __SYMBOL_JS__
       g.e.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       g.label.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       fitSymbol(g.label, x, y, r);
-      return {g, x, y, z, r, ra: s.ra};
+      return {g, x, y, z, r, s, ra: s.ra};
     }).sort((a, b) => a.z - b.z);
     rays.forEach((g) => {
       const q = placed.find((p) => p.g.m === g.m), R = D.outer * D.fit, a = q.ra * RAD;
@@ -460,6 +462,20 @@ __SYMBOL_JS__
       lastStack = stack;
     }
     const taken = placed.map((q) => [q.x - q.r - 2, q.y - q.r - 2, q.x + q.r + 2, q.y + q.r + 2]).concat([[ex - earthR - 1, ey - earthR - 1, ex + earthR + 1, ey + earthR + 1]], scaleBoxes);
+    if (D.pct) placed.forEach((q) => {             // each value just on the Earth's side of its planet; moved a little if that place is taken
+      const text = pctOf(q.s, q.g.m.name).toFixed(2), d = Math.hypot(ex - q.x, ey - q.y) || 1, ux = (ex - q.x) / d, uy = (ey - q.y) / d;
+      const w = text.length * 4 * PCT_FONT / 13 + 3, gap = q.r + 3 + Math.abs(ux) * w + Math.abs(uy) * 9;
+      q.g.value.textContent = text;
+      q.g.value.style.display = "none";
+      for (const [along, side] of [[0, 0], [10, 0], [0, 24], [0, -24], [10, 24], [10, -24], [22, 0]]) {
+        const x = q.x + ux * (gap + along) - uy * side, y = q.y + uy * (gap + along) + ux * side + PCT_FONT / 3, box = boxOf(x, y, text, PCT_FONT);
+        if (!inside(box) || !clear(box, taken)) continue;
+        q.g.value.setAttribute("x", x.toFixed(1)); q.g.value.setAttribute("y", y.toFixed(1));
+        q.g.value.style.display = "";
+        taken.push(box);
+        break;
+      }
+    });
     houses.forEach((g) => {                        // each from the Earth to the circle, named in the middle of its span where there is room
       const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2, ra = (g.h.ra + D.spin * t + 30 * g.k) % 360, a = ra * RAD;
       g.e.setAttribute("d", "M" + cx + " " + cy + "L" + (cx + R * Math.cos(a)).toFixed(1) + " " + (cy - R * Math.sin(a)).toFixed(1));
