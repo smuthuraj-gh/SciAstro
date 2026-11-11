@@ -1,7 +1,6 @@
-"""What the charts share: the text size, keeping labels apart (Spots), the page's chart holder (fit_html) and the Distance(%) row."""
+"""What the charts share: the text size, keeping labels apart (Spots), the page's chart holder (fit_html) and the Distance(%) averages."""
 from __future__ import annotations
 
-import html
 import math
 import re
 
@@ -111,7 +110,7 @@ def fit_html(fig: go.Figure, after_js: str = "") -> str:
 
 
 def _marker_radius(name: str, pcts: dict) -> float:
-    """A planet's marker radius, as AstroClock-2D draws it, by its Size_Clock-2D in the Symbols table, at the distances (%) of this row."""
+    """A planet's marker radius, as AstroClock-2D draws it, by its Size_Clock-2D in the Symbols table, at these distances (%)."""
     from .globechart import BODY_RADIUS_KM, MARKER_RANGE, SIZE_RANGE_ARCSEC
     rule = core.size_rule(name, texts=core.SIZE_TEXTS_CLOCK)
     if "px" in rule:
@@ -123,58 +122,10 @@ def _marker_radius(name: str, pcts: dict) -> float:
     return max(1.0, MARKER_RANGE[0] + (MARKER_RANGE[1] - MARKER_RANGE[0]) * min(max(share, 0.0), 1.0) + rule["add"])
 
 
-def _ink_on(colour: str) -> str:
-    """Black or white, whichever shows on a colour (as the pages' symbols are)."""
-    if colour.startswith("#"):
-        r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
-    else:
-        r, g, b = map(int, re.findall(r"[0-9]+", colour)[:3])
-    return "black" if 0.299 * r + 0.587 * g + 0.114 * b > 150 else "white"
-
-
-def _marker_svg(name: str, pcts: dict, shape: dict) -> str:
-    """A planet's round marker, in its colour and sized as on the charts, with its symbol inside."""
-    r = _marker_radius(name, pcts)
-    k, half, colour = r / 9.5, r + 1, core.colour(name)
-    ink = _ink_on(colour)
-    inside = (f'<path d="{shape["d"]}" fill="none" stroke="{ink}" stroke-width="{1.5 / k:.2f}" stroke-linecap="round" stroke-linejoin="round"/>'
-              if "d" in shape else
-              f'<text y="{FONT * 0.35:.1f}" text-anchor="middle" font-size="{FONT}" font-weight="bold" fill="{ink}">{html.escape(shape["text"])}</text>')
-    return (f'<svg width="{2 * half:.1f}" height="{2 * half:.1f}" viewBox="{-half:.1f} {-half:.1f} {2 * half:.1f} {2 * half:.1f}" style="display:block">'
-            f'<circle r="{r:.1f}" fill="{colour}"/><g transform="scale({k:.3f})">{inside}</g></svg>')
-
-
-def _key_row(items: list[tuple[str, float | None]], label: str = "") -> str:
-    """One row of the key: the row's title above, then each planet's marker, with a value beneath (blank for none)."""
-    from .globechart import symbol_shapes
-    shapes, pcts = symbol_shapes(), {n: v for n, v in items if v is not None}
-
-    def item(n: str, v: float | None) -> str:
-        value = f"{v:.1f}" if v is not None else "&nbsp;"
-        return (f'<span style="display:inline-block; text-align:center; margin-right:{KEY_GAP_HTML}px; vertical-align:top; line-height:1.4">'
-                f'<span style="display:flex; height:{MARKER_ROOM}px; align-items:center; justify-content:center">{_marker_svg(n, pcts, shapes[n])}</span>'
-                f'<span style="font-size:{FONT}px">{value}</span></span>')
-    head = (f'<div style="font-size:{FONT}px; line-height:1.2; margin-bottom:3px">'
-            f'<b style="font-weight:700">{label}</b>'
-            f'</div>' if label else "")
-    # in the charts' own font (Plotly's) and text colour
-    return (f'<div style="white-space:nowrap; font-size:{FONT}px; font-family:{CHART_FONT_FAMILY}; '
-            f'color:{CHART_TEXT}">' + head + "".join(item(*i) for i in items) + "</div>")
-
-
 CHART_FONT_FAMILY = "'Open Sans', verdana, arial, sans-serif"     # Plotly's default, which the charts are drawn in
 CHART_TEXT = "#444"                                              # Plotly's text colour
-MARKER_ROOM = 30                 # pixels high for the markers in the Distance(%) row, the biggest fitting
-# The space between one planet and the next in the Distance(%) row
-KEY_GAP_HTML = 8
 
 
 def average_values(d_birth: dict, d_now: dict) -> dict:
     """Each planet's Distance(%) from earth (Ave.): the average of D at birth and D-N now."""
     return {n: round((d_birth[n] + d_now[n]) / 2, 2) for n in core.PLANETS if d_birth.get(n) is not None and d_now.get(n) is not None}
-
-
-def average_key_html(averages: dict) -> str:
-    """The Distance(%) from earth (Ave.) row, from the least to the greatest. Empty if there are none."""
-    da = sorted(averages.items(), key=lambda i: i[1])            # by its value: the nearest first
-    return _key_row(da, "Distance(%) from earth (Ave.)") if da else ""
