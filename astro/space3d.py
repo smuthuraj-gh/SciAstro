@@ -352,11 +352,11 @@ __SYMBOL_JS__
     // the Declination graph, as tall as the circle: a tick every degree, longer every 5, numbered every 5 and at its ends
     let decTicks = "";
     for (let v = D.flat_dec[1]; v !== D.flat_dec[0] + 1; v++) {
-      const long = v === 0 ? 14 : v % 5 === 0 ? 8 : 4, y = decY(v).toFixed(1);
+      const long = v === 0 ? 10 : v % 5 === 0 ? 8 : 4, y = decY(v).toFixed(1);
       decTicks += "M" + DEC_X + " " + y + "L" + (DEC_X + long) + " " + y;
       if (v % 5 === 0 || v === D.flat_dec[0] || v === D.flat_dec[1]) {
         const n = words("rgb(90,90,90)", D.flat_font);
-        n.setAttribute("x", DEC_X + 32); n.setAttribute("y", (decY(v) + D.flat_font / 3).toFixed(1)); n.textContent = (v > 0 ? "+" : "") + v;
+        n.setAttribute("text-anchor", "start"); n.setAttribute("x", DEC_X + 12); n.setAttribute("y", (decY(v) + D.flat_font / 3).toFixed(1)); n.textContent = (v > 0 ? "+" : "") + v;
       }
     }
     const decScale = make("path", svg, {d: "M" + DEC_X + " " + decY(D.flat_dec[0]).toFixed(1) + "V" + decY(D.flat_dec[1]).toFixed(1) + decTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
@@ -366,11 +366,11 @@ __SYMBOL_JS__
     // the Distance(%) graph, as tall as the circle: 100 (farthest) at the top, a tick every 1, longer every 5, numbered every 5
     let distTicks = "";
     for (let v = 0; v !== 101; v++) {
-      const long = v % 10 === 0 ? 14 : v % 5 === 0 ? 8 : 4, y = distY(v).toFixed(1);
+      const long = v % 10 === 0 ? 10 : v % 5 === 0 ? 8 : 4, y = distY(v).toFixed(1);
       distTicks += "M" + DIST_X + " " + y + "L" + (DIST_X + long) + " " + y;
       if (v % 5 === 0) {
         const n = words("rgb(90,90,90)", D.flat_font);
-        n.setAttribute("x", DIST_X + 26); n.setAttribute("y", (distY(v) + D.flat_font / 3).toFixed(1)); n.textContent = v;   // (between DOB's planets and Now's)
+        n.setAttribute("text-anchor", "start"); n.setAttribute("x", DIST_X + 12); n.setAttribute("y", (distY(v) + D.flat_font / 3).toFixed(1)); n.textContent = v;   // (between DOB's planets and Now's)
       }
     }
     const distScale = make("path", svg, {d: "M" + DIST_X + " " + distY(100).toFixed(1) + "V" + distY(0).toFixed(1) + distTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
