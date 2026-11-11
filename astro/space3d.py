@@ -308,7 +308,7 @@ __SYMBOL_JS__
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow)};
   });
-  const DIST_X = D.width - 46, DIST_NOW = 52, DIST_AVE = 82;   // flat: the Distance(%) graph's line, right of the circle; how far right of it Now's planets stand (beyond its numbers), and how far left the Ave planets (beyond DOB's)
+  const DIST_X = D.width - 46, DIST_NOW = 52, DIST_DOB = 82;   // flat: the Distance(%) graph's line, right of the circle; how far right of it Now's planets stand (beyond its numbers), and how far left DOB's (beyond the Ave planets)
   const distY = (pct) => D.height / 2 + D.outer * D.fit * (2 * (100 - pct) / 100 - 1);
   const distMarks = (D.flat ? D.marks.filter((m) => D.dist_range[m.name]) : []).map((m) => {   // each planet on it: DOB to its left, Now to its right
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
@@ -377,7 +377,7 @@ __SYMBOL_JS__
     make("title", distScale).textContent = "Distance(%) from earth, 0 nearest to 100 farthest: Ave and DOB to the left, Now to the right";
     const distTag = words("rgb(90,90,90)");
     distTag.setAttribute("x", DIST_X); distTag.setAttribute("y", (cy + R + 56).toFixed(1)); distTag.textContent = "Distance(%)";
-    [["Ave", DIST_X - DIST_AVE], ["DOB", DIST_X - DEC_LEAD], ["Now", DIST_X + DIST_NOW]].forEach(([name, x]) => {   // which side is which, above that tag
+    [["DOB", DIST_X - DIST_DOB], ["Ave", DIST_X - DEC_LEAD], ["Now", DIST_X + DIST_NOW]].forEach(([name, x]) => {   // which side is which, above that tag
       const side = words("rgb(90,90,90)");
       side.setAttribute("x", x); side.setAttribute("y", (cy + R + 39).toFixed(1)); side.textContent = name;
     });
@@ -507,7 +507,7 @@ __SYMBOL_JS__
     // the Distance(%) graph, the same way: marks at the same distance overlap
     distMarks.forEach((g) => {
       const s = posAt(g.m.clock, g.m.name, t).s, r = radiusAt(g.m.rule, sizing(g.m.clock), t), [lo, hi] = D.dist_range[g.m.name];
-      const pct = Math.max(0, Math.min(100, (s.dist - lo) / (hi - lo) * 100)), y = distY(pct), x = DIST_X + (g.m.hollow ? DIST_NOW : -DEC_LEAD);
+      const pct = Math.max(0, Math.min(100, (s.dist - lo) / (hi - lo) * 100)), y = distY(pct), x = DIST_X + (g.m.hollow ? DIST_NOW : -DIST_DOB);
       g.e.setAttribute("r", r.toFixed(1));
       g.lead.setAttribute("d", "M" + x.toFixed(1) + " " + y.toFixed(1) + "H" + DIST_X);
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
@@ -515,7 +515,7 @@ __SYMBOL_JS__
       g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDistance(%) from earth: " + pct.toFixed(1);
     });
     aveMarks.forEach((g) => {
-      const y = distY(g.m.pct), x = DIST_X - DIST_AVE;
+      const y = distY(g.m.pct), x = DIST_X - DEC_LEAD;
       g.e.setAttribute("r", g.m.r.toFixed(1));
       g.lead.setAttribute("d", "M" + x.toFixed(1) + " " + y.toFixed(1) + "H" + DIST_X);
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
