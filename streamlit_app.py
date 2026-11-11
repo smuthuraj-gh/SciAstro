@@ -53,6 +53,10 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 :is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child):not(:nth-child(7))
   { border-radius: 50% !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important;
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
+/* Aspects Table's 3 digit angles: small circles too, so that each group's angles fit on one line */
+:is(.st-key-asp_major, .st-key-asp_minor) button:nth-child(n+4)
+  { border-radius: 50% !important; width: 28px !important; min-width: 28px !important; height: 28px !important; min-height: 28px !important;
+    padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
 /* every action button (Insert, Commit, Delete, Yes, Sign out ..): a small pill */
 :is([data-testid="stBaseButton-primary"], [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-primaryFormSubmit"], [data-testid="stBaseButton-secondaryFormSubmit"])
   { padding: 0 10px !important; height: 24px !important; min-height: 24px !important; border-radius: 12px !important; }
@@ -632,7 +636,7 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
             if not box.pills(title, [title], default=title if title in groups else None, key=f"{keys}{key}_on", label_visibility="collapsed"):
                 return []
             return core.in_order(box.pills(f"Which {title}", names, selection_mode="multi", default=default_choice(page, title),
-                                           key=f"{keys}{key}", label_visibility="collapsed", width=124), names)
+                                           key=f"{keys}{key}", label_visibility="collapsed", width=len(names) * 33), names)   # all on one line
 
         ea = group("Major Aspects", "major", GLOBE_MAJOR)
         minor = [int(a) for a in group("Minor Aspects", "minor", GLOBE_MINOR)]
