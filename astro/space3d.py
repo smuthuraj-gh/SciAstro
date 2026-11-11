@@ -371,6 +371,10 @@ __SYMBOL_JS__
     make("title", distScale).textContent = "Distance(%) from earth, 0 nearest to 100 farthest: DOB to the left, Now to the right";
     const distTag = words("rgb(90,90,90)");
     distTag.setAttribute("x", DIST_X); distTag.setAttribute("y", (cy + R + 56).toFixed(1)); distTag.textContent = "Distance(%)";
+    [["DOB", DIST_X - DEC_LEAD], ["Now", DIST_X + DIST_NOW]].forEach(([name, x]) => {   // which side is which, above that tag
+      const side = words("rgb(90,90,90)");
+      side.setAttribute("x", x); side.setAttribute("y", (cy + R + 39).toFixed(1)); side.textContent = name;
+    });
   }
   const clear = (a, taken) => taken.every((b) => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
   const inside = (a) => a[0] > D.view[0] && a[1] > D.view[1] && a[2] < D.view[0] + D.view[2] && a[3] < D.view[1] + D.view[3];
