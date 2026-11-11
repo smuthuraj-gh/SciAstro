@@ -39,7 +39,7 @@ SIDES = 96                        # a ring is drawn with this many straight piec
 FLAT_RING_AU = 12.0
 OUTER_RING_AU = 20.0              # Geo and Helio: a circle beyond the planets, with the AU button
 FLAT_RADIUS = 360.0               # pixels from the Earth to that circle
-FLAT_DRAG_DAYS = 0.25             # Manual on the flat page: how many days a pixel of dragging moves time
+FLAT_DRAG_DAYS = 0.25             # the flat page with no speed picked: how many days a pixel of dragging moves time
 FLAT_FONT = 10                    # the RA numbers, in pixels
 FLAT_DEC = (31.0, -31.0)          # the Declination graph left of the circle, as tall as it: its top and bottom, in degrees
 
@@ -640,8 +640,8 @@ __SYMBOL_JS__
       draw();
     }, D.step_ms);
   }
-  if (!D.manual) { svg.style.cursor = "default"; return; }
-  let from = null, due = false;                    // Manual: time stands still, and dragging turns the drawing (flat: moves time)
+  if (D.flat ? D.day_seconds : !D.manual) { svg.style.cursor = "default"; return; }
+  let from = null, due = false;                    // Manual: time stands still, and dragging turns the drawing (flat, with no speed: moves time)
   svg.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
     from = [e.clientX, e.clientY];

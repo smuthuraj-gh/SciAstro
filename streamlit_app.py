@@ -45,12 +45,12 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 :is(.st-key-sci_bodies, .st-key-globe_bodies, .st-key-globe_paths, .st-key-space_bodies, .st-key-space_paths, .st-key-helio_bodies, .st-key-helio_paths,
     [class*="dec_on_v2"], .st-key-dist_on_v2) button,
 :is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, .st-key-sci_major, .st-key-sci_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button,
-:is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child)
+:is(.st-key-helio_speed, .st-key-space_speed, .st-key-globe_speed) button:not(:first-child), .st-key-sci_speed button
   { border-radius: 50% !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important;
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
 /* angles and speeds in a smaller type, so that 120 and 1mo fit the same circle as 0 and 1s */
 .stApp :is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, .st-key-sci_major, .st-key-sci_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button :is(p, span, div),
-.stApp :is(.st-key-helio_speed, .st-key-space_speed, .st-key-sci_speed, .st-key-globe_speed) button:not(:first-child) :is(p, span, div)
+.stApp :is(.st-key-helio_speed, .st-key-space_speed, .st-key-globe_speed) button:not(:first-child) :is(p, span, div), .stApp .st-key-sci_speed button :is(p, span, div)
   { font-size: 10px !important; }
 /* every action button (Insert, Commit, Delete, Yes, Sign out ..): the same small pill */
 :is([data-testid="stBaseButton-primary"], [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-primaryFormSubmit"], [data-testid="stBaseButton-secondaryFormSubmit"])
@@ -183,7 +183,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
                       "them are in a chosen major or minor aspect. A tag with no room is left off: point at "
                       "its dot to see it. Dates and times are UT.",
-    "AstroClock-2D": "Left of the clock, Dec: each planet's Declination on a scale from +31 to -31 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at DOB and at Now to the left of its line, and at Ave (the average, which stays put as time runs) to the right. Major Aspects and Minor Aspects: the angles to draw; two planets at the same time in one of them, by the orbs in Aspect Rules, are joined by a line tagged as 0-Ma-Ju. Rotate in 1s: pick a speed for time to run; on Manual it stands still, and dragging the drawing moves it by hand: right is later, left is back, as far as where it started, 6 hours a pixel.",
+    "AstroClock-2D": "Left of the clock, Dec: each planet's Declination on a scale from +31 to -31 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at DOB and at Now to the left of its line, and at Ave (the average, which stays put as time runs) to the right. Major Aspects and Minor Aspects: the angles to draw; two planets at the same time in one of them, by the orbs in Aspect Rules, are joined by a line tagged as 0-Ma-Ju. Rotate in 1s: pick a speed for time to run; with none picked it stands still, and dragging the drawing moves it by hand: right is later, left is back, as far as where it started, 6 hours a pixel.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
@@ -426,6 +426,7 @@ def need_chart(prep: Prepared | None) -> bool:
 
 # ---------------------------------------------------------------- the Defaults table: what each page's inputs start as
 SPEED_CHOICES = [globechart.MANUAL] + list(globechart.SPEEDS)
+FLAT_SPEED_CHOICES = list(globechart.SPEEDS)                  # AstroClock-2D's: no Manual (with none picked time stands still)
 GLOBE_MAJOR = [str(a) for a in sorted(core.MAJOR)]
 GLOBE_MINOR = [str(a) for a in core.MINOR]
 START, END = "start", "end"                                   # the two date inputs (not buttons)
@@ -440,7 +441,7 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
            ("AstroClock-2D", "Major Aspects"): (GLOBE_MAJOR, True, []),
            ("AstroClock-2D", "Minor Aspects"): (GLOBE_MINOR, True, []),
            ("AstroClock-2D", "Houses"): (["Houses"], False, "Houses"),
-           ("AstroClock-2D", "Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL),
+           ("AstroClock-2D", "Rotate in 1s"): (FLAT_SPEED_CHOICES, False, None),
            ("AstroClock-3D", "Time"): (["Now", "DOB"], True, ["DOB"]),
            ("AstroClock-3D", "Planets"): (globe, True, globe),
            ("AstroClock-3D", "Planet Path"): (globe, True, ["Su"]),
@@ -649,7 +650,7 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
 def page_astroclock():
     """AstroClock-2D: the top page of the menu, for everyone: the Geo drawing in 2D, seen from above the north celestial
     pole, with only the 12 AU circle and an RA scale round it, 1 to 360, always on the Fit scale, an arrow from the Earth through each body out to the circle, and the twelve house lines of CB and CN (the Houses button under Coordinates, on to start). Its buttons, Time, Planets
-    (with NN, SN: on the Moon's path, at the Moon's distance, joined by a line, 180 degrees apart) and Rotate in 1s (how fast time runs; Manual: it stands still until the drawing is dragged sideways),
+    (with NN, SN: on the Moon's path, at the Moon's distance, joined by a line, 180 degrees apart) and Rotate in 1s (how fast time runs; none picked: it stands still, and dragging the drawing sideways moves it),
     are its own, and start as the Defaults table says."""
     _, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="top", gap="small")
@@ -738,7 +739,9 @@ def kept_pills(box, label: str, options, key: str, default=None, **kw):
     """Buttons whose choice is kept while they are not on the page (Streamlit forgets a widget's choice on a run that does not
     show it): when they come back they start from the choice they had."""
     store = f"_kept_{key}"
-    value = box.pills(label, options, default=st.session_state.get(store, default), key=key, **kw)
+    start = st.session_state.get(store, default)
+    start = [v for v in start if v in options] if isinstance(start, list) else start if start in options else None   # (a choice since removed: none)
+    value = box.pills(label, options, default=start, key=key, **kw)
     st.session_state[store] = value
     return value
 
@@ -778,8 +781,8 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
             below = coords.container(horizontal=True, width="content", gap="xxsmall")
             scale = kept_pills(below, "Which Coordinates", space3d.SCALES, f"{key}_scale", start("Coordinates"), label_visibility="collapsed") or space3d.FIT
             show_au = bool(kept_pills(below, "AU", ["AU"], f"{key}_au", start("AU"), label_visibility="collapsed"))
-    speed = titled(head, "Rotate in 1s", f"{key}_t_speed", SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
-    manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (flat: dragging moves time)
+    speed = titled(head, "Rotate in 1s", f"{key}_t_speed", FLAT_SPEED_CHOICES if flat else SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
+    manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (not on the flat page: no Manual there)
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
     averages = None
     if flat:                                                  # AstroClock-2D: the Ave planets on its Distance(%) graph
