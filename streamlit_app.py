@@ -432,7 +432,11 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
     """Every page input the Defaults table can set, by (Page, Options): (its choices, or START / END; more than one may be
     picked; the app's own default, used when the table has no row for it)."""
     globe = list(globechart.BODY_CHOICES) + list(globechart.NODE_CHOICES)
-    out = {("AstroClock-3D", "Time"): (["Now", "DOB"], True, ["DOB"]),
+    out = {("AstroClock-2D", "Time"): (["Now", "DOB"], True, ["DOB"]),
+           ("AstroClock-2D", "Planets"): (globe, True, globe),
+           ("AstroClock-2D", "Houses"): (["Houses"], False, "Houses"),
+           ("AstroClock-2D", "Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL),
+           ("AstroClock-3D", "Time"): (["Now", "DOB"], True, ["DOB"]),
            ("AstroClock-3D", "Planets"): (globe, True, globe),
            ("AstroClock-3D", "Planet Path"): (globe, True, ["Su"]),
            ("AstroClock-3D", "Major Aspects"): (GLOBE_MAJOR, True, []),
@@ -629,7 +633,7 @@ def page_astroclock():
     """AstroClock-2D: the top page of the menu, for everyone: the Geo drawing in 2D, seen from above the north celestial
     pole, with only the 12 AU circle and an RA scale round it, 1 to 360, always on the Fit scale, an arrow from the Earth through each body out to the circle, and the twelve house lines of CB and CN (the Houses button, on to start). Its buttons, Time, Planets
     (with NN, SN: on the Moon's path, at the Moon's distance, joined by a line, 180 degrees apart) and Rotate in 1s (how fast time runs; Manual: it stands still),
-    are its own, and start as Geo's."""
+    are its own, and start as the Defaults table says."""
     _, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
     if not need_chart(prep):
@@ -726,13 +730,13 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     """GeoCentric (centre Ea) or HelioCentric (centre Su): its buttons each keep their own choice (key), also while the other
     model is shown; they start as the Defaults table says (Geo Time .. Helio Rotate in 1s)."""
     def start(title: str):
-        return default_choice("Geo/Helio Model", f"{model} {title}")
+        return default_choice("AstroClock-2D", title) if flat else default_choice("Geo/Helio Model", f"{model} {title}")
     shown = kept_pills(head, "Time", ["Now", "DOB"], f"{key}_time", start("Time"), selection_mode="multi") or []
     bodies = core.in_order(kept_pills(head, "Planets", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
                                       format_func=core.symbol_of), choices)
     if flat:      # no Planet Path, Scale or AU buttons: no paths, always Fit
         with_paths, scale, show_au = [], space3d.FIT, True
-        show_houses = bool(kept_pills(head, "Houses", ["Houses"], f"{key}_houses", "Houses", label_visibility="collapsed"))
+        show_houses = bool(kept_pills(head, "Houses", ["Houses"], f"{key}_houses", start("Houses"), label_visibility="collapsed"))
     else:
         with_paths = core.in_order(kept_pills(head, "Planet Path", core.shown_order(choices), f"{key}_paths", start("Planet Path"),
                                               selection_mode="multi", format_func=core.symbol_of), choices)

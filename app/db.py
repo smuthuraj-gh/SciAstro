@@ -71,6 +71,10 @@ defaults = sa.Table(
 DEFAULTS_INDEX = "ux_defaults_page_options"                   # one row per Page and Options
 sa.Index(DEFAULTS_INDEX, defaults.c.page, defaults.c.options, unique=True)
 DEFAULT_ROWS = [                                              # the app's own defaults: the rows the table starts with
+    ("AstroClock-2D", "Time", "DOB"),
+    ("AstroClock-2D", "Planets", "Su, Mo, Me, Ve, Ma, Ju, Sa, NN, SN"),
+    ("AstroClock-2D", "Houses", "On"),
+    ("AstroClock-2D", "Rotate in 1s", "Manual"),
     ("AstroClock-3D", "Time", "DOB"),
     ("AstroClock-3D", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
     ("AstroClock-3D", "Planet Path", "Su"),
@@ -103,7 +107,7 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Planets Distance(%)", "End Date (UT)", "Start Date (UT) + 2 years"),
     ("Planets Distance(%)", "Planets", "Ju, Sa"),
 ]
-DEFAULTS_VERSION = "2"                                        # rows added for every input (1: the End Dates only)
+DEFAULTS_VERSION = "3"                                        # 3: AstroClock-2D's rows added (2: rows for every input; 1: the End Dates only)
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
@@ -230,7 +234,8 @@ def _seed_defaults(eng: sa.Engine):
         if done == DEFAULTS_VERSION:
             return
         have = {(p.lower(), t.lower()) for p, t in c.execute(sa.select(defaults.c.page, defaults.c.options)).all()}
-        new = [dict(page=p, options=t, choices=o or None) for p, t, o in DEFAULT_ROWS if (p.lower(), t.lower()) not in have]
+        wanted = [r for r in DEFAULT_ROWS if r[0] == "AstroClock-2D"] if done == "2" else DEFAULT_ROWS   # (a row deleted before stays deleted)
+        new = [dict(page=p, options=t, choices=o or None) for p, t, o in wanted if (p.lower(), t.lower()) not in have]
         if new:
             c.execute(defaults.insert(), new)
         if done is None:
