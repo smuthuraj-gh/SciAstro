@@ -21,7 +21,7 @@ from astro import core, distancechart, globechart, mapchart, places, rangechart,
 # wide pages, the sidebar (menu, customer) starting closed so the charts get the whole window; » opens it
 st.set_page_config(page_title="Equatorial charts", page_icon=":material/public:", layout="wide",
                    initial_sidebar_state="collapsed")
-# all text on all pages is 10 px (the most allowed; the least is 8): the theme (.streamlit/config.toml) sets body text and
+# all text on all pages is 10 px (the most allowed; the least is 9): the theme (.streamlit/config.toml) sets body text and
 # headings; this also brings Streamlit's other text (captions, buttons, labels, menus, tooltips) to 10 px. Icons keep their own size.
 st.html("""<style>
 .stApp :is(p, span, div, label, small, a, li, input, textarea, button, td, th, code, h1, h2, h3, h4, h5, h6):not([data-testid="stIconMaterial"]),
@@ -30,6 +30,7 @@ st.html("""<style>
 [data-testid="stTooltipContent"] * { font-size: 10px !important; }
 /* an editable table's cell editor opens outside the table: it undoes the page's zoom, as the table does, to open on its cell */
 #portal { zoom: calc(1 / var(--app-zoom, 1)); }
+#portal :is(input, textarea, div, span) { font-size: 9px !important; }
 /* a pulldown list is placed by screen position outside the page, so the page's zoom would move it again and off its box:
    its holder undoes the zoom, and its text is sized to match the page's */
 body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / var(--app-zoom, 1)); }
@@ -62,6 +63,10 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 st.html("""<script>
 (() => {
   if (window.__appZoom) { window.__appZoom(); return; }
+  // tables are drawn on a canvas in 0.875 of the theme's 10 px, and no setting changes that: they are drawn in 9 px instead
+  const canvasFont = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, "font");
+  Object.defineProperty(CanvasRenderingContext2D.prototype, "font", {configurable: true, get() { return canvasFont.get.call(this); },
+    set(v) { canvasFont.set.call(this, String(v).replace("8.75px", "9px")); }});
   const WIDTH = """ + str(mapchart.WIDTH - mapchart.INSET_L - mapchart.INSET_R) + """;   // the text column
   function zoom() {
     if (window.__appZooming) return;                         // (the resize sent below comes back here)
