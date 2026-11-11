@@ -157,7 +157,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
     return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer,
-                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, view=FLAT_VIEW if flat else VIEW, flat_font=FLAT_FONT, flat_dec=FLAT_DEC, node_colour=core.colour("NN"), spin=EARTH_DEGREES_A_DAY, house_colour=HOUSE_COLOUR,
+                fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, view=FLAT_VIEW if flat else VIEW, flat_font=FLAT_FONT, flat_dec=FLAT_DEC, dist_range={p: (lo / core.AU_KM, hi / core.AU_KM) for p, (lo, hi) in core.DIST_RANGE.items()}, node_colour=core.colour("NN"), spin=EARTH_DEGREES_A_DAY, house_colour=HOUSE_COLOUR,
                 houses=[dict(clock=c, place=places[c][0], ra=core.lst(jd, places[c][1])) for c, jd, _ in moments if c in (places or {})],
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
@@ -307,6 +307,13 @@ __SYMBOL_JS__
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow)};
   });
+  const DIST_X = DEC_X + 130;                      // flat: the Distance(%) graph's line, to the right of the Declination graph
+  const distY = (pct) => D.height / 2 + D.outer * D.fit * (2 * (100 - pct) / 100 - 1);
+  const distMarks = (D.flat ? D.marks.filter((m) => m.clock === "DOB" && D.dist_range[m.name]) : []).map((m) => {   // each planet at DOB on it
+    const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
+    const e = make("circle", svg, {fill: m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
+    return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow)};
+  });
   const marks = D.marks.map((m) => {
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
     const tip = make("title", e), label = symbolTag(svg, m.name, m.colour, m.hollow);
@@ -349,6 +356,20 @@ __SYMBOL_JS__
     make("title", decScale).textContent = "Declination, " + D.flat_dec[1] + " to +" + D.flat_dec[0] + " degrees";
     const decTag = words("rgb(90,90,90)");
     decTag.setAttribute("x", DEC_X); decTag.setAttribute("y", (cy + R + 56).toFixed(1)); decTag.textContent = "Dec";
+    // the Distance(%) graph, as tall as the circle: 100 (farthest) at the top, a tick every 1, longer every 5, numbered every 10
+    let distTicks = "";
+    for (let v = 0; v !== 101; v++) {
+      const long = v % 10 === 0 ? 14 : v % 5 === 0 ? 8 : 4, y = distY(v).toFixed(1);
+      distTicks += "M" + DIST_X + " " + y + "L" + (DIST_X + long) + " " + y;
+      if (v % 10 === 0) {
+        const n = words("rgb(90,90,90)", D.flat_font);
+        n.setAttribute("x", DIST_X + 32); n.setAttribute("y", (distY(v) + D.flat_font / 3).toFixed(1)); n.textContent = v;
+      }
+    }
+    const distScale = make("path", svg, {d: "M" + DIST_X + " " + distY(100).toFixed(1) + "V" + distY(0).toFixed(1) + distTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
+    make("title", distScale).textContent = "Distance(%) from earth (DOB), 0 nearest to 100 farthest";
+    const distTag = words("rgb(90,90,90)");
+    distTag.setAttribute("x", DIST_X); distTag.setAttribute("y", (cy + R + 56).toFixed(1)); distTag.textContent = "Distance(%) (DOB)";
   }
   const clear = (a, taken) => taken.every((b) => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
   const inside = (a) => a[0] > D.view[0] && a[1] > D.view[1] && a[2] < D.view[0] + D.view[2] && a[3] < D.view[1] + D.view[3];
@@ -471,6 +492,16 @@ __SYMBOL_JS__
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
       fitSymbol(g.label, x, y, r);
       g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDec: " + signed(s.dec);
+    });
+    // the Distance(%) graph, the same way: marks at the same distance overlap
+    distMarks.forEach((g) => {
+      const s = posAt(g.m.clock, g.m.name, t).s, r = radiusAt(g.m.rule, sizing(g.m.clock), t), [lo, hi] = D.dist_range[g.m.name];
+      const pct = Math.max(0, Math.min(100, (s.dist - lo) / (hi - lo) * 100)), y = distY(pct), x = DIST_X - DEC_LEAD;
+      g.e.setAttribute("r", r.toFixed(1));
+      g.lead.setAttribute("d", "M" + x.toFixed(1) + " " + y.toFixed(1) + "H" + DIST_X);
+      g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
+      fitSymbol(g.label, x, y, r);
+      g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDistance(%) from earth: " + pct.toFixed(1);
     });
     rays.forEach((g) => {
       const q = placed.find((p) => p.g.m === g.m), R = D.outer * D.fit, a = q.ra * RAD;
