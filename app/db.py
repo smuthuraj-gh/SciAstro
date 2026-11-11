@@ -102,7 +102,7 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Planets Cycles", "Start Date (UT)", "DOB"),
     ("Planets Cycles", "End Date (UT)", "Start Date (UT) + 30 years"),
     ("Planets Cycles", "Planets", "Ju, Sa"),
-    ("Planets Cycles", "Major Aspects", "0°, 180°"),
+    ("Planets Cycles", "Major Aspects", "0, 180"),
     ("Planets Distance(%)", "Start Date (UT)", "DOB"),
     ("Planets Distance(%)", "End Date (UT)", "Start Date (UT) + 2 years"),
     ("Planets Distance(%)", "Planets", "Ju, Sa"),
@@ -222,6 +222,8 @@ def _rename_defaults_page(eng: sa.Engine):
     with eng.begin() as c:
         for old, new in (("astroglobe", "AstroClock-3D"), ("geo/helio", "Geo/Helio Model"), ("aspects", "Aspects Table")):
             c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == old).values(page=new))
+        c.execute(defaults.update().where(defaults.c.page == "Planets Cycles", defaults.c.options == "Major Aspects")   # its buttons have no degree sign now
+                  .values(choices=sa.func.replace(defaults.c.choices, "\u00b0", "")))
         for old, new in (("maj aspects", "Major Aspects"), ("min aspects", "Minor Aspects")):   # and the inputs since renamed
             c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-3d", sa.func.lower(defaults.c.options) == old).values(options=new))
 
