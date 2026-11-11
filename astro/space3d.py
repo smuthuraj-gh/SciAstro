@@ -147,6 +147,8 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
         sizing = None
     outer = outer or 1.0
     wanted = [au for au in at["rings"][scale] if reach(au) <= outer][-at["rings_shown"][scale]:] if show_au else []
+    if show_au and FLAT_RING_AU not in wanted:                # the 12 AU circle too, beyond the planets
+        wanted = wanted + [FLAT_RING_AU]
     if flat:                                                  # only the 12 AU circle, always, at the edge
         wanted, outer = [FLAT_RING_AU], reach(FLAT_RING_AU)
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
