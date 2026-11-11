@@ -46,17 +46,17 @@ customers = sa.Table(
 EMAIL_INDEX = "ux_customers_email"
 sa.Index(EMAIL_INDEX, customers.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
-# The Logins table: a row each time a signed-in person (Email) opens a customer (View; once per customer per visit) or
-# adds, changes or deletes one (Create, Update, Delete: a row per customer): the Activity, at Date_Time (UT); seen by
-# admins only
-ACTIVITIES = ("View", "Create", "Update", "Delete")
+# The Logins table: a row each time a signed-in person (Email) opens a customer (View; once per customer per visit),
+# adds, changes or deletes one (Create, Update, Delete: a row per customer), or signs in with no birth details yet (Login;
+# once per visit): the Activity, at Date_Time (UT); seen by admins only
+ACTIVITIES = ("View", "Create", "Update", "Delete", "Login")
 logins = sa.Table(
     "logins", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
     sa.Column("email", sa.String(320), nullable=False),
     sa.Column("activity", sa.String(10), nullable=False),
     sa.Column("date_time", sa.DateTime, nullable=False),
-    sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete')", name="ck_logins_activity"),
+    sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete', 'Login')", name="ck_logins_activity"),
 )
 sa.Index("ix_logins_date_time", logins.c.date_time)
 # The Defaults table: a row per page input (Page, Options) and what it starts as (Choices); seen by admins only (the
@@ -174,6 +174,7 @@ def engine() -> sa.Engine:
     _rename_logins_operation(eng)
     _rename_defaults_options(eng)
     meta.create_all(eng)
+    _allow_login_activity(eng)
     _add_missing_columns(eng)
     _rename_planet_columns(eng)
     _rename_planet_size_columns(eng)
@@ -192,6 +193,26 @@ def engine() -> sa.Engine:
     _add_defaults_index(eng)
     _seed_defaults(eng)
     return eng
+
+
+def _allow_login_activity(eng: sa.Engine):
+    """A Logins table made before the Login activity gets its check widened to allow it (its rows kept)."""
+    checks = [ck for ck in sa.inspect(eng).get_check_constraints("logins") if "'View'" in (ck.get("sqltext") or "")]
+    if not checks or all("'Login'" in ck["sqltext"] for ck in checks):
+        return
+    rule = "activity IN ('View', 'Create', 'Update', 'Delete', 'Login')"
+    with eng.begin() as c:
+        if eng.dialect.name == "sqlite":                      # SQLite cannot change a check: the table is made again
+            c.execute(sa.text("DROP INDEX IF EXISTS ix_logins_date_time"))
+            c.execute(sa.text("ALTER TABLE logins RENAME TO logins_before_login"))
+            logins.create(c)
+            c.execute(sa.text("INSERT INTO logins (id, email, activity, date_time) "
+                              "SELECT id, email, activity, date_time FROM logins_before_login"))
+            c.execute(sa.text("DROP TABLE logins_before_login"))
+        else:
+            for ck in checks:
+                c.execute(sa.text(f'ALTER TABLE logins DROP CONSTRAINT "{ck["name"]}"'))
+            c.execute(sa.text(f"ALTER TABLE logins ADD CONSTRAINT ck_logins_activity CHECK ({rule})"))
 
 
 def _rename_logins_operation(eng: sa.Engine):
@@ -765,6 +786,12 @@ def log_view(email: str | None):
     """A View row in the Logins table: this person opened a customer."""
     with engine().begin() as c:
         _log(c, email, "View")
+
+
+def log_login(email: str | None):
+    """A Login row in the Logins table: this person signed in with no birth details yet."""
+    with engine().begin() as c:
+        _log(c, email, "Login")
 
 
 def logins_table(limit: int = 5000) -> pd.DataFrame:

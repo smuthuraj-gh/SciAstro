@@ -15,7 +15,7 @@ import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import auth, db
-from app.chartdata import Prepared, locate_cached, now_values, prepare
+from app.chartdata import NOW_ONLY, Prepared, locate_cached, now_values, prepare
 from astro import core, distancechart, globechart, mapchart, places, rangechart, se, space3d
 
 # wide pages, the sidebar (menu, customer) starting closed so the charts get the whole window; » opens it
@@ -188,7 +188,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
               "UT). View: opened a customer's charts (once per customer per visit). Create, Update, Delete: added, changed or "
-              "deleted a customer (on Customers, by import, or their own My details), a row per customer. Seen by admins only; "
+              "deleted a customer (on Customers, by import, or their own My details), a row per customer. Login: signed in with "
+              "no birth details yet, seeing the Now charts only (once per visit). Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
               "either asks first, and a deleted row cannot be brought back.",
     "Defaults": "The Defaults table: what each page's inputs start as. A row per input: its Page, its Options and its "
@@ -211,7 +212,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "My details": "Your own birth details, used for all your charts. Edit my details to change them; your login "
+    "My details": "Your own birth details, used for the DOB charts (without them, the Now charts only). Edit my details to change them; your login "
                   "email stays the same.",
 }
 
@@ -256,8 +257,16 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     st.sidebar.markdown(f"**{user.name}**" + ("  \n:blue-badge[admin]" if user.is_admin else ""))
     auth.sign_out_button(user)
     if df.empty:
-        st.sidebar.info("No customers yet." if user.is_admin else "Enter your birth details on the page to start.")
-        return None, None
+        if user.is_admin:
+            st.sidebar.info("No customers yet.")
+            return None, None
+        # a new member: no form to fill in, a Login row (once per visit), and the Now charts (birth details can be added in
+        # My details, for the DOB ones)
+        if not st.session_state.get("login_logged"):
+            db.log_login(user.email)
+            st.session_state["login_logged"] = True
+        st.sidebar.caption("Now charts only: add your birth details in My details for DOB.")
+        return None, NOW_ONLY
     # chosen by record (names need not be unique: the login email is the key), shown as First and Last Name, with the
     # email added where two customers share both
     full = (df["name"].fillna("") + " " + df["last_name"].fillna("")).str.strip()
@@ -577,8 +586,8 @@ def period(prep: Prepared, row=None, page: str = "") -> tuple[float, float] | No
     """The Start / End inputs (UT) as Julian days, or None (with a warning) if unusable. They start as the Defaults table
     says for this page (Start: DOB or Now; End: Now, or Start Date (UT) + a time, which moves with the Start).
     With row (a horizontal container) they go into it, each just wide enough; otherwise in four columns."""
-    birth_dt = core.jd_to_datetime(prep.jd_birth)
     now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
+    birth_dt = core.jd_to_datetime(prep.jd_birth) if prep.jd_birth is not None else now_dt   # (Now charts only: from now)
     c = [row] * 4 if row is not None else st.columns(4)
     dw, tw = (125, 80) if row is not None else ("stretch", "stretch")
     start0 = now_dt if default_choice(page, "Start Date (UT)") == "Now" else birth_dt
@@ -684,7 +693,7 @@ def page_globe():
                                              key=f"globe_{key}", format_func=core.symbol_of, label_visibility="collapsed", width=width),
                                    names))
 
-    shown = stacked(("Now", "DOB"), default_choice("AstroClock-3D", "Time"), title="Time")
+    shown = stacked(("Now",), ("Now",), title="Time") if prep.now_only else stacked(("Now", "DOB"), default_choice("AstroClock-3D", "Time"), title="Time")
     all_bodies = list(globechart.BODY_CHOICES)
     with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # shown three a line: Mo Su Me, Ve Ma Ju, Sa NN SN
     bodies = options_under("Planets", "bodies", with_nodes, default_choice("AstroClock-3D", "Planets"), width=112)
@@ -709,7 +718,7 @@ def page_globe():
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
     g = globechart.GlobeInput(
         birth=prep.birth, now=now_pts, jd_birth=prep.jd_birth, jd_now=jd_now,
-        cb=(prep.birth_lat, prep.birth_lon), cn=prep.cn, show_birth="DOB" in shown, show_now="Now" in shown,
+        cb=None if prep.now_only else (prep.birth_lat, prep.birth_lon), cn=prep.cn, show_birth="DOB" in shown, show_now="Now" in shown,
         show_ra="RA" in shown, show_dec="Dec" in shown, show_latitude="Lati" in shown,
         show_longitude="Long" in shown, show_celes="Celes" in shown, show_houses="House" in shown, bodies=bodies, paths=paths,
         aspects=tuple(int(a) for a in major + minor), orbs=orbs(),
@@ -760,7 +769,10 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     model is shown; they start as the Defaults table says (Geo Time .. Helio Rotate in 1s)."""
     def start(title: str):
         return default_choice("AstroClock-2D", title) if flat else default_choice("Geo/Helio Model", f"{model} {title}")
-    shown = titled(head, "Time", f"{key}_t_time", ["Now", "DOB"], f"{key}_time", start("Time"), selection_mode="multi") or []
+    if prep.now_only:                                         # no birth details: Now only
+        shown = titled(head, "Time", f"{key}_t_time", ["Now"], f"{key}_time", ["Now"], selection_mode="multi") or []
+    else:
+        shown = titled(head, "Time", f"{key}_t_time", ["Now", "DOB"], f"{key}_time", start("Time"), selection_mode="multi") or []
     bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
                                   format_func=core.symbol_of), choices)
     aspects = ()
@@ -785,7 +797,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (not on the flat page: no Manual there)
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
     averages = None
-    if flat:                                                  # AstroClock-2D: the Ave planets on its Distance(%) graph
+    if flat and not prep.now_only:                            # AstroClock-2D: the Ave planets on its Distance(%) graph
         averages = mapchart.average_values(prep.d_birth, now_values(core.now_jd())[1])
     if not shown or not bodies:
         st.info("Choose a time and at least one planet.")
@@ -796,7 +808,8 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
     moments = [m for m in (("Now", core.now_jd(), utc_now), ("DOB", prep.jd_birth, prep.utc)) if m[0] in shown]
     st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre, flat,
-                               {"DOB": ("CB", prep.birth_lon), **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat and show_houses else None, averages,
+                               {**({"DOB": ("CB", prep.birth_lon)} if prep.birth_lon is not None else {}),
+                                **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat and show_houses else None, averages,
                                aspects, orbs() if aspects else None),
             unsafe_allow_javascript=True)
 

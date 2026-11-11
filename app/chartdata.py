@@ -23,6 +23,10 @@ class Prepared:
     cn_tz: str | None = None
     birth: dict | None = None
     d_birth: dict | None = None
+    now_only: bool = False                         # a member with no birth details yet: the Now charts only
+
+
+NOW_ONLY = Prepared(True, now_only=True)
 
 
 @st.cache_data(ttl=24 * 3600, show_spinner=False)

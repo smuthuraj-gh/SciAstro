@@ -15,7 +15,7 @@ zodiac), with the same rules.
 | Customers | admins | Insert, Update, Delete, Commit customers, click a column name to sort; import the workbook's Customers tab as CSV |
 | Symbols | admins | the table in the database: SAbr (unique), Symb (shown in place of the SAbr on the pages), SDesc, RGB (the charts' colours for the planets, Ea, NN, SN, CN and CB), Color (its name, for reference), Size_Clock-2D (how AstroClock-2D, its Dec and Distance(%) graphs size the planets, Ea, the nodes and places), Size_Clock-3D (the same, on AstroClock-3D), Size_Geo (on Geo/Helio Model's Geo), Size_Helio (on its Helio); Insert, Update, Delete, Commit; click a column name to sort |
 | Defaults | admins | the table in the database: Page, Options (a page input) and Choices (what it starts as: the buttons on; DOB or Now; Start Date (UT) + a time), one row per Page and Title, read by every page as it is drawn; sorted by Page, Title, Options; Insert, Update, Delete, Commit; click a column name to sort |
-| Logins | admins | the table in the database, newest first: Email (who was signed in), Activity (View: opened a customer, once per visit; Create, Update, Delete: a customer added, changed or deleted), Date_Time (UT); tick rows and Delete, or Delete all (asks first) |
+| Logins | admins | the table in the database, newest first: Email (who was signed in), Activity (View: opened a customer, once per visit; Create, Update, Delete: a customer added, changed or deleted; Login: signed in with no birth details yet, once per visit), Date_Time (UT); tick rows and Delete, or Delete all (asks first) |
 | My details | users | their own birth details, with Edit my details to change them (the login email stays) |
 
 Drawing rule: wherever planets are drawn, on every page and graph, a smaller planet sits on top of a bigger one, so that it stays visible when they are close.
@@ -25,8 +25,9 @@ Layout rule: everything on all pages stays aligned to the top left.
 Font rule: on all pages, text is at most 12 px and at least 10 px.
 
 Users sign in with Google and see only the customers whose **Email (login)** is theirs. A new member (no customer
-has their email yet) gets a form to enter their own birth details, saved with their login email; a member already
-there goes straight to their charts. The login email is the key: one customer per email (First Names may repeat).
+has their email yet) is not asked for anything: a Login row goes into the Logins table and they see the Now charts
+(Time: Now only); they may add their birth details in My details, saved with their login email, for the DOB charts.
+A member already there goes straight to their charts. The login email is the key: one customer per email (First Names may repeat).
 Admins are listed in the `admins` secret.
 
 ## Run on this PC
