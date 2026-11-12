@@ -36,8 +36,8 @@ Group, unlimited with no time limit: every record under their login, people they
 births typed in the sidebar (not saved); TrInd and TrGrp, free trials of Ind and Group given by an admin for 1 week from
 Access_From; Admin, an admin. Ind and Group are the paid options. Blank, or a trial run out: the Now charts only. Customers
 already there when Access came in were given Ind; a member who signs up gets Free until an admin changes it. Earlier
-values are changed once: Now to Free, DOB to Ind, 1wu / 1mu / 1yu to Group, TrDOB to TrInd, TrGroup to TrGrp, and a
-record with UType Admin gets Access Admin (UType is no longer used).
+values are changed once: Now to Free, DOB to Ind, 1wu / 1mu / 1yu to Group, TrDOB to TrInd, TrGroup to TrGrp; the account-type
+column Access replaced is removed, a record that was an admin by it getting Access Admin.
 
 ## Run on this PC
 

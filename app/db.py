@@ -52,8 +52,7 @@ customers = sa.Table(
     sa.Column("added_at", sa.DateTime), sa.Column("updated_at", sa.DateTime), sa.Column("accessed_at", sa.DateTime),
 )
 # A login email (kept in lower case) is on its own customer (the one with an Access) and any number more (people added
-# under it, a family). Blank emails are allowed for any number of customers. (A UType column kept in older stores is not
-# used: Access has replaced it.)
+# under it, a family). Blank emails are allowed for any number of customers.
 # EMAIL_INDEX: the old rule, one per email.
 EMAIL_INDEX = "ux_customers_email"
 sa.Index("ix_customers_email", customers.c.email)
@@ -706,15 +705,26 @@ def _add_missing_columns(eng: sa.Engine):
 
 def _new_access_names(eng: sa.Engine):
     """Access kept under an earlier name gets the new one (Now: Free, DOB: Ind, 1wu / 1mu / 1yu: Group, TrDOB: TrInd,
-    TrGroup: TrGrp); Access_From stays. Once, before that: a record with UType Admin (UType is no longer used) gets Access
-    Admin, so that it stays an admin."""
+    TrGroup: TrGrp); Access_From stays."""
+    _drop_old_type_column(eng)
     with eng.begin() as c:
-        have = {col["name"] for col in sa.inspect(c).get_columns("customers")}
-        if "utype" in have and not c.execute(sa.select(settings.c.value).where(settings.c.key == "utype_admin_moved")).scalar():
-            c.execute(sa.text("UPDATE customers SET access = 'Admin' WHERE LOWER(TRIM(utype)) = 'admin'"))
-            c.execute(settings.insert().values(key="utype_admin_moved", value="1"))
         for old, new in access.RENAMED.items():
             c.execute(customers.update().where(sa.func.lower(customers.c.access) == old.lower()).values(access=new))
+
+
+OLD_TYPE = "utype"                                            # the account-type column Access replaced
+
+
+def _drop_old_type_column(eng: sa.Engine):
+    """A store made with the account-type column Access replaced loses it; first (unless already done), a record that was
+    an admin by it gets Access Admin, so that it stays an admin."""
+    with eng.begin() as c:
+        if OLD_TYPE not in {col["name"] for col in sa.inspect(c).get_columns("customers")}:
+            return
+        moved = c.execute(sa.select(settings.c.value).where(settings.c.key == f"{OLD_TYPE}_admin_moved")).scalar()
+        if not moved:
+            c.execute(sa.text(f"UPDATE customers SET access = 'Admin' WHERE LOWER(TRIM({OLD_TYPE})) = 'admin'"))
+        c.execute(sa.text(f"ALTER TABLE customers DROP COLUMN {OLD_TYPE}"))
 
 
 def _seed_account_fields(eng: sa.Engine):
