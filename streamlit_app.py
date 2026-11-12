@@ -1,7 +1,7 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
 Pages: AstroClock-2D, AstroClock-3D, Geo/Helio Model, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only);
-Aspect Rules, DOB (the customers), Symbols, Defaults and Logins for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
+Aspect Rules, Customers (each login's Access), DOB (the birth details), Symbols, Defaults and Logins for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
 
@@ -127,10 +127,11 @@ st.html("""<script>
 
 user = auth.current_user()
 location.visitor_location()                                   # where they are: looked up once per visit, before any Logins row is written
-# what they may use, by their customer record(s)' Access (an admin: everything)
-_MINE = [] if user.is_admin else db.customers_for(user.email).to_dict("records")   # their records (all share their email)
+# what they may use, by their row of the Customers table (made, with Access Now, on their first sign-in; an admin: everything)
+_MINE = [] if user.is_admin else db.customers_for(user.email).to_dict("records")   # their DOB records (all share their email)
+_ACCOUNT = None if user.is_admin else db.ensure_account(user.email)
 GRANT = (access.Grant(admin=True, dob=True, many=True) if user.is_admin
-         else access.grant(_MINE, datetime.now(timezone.utc).replace(tzinfo=None)))
+         else access.grant(_ACCOUNT.get("access"), _ACCOUNT.get("start_date"), datetime.now(timezone.utc).replace(tzinfo=None)))
 OWN_ID = access.own_record_id(_MINE)                          # their own record (the others: people added under their login)
 
 
@@ -219,7 +220,15 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                        "if left blank, comes from its Aspect's name, one of Conjunction, Opposition, Square, Trine, Sextile, Semi-sextile, Semi-square, Quintile, "
                        "Sesquiquadrate, Bi-quintile, Quincunx. Changes here "
                        "apply to every chart.",
-    "DOB": "The customers. Insert for a new customer, type changes and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. ID is the record's number, and Created and Last_Updated (UT) when it was added and last changed, all set by the app. Required (*): Email (login), First Name, "
+    "Customers": "One row per login: its Email, its Access and Start Date (UT; when Access was set). Now: the Now charts "
+                 "only. Individual: the DOB and Now charts of their own DOB record, no time limit. Group: unlimited, no time "
+                 "limit: the DOB and Now charts of every DOB record under their login, people they add on My details, and "
+                 "quick births not saved. Individual and Group are the paid options. Trial-Ind, Trial-Grp: free 1-day trials "
+                 "of Individual and Group from Start Date (given on signing up with birth details, as they pick). Admin: an "
+                 "admin. A trial run out: the Now charts only. A row is made, with Now, when someone signs in for the first "
+                 "time; Start Date moves to now when Access changes, unless it is changed too. Insert, Update, Delete, "
+                 "Commit as on DOB.",
+    "DOB": "The customers' birth details. Insert for a new customer, type changes and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. ID is the record's number, and Created and Last_Updated (UT) when it was added and last changed, all set by the app. Required (*): Email (login), First Name, "
                  "Last Name, Country, State, City, the birth date and time (Year, Mon, Date, Hr24, Min), and where they "
                  "live now (Country-N, State-N, City-N). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
@@ -1178,6 +1187,34 @@ def page_aspects():
             st.rerun()
 
 
+def page_accounts():
+    """The Customers table: a row per login, with its Access and Start Date."""
+    if not user.is_admin:                                     # admins only (not in a user's menu either)
+        st.stop()
+    df = db.accounts_table()
+    names = {"email": "Email", "access": "Access", "start_date": "Start Date"}
+    show = df[["id", "email", "access", "start_date"]].rename(columns=names)
+    back = {v: k for k, v in names.items()}
+
+    def commit(rows: pd.DataFrame) -> str:
+        base = st.session_state.get("acct_editor_base")
+        return "Committed: {} added, {} changed, {} deleted.".format(
+            *db.save_accounts(rows.rename(columns=back), df if base is None else base.rename(columns=back), by=user.email))
+
+    crud_table("acct_editor", show, lambda rows: db.account_problems(rows.rename(columns=back)), commit, width="content",
+               height="auto" if len(st.session_state.get("acct_editor_working", show)) <= 18 else 700,
+               column_config={"id": None,
+                              "Email": st.column_config.TextColumn("Email *", width=260, help="The Google account email they sign "
+                                                                   "in with: required, one row per email."),
+                              "Access": st.column_config.SelectboxColumn("Access", options=list(access.ACCESS), width="small",
+                                                                         help="Now, Trial-Ind, Trial-Grp, Individual, Group, Admin "
+                                                                              "(see the page's help); blank is saved as Now."),
+                              "Start Date": st.column_config.DatetimeColumn("Start Date", format="YYYY-MM-DD HH:mm", width=150,
+                                                                            help="When Access was set (UT): Trial-Ind and Trial-Grp "
+                                                                                 "count from it. Set to now when Access changes, "
+                                                                                 "unless you change it too (to the day paid, say).")})
+
+
 def page_customers():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
@@ -1188,9 +1225,8 @@ def page_customers():
     # UTC is not shown (a blank one is looked up from the birth place; one already kept stays, see below); Created and
     # Last_Updated (UT) are, read only (set by the app); the time last opened (Accessed) is kept but not shown
     shown_fields = [f for f in db.FIELDS if f != "utc"]
-    stamps = {"added_at": "Created", "updated_at": "Last_Updated", "access_from": "Access_From"}
-    order = [c for f in shown_fields for c in ((f, "access_from") if f == "access" else (f,))]   # Access_From next to Access
-    show = df[["id"] + order + ["added_at", "updated_at"]].rename(columns={**db.LABELS, **stamps})
+    stamps = {"added_at": "Created", "updated_at": "Last_Updated"}
+    show = df[["id"] + shown_fields + ["added_at", "updated_at"]].rename(columns={**db.LABELS, **stamps})
     # First Name, A-Z, to begin with; the column headers sort by any column. Saving matches rows by their record, so the
     # order shown does not matter
     by_name = show[db.LABELS["name"]].map(lambda v: v.strip().lower() if isinstance(v, str) else v)
@@ -1229,19 +1265,11 @@ def page_customers():
                                                                       width="small"),
                                 "Email (login)": st.column_config.TextColumn("Email (login) *",
                                 help="Required. The Google account email this customer signs in with (they see only "
-                                     "their own). An email's own customer is the one with an Access; it may have any number more, "
-                                     "with Access blank (people added under that login, or a family)."),
+                                     "their own). An email's own customer is its first; it may have any number more (people added "
+                                     "under that login, or a family). What it may see is its Access on the Customers page."),
                                 "Created By": st.column_config.TextColumn("Created By",
                                 help="Who added the record (their login email). Set by the app (the admin, or the "
                                      "customer themself on signing up) when left blank; may be changed."),
-                                "Access": st.column_config.SelectboxColumn("Access", options=list(access.ACCESS), width="small",
-                                help="Individual: the DOB and Now charts of their own record, no time "
-                                     "limit. Group: unlimited, no time limit: the DOB and Now charts of every record under "
-                                     "their login, people they add on My details, and quick births not saved. Individual and Group "
-                                     "are the paid options. Trial-Ind, Trial-Grp: free trials of Individual and Group, for 1 day from "
-                                     "Access_From (a member signing up with their birth details gets one: Trial-Ind or Trial-Grp, as they pick). Admin: an admin. "
-                                     "Blank, or a trial run out: the Now charts only (people added under a login have "
-                                     "a blank Access and go by their login's)."),
                                 "Country": st.column_config.TextColumn("Country *", help="Birth place: required."),
                                 "State": st.column_config.TextColumn("State *", help="Birth place: required."),
                                 "City": st.column_config.TextColumn("City *", help="Birth place: required."),
@@ -1255,11 +1283,7 @@ def page_customers():
                                                                                 "when left blank; may be changed."),
                                 "Last_Updated": st.column_config.DatetimeColumn("Last_Updated", format="YYYY-MM-DD HH:mm",
                                                                                 disabled=True,
-                                                                                help="When the record was last changed (UT), set by the app."),
-                                "Access_From": st.column_config.DatetimeColumn("Access_From", format="YYYY-MM-DD HH:mm",
-                                                                               help="When Access was set (UT): Trial-Ind and Trial-Grp count "
-                                                                                    "from it. Set to now when Access changes, unless "
-                                                                                    "you set it here too (to the day paid, say).")})
+                                                                                help="When the record was last changed (UT), set by the app.")})
     with st.expander("Import from the workbook"):
         st.write("Save the workbook's Customers tab as CSV (Customer, Country, State, City, Other, Year, Mon, Date, "
                  "Hr24, Min, Country-N, State-N, City-N, Other-N; Other and Other-N may be left out) and upload it. "
@@ -1324,6 +1348,7 @@ pages = [st.Page(page_astroclock, title="AstroClock-2D", icon=":material/science
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
 if user.is_admin:                                             # the Aspect Rules, DOB, Symbols, Defaults, Logins pages: admins only
     pages += [st.Page(page_aspects, title="Aspect Rules", icon=":material/tune:", url_path="aspect-rules"),
+              st.Page(page_accounts, title="Customers", icon=":material/badge:", url_path="customers"),
               st.Page(page_customers, title="DOB", icon=":material/group:", url_path="dob"),
               st.Page(page_defaults, title="Defaults", icon=":material/settings:", url_path="defaults"),
               st.Page(page_logins, title="Logins", icon=":material/history:", url_path="logins"),

@@ -21,7 +21,7 @@ from .location import visitor_device, visitor_location, visitor_timezone
 
 ROOT = Path(__file__).resolve().parent.parent
 # the customer columns in table order; Email (login) first, as it is the key, then the account: Created By, Access
-ACCOUNT_FIELDS = ("created_by", "access")              # (not the birth details: the charts do not read them)
+ACCOUNT_FIELDS = ("created_by",)              # (not the birth details: the charts do not read them)
 FIELDS = ["email", *ACCOUNT_FIELDS, "name", "last_name", "country", "state", "city", "other", "year", "mon", "day", "hr", "mn",
           "country_n", "state_n", "city_n", "other_n", "utc"]
 LABELS = {"name": "First Name", "last_name": "Last Name", "email": "Email (login)", "created_by": "Created By",
@@ -38,8 +38,8 @@ customers = sa.Table(
     sa.Column("last_name", sa.String(120)),
     sa.Column("email", sa.String(254)),
     sa.Column("created_by", sa.String(254)),                  # who added the record (their login email), set by the app
-    sa.Column("access", sa.String(20)),                       # Trial-Ind, Trial-Grp, Individual, Group, Admin, or blank (the Now charts only; app/access.py)
-    sa.Column("access_from", sa.DateTime),                    # when (UT) Access was last set: Trial-Ind, Trial-Grp count from it
+    sa.Column("access", sa.String(20)),                       # (earlier: each login's Access, now in the Customers table: see accounts)
+    sa.Column("access_from", sa.DateTime),                    # (earlier: when it was set, now the Customers table's Start Date)
     sa.Column("country", sa.String(120)), sa.Column("state", sa.String(120)),
     sa.Column("other", sa.String(500)),                       # free text kept with the record (not used in the charts)
     sa.Column("city", sa.String(500)),
@@ -56,6 +56,17 @@ customers = sa.Table(
 # EMAIL_INDEX: the old rule, one per email.
 EMAIL_INDEX = "ux_customers_email"
 sa.Index("ix_customers_email", customers.c.email)
+# The Customers table: a row per login email, with its Access (app/access.py) and Start Date (UT; when Access was set:
+# Trial-Ind and Trial-Grp count from it); seen by admins only (the Customers page). Each login's DOB records (above) share
+# its email.
+accounts = sa.Table(
+    "accounts", meta,
+    sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
+    sa.Column("email", sa.String(254), nullable=False),     # kept in lower case
+    sa.Column("access", sa.String(20)),                     # Now, Trial-Ind, Trial-Grp, Individual, Group, Admin
+    sa.Column("start_date", sa.DateTime),
+)
+sa.Index("ux_accounts_email", accounts.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
 # The Logins table: a row each time a signed-in person (Email) opens a customer (View; once per customer per visit),
 # adds, changes or deletes one (Create, Update, Delete: a row per customer), or signs in with no birth details yet (Login;
@@ -194,6 +205,7 @@ def engine() -> sa.Engine:
     _add_missing_columns(eng)
     _seed_account_fields(eng)
     _new_access_names(eng)
+    _seed_accounts(eng)
     _rename_planet_columns(eng)
     _rename_planet_size_columns(eng)
     _add_planet_color_name(eng)
@@ -768,14 +780,139 @@ def _drop_name_unique(eng: sa.Engine):
                 c.execute(sa.text(f'DROP INDEX IF EXISTS "{i["name"]}"'))
 
 
-def has_admin_rights(email: str) -> bool:
-    """Whether a customer record with this login email makes them an admin (Access Admin)."""
+def _seed_accounts(eng: sa.Engine):
+    """Once (a note among the settings says it is done): each login email of the DOB records gets a Customers row, with
+    the Access and Access_From of its own (first) record, as Access and Start Date (blank Access: Now)."""
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "accounts_seeded")).scalar():
+            return
+        rows = c.execute(sa.text("SELECT id, email, access, access_from, added_at FROM customers WHERE email IS NOT NULL")).mappings().all()
+        have = {e.lower() for (e,) in c.execute(sa.select(accounts.c.email)).all()}
+        own = {}
+        for r in sorted(rows, key=lambda r: int(r["id"])):    # each email's first record
+            e = str(r["email"]).strip().lower()
+            if e and e not in own:
+                own[e] = r
+        for e, r in own.items():
+            if e in have:
+                continue
+            try:
+                a = access.canonical(r["access"], access.ACCESS) or "Now"
+            except ValueError:
+                a = "Now"
+            c.execute(accounts.insert().values(email=e, access=a, start_date=_stamp(r["access_from"]) or _stamp(r["added_at"])))
+        c.execute(settings.insert().values(key="accounts_seeded", value="1"))
+
+
+def account_of(email: str) -> dict | None:
+    """This login's Customers row (email, access, start_date), None when it has none."""
     if not email:
-        return False
+        return None
     with engine().connect() as c:
-        rows = c.execute(sa.select(customers.c.access)
-                         .where(sa.func.lower(customers.c.email) == email.lower())).mappings().all()
-    return access.grant([dict(r) for r in rows], _now()).admin
+        r = c.execute(sa.select(accounts).where(accounts.c.email == email.lower())).mappings().first()
+    return dict(r) if r else None
+
+
+def ensure_account(email: str) -> dict:
+    """This login's Customers row, made with Access Now and Start Date now when it has none (on their first sign-in)."""
+    got = account_of(email)
+    if got:
+        return got
+    try:
+        with engine().begin() as c:
+            c.execute(accounts.insert().values(email=email.lower(), access="Now", start_date=_now()))
+    except sa.exc.IntegrityError:                             # (made meanwhile, in another of their tabs)
+        pass
+    return account_of(email) or {"email": email.lower(), "access": "Now", "start_date": None}
+
+
+def _set_access(c, email: str, value: str):
+    """This login's Customers row gets this Access, from now (the row made if it has none)."""
+    now = _now()
+    if c.execute(sa.select(accounts.c.id).where(accounts.c.email == email.lower())).first():
+        c.execute(accounts.update().where(accounts.c.email == email.lower()).values(access=value, start_date=now))
+    else:
+        c.execute(accounts.insert().values(email=email.lower(), access=value, start_date=now))
+
+
+def accounts_table() -> pd.DataFrame:
+    """The Customers table, by Email: id, email, access, start_date."""
+    with engine().connect() as c:
+        return pd.read_sql(sa.select(accounts).order_by(accounts.c.email), c)
+
+
+def account_problems(rows: pd.DataFrame) -> list[str]:
+    """What stops these Customers rows being saved: an Email missing, used twice or not an email, or an Access not one of
+    the choices."""
+    out = []
+    emails = [str(v).strip().lower() if isinstance(v, str) else "" for v in rows.get("email", pd.Series(dtype=object))]
+    if any(not e for e in emails):
+        out.append("Every row needs an Email.")
+    bad = sorted({e for e in emails if e and ("@" not in e or " " in e)})
+    if bad:
+        out.append("Not an email: " + ", ".join(bad) + ".")
+    twice = sorted({e for e in emails if e and emails.count(e) > 1})
+    if twice:
+        out.append("An email can have one row only. Used more than once: " + ", ".join(twice) + ".")
+    def not_a_choice(v) -> bool:
+        try:
+            access.canonical(v, access.ACCESS)
+            return False
+        except ValueError:
+            return True
+    wrong = sorted({str(v).strip() for v in rows.get("access", pd.Series(dtype=object)).dropna() if not_a_choice(v)})
+    if wrong:
+        out.append(f"Access must be one of {', '.join(access.ACCESS)} (not {', '.join(wrong)}).")
+    return out
+
+
+def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None = None) -> tuple[int, int, int]:
+    """Apply an edited copy of the Customers table: (added, changed, deleted). A blank Access is Now; Start Date as edited,
+    else now when Access changes (and for a new row). Raises ValueError, saving nothing, on account_problems."""
+    problems = account_problems(edited)
+    if problems:
+        raise ValueError(" ".join(problems))
+    added = changed = deleted = 0
+    keep = set(edited["id"].dropna().astype(int)) if "id" in edited else set()
+    now = _now()
+    with engine().begin() as c:
+        for aid in set(original["id"].dropna().astype(int)) - keep:
+            c.execute(sa.delete(accounts).where(accounts.c.id == aid)); deleted += 1
+        new, updates = [], []
+        for rec in edited.to_dict("records"):
+            email = str(rec.get("email")).strip().lower()
+            a = access.canonical(rec.get("access"), access.ACCESS) or "Now"
+            start = _stamp(rec.get("start_date"))
+            aid = rec.get("id")
+            if aid is None or pd.isna(aid):
+                new.append(dict(email=email, access=a, start_date=start or now))
+                continue
+            old = original[original["id"] == int(aid)]
+            if old.empty:
+                continue
+            was = old.iloc[0]
+            was_access = access.canonical(was["access"], access.ACCESS) if isinstance(was["access"], str) else None
+            was_start = _stamp(was["start_date"])
+            if email != str(was["email"]).lower() or a != was_access or start != was_start:
+                if a != was_access and start == was_start:    # a new Access counts from now, unless a Start Date was set too
+                    start = now
+                updates.append((int(aid), dict(email=email, access=a, start_date=start)))
+        for aid, data in updates:                             # (emails let go first, so that two can swap)
+            c.execute(accounts.update().where(accounts.c.id == aid).values(email=f"~{aid}"))
+        for aid, data in updates:
+            c.execute(accounts.update().where(accounts.c.id == aid).values(**data)); changed += 1
+        for data in new:
+            c.execute(accounts.insert().values(**data)); added += 1
+        _log(c, by, "Create", added)
+        _log(c, by, "Update", changed)
+        _log(c, by, "Delete", deleted)
+    return added, changed, deleted
+
+
+def has_admin_rights(email: str) -> bool:
+    """Whether this login's Customers row makes them an admin (Access Admin)."""
+    got = account_of(email) if email else None
+    return bool(got) and access.grant(got.get("access"), got.get("start_date"), _now()).admin
 
 
 def is_local_sqlite() -> bool:
@@ -806,11 +943,6 @@ def _clean(rec: dict) -> dict:
             out[f] = int(float(v))
         elif f == "utc":
             out[f] = float(v)
-        elif f == "access":                                  # as kept (Individual, Trial-Ind ..); not a choice: as typed, refused by customer_problems
-            try:
-                out[f] = access.canonical(v, access.ACCESS)
-            except ValueError:
-                out[f] = str(v).strip()
         else:
             out[f] = str(v).strip()
     for f in ("email", "created_by"):
@@ -853,15 +985,6 @@ def missing_required(df: pd.DataFrame) -> list[str]:
 def customer_problems(rows: pd.DataFrame) -> list[str]:
     """What stops these customer rows being saved: an Access not one of the choices, or a required field missing."""
     out = []
-    def not_a_choice(v) -> bool:                              # (an earlier name, such as DOB, is taken as the new one)
-        try:
-            access.canonical(v, access.ACCESS)
-            return False
-        except ValueError:
-            return True
-    bad = sorted({str(v).strip() for v in rows.get("access", pd.Series(dtype=object)).dropna() if not_a_choice(v)})
-    if bad:
-        out.append(f"{LABELS['access']} must be one of {', '.join(access.ACCESS)} (not {', '.join(bad)})")
     missing = missing_required(rows)
     if missing:
         out.append("Required for every customer: Email (login), First Name, Last Name, Country, State, City, "
@@ -881,27 +1004,22 @@ def _log(c, email: str | None, activity: str, times: int = 1):
 
 
 def _access_now(c, email: str, now) -> str | None:
-    """This login's Access now, for the Logins table: Admin for one in the admins secret, else their own record's
-    (with "ended" after a trial run out); None with no record."""
+    """This login's Access now, for the Logins table: Admin for one in the admins secret, else their Customers row's
+    (with "ended" after a trial run out); None with no row."""
     admins = _secret("admins", [])
     if isinstance(admins, str):
         admins = admins.replace(";", ",").split(",")
     if email.lower() in {a.strip().lower() for a in admins if a and a.strip()}:
         return "Admin"
-    recs = [dict(r) for r in c.execute(sa.select(customers.c.id, customers.c.access, customers.c.access_from, customers.c.added_at)
-                                      .where(sa.func.lower(customers.c.email) == email.lower())).mappings().all()]
-    own = access.own_record_id(recs)
-    if own is None:
+    r = c.execute(sa.select(accounts).where(accounts.c.email == email.lower())).mappings().first()
+    if not r:
         return None
-    rec = next(r for r in recs if int(r["id"]) == own)
     try:
-        a = access.canonical(rec.get("access"), access.ACCESS)
+        a = access.canonical(r["access"], access.ACCESS) or "Now"
     except ValueError:
         return None
-    if a in access.PERIODS:
-        since = pd.Timestamp(rec.get("access_from") or rec.get("added_at") or now).to_pydatetime()
-        if access.ends(a, since) <= now:
-            return f"{a} ended"
+    if a in access.PERIODS and access.ends(a, _stamp(r["start_date"]) or now) <= now:
+        return f"{a} ended"
     return a
 
 
@@ -937,7 +1055,7 @@ def delete_logins(ids: list[int] | None = None) -> int:
         return c.execute(q).rowcount
 
 
-STAMP_FIELDS = ("added_at", "access_from")                     # times the admin may set too: Created, Access_From
+STAMP_FIELDS = ("added_at",)                                  # times the admin may set too: Created
 
 
 def _stamp(v) -> datetime | None:
@@ -957,9 +1075,8 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
     """Apply an edited copy of the customers table: (added, changed, deleted). original is what that copy started from,
     so a customer who joined or changed their details since is left alone. A new birth date, time or place clears the
     kept UTC offset, to be looked up again. Raises ValueError, saving nothing, when two customers would share a login email.
-    by: who did it (their email), logged in the Logins table, and Created By of a new record left blank. Created and
-    Access_From as edited (added_at, access_from); left as they were, Access_From moves to now when Access changes, and a
-    new record's are now."""
+    by: who did it (their email), logged in the Logins table, and Created By of a new record left blank. Created as
+    edited (added_at); a new record's, left blank, is now. (Access is on the Customers table: see save_accounts.)"""
     problems = customer_problems(edited)
     if problems:
         raise ValueError(" ".join(problems))
@@ -988,8 +1105,6 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
             if was != data or set_times:
                 if any(was[f] != data[f] for f in BIRTH_FIELDS):
                     data["utc"] = None
-                if was["access"] != data["access"] and "access_from" not in set_times:   # the paid periods count from now
-                    data["access_from"] = now if data["access"] else None
                 data.update(set_times)
                 updates.append((int(cid), data, was["email"] != data["email"]))
         # emails moving between customers (two swapped, say): each first let go, as an email can be on one customer only
@@ -1001,8 +1116,7 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
             changed += 1
         for data, times in new:
             data["created_by"] = data.get("created_by") or (by.lower() if by else None)
-            c.execute(sa.insert(customers).values(**data, added_at=times.get("added_at") or now, updated_at=now,
-                                                  access_from=times.get("access_from") or (now if data.get("access") else None)))
+            c.execute(sa.insert(customers).values(**data, added_at=times.get("added_at") or now, updated_at=now))
             added += 1
         _log(c, by, "Create", added)
         _log(c, by, "Update", changed)
@@ -1014,7 +1128,7 @@ def add_own_customer(rec: dict, email: str, group: bool = False) -> bool:
     """A new member's own record, linked to their login email (the key: one record per email), with Access Trial-Ind (or
     Trial-Grp, with group): a free 1-day trial of their DOB charts (unlimited, with group) from now. Returns False, saving nothing, when that email already has one (they simply
     use it)."""
-    data = {**_clean({**rec, "email": email}), "created_by": email.lower(), "access": "Trial-Grp" if group else "Trial-Ind"}
+    data = {**_clean({**rec, "email": email}), "created_by": email.lower()}
     problems = missing_required(pd.DataFrame([data]))      # the same rule as the DOB page's table
     if problems:
         raise ValueError("Missing: " + problems[0].split(": ", 1)[-1])
@@ -1022,7 +1136,8 @@ def add_own_customer(rec: dict, email: str, group: bool = False) -> bool:
         if c.execute(sa.select(customers.c.id).where(sa.func.lower(customers.c.email) == data["email"])).first():
             return False
         now = _now()
-        c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now, accessed_at=now, access_from=now))
+        c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now, accessed_at=now))
+        _set_access(c, email, "Trial-Grp" if group else "Trial-Ind")   # their free 1-day trial, from now
         _log(c, email, "Create")
     return True
 
@@ -1030,7 +1145,7 @@ def add_own_customer(rec: dict, email: str, group: bool = False) -> bool:
 def add_person(rec: dict, email: str) -> int:
     """A person a member with unlimited access (Group, Trial-Grp) adds under their login: their email, added by them, no
     Access of its own. Returns the new record's id. Raises ValueError, saving nothing, when a field is missing."""
-    data = {**_clean({**rec, "email": email}), "created_by": email.lower(), "access": None}
+    data = {**_clean({**rec, "email": email}), "created_by": email.lower()}
     problems = missing_required(pd.DataFrame([data]))
     if problems:
         raise ValueError("Missing: " + problems[0].split(": ", 1)[-1])
@@ -1095,8 +1210,7 @@ def import_workbook_csv(raw: bytes, by: str | None = None) -> int:
             if data.get("name") and data["name"].lower() not in have and data["name"].lower() != "new":
                 now = _now()
                 data["created_by"] = by.lower() if by else None
-                c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now,
-                                                      access_from=now if data.get("access") else None))
+                c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now))
                 have.add(data["name"].lower()); n += 1
                 if data.get("email"):
                     used.add(data["email"])

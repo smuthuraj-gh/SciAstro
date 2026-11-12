@@ -1,12 +1,11 @@
-"""What a signed-in person may use, from their customer record(s)' Access.
+"""What a signed-in person may use, from their row of the Customers table (one per login email): Access and Start Date.
 
-Access: blank (the Now charts only); Individual (the DOB and Now charts of their own record, no time limit); Group (unlimited: the
-DOB and Now charts of every record under their login, people they add themselves and quick births not saved, no time
-limit); Trial-Ind and Trial-Grp (free trials of Individual and Group for 1 day from Access From: Trial-Ind given on signing up with
-birth details, either given by the admin); Admin (an admin, as
-those in the admins secret). Individual and Group are the paid options. Blank, or a trial run out: the Now charts only. A login's
-records share its email: its own (the one with an Access; the first, if more) and any number more (people added under
-it, or a family an admin set up), which have no Access of their own.
+Access: Now (the Now charts only); Individual (the DOB and Now charts of their own DOB record, no time limit); Group
+(unlimited: the DOB and Now charts of every DOB record under their login, people they add themselves and quick births not
+saved, no time limit); Trial-Ind and Trial-Grp (free trials of Individual and Group for 1 day from Start Date: given on
+signing up with birth details, as they pick, or by the admin); Admin (an admin, as those in the admins secret).
+Individual and Group are the paid options. A trial run out: the Now charts only. A login's DOB records share its email:
+its own (the first) and any number more (people added under it, or a family an admin set up).
 """
 from __future__ import annotations
 
@@ -15,9 +14,9 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-ACCESS = ("Trial-Ind", "Trial-Grp", "Individual", "Group", "Admin")
+ACCESS = ("Now", "Trial-Ind", "Trial-Grp", "Individual", "Group", "Admin")
 # earlier names, read as the new ones (the database is changed to the new ones once; see db._new_access_names)
-RENAMED = {"Now": None, "Free": None, "FreeInd": None, "FreeGrp": None,   # (the Now charts only: blank)
+RENAMED = {"Free": "Now", "FreeInd": "Now", "FreeGrp": "Now",
             "DOB": "Individual", "Ind": "Individual", "1wu": "Group", "1mu": "Group", "1yu": "Group", "TrDOB": "Trial-Ind", "TrInd": "Trial-Ind", "TrGroup": "Trial-Grp", "TrGrp": "Trial-Grp",
            "Trial DOB": "Trial-Ind", "Trial Group": "Trial-Grp"}
 # the Access that run for a while from Access From: months, days, unlimited (else their own DOB only), in words
@@ -59,55 +58,28 @@ def ends(access: str, since: datetime) -> datetime:
     return _add_months(since, months) + timedelta(days=days)
 
 
-def _when(v) -> datetime | None:
-    if v is None or (isinstance(v, float) and pd.isna(v)) or v is pd.NaT:
-        return None
-    return pd.Timestamp(v).to_pydatetime()
-
-
-def grant(records: list[dict], now: datetime) -> Grant:
-    """What the person whose customer records these are (all with their login email) may use, now (UT)."""
-    def val(r, k, choices):
-        try:
-            return canonical(r.get(k), choices)
-        except ValueError:
-            return None
-    if any(val(r, "access", ACCESS) == "Admin" for r in records):
+def grant(value, since: datetime | None, now: datetime) -> Grant:
+    """What a person may use now (UT), by their Customers row's Access (value; blank or unknown: Now) and Start Date."""
+    try:
+        a = canonical(value, ACCESS) or "Now"
+    except ValueError:
+        a = "Now"
+    if a == "Admin":
         return Grant(admin=True, dob=True, many=True)
-    if any(val(r, "access", ACCESS) == "Group" for r in records):   # unlimited, no time limit
+    if a == "Group":                                          # unlimited, no time limit
         return Grant(admin=False, dob=True, many=True)
-    own_dob = any(val(r, "access", ACCESS) == "Individual" for r in records)
-    many, own, lapsed = None, None, None                     # (the latest end of each: running unlimited, running own, run out)
-    for r in records:
-        a = val(r, "access", ACCESS)
-        if a in PERIODS:
-            since = _when(r.get("access_from")) or _when(r.get("added_at")) or now
-            end, words = ends(a, since), PERIODS[a][3]
-            if end <= now:
-                lapsed = max(lapsed or (end, words), (end, words))
-            elif PERIODS[a][2]:
-                many = max(many or (end, words), (end, words))
-            else:
-                own = max(own or (end, words), (end, words))
-    if many:
-        return Grant(admin=False, dob=True, many=True, note=f"{many[1][0].upper()}{many[1][1:]}, until {many[0]:%Y-%m-%d %H:%M} UT.")
-    if own_dob:
-        return Grant(admin=False, dob=True, note=(f"Your {lapsed[1]} ended on {lapsed[0]:%Y-%m-%d}: "
-                                                  "your own DOB charts only." if lapsed else ""))
-    if own:
-        return Grant(admin=False, dob=True, note=f"{own[1][0].upper()}{own[1][1:]}, until {own[0]:%Y-%m-%d %H:%M} UT.")
-    if lapsed:
-        return Grant(admin=False, dob=False, note=f"Your {lapsed[1]} ended on {lapsed[0]:%Y-%m-%d}. " + PAID_NOTE)
+    if a == "Individual":
+        return Grant(admin=False, dob=True)
+    if a in PERIODS:
+        end, words = ends(a, since or now), PERIODS[a][3]
+        if end > now:
+            return Grant(admin=False, dob=True, many=PERIODS[a][2], note=f"{words[0].upper()}{words[1:]}, until {end:%Y-%m-%d %H:%M} UT.")
+        return Grant(admin=False, dob=False, note=f"Your {words} ended on {end:%Y-%m-%d}. " + PAID_NOTE)
     return Grant(admin=False, dob=False, note="Now charts only. " + PAID_NOTE)
 
 
 def own_record_id(records: list[dict]) -> int | None:
-    """A login's own record: the one with an Access (the first, if there are more), else its first; the others are the
-    people added under it."""
+    """A login's own DOB record: its first (the others are the people added under it)."""
     if not records:
         return None
-    def has_access(r):
-        v = r.get("access")
-        return v is not None and not (isinstance(v, float) and pd.isna(v)) and bool(str(v).strip())
-    own = [r for r in records if has_access(r)] or records
-    return int(min(own, key=lambda r: int(r["id"]))["id"])
+    return int(min(int(r["id"]) for r in records))
