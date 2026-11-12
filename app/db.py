@@ -101,7 +101,7 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("AstroClock-2D", "Planets", "Su, Mo, Me, Ve, Ma, Ju, Sa, NN, SN"),
     ("AstroClock-2D", "Major Aspects", ""),
     ("AstroClock-2D", "Minor Aspects", ""),
-    ("AstroClock-2D", "Houses", "On"),
+    ("AstroClock-2D", "House", "On"),
     ("AstroClock-2D", "Rotate in 1s", ""),
     ("AstroClock-3D", "Time", "Now"),
     ("AstroClock-3D", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
@@ -298,6 +298,8 @@ def _rename_defaults_page(eng: sa.Engine):
             c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-3d", sa.func.lower(defaults.c.options) == old).values(options=new))
         c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "rotate in 1s",
                                           sa.func.lower(defaults.c.choices) == "manual").values(choices=None))   # AstroClock-2D has no Manual now
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "houses")
+                  .values(options="House"))                   # its button is House now
         for old, new in (("geo scale", "Geo Coordinates"), ("helio scale", "Helio Coordinates")):
             c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio model", sa.func.lower(defaults.c.options) == old).values(options=new))
 

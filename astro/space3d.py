@@ -39,7 +39,7 @@ SIDES = 96                        # a ring is drawn with this many straight piec
 FLAT_RING_AU = 12.0
 OUTER_RING_AU = 20.0              # Geo and Helio: a circle beyond the planets, with the AU button
 FLAT_RADIUS = 360.0               # pixels from the Earth to that circle
-ONE_CIRCLE_AT = 0.72                # AstroClock-2D's 1 Circle: every body this far out, of the way to the 12 AU circle
+ONE_CIRCLE_AT = 0.72                # AstroClock-2D's AsPoint: every body this far out, of the way to the 12 AU circle
 FLAT_DRAG_DAYS = 0.25             # the flat page with no speed picked: how many days a pixel of dragging moves time
 FLAT_FONT = 10                    # the RA numbers, in pixels
 FLAT_DEC = (31.0, -31.0)          # the Declination graph left of the circle, as tall as it: its top and bottom, in degrees
@@ -231,7 +231,7 @@ __SYMBOL_JS__
     const log = Math.max(Math.log10(s.dist / D.log_from), 0), lo = Math.log10(D.gap[0] / D.log_from), hi = Math.log10(D.gap[1] / D.log_from);
     const r = D.scale === "True" ? s.dist : log <= lo ? log :      // Fit: the gap past the Moon closed up
       log >= hi ? log - (hi - lo) + D.gap[2] : lo + (log - lo) / (hi - lo) * D.gap[2], a = s.ra * RAD, d = s.dec * RAD;
-    if (D.flat) {                                  // flat: at its RA and distance (the Dec left out); 1 Circle: all at one distance
+    if (D.flat) {                                  // flat: at its RA and distance (the Dec left out); AsPoint: all at one distance
       const rr = D.one_circle ? D.outer * D.one_circle_at : r;
       return [rr * Math.cos(a), rr * Math.sin(a), 0];
     }
