@@ -268,12 +268,13 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     df = visible_customers()
     st.sidebar.markdown(f"**{user.name}**" + ("  \n:blue-badge[admin]" if user.is_admin else ""))
     auth.sign_out_button(user)
-    if st.session_state.pop("_dob_locked", False):            # they picked DOB, which their Access does not open
-        st.toast(access.PAID_NOTE)
+    locked_note = st.session_state.pop("_dob_locked", None)   # they picked DOB, which is not open to them: why
+    if locked_note:
+        st.toast(locked_note if isinstance(locked_note, str) else access.PAID_NOTE)
     if df.empty:
-        if user.is_admin:
+        if user.is_admin:                                     # (anyone signed in sees the Now charts)
             st.sidebar.info("No customers yet.")
-            return None, None
+            return None, Prepared(True, "Add a customer on the Customers page for the DOB charts.", now_only=True, locked=True)
         # a new member: no form to fill in, a Login row (once per visit), and the Now charts (birth details can be added in
         # My details, for the DOB ones)
         if not st.session_state.get("login_logged"):
@@ -305,11 +306,13 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     except places.LookupDown:
         prep = Prepared(False, PLACE_SEARCH_DOWN)
     if not GRANT.dob:                                         # none, or a paid period or trial run out: the Now charts only,
-        prep = Prepared(True, now_only=True, locked=True,    # at the place they live now
+        prep = Prepared(True, access.PAID_NOTE, now_only=True, locked=True,   # at the place they live now
                         cn=prep.cn if prep.ok else None, cn_tz=prep.cn_tz if prep.ok else None)
         st.sidebar.caption(GRANT.note)
-    elif not prep.ok:
+    elif not prep.ok:                                         # birth details that cannot be worked out: the Now charts still
         st.sidebar.error(prep.message)
+        prep = Prepared(True, prep.message + (" Fix it on the Customers page." if user.is_admin else " Fix it in My details."),
+                        now_only=True, locked=True)
     else:
         hr, mn = row.get("hr"), row.get("mn")
         if hr is None or pd.isna(hr):
@@ -392,7 +395,7 @@ def dob_asked(picked: bool, *keys_reset) -> None:
     for k, v in keys_reset:
         st.session_state[k] = v
     if _chosen[1] is not None and _chosen[1].locked:
-        st.session_state["_dob_locked"] = True
+        st.session_state["_dob_locked"] = _chosen[1].message or access.PAID_NOTE
         st.rerun()
     st.session_state["_back_to"] = nav.url_path
     st.switch_page(PAGE_BY_PATH["me"])
