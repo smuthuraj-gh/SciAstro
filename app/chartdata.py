@@ -24,6 +24,7 @@ class Prepared:
     birth: dict | None = None
     d_birth: dict | None = None
     now_only: bool = False                         # a member with no birth details yet: the Now charts only
+    locked: bool = False                           # (with now_only) their Access does not open the DOB charts (app/access.py)
 
 
 NOW_ONLY = Prepared(True, now_only=True)

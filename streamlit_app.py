@@ -14,7 +14,7 @@ import pandas as pd
 import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
 
-from app import auth, db, location
+from app import access, auth, db, location
 from app.chartdata import NOW_ONLY, Prepared, locate_cached, now_values, prepare
 from astro import core, distancechart, globechart, mapchart, places, rangechart, se, space3d
 
@@ -127,16 +127,27 @@ st.html("""<script>
 
 user = auth.current_user()
 location.visitor_location()                                   # where they are: looked up once per visit, before any Logins row is written
+# what they may use, by their customer record(s)' Access (an admin: everything)
+_MINE = [] if user.is_admin else db.customers_for(user.email).to_dict("records")   # their records (all share their email)
+GRANT = (access.Grant(admin=True, dob=True, many=True) if user.is_admin
+         else access.grant(_MINE, datetime.now(timezone.utc).replace(tzinfo=None)))
+OWN_ID = access.own_record_id(_MINE)                          # their own record (the others: Group, people under their login)
 
 
 # ---------------------------------------------------------------- who can see which customers
 def visible_customers() -> pd.DataFrame:
-    return db.all_customers() if user.is_admin else db.customers_for(user.email)
+    """An admin: every customer. A member: with 1wu, 1mu or 1yu running, every record under their login; else their own."""
+    if user.is_admin:
+        return db.all_customers()
+    df = db.customers_for(user.email)
+    return df if GRANT.many else df[df["id"] == OWN_ID]
 
 
 def record_items(row: pd.Series) -> tuple:
     out = []
     for f in db.FIELDS:
+        if f in db.ACCOUNT_FIELDS:                            # (not the charts': kept out of prepare's cache key)
+            continue
         v = row.get(f)
         if v is not None and isinstance(v, float) and pd.isna(v):
             v = None
@@ -257,6 +268,8 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     df = visible_customers()
     st.sidebar.markdown(f"**{user.name}**" + ("  \n:blue-badge[admin]" if user.is_admin else ""))
     auth.sign_out_button(user)
+    if st.session_state.pop("_dob_locked", False):            # they picked DOB, which their Access does not open
+        st.toast(access.PAID_NOTE)
     if df.empty:
         if user.is_admin:
             st.sidebar.info("No customers yet.")
@@ -266,23 +279,36 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
         if not st.session_state.get("login_logged"):
             db.log_login(user.email)
             st.session_state["login_logged"] = True
-        st.sidebar.caption("Now charts only: pick DOB to add your birth details.")
+        st.sidebar.caption("Now charts only: pick DOB to add your birth details. " + access.PAID_NOTE)
         return None, NOW_ONLY
     # chosen by record (names need not be unique: the login email is the key), shown as First and Last Name, with the
     # email added where two customers share both
     full = (df["name"].fillna("") + " " + df["last_name"].fillna("")).str.strip()
     label = {int(i): (f"{f} ({e})" if (full == f).sum() > 1 and e else f)
              for i, f, e in zip(df["id"], full, df["email"].fillna(""))}
+    if GRANT.many:                                            # unlimited access (and admins): a birth typed in, not saved
+        label[access.QUICK] = "+ Quick birth (not saved)"
     ids = list(label)
+    if "_select_customer" in st.session_state:                # (a person just added: shown at once)
+        st.session_state["customer_id"] = st.session_state.pop("_select_customer")
     prev = st.session_state.get("customer_id")
-    idx = ids.index(prev) if prev in ids else 0
+    idx = ids.index(prev) if prev in ids else ids.index(OWN_ID) if OWN_ID in ids else 0   # (a member: their own, to start)
     cid = st.sidebar.selectbox("Customer", ids, index=idx, format_func=label.get, key="customer_id")
+    if cid == access.QUICK:
+        base = df[df["id"] == OWN_ID] if (df["id"] == OWN_ID).any() else df
+        row, prep = quick_birth(base.iloc[0])
+        mark_accessed()
+        return row, prep
     row = df[df["id"] == cid].iloc[0]
     try:
         prep = prepare(record_items(row))
     except places.LookupDown:
         prep = Prepared(False, PLACE_SEARCH_DOWN)
-    if not prep.ok:
+    if not GRANT.dob:                                         # none, or a paid period or trial run out: the Now charts only,
+        prep = Prepared(True, now_only=True, locked=True,    # at the place they live now
+                        cn=prep.cn if prep.ok else None, cn_tz=prep.cn_tz if prep.ok else None)
+        st.sidebar.caption(GRANT.note)
+    elif not prep.ok:
         st.sidebar.error(prep.message)
     else:
         hr, mn = row.get("hr"), row.get("mn")
@@ -293,12 +319,51 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
         st.sidebar.caption(f"{int(row['year'])}-{int(row['mon']):02d}-{int(row['day']):02d} {prep.weekday} "
                            f"{at}, UTC {prep.utc:+.2f}  \n"
                            + ", ".join(str(row[f]) for f in ("city", "state", "country") if pd.notna(row[f]))
-                           + f" ({prep.birth_lat}, {prep.birth_lon})")
+                           + f" ({prep.birth_lat}, {prep.birth_lon})"
+                           + (f"  \n{GRANT.note}" if GRANT.note else ""))
     mark_accessed()
     viewed = st.session_state.setdefault("viewed_customers", set())   # a View in the Logins table: once per customer per visit
     if cid not in viewed:
         db.log_view(user.email)
         viewed.add(cid)
+    return row, prep
+
+
+def birth_time(text: str):
+    """hh:mm in 24 hours as a time; None when blank; raises ValueError when not a time."""
+    if not (text or "").strip():
+        return None
+    m = re.fullmatch(r"\s*(\d{1,2})\s*[:.]\s*(\d{2})\s*", text)
+    if not (m and int(m[1]) < 24 and int(m[2]) < 60):
+        raise ValueError(text)
+    return time(int(m[1]), int(m[2]))
+
+
+def quick_birth(base: pd.Series) -> tuple[pd.Series, Prepared]:
+    """A birth typed in the sidebar, not saved: its DOB charts, with the place now of base (their own record)."""
+    box = st.sidebar.container(border=True)
+    born = box.date_input("Birth date", value=None, min_value=datetime(1800, 1, 1).date(), max_value=datetime(2399, 12, 31).date(),
+                          format="YYYY-MM-DD", key="quick_date")
+    at_txt = box.text_input("Birth time (local, 24 h)", placeholder="hh:mm", max_chars=5, key="quick_time")
+    city = box.text_input("City", key="quick_city")
+    state = box.text_input("State/Region", key="quick_state")
+    country = box.text_input("Country", key="quick_country")
+    row = pd.Series({**base.to_dict(), "id": access.QUICK, "name": "Quick birth", "last_name": "", "other": None,
+                     "utc": None, "city": city.strip(), "state": state.strip(), "country": country.strip()})
+    try:
+        at = birth_time(at_txt)
+    except ValueError:
+        return row, Prepared(False, "Quick birth: type the birth time as hh:mm in 24 hours, e.g. 14:30.")
+    if born is None or at is None or not all(v.strip() for v in (city, state, country)):
+        box.caption("Type a birth date, time and place to see its DOB charts. Nothing is saved.")
+        return row, Prepared(False, "Quick birth: type a birth date, time and place in the sidebar.")
+    row = pd.Series({**row.to_dict(), "year": born.year, "mon": born.month, "day": born.day, "hr": at.hour, "mn": at.minute})
+    try:
+        prep = prepare(record_items(row))
+    except places.LookupDown:
+        return row, Prepared(False, PLACE_SEARCH_DOWN)
+    if prep.ok:
+        box.caption(f"{born} {prep.weekday} {at:%H:%M}, UTC {prep.utc:+.2f} ({prep.birth_lat}, {prep.birth_lon}). Not saved.")
     return row, prep
 
 
@@ -320,11 +385,15 @@ def orbs() -> core.Orbs:
 
 def dob_asked(picked: bool, *keys_reset) -> None:
     """A member with no birth details picked DOB: their Time is set back (keys_reset: (key, value) pairs, set before the
-    buttons are drawn) and the form opens on My details; once saved, they come back to this page."""
+    buttons are drawn) and the form opens on My details; once saved, they come back to this page. One whose Access does
+    not open the DOB charts is told so instead."""
     if not picked:
         return
     for k, v in keys_reset:
         st.session_state[k] = v
+    if _chosen[1] is not None and _chosen[1].locked:
+        st.session_state["_dob_locked"] = True
+        st.rerun()
     st.session_state["_back_to"] = nav.url_path
     st.switch_page(PAGE_BY_PATH["me"])
 
@@ -337,9 +406,11 @@ def new_member_form():
     details_form(None)
 
 
-def details_form(row: pd.Series | None):
+def details_form(row: pd.Series | None, person: bool = False):
     """A member's own birth details: empty for a new member, or their record to change (row). Saved with their
-    login email, which stays the same (it is the key)."""
+    login email, which stays the same (it is the key). person: a new person to add under their login (unlimited access),
+    row giving only the place now to start from."""
+    k = "person_" if person else ""                           # (both forms may be on the page)
     def val(f):
         v = row.get(f) if row is not None else None
         return None if v is None or (isinstance(v, float) and pd.isna(v)) else v
@@ -357,7 +428,7 @@ def details_form(row: pd.Series | None):
             born0 = None                                      # outside what the date box allows: to be typed again
     if row is not None and val("hr") is not None:
         at0 = f"{int(val('hr')):02d}:{int(val('mn') or 0):02d}"
-    with st.form("member_details" if row is None else "edit_details"):
+    with st.form("add_person" if person else "member_details" if row is None else "edit_details"):
         c1, c2 = st.columns(2)
         first = c1.text_input("First Name *", value=txt("name"), max_chars=120)
         last = c2.text_input("Last Name *", value=txt("last_name"), max_chars=120)
@@ -377,20 +448,19 @@ def details_form(row: pd.Series | None):
                                    "charts).")
         st.markdown("**Where you live now** (for the Now charts)")
         c1, c2, c3, c4 = st.columns(4)
-        city_n = c1.text_input("City *", value=txt("city_n"), max_chars=500, key="city_n")
-        state_n = c2.text_input("State/Region *", value=txt("state_n"), max_chars=120, key="state_n")
-        country_n = c3.text_input("Country *", value=txt("country_n"), max_chars=120, key="country_n")
-        other_n = c4.text_input("District/Other", value=txt("other_n"), max_chars=500, key="other_n",
+        city_n = c1.text_input("City *", value=txt("city_n"), max_chars=500, key=f"{k}city_n")
+        state_n = c2.text_input("State/Region *", value=txt("state_n"), max_chars=120, key=f"{k}state_n")
+        country_n = c3.text_input("Country *", value=txt("country_n"), max_chars=120, key=f"{k}country_n")
+        other_n = c4.text_input("District/Other", value=txt("other_n"), max_chars=500, key=f"{k}other_n",
                                 help="The district, or anything else about where you live now (optional; not used "
                                      "in the charts).")
-        sent = st.form_submit_button("Save my details" if row is None else "Save changes", type="primary")
+        sent = st.form_submit_button("Save person" if person else "Save my details" if row is None else "Save changes",
+                                     type="primary")
     if not sent:
         return
-    at = None
-    m = re.fullmatch(r"\s*(\d{1,2})\s*[:.]\s*(\d{2})\s*", at_txt or "")
-    if m and int(m[1]) < 24 and int(m[2]) < 60:
-        at = time(int(m[1]), int(m[2]))
-    elif (at_txt or "").strip():
+    try:
+        at = birth_time(at_txt)
+    except ValueError:
         st.error("Birth time: type it as hh:mm in 24 hours, e.g. 14:30 or 09:05.")
         return
     missing = [n for n, v in (("First Name", first), ("Last Name", last), ("Birth date", born), ("Birth time", at),
@@ -419,7 +489,10 @@ def details_form(row: pd.Series | None):
            "year": born.year, "mon": born.month, "day": born.day,
            "hr": at.hour if at else None, "mn": at.minute if at else None,     # blank time: none kept (12:00 used)
            "country_n": country_n, "state_n": state_n, "city_n": city_n}
-    if row is None:
+    if person:
+        st.session_state["_select_customer"] = db.add_person(rec, user.email)   # shown in the sidebar at once
+        st.session_state["person_added"] = f"{first} {last} is added: chosen in the sidebar."
+    elif row is None:
         db.add_own_customer(rec, user.email)   # an email that already has a record keeps it (nothing is changed)
         back = st.session_state.pop("_back_to", None)
         if back in PAGE_BY_PATH:                              # they came from a chart's DOB: back to it
@@ -430,7 +503,7 @@ def details_form(row: pd.Series | None):
         same_birth = (all(num(val(f)) == rec[f] for f in ("year", "mon", "day", "hr", "mn"))
                       and all(rec[f].strip() == txt(f).strip() for f in ("city", "state", "country")))
         rec["utc"] = val("utc") if same_birth else None   # a new birth time or place: its UTC offset is looked up
-        db.update_own_customer(rec, user.email)
+        db.update_own_customer(rec, user.email, int(row["id"]))
         st.session_state["details_saved"] = True
     st.rerun()
 
@@ -1099,15 +1172,15 @@ def page_customers():
     # UTC is not shown (a blank one is looked up from the birth place; one already kept stays, see below); Created and
     # Last_Updated (UT) are, read only (set by the app); the time last opened (Accessed) is kept but not shown
     shown_fields = [f for f in db.FIELDS if f != "utc"]
-    stamps = {"added_at": "Created", "updated_at": "Last_Updated"}
+    stamps = {"added_at": "Created", "updated_at": "Last_Updated", "access_from": "Access_From"}
     show = df[["id"] + shown_fields + list(stamps)].rename(columns={**db.LABELS, **stamps})
     # First Name, A-Z, to begin with; the column headers sort by any column. Saving matches rows by their record, so the
     # order shown does not matter
     by_name = show[db.LABELS["name"]].map(lambda v: v.strip().lower() if isinstance(v, str) else v)
     show = show.loc[by_name.sort_values(na_position="last", kind="stable").index].reset_index(drop=True)
     def for_store(rows: pd.DataFrame) -> pd.DataFrame:
-        back = {v: k for k, v in db.LABELS.items()}
-        out = rows.rename(columns=back).drop(columns=list(stamps.values()), errors="ignore")
+        back = {**{v: k for k, v in db.LABELS.items()}, **{v: k for k, v in stamps.items()}}
+        out = rows.rename(columns=back).drop(columns=["updated_at"], errors="ignore")   # (Last_Updated: the app's)
         out["utc"] = out["id"].map(df.set_index("id")["utc"])   # each customer's kept UTC, unchanged (new: blank)
         return out
 
@@ -1139,7 +1212,22 @@ def page_customers():
                                                                       width="small"),
                                 "Email (login)": st.column_config.TextColumn("Email (login) *",
                                 help="Required. The Google account email this customer signs in with (they see only "
-                                     "their own). Each email can belong to one customer only."),
+                                     "their own). Each email belongs to one customer that is not UType Group (their own), "
+                                     "and to any number that are (people added under that login, or a family)."),
+                                "UType": st.column_config.SelectboxColumn("UType", options=list(access.UTYPES), width="small",
+                                help="Individual: the login's own record. Group: more records under the same email (people "
+                                     "the member added, or a family), seen with unlimited access (1wu, 1mu, 1yu). Admin: "
+                                     "an admin, as those in the admins secret."),
+                                "Created By": st.column_config.TextColumn("Created By",
+                                help="Who added the record (their login email). Set by the app (the admin, or the "
+                                     "customer themself on signing up) when left blank; may be changed."),
+                                "Access": st.column_config.SelectboxColumn("Access", options=list(access.ACCESS), width="small",
+                                help="Admin: an admin. DOB: the DOB and Now charts of their own record, no time limit. "
+                                     "1wu, 1mu, 1yu: unlimited, for 1 week, 1 month or 1 year from Access_From: the DOB "
+                                     "and Now charts of every record under their login, people they add on My details, "
+                                     "and quick births not saved. DOB, 1wu, 1mu and 1yu are the paid options. Free, for "
+                                     "1 week from Access_From: Trial DOB (as DOB) or Trial Group (unlimited, as 1wu). "
+                                     "Blank, or a period run out: the Now charts only."),
                                 "Country": st.column_config.TextColumn("Country *", help="Birth place: required."),
                                 "State": st.column_config.TextColumn("State *", help="Birth place: required."),
                                 "City": st.column_config.TextColumn("City *", help="Birth place: required."),
@@ -1148,11 +1236,16 @@ def page_customers():
                                 "State-N": st.column_config.TextColumn("State-N *", help="Place now: required."),
                                 "City-N": st.column_config.TextColumn("City-N *", help="Place now: required."),
                                 "Other-N": st.column_config.TextColumn(help="Anything else about the place now."),
-                                "Created": st.column_config.DatetimeColumn("Created", format="YYYY-MM-DD HH:mm", disabled=True,
-                                                                           help="When the record was added (UT), set by the app."),
+                                "Created": st.column_config.DatetimeColumn("Created", format="YYYY-MM-DD HH:mm",
+                                                                           help="When the record was added (UT). Set by the app "
+                                                                                "when left blank; may be changed."),
                                 "Last_Updated": st.column_config.DatetimeColumn("Last_Updated", format="YYYY-MM-DD HH:mm",
                                                                                 disabled=True,
-                                                                                help="When the record was last changed (UT), set by the app.")})
+                                                                                help="When the record was last changed (UT), set by the app."),
+                                "Access_From": st.column_config.DatetimeColumn("Access_From", format="YYYY-MM-DD HH:mm",
+                                                                               help="When Access was set (UT): 1wu, 1mu and 1yu count "
+                                                                                    "from it. Set to now when Access changes, unless "
+                                                                                    "you set it here too (to the day paid, say).")})
     with st.expander("Import from the workbook"):
         st.write("Save the workbook's Customers tab as CSV (Customer, Country, State, City, Other, Year, Mon, Date, "
                  "Hr24, Min, Country-N, State-N, City-N, Other-N; Other and Other-N may be left out) and upload it. "
@@ -1174,6 +1267,19 @@ def page_my_details():
     row, prep = pick_customer()
     if row is None:
         new_member_form()
+        return
+    if st.session_state.get("person_added"):
+        st.success(st.session_state.pop("person_added"))
+    if GRANT.many and not user.is_admin:
+        with st.expander("Add a person", expanded=int(row["id"]) == access.QUICK):
+            st.caption("Saved under your login, to see their DOB charts while your unlimited access runs; their place now "
+                       "starts as yours.")
+            own = visible_customers()
+            own = own[own["id"] == OWN_ID]
+            details_form(pd.Series({f: own.iloc[0][f] for f in ("country_n", "state_n", "city_n", "other_n")}) if len(own) else None,
+                         person=True)
+    if int(row["id"]) == access.QUICK:
+        st.info("A quick birth is not saved. Pick a saved person in the sidebar to see or change their details.")
         return
     def shown(v) -> str:                                      # a blank stays blank, and a whole number has no .0
         if pd.isna(v):

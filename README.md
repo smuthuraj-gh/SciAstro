@@ -12,7 +12,7 @@ zodiac), with the same rules.
 | Planets Distance(%) | everyone | distance (-D) lines from birth to now: D, the % between each planet's nearest and farthest |
 | Geo/Helio Model | everyone | Centric Model: Geo (GeoCentric) or Helio (HelioCentric). GeoCentric: the paths of the Sun, Moon and planets in 3D, each at its real distance from the Earth (Fit: each tenfold distance the same room, without the empty space between the Moon and the planets; or True); Rotate in 1s: Manual to drag it round, or a speed to run time. HelioCentric: as GeoCentric, with the Sun at the centre: the paths of the planets and the Earth around the Sun in 3D, and the Moon round the Earth (a dot, drawn farther out than to scale), each at its real distance from the Sun (RA, Dec and distance as seen from the Sun; Fit or True) |
 | Aspect Rules | admins | the orbs per aspect and planet; a pair uses the larger of its two planets' orbs; Insert, Update, Delete, Commit |
-| Customers | admins | Insert, Update, Delete, Commit customers, click a column name to sort; import the workbook's Customers tab as CSV |
+| Customers | admins | Insert, Update, Delete, Commit customers, click a column name to sort; import the workbook's Customers tab as CSV. After Email: UType (Individual, Group, Admin), Created By (who added the record, set by the app) and Access (Admin, DOB, 1wu, 1mu, 1yu, Trial DOB, Trial Group); Access_From (when Access was set, set by the app) at the end |
 | Symbols | admins | the table in the database: SAbr (unique), Symb (shown in place of the SAbr on the pages), SDesc, RGB (the charts' colours for the planets, Ea, NN, SN, CN and CB), Color (its name, for reference), Size_Clock-2D (how AstroClock-2D, its Dec and Distance(%) graphs size the planets, Ea, the nodes and places), Size_Clock-3D (the same, on AstroClock-3D), Size_Geo (on Geo/Helio Model's Geo), Size_Helio (on its Helio); Insert, Update, Delete, Commit; click a column name to sort |
 | Defaults | admins | the table in the database: Page, Options (a page input) and Choices (what it starts as: the buttons on; DOB or Now; Start Date (UT) + a time), one row per Page and Title, read by every page as it is drawn; sorted by Page, Title, Options; Insert, Update, Delete, Commit; click a column name to sort |
 | Logins | admins | the table in the database, newest first: Email (who was signed in), Activity (View: opened a customer, once per visit; Create, Update, Delete: a customer added, changed or deleted; Login: signed in with no birth details yet, once per visit), Date_Time (UT), Location (City, State, Country from the visitor's IP address, looked up once per visit with ipapi.co; Local on a local network; blank when not known); tick rows and Delete, or Delete all (asks first) |
@@ -28,8 +28,15 @@ Users sign in with Google and see only the customers whose **Email (login)** is 
 has their email yet) is not asked for anything: a Login row goes into the Logins table and they see the Now charts;
 picking DOB opens the form for their birth details (also in My details), saved with their login email, and brings
 them back to the chart, now with DOB.
-A member already there goes straight to their charts. The login email is the key: one customer per email (First Names may repeat).
-Admins are listed in the `admins` secret.
+A member already there goes straight to their charts. The login email is the key: one customer per email that is not UType Group (their own; First Names may repeat), and any
+number more that are Group (people the member added, or a family), which that login sees with unlimited access. Admins are listed in the `admins` secret, or have UType Admin or Access Admin.
+
+Access (app/access.py): Admin, an admin; DOB, the DOB and Now charts of their own record, with no time limit; 1wu, 1mu,
+1yu, unlimited for 1 week, 1 month or 1 year from Access_From: every record under their login, people they add (My
+details: Add a person) and quick births typed in the sidebar (not saved). DOB, 1wu, 1mu and 1yu are the paid options. Free,
+given by an admin for 1 week from Access_From: Trial DOB (as DOB) or Trial Group (unlimited, as 1wu). Blank, or a period
+or trial run out: the Now charts only. Customers already there when Access came in were given DOB (and UType Individual); a member who
+signs up has none (the Now charts only) until an admin sets it.
 
 ## Run on this PC
 
