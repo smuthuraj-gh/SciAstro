@@ -189,7 +189,8 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     circle = [(360.0 * v / SIDES) for v in range(SIDES + 1)]
     rings = [dict(text=f"{au:g} AU", pts=[_xyz(ra, 0.0, reach(au)) for ra in circle]) for au in wanted]
     aspect_rows = [dict(angle=a, colour=ASPECT_COLOURS[a in core.MINOR], width=1.0 if a in core.MINOR else 1.5,
-                        orbs={f"{p}|{q}": orbs.pair(a, p, q) for i, p in enumerate(ASPECT_NAMES) for q in ASPECT_NAMES[i + 1:] if {p, q} != set(NODE_CHOICES)})
+                        orbs={f"{p}|{q}": orbs.pair(a, p, q) for i, p in enumerate(ASPECT_NAMES) for q in ASPECT_NAMES[i + 1:] if {p, q} != set(NODE_CHOICES)},
+                        dec_orbs={f"{p}|{q}": orbs.pair(a, p, q, is_dec=True) for i, p in enumerate(ASPECT_NAMES) for q in ASPECT_NAMES[i + 1:] if {p, q} != set(NODE_CHOICES)})
                    for a in aspects] if orbs is not None else []
     return dict(paths=paths, marks=marks, tables=tables, sizing=sizing, rings=rings, outer=outer, aspects=aspect_rows, name_order=ASPECT_NAMES,
                 fit=(FLAT_RADIUS if flat else RADIUS) / outer, width=WIDTH, height=HEIGHT, font=FONT, flat=flat, drag_days=FLAT_DRAG_DAYS, view=FLAT_VIEW if flat else VIEW, flat_font=FLAT_FONT, flat_dec=FLAT_DEC, dist_range={p: (lo / core.AU_KM, hi / core.AU_KM) for p, (lo, hi) in core.DIST_RANGE.items()},
@@ -366,10 +367,10 @@ __SYMBOL_JS__
       aspectLines.push({c, p, q, e, tip: make("title", e), tag: words("black")});
     }));
   });
-  const inAspect = (angle, a, b, orb) => {         // the rule of core.aspect_events: RA within the orb of the angle, Decs within it of equal or mirrored
+  const inAspect = (angle, a, b, orb, decOrb) => {   // the rule of core.aspect_events: RA within the RA orb of the angle, Decs within the Dec orb of equal or mirrored
     let sep = Math.abs(a.ra - b.ra);
     if (sep > 180) sep = 360 - sep;
-    return Math.abs(sep - angle) <= orb && (Math.abs(a.dec - b.dec) <= orb || Math.abs(a.dec + b.dec) <= orb);
+    return Math.abs(sep - angle) <= orb && (Math.abs(a.dec - b.dec) <= decOrb || Math.abs(a.dec + b.dec) <= decOrb);
   };
   const aveTable = (clock, p) => (D.tables[clock] && D.tables[clock][p]) || D.ave_tables[clock][p];
   const pctAt = (clock, p, t) => {                 // a planet's Distance(%) from earth at that moment, t days on
@@ -619,7 +620,7 @@ __SYMBOL_JS__
     const taken = placed.map((q) => [q.x - q.r - 2, q.y - q.r - 2, q.x + q.r + 2, q.y + q.r + 2]).concat([[ex - earthR - 1, ey - earthR - 1, ex + earthR + 1, ey + earthR + 1]], scaleBoxes);
     aspectLines.forEach((l) => {                   // straight between the two; its tag, as 0-Ma-Ju, in the first free place along it
       const [a, b] = [l.p, l.q].map((n) => placed.find((q) => q.g.m.clock === l.c && q.g.m.name === n));
-      const on = D.aspects.filter((d) => inAspect(d.angle, posAt(l.c, l.p, t).s, posAt(l.c, l.q, t).s, d.orbs[l.p + "|" + l.q]));
+      const on = D.aspects.filter((d) => inAspect(d.angle, posAt(l.c, l.p, t).s, posAt(l.c, l.q, t).s, d.orbs[l.p + "|" + l.q], d.dec_orbs[l.p + "|" + l.q]));
       l.tag.style.display = "none";
       if (!on.length) { l.e.setAttribute("d", ""); return; }
       l.e.setAttribute("d", "M" + a.x.toFixed(1) + " " + a.y.toFixed(1) + "L" + b.x.toFixed(1) + " " + b.y.toFixed(1));

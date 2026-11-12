@@ -1180,14 +1180,15 @@ def page_aspects():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     table = db.orb_table()
-    st.caption("A pair is in aspect when RA is within the orb of the angle and the two Decs within the same orb of "
+    st.caption("A pair is in aspect when RA is within the RA orb of the angle and the two Decs within the Dec orb of "
                "equal or mirrored, at every angle. A pair uses the larger of its two planets' "
                "orbs; CB and CN take the planet's.")
     crud_table("orb_editor", table.assign(_angle=table["Angle"]), lambda rows: db.orb_problems(db.with_angles(rows)),
                lambda rows: (db.save_orb_table(db.with_angles(rows).pipe(lambda r: r[r["Angle"].notna()]).drop(columns="_angle")),
                              "Committed.")[1],
                column_config={"_angle": None, "Angle": st.column_config.NumberColumn("Angle", format="%g", width="small"),   # a new row's, if blank, from its Aspect's name
-                              **{c: st.column_config.NumberColumn(core.with_symbols(c.removesuffix("-RA"))) for c in db.ORB_COLUMNS}})   # ☽︎, ☉︎ ..
+                              **{c: st.column_config.NumberColumn(core.with_symbols(c[:-3]) + (" RA" if c.endswith("-RA") else " Dec"))
+                                 for c in db.ORB_COLUMNS}})   # ☽︎ RA, ☉︎ RA .. ☽︎ Dec ..
     if st.button("Reset to defaults"):
         st.session_state["orb_reset_ask"] = True
     if st.session_state.get("orb_reset_ask"):

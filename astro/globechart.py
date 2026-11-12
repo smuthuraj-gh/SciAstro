@@ -311,6 +311,8 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                              tables={p: {**_motion_table(p, when, MOTION_DAYS), "colour": core.colour(p)} for p in core.BUTTON_ORDER},
                              node=_node_table(when) if set(NODE_CHOICES) & (set(g.bodies) | set(g.paths)) else None))
     aspects = [dict(angle=a, colour=ASPECT_COLOURS[a in core.MINOR], width=1.0 if a in core.MINOR else 1.5,
+                    dec_orbs={f"{p}|{q}": g.orbs.pair(a, p, q, is_dec=True)
+                              for i, p in enumerate(ASPECT_NAMES) for q in ASPECT_NAMES[i + 1:] if {p, q} != set(NODE_CHOICES)},
                     orbs={f"{p}|{q}": g.orbs.pair(a, p, q)
                           for i, p in enumerate(ASPECT_NAMES) for q in ASPECT_NAMES[i + 1:] if {p, q} != set(NODE_CHOICES)})
                for a in g.aspects] if g.orbs is not None else []
@@ -469,10 +471,10 @@ __SYMBOL_JS__
   })));
   const aspectAt = (s, name, t) => (name === "NN" || name === "SN"      // where a planet, or a node, is then
     ? nodeAt({s, turn: name === "NN" ? 0 : 180, sign: name === "NN" ? 1 : -1}, t) : sample(s.tables[name], t));
-  const inAspect = (angle, a, b, orb) => {         // the rule of core.aspect_events, for every angle: RA within the orb of the
-    let sep = Math.abs(a.ra - b.ra);               // angle, and the Decs within the same orb of equal or mirrored
+  const inAspect = (angle, a, b, orb, decOrb) => {   // the rule of core.aspect_events, for every angle: RA within the RA orb of
+    let sep = Math.abs(a.ra - b.ra);               // the angle, and the Decs within the Dec orb of equal or mirrored
     if (sep > 180) sep = 360 - sep;
-    return Math.abs(sep - angle) <= orb && (Math.abs(a.dec - b.dec) <= orb || Math.abs(a.dec + b.dec) <= orb);
+    return Math.abs(sep - angle) <= orb && (Math.abs(a.dec - b.dec) <= decOrb || Math.abs(a.dec + b.dec) <= decOrb);
   };
   const pad2 = (n) => (n >= 0 ? "+" : "-") + Math.abs(n).toFixed(2);
   const clockLine = (s, t) => {                    // its date and time, at its place's UTC offset
@@ -573,7 +575,7 @@ __SYMBOL_JS__
     const taken = D.taken.slice();       // in the order of who keeps their place: the planets' tags before the houses', which spin past
     aspectLines.forEach((l) => {                   // the short way round between the two, straight in RA and Dec
       const a = aspectAt(l.s, l.p, t), b = aspectAt(l.s, l.q, t);
-      const on = D.aspects.filter((d) => inAspect(d.angle, a, b, d.orbs[l.p + "|" + l.q]));
+      const on = D.aspects.filter((d) => inAspect(d.angle, a, b, d.orbs[l.p + "|" + l.q], d.dec_orbs[l.p + "|" + l.q]));
       l.tagged = on[0] || null;
       if (!on.length) return l.draw([], "");
       const turn = ((b.ra - a.ra + 540) % 360) - 180, pts = [];

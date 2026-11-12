@@ -151,8 +151,7 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("size_helio", sa.String(40)),                   # how the HelioCentric chart sizes it: Size_Helio
     sa.Column("size_clock_2d", sa.String(40)),                   # how the AstroClock-2D chart sizes it: Size_Clock-2D
 )
-# The Aspect Rules table: a row per aspect, with its orb per planet (for RA and Dec alike); pos keeps the order shown
-# (a store made when it had -De columns keeps them, unused)
+# The Aspect Rules table: a row per aspect, with its RA orb and its Dec orb per planet (-RA, -De); pos keeps the order shown
 ORB_COLUMNS = [c for c in core.default_orb_table().columns if c not in ("Aspect", "Angle")]
 aspect_details = sa.Table(
     "aspect_details", meta,
@@ -219,6 +218,7 @@ def engine() -> sa.Engine:
     _seed_planets(eng)
     _add_orb_nn_ra(eng)
     _seed_aspect_details(eng)
+    _add_orb_dec(eng)
     _rename_defaults_page(eng)
     _add_defaults_index(eng)
     _seed_defaults(eng)
@@ -403,6 +403,20 @@ def _add_orb_nn_ra(eng: sa.Engine):
                 kind = aspect_details.c[col].type.compile(dialect=eng.dialect)
                 c.execute(sa.text(f"ALTER TABLE aspect_details ADD COLUMN {col} {kind}"))
                 c.execute(sa.text(f"UPDATE aspect_details SET {col} = {like}"))
+
+
+def _add_orb_dec(eng: sa.Engine):
+    """Once (a note among the settings says it is done): the Aspect Rules table gets its Dec orbs back (Mo-De .. SN-De),
+    each as its RA orb, so that the aspects found stay as they were (old Dec orbs kept in the table are replaced)."""
+    have = {c["name"] for c in sa.inspect(eng).get_columns("aspect_details")}
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "dec_orbs_set")).scalar():
+            return
+        for col in [k.lower().replace("-", "_") for k in ORB_COLUMNS if k.endswith("-De")]:
+            if col not in have:
+                c.execute(sa.text(f"ALTER TABLE aspect_details ADD COLUMN {col} {aspect_details.c[col].type.compile(dialect=eng.dialect)}"))
+            c.execute(sa.text(f"UPDATE aspect_details SET {col} = {col[:-3]}_ra"))
+        c.execute(settings.insert().values(key="dec_orbs_set", value="1"))
 
 
 def _seed_aspect_details(eng: sa.Engine):
