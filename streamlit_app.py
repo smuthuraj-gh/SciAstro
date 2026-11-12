@@ -288,7 +288,7 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     full = (df["name"].fillna("") + " " + df["last_name"].fillna("")).str.strip()
     label = {int(i): (f"{f} ({e})" if (full == f).sum() > 1 and e else f)
              for i, f, e in zip(df["id"], full, df["email"].fillna(""))}
-    if GRANT.many:                                            # unlimited access (and admins): a birth typed in, not saved
+    if GRANT.many and GRANT.dob:                              # unlimited access (and admins): a birth typed in, not saved
         label[access.QUICK] = "+ Quick birth (not saved)"
     ids = list(label)
     if "_select_customer" in st.session_state:                # (a person just added: shown at once)
@@ -1091,7 +1091,7 @@ def page_logins():
                                                                                  "Chrome on Windows; blank when not known."),
                                            "Time zone": st.column_config.TextColumn(width=200, help="The time zone their browser "
                                                                                     "is set to; blank when not known."),
-                                           "Access": st.column_config.TextColumn(width=110, help="Their Access then (Admin, Free, "
+                                           "Access": st.column_config.TextColumn(width=110, help="Their Access then (Admin, FreeInd, FreeGrp, "
                                                                                  "TrInd, TrGrp, Individual, Group; 'ended' after a trial ran "
                                                                                  "out); blank with no customer record.")})
     ticked = edited.loc[edited["Del"].fillna(False).astype(bool), "Id"].tolist()
@@ -1235,7 +1235,8 @@ def page_customers():
                                 help="Who added the record (their login email). Set by the app (the admin, or the "
                                      "customer themself on signing up) when left blank; may be changed."),
                                 "Access": st.column_config.SelectboxColumn("Access", options=list(access.ACCESS), width="small",
-                                help="Free: the Now charts only. Individual: the DOB and Now charts of their own record, no time "
+                                help="FreeInd: the Now charts only. FreeGrp: the Now charts only, of every record under "
+                                     "their login and people they add on My details. Individual: the DOB and Now charts of their own record, no time "
                                      "limit. Group: unlimited, no time limit: the DOB and Now charts of every record under "
                                      "their login, people they add on My details, and quick births not saved. Individual and Group "
                                      "are the paid options. TrInd, TrGrp: free trials of Individual and Group, for 1 day from "

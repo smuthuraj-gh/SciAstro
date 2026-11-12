@@ -12,7 +12,7 @@ zodiac), with the same rules.
 | Planets Distance(%) | everyone | distance (-D) lines from birth to now: D, the % between each planet's nearest and farthest |
 | Geo/Helio Model | everyone | Centric Model: Geo (GeoCentric) or Helio (HelioCentric). GeoCentric: the paths of the Sun, Moon and planets in 3D, each at its real distance from the Earth (Fit: each tenfold distance the same room, without the empty space between the Moon and the planets; or True); Rotate in 1s: Manual to drag it round, or a speed to run time. HelioCentric: as GeoCentric, with the Sun at the centre: the paths of the planets and the Earth around the Sun in 3D, and the Moon round the Earth (a dot, drawn farther out than to scale), each at its real distance from the Sun (RA, Dec and distance as seen from the Sun; Fit or True) |
 | Aspect Rules | admins | the orbs per aspect and planet; a pair uses the larger of its two planets' orbs; Insert, Update, Delete, Commit |
-| Customers | admins | Insert, Update, Delete, Commit customers, click a column name to sort; import the workbook's Customers tab as CSV. After Email: Created By (who added the record, set by the app) and Access (Free, TrInd, TrGrp, Individual, Group, Admin), then Access_From (when Access was set: set by the app, or by an admin) |
+| Customers | admins | Insert, Update, Delete, Commit customers, click a column name to sort; import the workbook's Customers tab as CSV. After Email: Created By (who added the record, set by the app) and Access (FreeInd, FreeGrp, TrInd, TrGrp, Individual, Group, Admin), then Access_From (when Access was set: set by the app, or by an admin) |
 | Symbols | admins | the table in the database: SAbr (unique), Symb (shown in place of the SAbr on the pages), SDesc, RGB (the charts' colours for the planets, Ea, NN, SN, CN and CB), Color (its name, for reference), Size_Clock-2D (how AstroClock-2D, its Dec and Distance(%) graphs size the planets, Ea, the nodes and places), Size_Clock-3D (the same, on AstroClock-3D), Size_Geo (on Geo/Helio Model's Geo), Size_Helio (on its Helio); Insert, Update, Delete, Commit; click a column name to sort |
 | Defaults | admins | the table in the database: Page, Options (a page input) and Choices (what it starts as: the buttons on; DOB or Now; Start Date (UT) + a time), one row per Page and Title, read by every page as it is drawn; sorted by Page, Title, Options; Insert, Update, Delete, Commit; click a column name to sort |
 | Logins | admins | the table in the database, newest first: Email (who was signed in), Activity (View: opened a customer, once per visit; Create, Update, Delete: a customer added, changed or deleted; Login: signed in with no birth details yet, once per visit), Date_Time (UT), Location (City, State, Country from the visitor's IP address, looked up once per visit with ipapi.co; Local on a local network; blank when not known), Device (their browser and system, e.g. Chrome on Windows), Time zone (their browser's), Access (theirs then; 'ended' after a trial ran out); tick rows and Delete, or Delete all (asks first) |
@@ -24,7 +24,7 @@ Layout rule: everything on all pages stays aligned to the top left.
 
 Font rule: on all pages, text is at most 12 px and at least 10 px.
 
-Now rule: anyone signed in can always see the Now charts, on every chart page: with no customer record, with Free or a trial run out, or with birth details that cannot be worked out (picking DOB then says why it is not open).
+Now rule: anyone signed in can always see the Now charts, on every chart page: with no customer record, with FreeInd or a trial run out, or with birth details that cannot be worked out (picking DOB then says why it is not open).
 
 Users sign in with Google and see only the customers whose **Email (login)** is theirs. A new member (no customer
 has their email yet) is not asked for anything: a Login row goes into the Logins table and they see the Now charts;
@@ -33,12 +33,12 @@ them back to the chart, now with DOB.
 A member already there goes straight to their charts. The login email is the key: its own customer is the one with an Access (First Names may repeat), and it may have any
 number more with Access blank (people the member added, or a family), which that login sees with Group access. Admins are listed in the `admins` secret, or have Access Admin.
 
-Access (app/access.py): Free, the Now charts only; Individual, the DOB and Now charts of their own record, with no time limit;
+Access (app/access.py): FreeInd, the Now charts only; FreeGrp, the Now charts only, of every record under their login and people they add; Individual, the DOB and Now charts of their own record, with no time limit;
 Group, unlimited with no time limit: every record under their login, people they add (My details: Add a person) and quick
 births typed in the sidebar (not saved); TrInd and TrGrp, free trials of Individual and Group for 1 day from
 Access_From; Admin, an admin. Individual and Group are the paid options. Blank, or a trial run out: the Now charts only. Customers
 already there when Access came in were given Individual; a member who signs up with their birth details picks Individual or Group and gets TrInd or TrGrp (a free 1-day trial, from then); after it, the Now charts until an admin gives Individual or Group. Earlier
-values are changed once: Now to Free, DOB and Ind to Individual, 1wu / 1mu / 1yu to Group, TrDOB to TrInd, TrGroup to TrGrp; the account-type
+values are changed once: Now and Free to FreeInd, DOB and Ind to Individual, 1wu / 1mu / 1yu to Group, TrDOB to TrInd, TrGroup to TrGrp; the account-type
 column Access replaced is removed, a record that was an admin by it getting Access Admin.
 
 ## Run on this PC

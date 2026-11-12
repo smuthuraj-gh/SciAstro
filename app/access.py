@@ -1,6 +1,7 @@
 """What a signed-in person may use, from their customer record(s)' Access.
 
-Access: Free (the Now charts only); Individual (the DOB and Now charts of their own record, no time limit); Group (unlimited: the
+Access: FreeInd (the Now charts only); FreeGrp (the Now charts only, of every record under their login and people they
+add); Individual (the DOB and Now charts of their own record, no time limit); Group (unlimited: the
 DOB and Now charts of every record under their login, people they add themselves and quick births not saved, no time
 limit); TrInd and TrGrp (free trials of Individual and Group for 1 day from Access From: TrInd given on signing up with
 birth details, either given by the admin); Admin (an admin, as
@@ -15,9 +16,9 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-ACCESS = ("Free", "TrInd", "TrGrp", "Individual", "Group", "Admin")
+ACCESS = ("FreeInd", "FreeGrp", "TrInd", "TrGrp", "Individual", "Group", "Admin")
 # earlier names, read as the new ones (the database is changed to the new ones once; see db._new_access_names)
-RENAMED = {"Now": "Free", "DOB": "Individual", "Ind": "Individual", "1wu": "Group", "1mu": "Group", "1yu": "Group", "TrDOB": "TrInd", "TrGroup": "TrGrp",
+RENAMED = {"Now": "FreeInd", "Free": "FreeInd", "DOB": "Individual", "Ind": "Individual", "1wu": "Group", "1mu": "Group", "1yu": "Group", "TrDOB": "TrInd", "TrGroup": "TrGrp",
            "Trial DOB": "TrInd", "Trial Group": "TrGrp"}
 # the Access that run for a while from Access From: months, days, unlimited (else their own DOB only), in words
 PERIODS = {"TrInd": (0, 1, False, "free 1-day trial (your own DOB)"), "TrGrp": (0, 1, True, "free 1-day trial (unlimited)")}
@@ -95,9 +96,10 @@ def grant(records: list[dict], now: datetime) -> Grant:
                                                   "your own DOB charts only." if lapsed else ""))
     if own:
         return Grant(admin=False, dob=True, note=f"{own[1][0].upper()}{own[1][1:]}, until {own[0]:%Y-%m-%d %H:%M} UT.")
+    free_group = any(val(r, "access", ACCESS) == "FreeGrp" for r in records)   # the Now charts of every record under the login
     if lapsed:
-        return Grant(admin=False, dob=False, note=f"Your {lapsed[1]} ended on {lapsed[0]:%Y-%m-%d}. " + PAID_NOTE)
-    return Grant(admin=False, dob=False, note="Now charts only. " + PAID_NOTE)
+        return Grant(admin=False, dob=False, many=free_group, note=f"Your {lapsed[1]} ended on {lapsed[0]:%Y-%m-%d}. " + PAID_NOTE)
+    return Grant(admin=False, dob=False, many=free_group, note="Now charts only. " + PAID_NOTE)
 
 
 def own_record_id(records: list[dict]) -> int | None:
