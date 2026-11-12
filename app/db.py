@@ -38,8 +38,8 @@ customers = sa.Table(
     sa.Column("last_name", sa.String(120)),
     sa.Column("email", sa.String(254)),
     sa.Column("created_by", sa.String(254)),                  # who added the record (their login email), set by the app
-    sa.Column("access", sa.String(20)),                       # TrInd, TrGrp, Individual, Group, Admin, or blank (the Now charts only; app/access.py)
-    sa.Column("access_from", sa.DateTime),                    # when (UT) Access was last set: TrInd, TrGrp count from it
+    sa.Column("access", sa.String(20)),                       # Trial-Ind, Trial-Grp, Individual, Group, Admin, or blank (the Now charts only; app/access.py)
+    sa.Column("access_from", sa.DateTime),                    # when (UT) Access was last set: Trial-Ind, Trial-Grp count from it
     sa.Column("country", sa.String(120)), sa.Column("state", sa.String(120)),
     sa.Column("other", sa.String(500)),                       # free text kept with the record (not used in the charts)
     sa.Column("city", sa.String(500)),
@@ -70,7 +70,7 @@ logins = sa.Table(
     sa.Column("location", sa.String(200)),                   # City, State, Country of the visitor's IP ("Local", or blank when unknown)
     sa.Column("device", sa.String(60)),                      # their browser and system (Chrome on Windows ..)
     sa.Column("timezone", sa.String(64)),                    # the time zone their browser is set to (Asia/Kolkata (UTC+5:30))
-    sa.Column("access", sa.String(20)),                      # their Access then (TrInd .., "TrInd ended"; blank: none, or no record)
+    sa.Column("access", sa.String(20)),                      # their Access then (Trial-Ind .., "Trial-Ind ended"; blank: none, or no record)
     sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete', 'Login')", name="ck_logins_activity"),
 )
 sa.Index("ix_logins_date_time", logins.c.date_time)
@@ -710,8 +710,8 @@ def _add_missing_columns(eng: sa.Engine):
 
 
 def _new_access_names(eng: sa.Engine):
-    """Access kept under an earlier name gets the new one (Now, Free, FreeInd, FreeGrp: blank, DOB and Ind: Individual, 1wu / 1mu / 1yu: Group, TrDOB: TrInd,
-    TrGroup: TrGrp); Access_From stays."""
+    """Access kept under an earlier name gets the new one (Now, Free, FreeInd, FreeGrp: blank, DOB and Ind: Individual, 1wu / 1mu / 1yu: Group, TrDOB and TrInd: Trial-Ind,
+    TrGroup and TrGrp: Trial-Grp); Access_From stays."""
     _drop_old_type_column(eng)
     with eng.begin() as c:
         for old, new in access.RENAMED.items():
@@ -806,7 +806,7 @@ def _clean(rec: dict) -> dict:
             out[f] = int(float(v))
         elif f == "utc":
             out[f] = float(v)
-        elif f == "access":                                  # as kept (Individual, TrInd ..); not a choice: as typed, refused by customer_problems
+        elif f == "access":                                  # as kept (Individual, Trial-Ind ..); not a choice: as typed, refused by customer_problems
             try:
                 out[f] = access.canonical(v, access.ACCESS)
             except ValueError:
@@ -1011,10 +1011,10 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
 
 
 def add_own_customer(rec: dict, email: str, group: bool = False) -> bool:
-    """A new member's own record, linked to their login email (the key: one record per email), with Access TrInd (or
-    TrGrp, with group): a free 1-day trial of their DOB charts (unlimited, with group) from now. Returns False, saving nothing, when that email already has one (they simply
+    """A new member's own record, linked to their login email (the key: one record per email), with Access Trial-Ind (or
+    Trial-Grp, with group): a free 1-day trial of their DOB charts (unlimited, with group) from now. Returns False, saving nothing, when that email already has one (they simply
     use it)."""
-    data = {**_clean({**rec, "email": email}), "created_by": email.lower(), "access": "TrGrp" if group else "TrInd"}
+    data = {**_clean({**rec, "email": email}), "created_by": email.lower(), "access": "Trial-Grp" if group else "Trial-Ind"}
     problems = missing_required(pd.DataFrame([data]))      # the same rule as the Customers table
     if problems:
         raise ValueError("Missing: " + problems[0].split(": ", 1)[-1])
@@ -1028,7 +1028,7 @@ def add_own_customer(rec: dict, email: str, group: bool = False) -> bool:
 
 
 def add_person(rec: dict, email: str) -> int:
-    """A person a member with unlimited access (Group, TrGrp) adds under their login: their email, added by them, no
+    """A person a member with unlimited access (Group, Trial-Grp) adds under their login: their email, added by them, no
     Access of its own. Returns the new record's id. Raises ValueError, saving nothing, when a field is missing."""
     data = {**_clean({**rec, "email": email}), "created_by": email.lower(), "access": None}
     problems = missing_required(pd.DataFrame([data]))

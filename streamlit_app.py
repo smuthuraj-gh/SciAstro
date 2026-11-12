@@ -136,7 +136,7 @@ OWN_ID = access.own_record_id(_MINE)                          # their own record
 
 # ---------------------------------------------------------------- who can see which customers
 def visible_customers() -> pd.DataFrame:
-    """An admin: every customer. A member: with Group (or TrGrp running), every record under their login; else their own."""
+    """An admin: every customer. A member: with Group (or Trial-Grp running), every record under their login; else their own."""
     if user.is_admin:
         return db.all_customers()
     df = db.customers_for(user.email)
@@ -459,7 +459,7 @@ def details_form(row: pd.Series | None, person: bool = False):
                                 help="The district, or anything else about where you live now (optional; not used "
                                      "in the charts).")
         plan = None
-        if row is None and not person:                        # signing up: which free 1-day trial (TrInd or TrGrp)
+        if row is None and not person:                        # signing up: which free 1-day trial (Trial-Ind or Trial-Grp)
             st.markdown("**Access** (a free 1-day trial; after it, the admin can keep it for you)")
             plan = st.radio("Access", ["Individual", "Group"], horizontal=True, label_visibility="collapsed", key="signup_plan",
                             captions=["Your own DOB and Now charts", "Your DOB and Now charts, people you add, and quick births"])
@@ -1091,7 +1091,7 @@ def page_logins():
                                                                                  "Chrome on Windows; blank when not known."),
                                            "Time zone": st.column_config.TextColumn(width=200, help="The time zone their browser "
                                                                                     "is set to; blank when not known."),
-                                           "Access": st.column_config.TextColumn(width=110, help="Their Access then (Admin, TrInd, TrGrp, "
+                                           "Access": st.column_config.TextColumn(width=110, help="Their Access then (Admin, Trial-Ind, Trial-Grp, "
                                                                                  "Individual, Group; 'ended' after a trial ran out); blank "
                                                                                  "with none, or no customer record.")})
     ticked = edited.loc[edited["Del"].fillna(False).astype(bool), "Id"].tolist()
@@ -1238,8 +1238,8 @@ def page_customers():
                                 help="Individual: the DOB and Now charts of their own record, no time "
                                      "limit. Group: unlimited, no time limit: the DOB and Now charts of every record under "
                                      "their login, people they add on My details, and quick births not saved. Individual and Group "
-                                     "are the paid options. TrInd, TrGrp: free trials of Individual and Group, for 1 day from "
-                                     "Access_From (a member signing up with their birth details gets one: TrInd or TrGrp, as they pick). Admin: an admin. "
+                                     "are the paid options. Trial-Ind, Trial-Grp: free trials of Individual and Group, for 1 day from "
+                                     "Access_From (a member signing up with their birth details gets one: Trial-Ind or Trial-Grp, as they pick). Admin: an admin. "
                                      "Blank, or a trial run out: the Now charts only (people added under a login have "
                                      "a blank Access and go by their login's)."),
                                 "Country": st.column_config.TextColumn("Country *", help="Birth place: required."),
@@ -1257,7 +1257,7 @@ def page_customers():
                                                                                 disabled=True,
                                                                                 help="When the record was last changed (UT), set by the app."),
                                 "Access_From": st.column_config.DatetimeColumn("Access_From", format="YYYY-MM-DD HH:mm",
-                                                                               help="When Access was set (UT): TrInd and TrGrp count "
+                                                                               help="When Access was set (UT): Trial-Ind and Trial-Grp count "
                                                                                     "from it. Set to now when Access changes, unless "
                                                                                     "you set it here too (to the day paid, say).")})
     with st.expander("Import from the workbook"):

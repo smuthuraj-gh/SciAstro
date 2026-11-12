@@ -2,7 +2,7 @@
 
 Access: blank (the Now charts only); Individual (the DOB and Now charts of their own record, no time limit); Group (unlimited: the
 DOB and Now charts of every record under their login, people they add themselves and quick births not saved, no time
-limit); TrInd and TrGrp (free trials of Individual and Group for 1 day from Access From: TrInd given on signing up with
+limit); Trial-Ind and Trial-Grp (free trials of Individual and Group for 1 day from Access From: Trial-Ind given on signing up with
 birth details, either given by the admin); Admin (an admin, as
 those in the admins secret). Individual and Group are the paid options. Blank, or a trial run out: the Now charts only. A login's
 records share its email: its own (the one with an Access; the first, if more) and any number more (people added under
@@ -15,13 +15,13 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-ACCESS = ("TrInd", "TrGrp", "Individual", "Group", "Admin")
+ACCESS = ("Trial-Ind", "Trial-Grp", "Individual", "Group", "Admin")
 # earlier names, read as the new ones (the database is changed to the new ones once; see db._new_access_names)
 RENAMED = {"Now": None, "Free": None, "FreeInd": None, "FreeGrp": None,   # (the Now charts only: blank)
-            "DOB": "Individual", "Ind": "Individual", "1wu": "Group", "1mu": "Group", "1yu": "Group", "TrDOB": "TrInd", "TrGroup": "TrGrp",
-           "Trial DOB": "TrInd", "Trial Group": "TrGrp"}
+            "DOB": "Individual", "Ind": "Individual", "1wu": "Group", "1mu": "Group", "1yu": "Group", "TrDOB": "Trial-Ind", "TrInd": "Trial-Ind", "TrGroup": "Trial-Grp", "TrGrp": "Trial-Grp",
+           "Trial DOB": "Trial-Ind", "Trial Group": "Trial-Grp"}
 # the Access that run for a while from Access From: months, days, unlimited (else their own DOB only), in words
-PERIODS = {"TrInd": (0, 1, False, "free 1-day trial (your own DOB)"), "TrGrp": (0, 1, True, "free 1-day trial (unlimited)")}
+PERIODS = {"Trial-Ind": (0, 1, False, "free 1-day trial (your own DOB)"), "Trial-Grp": (0, 1, True, "free 1-day trial (unlimited)")}
 PAID_NOTE = "DOB charts are a paid option (Individual or Group): ask the admin."
 QUICK = -1                         # the sidebar's Quick birth (not saved), in place of a record's id
 
@@ -54,7 +54,7 @@ def _add_months(when: datetime, months: int) -> datetime:
 
 
 def ends(access: str, since: datetime) -> datetime:
-    """When an Access of PERIODS (TrInd, TrGrp) set at since runs out."""
+    """When an Access of PERIODS (Trial-Ind, Trial-Grp) set at since runs out."""
     months, days, _, _ = PERIODS[access]
     return _add_months(since, months) + timedelta(days=days)
 
