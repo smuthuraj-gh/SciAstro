@@ -13,7 +13,7 @@ from functools import lru_cache
 import plotly.graph_objects as go
 
 from . import core
-from .mapchart import CHART_FONT_FAMILY, CHART_TEXT, FONT
+from .mapchart import CHART_FONT_FAMILY, CHART_TEXT, FONT, SYMBOL_FONT_FAMILY
 
 WIDTH, HEIGHT = 1100, 720
 MARGIN = 10
@@ -322,7 +322,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
-                node_names=[n for n in NODE_CHOICES if n in g.bodies], name_order=ASPECT_NAMES, shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p, texts=core.SIZE_TEXTS_GLOBE) for p in core.BUTTON_ORDER + ["NN", "SN", "CB", "CN"]}, family=CHART_FONT_FAMILY, node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
+                node_names=[n for n in NODE_CHOICES if n in g.bodies], name_order=ASPECT_NAMES, shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p, texts=core.SIZE_TEXTS_GLOBE) for p in core.BUTTON_ORDER + ["NN", "SN", "CB", "CN"]}, family=SYMBOL_FONT_FAMILY, node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, min(1000, int((day_seconds or 60.0) * 2.5))))
 
 

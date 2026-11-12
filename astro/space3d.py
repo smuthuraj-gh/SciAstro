@@ -11,7 +11,7 @@ from functools import lru_cache
 from . import core
 from .globechart import (MARKER_RANGE, MOTION_DAYS, NODE_CHOICES, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_rows, _motion_table,
                          _node_rows, _node_table, day_start, symbol_shapes, ASPECT_COLOURS, ASPECT_NAMES, EARTH_DEGREES_A_DAY, HOUSE_COLOUR)
-from .mapchart import CHART_FONT_FAMILY, FONT
+from .mapchart import FONT, SYMBOL_FONT_FAMILY
 
 WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lines beyond them
 RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
@@ -201,7 +201,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=at["log_from"], gap=at["gap"],
                 scp_ring=reach(SCP_BEYOND_AU), scp_past=SCP_PAST_PX, sides=SIDES, small_font=SMALL_FONT, pole_font=POLE_FONT, key=("flat" if flat else "") + centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, min(1000, int((day_seconds or 60.0) * 2.5))), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
-                family=CHART_FONT_FAMILY, one_circle=bool(flat and one_circle), one_circle_at=ONE_CIRCLE_AT, ra_marks=[] if flat else [dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
+                family=SYMBOL_FONT_FAMILY, one_circle=bool(flat and one_circle), one_circle_at=ONE_CIRCLE_AT, ra_marks=[] if flat else [dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
 
 # (Spaces after every less-than: the page drops a script that seems to have tags in it.)

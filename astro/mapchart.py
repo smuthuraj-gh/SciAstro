@@ -108,5 +108,8 @@ def fit_html(fig: go.Figure, after_js: str = "") -> str:
 
 
 CHART_FONT_FAMILY = "'Open Sans', verdana, arial, sans-serif"     # Plotly's default, which the charts are drawn in
+# the same, for the drawings' own text (tags as 0-Ma-Ju): the planet symbols taken from a symbol font before Arial, whose
+# thin Venus and Mars (it has no bold ones) looked faint beside the others
+SYMBOL_FONT_FAMILY = "'Open Sans', verdana, 'Segoe UI Symbol', 'Apple Symbols', 'Noto Sans Symbols', arial, sans-serif"
 CHART_TEXT = "#444"                                              # Plotly's text colour
 
