@@ -38,7 +38,7 @@ customers = sa.Table(
     sa.Column("last_name", sa.String(120)),
     sa.Column("email", sa.String(254)),
     sa.Column("created_by", sa.String(254)),                  # who added the record (their login email), set by the app
-    sa.Column("access", sa.String(20)),                       # FreeInd, FreeGrp, TrInd, TrGrp, Individual, Group or Admin (app/access.py)
+    sa.Column("access", sa.String(20)),                       # TrInd, TrGrp, Individual, Group, Admin, or blank (the Now charts only; app/access.py)
     sa.Column("access_from", sa.DateTime),                    # when (UT) Access was last set: TrInd, TrGrp count from it
     sa.Column("country", sa.String(120)), sa.Column("state", sa.String(120)),
     sa.Column("other", sa.String(500)),                       # free text kept with the record (not used in the charts)
@@ -70,7 +70,7 @@ logins = sa.Table(
     sa.Column("location", sa.String(200)),                   # City, State, Country of the visitor's IP ("Local", or blank when unknown)
     sa.Column("device", sa.String(60)),                      # their browser and system (Chrome on Windows ..)
     sa.Column("timezone", sa.String(64)),                    # the time zone their browser is set to (Asia/Kolkata (UTC+5:30))
-    sa.Column("access", sa.String(20)),                      # their Access then (FreeInd, TrInd .., "TrInd ended"; blank: no record)
+    sa.Column("access", sa.String(20)),                      # their Access then (TrInd .., "TrInd ended"; blank: none, or no record)
     sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete', 'Login')", name="ck_logins_activity"),
 )
 sa.Index("ix_logins_date_time", logins.c.date_time)
@@ -710,7 +710,7 @@ def _add_missing_columns(eng: sa.Engine):
 
 
 def _new_access_names(eng: sa.Engine):
-    """Access kept under an earlier name gets the new one (Now and Free: FreeInd, DOB and Ind: Individual, 1wu / 1mu / 1yu: Group, TrDOB: TrInd,
+    """Access kept under an earlier name gets the new one (Now, Free, FreeInd, FreeGrp: blank, DOB and Ind: Individual, 1wu / 1mu / 1yu: Group, TrDOB: TrInd,
     TrGroup: TrGrp); Access_From stays."""
     _drop_old_type_column(eng)
     with eng.begin() as c:
@@ -806,7 +806,7 @@ def _clean(rec: dict) -> dict:
             out[f] = int(float(v))
         elif f == "utc":
             out[f] = float(v)
-        elif f == "access":                                  # as kept (FreeInd, Individual ..); not a choice: as typed, refused by customer_problems
+        elif f == "access":                                  # as kept (Individual, TrInd ..); not a choice: as typed, refused by customer_problems
             try:
                 out[f] = access.canonical(v, access.ACCESS)
             except ValueError:

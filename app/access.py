@@ -1,7 +1,6 @@
 """What a signed-in person may use, from their customer record(s)' Access.
 
-Access: FreeInd (the Now charts only); FreeGrp (the Now charts only, of every record under their login and people they
-add); Individual (the DOB and Now charts of their own record, no time limit); Group (unlimited: the
+Access: blank (the Now charts only); Individual (the DOB and Now charts of their own record, no time limit); Group (unlimited: the
 DOB and Now charts of every record under their login, people they add themselves and quick births not saved, no time
 limit); TrInd and TrGrp (free trials of Individual and Group for 1 day from Access From: TrInd given on signing up with
 birth details, either given by the admin); Admin (an admin, as
@@ -16,9 +15,10 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-ACCESS = ("FreeInd", "FreeGrp", "TrInd", "TrGrp", "Individual", "Group", "Admin")
+ACCESS = ("TrInd", "TrGrp", "Individual", "Group", "Admin")
 # earlier names, read as the new ones (the database is changed to the new ones once; see db._new_access_names)
-RENAMED = {"Now": "FreeInd", "Free": "FreeInd", "DOB": "Individual", "Ind": "Individual", "1wu": "Group", "1mu": "Group", "1yu": "Group", "TrDOB": "TrInd", "TrGroup": "TrGrp",
+RENAMED = {"Now": None, "Free": None, "FreeInd": None, "FreeGrp": None,   # (the Now charts only: blank)
+            "DOB": "Individual", "Ind": "Individual", "1wu": "Group", "1mu": "Group", "1yu": "Group", "TrDOB": "TrInd", "TrGroup": "TrGrp",
            "Trial DOB": "TrInd", "Trial Group": "TrGrp"}
 # the Access that run for a while from Access From: months, days, unlimited (else their own DOB only), in words
 PERIODS = {"TrInd": (0, 1, False, "free 1-day trial (your own DOB)"), "TrGrp": (0, 1, True, "free 1-day trial (unlimited)")}
@@ -39,9 +39,9 @@ def canonical(value, choices: tuple[str, ...]) -> str | None:
     if value is None or (isinstance(value, float) and pd.isna(value)) or not str(value).strip():
         return None
     low = {c.lower(): c for c in choices}
-    low.update({old.lower(): new for old, new in RENAMED.items() if new in choices})   # (an earlier name: as the new one)
+    low.update({old.lower(): new for old, new in RENAMED.items() if new in choices or new is None})   # (an earlier name: as the new one)
     try:
-        return low[str(value).strip().lower()]
+        return low[str(value).strip().lower()]                # (one now blank: None)
     except KeyError:
         raise ValueError(f"'{value}' is not one of {', '.join(choices)}") from None
 
@@ -96,10 +96,9 @@ def grant(records: list[dict], now: datetime) -> Grant:
                                                   "your own DOB charts only." if lapsed else ""))
     if own:
         return Grant(admin=False, dob=True, note=f"{own[1][0].upper()}{own[1][1:]}, until {own[0]:%Y-%m-%d %H:%M} UT.")
-    free_group = any(val(r, "access", ACCESS) == "FreeGrp" for r in records)   # the Now charts of every record under the login
     if lapsed:
-        return Grant(admin=False, dob=False, many=free_group, note=f"Your {lapsed[1]} ended on {lapsed[0]:%Y-%m-%d}. " + PAID_NOTE)
-    return Grant(admin=False, dob=False, many=free_group, note="Now charts only. " + PAID_NOTE)
+        return Grant(admin=False, dob=False, note=f"Your {lapsed[1]} ended on {lapsed[0]:%Y-%m-%d}. " + PAID_NOTE)
+    return Grant(admin=False, dob=False, note="Now charts only. " + PAID_NOTE)
 
 
 def own_record_id(records: list[dict]) -> int | None:

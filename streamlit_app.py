@@ -1091,9 +1091,9 @@ def page_logins():
                                                                                  "Chrome on Windows; blank when not known."),
                                            "Time zone": st.column_config.TextColumn(width=200, help="The time zone their browser "
                                                                                     "is set to; blank when not known."),
-                                           "Access": st.column_config.TextColumn(width=110, help="Their Access then (Admin, FreeInd, FreeGrp, "
-                                                                                 "TrInd, TrGrp, Individual, Group; 'ended' after a trial ran "
-                                                                                 "out); blank with no customer record.")})
+                                           "Access": st.column_config.TextColumn(width=110, help="Their Access then (Admin, TrInd, TrGrp, "
+                                                                                 "Individual, Group; 'ended' after a trial ran out); blank "
+                                                                                 "with none, or no customer record.")})
     ticked = edited.loc[edited["Del"].fillna(False).astype(bool), "Id"].tolist()
     said = st.session_state.pop("logins_said", None)
     if said:
@@ -1235,14 +1235,13 @@ def page_customers():
                                 help="Who added the record (their login email). Set by the app (the admin, or the "
                                      "customer themself on signing up) when left blank; may be changed."),
                                 "Access": st.column_config.SelectboxColumn("Access", options=list(access.ACCESS), width="small",
-                                help="FreeInd: the Now charts only. FreeGrp: the Now charts only, of every record under "
-                                     "their login and people they add on My details. Individual: the DOB and Now charts of their own record, no time "
+                                help="Individual: the DOB and Now charts of their own record, no time "
                                      "limit. Group: unlimited, no time limit: the DOB and Now charts of every record under "
                                      "their login, people they add on My details, and quick births not saved. Individual and Group "
                                      "are the paid options. TrInd, TrGrp: free trials of Individual and Group, for 1 day from "
                                      "Access_From (a member signing up with their birth details gets one: TrInd or TrGrp, as they pick). Admin: an admin. "
-                                     "Blank (people added under a login), or a trial run "
-                                     "out: the Now charts only."),
+                                     "Blank, or a trial run out: the Now charts only (people added under a login have "
+                                     "a blank Access and go by their login's)."),
                                 "Country": st.column_config.TextColumn("Country *", help="Birth place: required."),
                                 "State": st.column_config.TextColumn("State *", help="Birth place: required."),
                                 "City": st.column_config.TextColumn("City *", help="Birth place: required."),
