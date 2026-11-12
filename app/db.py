@@ -987,7 +987,7 @@ def customer_problems(rows: pd.DataFrame) -> list[str]:
     missing = missing_required(rows)
     if missing:
         out.append("Required for every customer: Email (login), First Name, Last Name, Country, State, City, "
-                   "the birth date and time (Date, Time), and Country-N, State-N, City-N. " + "; ".join(missing))
+                   "the birth date and time (Date, Time-24Hr), and Country-N, State-N, City-N. " + "; ".join(missing))
     return out
 
 

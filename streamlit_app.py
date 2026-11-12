@@ -229,7 +229,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "time; Start Date moves to now when Access changes, unless it is changed too. Insert, Update, Delete, "
                  "Commit as on DOB.",
     "DOB": "The customers' birth details. Insert for a new customer, type changes and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. ID is the record's number, and Created and Last_Updated (UT) when it was added and last changed, all set by the app. Required (*): Email (login), First Name, "
-                 "Last Name, Country, State, City, the birth date and time (Date, Time), and where they "
+                 "Last Name, Country, State, City, the birth date and time (Date, Time-24Hr), and where they "
                  "live now (Country-N, State-N, City-N). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
@@ -1271,14 +1271,14 @@ def page_customers():
     show = df[["id"] + shown_fields + ["added_at", "updated_at"]].rename(columns={**db.LABELS, **stamps})
     show[db.LABELS["day"]] = [birth_date(y, m, d) for y, m, d in zip(df["year"], df["mon"], df["day"])]
     show[db.LABELS["hr"]] = [birth_clock(h, m) for h, m in zip(df["hr"], df["mn"])]
-    show = show.rename(columns={db.LABELS["hr"]: "Time"})
+    show = show.rename(columns={db.LABELS["hr"]: "Time-24Hr"})
     # First Name, A-Z, to begin with; the column headers sort by any column. Saving matches rows by their record, so the
     # order shown does not matter
     by_name = show[db.LABELS["name"]].map(lambda v: v.strip().lower() if isinstance(v, str) else v)
     show = show.loc[by_name.sort_values(na_position="last", kind="stable").index].reset_index(drop=True)
     def for_store(rows: pd.DataFrame) -> pd.DataFrame:
         back = {**{v: k for k, v in db.LABELS.items()}, **{v: k for k, v in stamps.items()}}
-        out = rows.rename(columns={"Time": db.LABELS["hr"]}).rename(columns=back).drop(columns=["updated_at"], errors="ignore")   # (Last_Updated: the app's)
+        out = rows.rename(columns={"Time-24Hr": db.LABELS["hr"]}).rename(columns=back).drop(columns=["updated_at"], errors="ignore")   # (Last_Updated: the app's)
         parts = [date_parts(v) for v in out["day"]]                 # the Date column back into Year, Mon, Date
         out["year"], out["mon"], out["day"] = [p[0] for p in parts], [p[1] for p in parts], [p[2] for p in parts]
         clock = [time_parts(v) for v in out["hr"]]                  # and the Time column into Hr24, Min
@@ -1297,7 +1297,7 @@ def page_customers():
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The record's number, set by the app (blank on a new row until saved)."),
                                 "First Name": st.column_config.TextColumn("First Name *", help="Required."),
                                 "Last Name": st.column_config.TextColumn("Last Name *", help="Required."),
-                                "Time": st.column_config.TimeColumn("Time *", help="Birth time, local, 24 h: required.",
+                                "Time-24Hr": st.column_config.TimeColumn("Time-24Hr *", help="Birth time, local, 24 h: required.",
                                                                     format="HH:mm", step=60, width=80),
                                 "Date": st.column_config.DateColumn("Date *", help="Birth date: required, 1800 to 2399.",
                                                                     format="YYYY-MM-DD", min_value=date(1800, 1, 1),
