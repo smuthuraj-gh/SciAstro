@@ -457,6 +457,11 @@ def details_form(row: pd.Series | None, person: bool = False):
         other_n = c4.text_input("District/Other", value=txt("other_n"), max_chars=500, key=f"{k}other_n",
                                 help="The district, or anything else about where you live now (optional; not used "
                                      "in the charts).")
+        plan = None
+        if row is None and not person:                        # signing up: which free 1-day trial (TrInd or TrGrp)
+            st.markdown("**Access** (a free 1-day trial; after it, the admin can keep it for you)")
+            plan = st.radio("Access", ["Individual", "Group"], horizontal=True, label_visibility="collapsed", key="signup_plan",
+                            captions=["Your own DOB and Now charts", "Your DOB and Now charts, people you add, and quick births"])
         sent = st.form_submit_button("Save person" if person else "Save my details" if row is None else "Save changes",
                                      type="primary")
     if not sent:
@@ -496,7 +501,7 @@ def details_form(row: pd.Series | None, person: bool = False):
         st.session_state["_select_customer"] = db.add_person(rec, user.email)   # shown in the sidebar at once
         st.session_state["person_added"] = f"{first} {last} is added: chosen in the sidebar."
     elif row is None:
-        db.add_own_customer(rec, user.email)   # an email that already has a record keeps it (nothing is changed)
+        db.add_own_customer(rec, user.email, group=plan == "Group")   # an email that already has a record keeps it (nothing is changed)
         back = st.session_state.pop("_back_to", None)
         if back in PAGE_BY_PATH:                              # they came from a chart's DOB: back to it
             st.switch_page(PAGE_BY_PATH[back])
@@ -1226,7 +1231,7 @@ def page_customers():
                                      "limit. Group: unlimited, no time limit: the DOB and Now charts of every record under "
                                      "their login, people they add on My details, and quick births not saved. Ind and Group "
                                      "are the paid options. TrInd, TrGrp: free trials of Ind and Group, for 1 day from "
-                                     "Access_From (a member signing up with their birth details gets TrInd). Admin: an admin. "
+                                     "Access_From (a member signing up with their birth details gets one: TrInd or TrGrp, as they pick). Admin: an admin. "
                                      "Blank (people added under a login), or a trial run "
                                      "out: the Now charts only."),
                                 "Country": st.column_config.TextColumn("Country *", help="Birth place: required."),
