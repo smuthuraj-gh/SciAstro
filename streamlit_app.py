@@ -201,7 +201,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
               "UT). View: opened a customer's charts (once per customer per visit). Create, Update, Delete: added, changed or "
               "deleted a customer (on Customers, by import, or their own My details), a row per customer. Login: signed in with "
-              "no birth details yet, seeing the Now charts only (once per visit). Seen by admins only; "
+              "no birth details yet, seeing the Now charts only (once per visit). Location, Device, Time zone: where they were, their "
+              "browser and system, and their browser's time zone. Access: theirs then. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
               "either asks first, and a deleted row cannot be brought back.",
     "Defaults": "The Defaults table: what each page's inputs start as. A row per input: its Page, its Options and its "
@@ -1077,7 +1078,7 @@ def page_logins():
     # (ticks are kept by row position: a new key when the rows move, so that a tick cannot land on another row)
     edited = st.data_editor(view, hide_index=True, width="content", num_rows="fixed",
                             key=f"logins_table_{len(table)}_{table['Id'].iloc[0] if len(table) else 0}",
-                            height="auto" if len(table) <= 18 else 700, disabled=["Email", "Activity", "Date_Time", "Location"],
+                            height="auto" if len(table) <= 18 else 700, disabled=["Email", "Activity", "Date_Time", "Location", "Device", "Time zone", "Access"],
                             column_config={"Del": st.column_config.CheckboxColumn("Del", width="small", help="Tick, then press Delete."),
                                            "Id": None, "Email": st.column_config.TextColumn(width=260),
                                            "Activity": st.column_config.TextColumn(width=100),
@@ -1085,7 +1086,14 @@ def page_logins():
                                                                                         width=170),
                                            "Location": st.column_config.TextColumn(width=260, help="Where the visitor was: City, State, "
                                                                                    "Country from their IP address (approximate); Local on a "
-                                                                                   "local network; blank when not known.")})
+                                                                                   "local network; blank when not known."),
+                                           "Device": st.column_config.TextColumn(width=140, help="Their browser and system, e.g. "
+                                                                                 "Chrome on Windows; blank when not known."),
+                                           "Time zone": st.column_config.TextColumn(width=200, help="The time zone their browser "
+                                                                                    "is set to; blank when not known."),
+                                           "Access": st.column_config.TextColumn(width=110, help="Their Access then (Admin, Free, "
+                                                                                 "TrInd, TrGrp, Ind, Group; 'ended' after a trial ran "
+                                                                                 "out); blank with no customer record.")})
     ticked = edited.loc[edited["Del"].fillna(False).astype(bool), "Id"].tolist()
     said = st.session_state.pop("logins_said", None)
     if said:

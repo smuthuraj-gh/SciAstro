@@ -17,7 +17,7 @@ import streamlit as st
 from astro import core
 
 from . import access
-from .location import visitor_location
+from .location import visitor_device, visitor_location, visitor_timezone
 
 ROOT = Path(__file__).resolve().parent.parent
 # the customer columns in table order; Email (login) first, as it is the key, then the account: Created By, Access
@@ -68,6 +68,9 @@ logins = sa.Table(
     sa.Column("activity", sa.String(10), nullable=False),
     sa.Column("date_time", sa.DateTime, nullable=False),
     sa.Column("location", sa.String(200)),                   # City, State, Country of the visitor's IP ("Local", or blank when unknown)
+    sa.Column("device", sa.String(60)),                      # their browser and system (Chrome on Windows ..)
+    sa.Column("timezone", sa.String(64)),                    # the time zone their browser is set to (Asia/Kolkata (UTC+5:30))
+    sa.Column("access", sa.String(20)),                      # their Access then (Free, TrInd .., "TrInd ended"; blank: no record)
     sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete', 'Login')", name="ck_logins_activity"),
 )
 sa.Index("ix_logins_date_time", logins.c.date_time)
@@ -187,7 +190,7 @@ def engine() -> sa.Engine:
     _rename_defaults_options(eng)
     meta.create_all(eng)
     _allow_login_activity(eng)
-    _add_logins_location(eng)
+    _add_logins_columns(eng)
     _add_missing_columns(eng)
     _seed_account_fields(eng)
     _new_access_names(eng)
@@ -231,11 +234,14 @@ def _allow_login_activity(eng: sa.Engine):
             c.execute(sa.text(f"ALTER TABLE logins ADD CONSTRAINT ck_logins_activity CHECK ({rule})"))
 
 
-def _add_logins_location(eng: sa.Engine):
-    """A Logins table made before the Location column gets it (its rows kept, with no Location)."""
-    if "location" not in {c["name"] for c in sa.inspect(eng).get_columns("logins")}:
-        with eng.begin() as c:
-            c.execute(sa.text(f"ALTER TABLE logins ADD COLUMN location {logins.c.location.type.compile(dialect=eng.dialect)}"))
+def _add_logins_columns(eng: sa.Engine):
+    """A Logins table made before the Location, Device, Time zone and Access columns gets them (its rows kept, blank in
+    them)."""
+    have = {c["name"] for c in sa.inspect(eng).get_columns("logins")}
+    with eng.begin() as c:
+        for col in ("location", "device", "timezone", "access"):
+            if col not in have:
+                c.execute(sa.text(f"ALTER TABLE logins ADD COLUMN {col} {logins.c[col].type.compile(dialect=eng.dialect)}"))
 
 
 def _rename_logins_operation(eng: sa.Engine):
@@ -864,12 +870,39 @@ def customer_problems(rows: pd.DataFrame) -> list[str]:
 
 
 def _log(c, email: str | None, activity: str, times: int = 1):
-    """Rows in the Logins table: this person did this, times times (one row per customer), now, from where they are."""
+    """Rows in the Logins table: this person did this, times times (one row per customer), now, from where they are, on
+    what device, in what time zone, with what Access."""
     if email and times > 0:
         assert activity in ACTIVITIES
         now = _now()
-        where = visitor_location() or None
-        c.execute(logins.insert(), [dict(email=email.lower(), activity=activity, date_time=now, location=where)] * times)
+        row = dict(email=email.lower(), activity=activity, date_time=now, location=visitor_location() or None,
+                   device=visitor_device() or None, timezone=visitor_timezone() or None, access=_access_now(c, email, now))
+        c.execute(logins.insert(), [row] * times)
+
+
+def _access_now(c, email: str, now) -> str | None:
+    """This login's Access now, for the Logins table: Admin for one in the admins secret, else their own record's
+    (with "ended" after a trial run out); None with no record."""
+    admins = _secret("admins", [])
+    if isinstance(admins, str):
+        admins = admins.replace(";", ",").split(",")
+    if email.lower() in {a.strip().lower() for a in admins if a and a.strip()}:
+        return "Admin"
+    recs = [dict(r) for r in c.execute(sa.select(customers.c.id, customers.c.access, customers.c.access_from, customers.c.added_at)
+                                      .where(sa.func.lower(customers.c.email) == email.lower())).mappings().all()]
+    own = access.own_record_id(recs)
+    if own is None:
+        return None
+    rec = next(r for r in recs if int(r["id"]) == own)
+    try:
+        a = access.canonical(rec.get("access"), access.ACCESS)
+    except ValueError:
+        return None
+    if a in access.PERIODS:
+        since = pd.Timestamp(rec.get("access_from") or rec.get("added_at") or now).to_pydatetime()
+        if access.ends(a, since) <= now:
+            return f"{a} ended"
+    return a
 
 
 def log_view(email: str | None):
@@ -885,12 +918,14 @@ def log_login(email: str | None):
 
 
 def logins_table(limit: int = 5000) -> pd.DataFrame:
-    """The Logins table, newest first (at most limit rows): Id, Email, Activity, Date_Time (UT), Location."""
+    """The Logins table, newest first (at most limit rows): Id, Email, Activity, Date_Time (UT), Location, Device,
+    Time zone, Access."""
+    cols = ["Id", "Email", "Activity", "Date_Time", "Location", "Device", "Time zone", "Access"]
     with engine().connect() as c:
         rows = c.execute(sa.select(logins).order_by(logins.c.date_time.desc(), logins.c.id.desc()).limit(limit)).mappings().all()
     return pd.DataFrame([{"Id": r["id"], "Email": r["email"], "Activity": r["activity"], "Date_Time": r["date_time"],
-                          "Location": r["location"] or ""} for r in rows],
-                        columns=["Id", "Email", "Activity", "Date_Time", "Location"])
+                          "Location": r["location"] or "", "Device": r["device"] or "", "Time zone": r["timezone"] or "",
+                          "Access": r["access"] or ""} for r in rows], columns=cols)
 
 
 def delete_logins(ids: list[int] | None = None) -> int:
