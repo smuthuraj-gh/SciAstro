@@ -1,10 +1,10 @@
 """What a signed-in person may use, from their customer record(s)' Access.
 
-Access: Free (the Now charts only); Ind (the DOB and Now charts of their own record, no time limit); Group (unlimited: the
+Access: Free (the Now charts only); Individual (the DOB and Now charts of their own record, no time limit); Group (unlimited: the
 DOB and Now charts of every record under their login, people they add themselves and quick births not saved, no time
-limit); TrInd and TrGrp (free trials of Ind and Group for 1 day from Access From: TrInd given on signing up with
+limit); TrInd and TrGrp (free trials of Individual and Group for 1 day from Access From: TrInd given on signing up with
 birth details, either given by the admin); Admin (an admin, as
-those in the admins secret). Ind and Group are the paid options. Blank, or a trial run out: the Now charts only. A login's
+those in the admins secret). Individual and Group are the paid options. Blank, or a trial run out: the Now charts only. A login's
 records share its email: its own (the one with an Access; the first, if more) and any number more (people added under
 it, or a family an admin set up), which have no Access of their own.
 """
@@ -15,13 +15,13 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-ACCESS = ("Free", "TrInd", "TrGrp", "Ind", "Group", "Admin")
+ACCESS = ("Free", "TrInd", "TrGrp", "Individual", "Group", "Admin")
 # earlier names, read as the new ones (the database is changed to the new ones once; see db._new_access_names)
-RENAMED = {"Now": "Free", "DOB": "Ind", "1wu": "Group", "1mu": "Group", "1yu": "Group", "TrDOB": "TrInd", "TrGroup": "TrGrp",
+RENAMED = {"Now": "Free", "DOB": "Individual", "Ind": "Individual", "1wu": "Group", "1mu": "Group", "1yu": "Group", "TrDOB": "TrInd", "TrGroup": "TrGrp",
            "Trial DOB": "TrInd", "Trial Group": "TrGrp"}
 # the Access that run for a while from Access From: months, days, unlimited (else their own DOB only), in words
 PERIODS = {"TrInd": (0, 1, False, "free 1-day trial (your own DOB)"), "TrGrp": (0, 1, True, "free 1-day trial (unlimited)")}
-PAID_NOTE = "DOB charts are a paid option (Ind or Group): ask the admin."
+PAID_NOTE = "DOB charts are a paid option (Individual or Group): ask the admin."
 QUICK = -1                         # the sidebar's Quick birth (not saved), in place of a record's id
 
 
@@ -75,7 +75,7 @@ def grant(records: list[dict], now: datetime) -> Grant:
         return Grant(admin=True, dob=True, many=True)
     if any(val(r, "access", ACCESS) == "Group" for r in records):   # unlimited, no time limit
         return Grant(admin=False, dob=True, many=True)
-    own_dob = any(val(r, "access", ACCESS) == "Ind" for r in records)
+    own_dob = any(val(r, "access", ACCESS) == "Individual" for r in records)
     many, own, lapsed = None, None, None                     # (the latest end of each: running unlimited, running own, run out)
     for r in records:
         a = val(r, "access", ACCESS)

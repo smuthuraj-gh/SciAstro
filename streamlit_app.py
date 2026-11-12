@@ -1092,7 +1092,7 @@ def page_logins():
                                            "Time zone": st.column_config.TextColumn(width=200, help="The time zone their browser "
                                                                                     "is set to; blank when not known."),
                                            "Access": st.column_config.TextColumn(width=110, help="Their Access then (Admin, Free, "
-                                                                                 "TrInd, TrGrp, Ind, Group; 'ended' after a trial ran "
+                                                                                 "TrInd, TrGrp, Individual, Group; 'ended' after a trial ran "
                                                                                  "out); blank with no customer record.")})
     ticked = edited.loc[edited["Del"].fillna(False).astype(bool), "Id"].tolist()
     said = st.session_state.pop("logins_said", None)
@@ -1235,10 +1235,10 @@ def page_customers():
                                 help="Who added the record (their login email). Set by the app (the admin, or the "
                                      "customer themself on signing up) when left blank; may be changed."),
                                 "Access": st.column_config.SelectboxColumn("Access", options=list(access.ACCESS), width="small",
-                                help="Free: the Now charts only. Ind: the DOB and Now charts of their own record, no time "
+                                help="Free: the Now charts only. Individual: the DOB and Now charts of their own record, no time "
                                      "limit. Group: unlimited, no time limit: the DOB and Now charts of every record under "
-                                     "their login, people they add on My details, and quick births not saved. Ind and Group "
-                                     "are the paid options. TrInd, TrGrp: free trials of Ind and Group, for 1 day from "
+                                     "their login, people they add on My details, and quick births not saved. Individual and Group "
+                                     "are the paid options. TrInd, TrGrp: free trials of Individual and Group, for 1 day from "
                                      "Access_From (a member signing up with their birth details gets one: TrInd or TrGrp, as they pick). Admin: an admin. "
                                      "Blank (people added under a login), or a trial run "
                                      "out: the Now charts only."),

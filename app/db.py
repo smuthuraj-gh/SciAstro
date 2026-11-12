@@ -38,7 +38,7 @@ customers = sa.Table(
     sa.Column("last_name", sa.String(120)),
     sa.Column("email", sa.String(254)),
     sa.Column("created_by", sa.String(254)),                  # who added the record (their login email), set by the app
-    sa.Column("access", sa.String(20)),                       # Free, TrInd, TrGrp, Ind, Group or Admin (app/access.py)
+    sa.Column("access", sa.String(20)),                       # Free, TrInd, TrGrp, Individual, Group or Admin (app/access.py)
     sa.Column("access_from", sa.DateTime),                    # when (UT) Access was last set: TrInd, TrGrp count from it
     sa.Column("country", sa.String(120)), sa.Column("state", sa.String(120)),
     sa.Column("other", sa.String(500)),                       # free text kept with the record (not used in the charts)
@@ -710,7 +710,7 @@ def _add_missing_columns(eng: sa.Engine):
 
 
 def _new_access_names(eng: sa.Engine):
-    """Access kept under an earlier name gets the new one (Now: Free, DOB: Ind, 1wu / 1mu / 1yu: Group, TrDOB: TrInd,
+    """Access kept under an earlier name gets the new one (Now: Free, DOB and Ind: Individual, 1wu / 1mu / 1yu: Group, TrDOB: TrInd,
     TrGroup: TrGrp); Access_From stays."""
     _drop_old_type_column(eng)
     with eng.begin() as c:
@@ -735,11 +735,11 @@ def _drop_old_type_column(eng: sa.Engine):
 
 def _seed_account_fields(eng: sa.Engine):
     """Once (a note among the settings says it is done): the customers already here, who could see their DOB charts, get
-    Access Ind, so that the Access rules take nothing from them."""
+    Access Individual, so that the Access rules take nothing from them."""
     with eng.begin() as c:
         if c.execute(sa.select(settings.c.value).where(settings.c.key == "account_fields_set")).scalar():
             return
-        c.execute(customers.update().where(customers.c.access.is_(None)).values(access="Ind"))
+        c.execute(customers.update().where(customers.c.access.is_(None)).values(access="Individual"))
         c.execute(settings.insert().values(key="account_fields_set", value="1"))
 
 
@@ -806,7 +806,7 @@ def _clean(rec: dict) -> dict:
             out[f] = int(float(v))
         elif f == "utc":
             out[f] = float(v)
-        elif f == "access":                                  # as kept (Free, Ind ..); not a choice: as typed, refused by customer_problems
+        elif f == "access":                                  # as kept (Free, Individual ..); not a choice: as typed, refused by customer_problems
             try:
                 out[f] = access.canonical(v, access.ACCESS)
             except ValueError:
