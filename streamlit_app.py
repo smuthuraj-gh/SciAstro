@@ -203,9 +203,10 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                     "Planet Path: which of the planets shown have their paths drawn. Time: DOB is hollow with dashed paths, Now solid; each path is a trail behind its planet, drawn only while time runs, kept for up to 72 years (with time standing still there are no trails, and each start begins new ones). "
                     "Coordinates: Fit, True and AU below it. On Fit each tenfold distance takes the same room, so Mercury's path and Saturn's can be seen together; True is to scale. A label with no room is left off: point at its mark.",
     "Aspects": "The aspects between the chosen planets, and the Moon's nodes (NN, SN; by their own orbs in Aspect Rules, ☊ and ☋, the larger of the pair's as for two planets; never with each other), over the period, as tables, newest first: one table per "
-               "angle, a row each time two planets came into it (RA within the orb of the angle, and the two Declinations "
-               "within the same orb of equal or mirrored). Major Aspects: on or off, with the angles 0, 60, 90, 120, 180 to pick from below it. Minor Aspects: "
-               "the same, with 30, 45, 72, 135, 144, 150. Dates and times are UT.",
+               "angle, headed with its name in Aspect Rules, a row each time two planets came into it (RA within the RA orb of the "
+               "angle, and the two Declinations within the Dec orb of equal or mirrored). The angles to pick from, and their orbs, "
+               "are the Aspect Rules table's: Major Aspects, on or off, with its major angles (0, 60, 90, 120, 180) below it; "
+               "Minor Aspects the same, with its other angles. Dates and times are UT.",
     "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
                       "them are in a chosen major or minor aspect. A tag with no room is left off: point at "
                       "its dot to see it. Dates and times are UT.",
@@ -761,16 +762,21 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
                                                       default_choice(page, "Minor Aspects"), selection_mode="multi"), GLOBE_MINOR)]
     else:                                                     # an on / off button for each group, with its angles below it
         groups = default_choice(page, "Aspects")
+        ruled = rule_angles()                                 # the angles the Aspect Rules table has
 
         def group(title: str, key: str, names: list) -> list:
             box = head.container(width="content", gap="xxsmall")
             if not box.pills(title, [title], default=title if title in groups else None, key=f"{keys}{key}_on", label_visibility="collapsed"):
                 return []
-            return core.in_order(box.pills(f"Which {title}", names, selection_mode="multi", default=default_choice(page, title),
+            if not names:
+                box.caption("None in Aspect Rules.")
+                return []
+            start = [a for a in (default_choice(page, title) or []) if a in names]
+            return core.in_order(box.pills(f"Which {title}", names, selection_mode="multi", default=start,
                                            key=f"{keys}{key}", label_visibility="collapsed", width=len(names) * 33), names)   # all on one line
 
-        ea = group("Major Aspects", "major", GLOBE_MAJOR)
-        minor = [int(a) for a in group("Minor Aspects", "minor", GLOBE_MINOR)]
+        ea = group("Major Aspects", "major", [a for a in GLOBE_MAJOR if int(a) in ruled])
+        minor = [int(a) for a in group("Minor Aspects", "minor", [str(a) for a in sorted(ruled) if a not in core.MAJOR])]
     if jds is None:
         return None
     return jds, dec_on, [ea_names[e] for e in ea], minor
@@ -956,6 +962,19 @@ def page_range():
         st.caption(note)
 
 
+def rule_angles() -> dict[int, str]:
+    """The Aspect Rules table's aspects, by angle (whole degrees): their names, as Aspects shows them."""
+    out = {}
+    for name, ang in zip(db.orb_table()["Aspect"], db.orb_table()["Angle"]):
+        try:
+            a = float(ang)
+        except (TypeError, ValueError):
+            continue
+        if a.is_integer():
+            out[int(a)] = str(name).strip()
+    return out
+
+
 def page_aspects_view():
     """Planets Cycles' aspects as tables: one per chosen angle, one row per time two of the planets come into it,
     newest first; then, with the Minor Aspects switch on, one per minor angle too."""
@@ -975,17 +994,19 @@ def page_aspects_view():
     left, right = both.container(width="content"), both.container(width="content")
     if angles:                                                # the major angles picked
         with st.spinner("Finding aspects..."):
-            _aspect_tables(_events_cached(tuple(dec_on), tuple(angles), *jds, orb_csv), angles, left)
+            _aspect_tables(_events_cached(tuple(dec_on), tuple(angles), *jds, orb_csv), angles, left, rule_angles())
     if minor:                                                 # the minor angles picked
         with st.spinner("Finding minor aspects..."):
-            _aspect_tables(_events_cached(tuple(dec_on), tuple(minor), *jds, orb_csv), minor, right)
+            _aspect_tables(_events_cached(tuple(dec_on), tuple(minor), *jds, orb_csv), minor, right, rule_angles())
 
 
-def _aspect_tables(events: list, angles: list[int], where):
-    """A table per angle (with its count), one row per aspect, newest first, in where (a column)."""
+def _aspect_tables(events: list, angles: list[int], where, names: dict | None = None):
+    """A table per angle (with its Aspect Rules name and its count), one row per aspect, newest first, in where (a column)."""
     for ang in angles:
         ev = sorted((e for e in events if e[1] == ang), key=lambda e: e[0], reverse=True)   # newest first
-        where.markdown(f"**{ang}°** &nbsp; {len(ev)} aspect{'' if len(ev) == 1 else 's'}")
+        name = (names or {}).get(ang, "")
+        where.markdown(f"**{name} {ang}°** &nbsp; {len(ev)} aspect{'' if len(ev) == 1 else 's'}" if name else
+                       f"**{ang}°** &nbsp; {len(ev)} aspect{'' if len(ev) == 1 else 's'}")
         if not ev:
             where.caption("None in this period.")
             continue
