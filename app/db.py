@@ -57,13 +57,13 @@ customers = sa.Table(
 EMAIL_INDEX = "ux_customers_email"
 sa.Index("ix_customers_email", customers.c.email)
 # The Customers table: a row per login email, with its Access (app/access.py) and Start Date (UT; when Access was set:
-# Trial-Ind and Trial-Grp count from it); seen by admins only (the Customers page). Each login's DOB records (above) share
+# DOBT and DOBGT count from it); seen by admins only (the Customers page). Each login's DOB records (above) share
 # its email.
 accounts = sa.Table(
     "accounts", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
     sa.Column("email", sa.String(254), nullable=False),     # kept in lower case
-    sa.Column("access", sa.String(20)),                     # Now, Trial-Ind, Trial-Grp, Individual, Group, Admin
+    sa.Column("access", sa.String(20)),                     # Now, DOBT, DOBGT, DOB, DOBG, Admin
     sa.Column("start_date", sa.DateTime),
 )
 sa.Index("ux_accounts_email", accounts.c.email, unique=True)
@@ -81,7 +81,7 @@ logins = sa.Table(
     sa.Column("location", sa.String(200)),                   # City, State, Country of the visitor's IP ("Local", or blank when unknown)
     sa.Column("device", sa.String(60)),                      # their browser and system (Chrome on Windows ..)
     sa.Column("timezone", sa.String(64)),                    # the time zone their browser is set to (Asia/Kolkata (UTC+5:30))
-    sa.Column("access", sa.String(20)),                      # their Access then (Trial-Ind .., "Trial-Ind ended"; blank: none, or no record)
+    sa.Column("access", sa.String(20)),                      # their Access then (DOBT .., "DOBT ended"; blank: none, or no record)
     sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete', 'Login')", name="ck_logins_activity"),
 )
 sa.Index("ix_logins_date_time", logins.c.date_time)
@@ -722,12 +722,15 @@ def _add_missing_columns(eng: sa.Engine):
 
 
 def _new_access_names(eng: sa.Engine):
-    """Access kept under an earlier name gets the new one (Now, Free, FreeInd, FreeGrp: blank, DOB and Ind: Individual, 1wu / 1mu / 1yu: Group, TrDOB and TrInd: Trial-Ind,
-    TrGroup and TrGrp: Trial-Grp); Access_From stays."""
+    """Access kept under an earlier name gets the new one (access.RENAMED: Individual and Ind: DOB, Group and 1wu / 1mu /
+    1yu: DOBG, Trial-Ind, TrInd and TrDOB: DOBT, Trial-Grp, TrGrp and TrGroup: DOBGT, Free ..: Now); Access_From stays.
+    The Customers table's Access too."""
     _drop_old_type_column(eng)
     with eng.begin() as c:
         for old, new in access.RENAMED.items():
             c.execute(customers.update().where(sa.func.lower(customers.c.access) == old.lower()).values(access=new))
+            if sa.inspect(c).has_table("accounts"):
+                c.execute(accounts.update().where(sa.func.lower(accounts.c.access) == old.lower()).values(access=new))
 
 
 OLD_TYPE = "utype"                                            # the account-type column Access replaced
@@ -747,11 +750,11 @@ def _drop_old_type_column(eng: sa.Engine):
 
 def _seed_account_fields(eng: sa.Engine):
     """Once (a note among the settings says it is done): the customers already here, who could see their DOB charts, get
-    Access Individual, so that the Access rules take nothing from them."""
+    Access DOB, so that the Access rules take nothing from them."""
     with eng.begin() as c:
         if c.execute(sa.select(settings.c.value).where(settings.c.key == "account_fields_set")).scalar():
             return
-        c.execute(customers.update().where(customers.c.access.is_(None)).values(access="Individual"))
+        c.execute(customers.update().where(customers.c.access.is_(None)).values(access="DOB"))
         c.execute(settings.insert().values(key="account_fields_set", value="1"))
 
 
@@ -1124,8 +1127,8 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
 
 
 def add_own_customer(rec: dict, email: str, group: bool = False) -> bool:
-    """A new member's own record, linked to their login email (the key: one record per email), with Access Trial-Ind (or
-    Trial-Grp, with group): a free 1-day trial of their DOB charts (unlimited, with group) from now. Returns False, saving nothing, when that email already has one (they simply
+    """A new member's own record, linked to their login email (the key: one record per email), with Access DOBT (or
+    DOBGT, with group): a free 1-day trial of their DOB charts (unlimited, with group) from now. Returns False, saving nothing, when that email already has one (they simply
     use it)."""
     data = {**_clean({**rec, "email": email}), "created_by": email.lower()}
     problems = missing_required(pd.DataFrame([data]))      # the same rule as the DOB page's table
@@ -1136,13 +1139,13 @@ def add_own_customer(rec: dict, email: str, group: bool = False) -> bool:
             return False
         now = _now()
         c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now, accessed_at=now))
-        _set_access(c, email, "Trial-Grp" if group else "Trial-Ind")   # their free 1-day trial, from now
+        _set_access(c, email, "DOBGT" if group else "DOBT")   # their free 1-day trial, from now
         _log(c, email, "Create")
     return True
 
 
 def add_person(rec: dict, email: str) -> int:
-    """A person a member with unlimited access (Group, Trial-Grp) adds under their login: their email, added by them, no
+    """A person a member with unlimited access (DOBG, DOBGT) adds under their login: their email, added by them, no
     Access of its own. Returns the new record's id. Raises ValueError, saving nothing, when a field is missing."""
     data = {**_clean({**rec, "email": email}), "created_by": email.lower()}
     problems = missing_required(pd.DataFrame([data]))

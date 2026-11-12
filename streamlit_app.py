@@ -137,7 +137,7 @@ OWN_ID = access.own_record_id(_MINE)                          # their own record
 
 # ---------------------------------------------------------------- who can see which customers
 def visible_customers() -> pd.DataFrame:
-    """An admin: every customer. A member: with Group (or Trial-Grp running), every record under their login; else their own."""
+    """An admin: every customer. A member: with DOBG (or DOBGT running), every record under their login; else their own."""
     if user.is_admin:
         return db.all_customers()
     df = db.customers_for(user.email)
@@ -221,10 +221,10 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                        "Sesquiquadrate, Bi-quintile, Quincunx. Changes here "
                        "apply to every chart.",
     "Customers": "One row per login: its Email, its Access and Start Date (UT; when Access was set). Now: the Now charts "
-                 "only. Individual: the DOB and Now charts of their own DOB record, no time limit. Group: unlimited, no time "
+                 "only. DOB: the DOB and Now charts of their own DOB record, no time limit. DOBG: unlimited, no time "
                  "limit: the DOB and Now charts of every DOB record under their login, people they add on My details, and "
-                 "quick births not saved. Individual and Group are the paid options. Trial-Ind, Trial-Grp: free 1-day trials "
-                 "of Individual and Group from Start Date (given on signing up with birth details, as they pick). Admin: an "
+                 "quick births not saved. DOB and DOBG are the paid options. DOBT, DOBGT: free 1-day trials "
+                 "of DOB and DOBG from Start Date (given on signing up with birth details: Individual or Group, as they pick). Admin: an "
                  "admin. A trial run out: the Now charts only. A row is made, with Now, when someone signs in for the first "
                  "time; Start Date moves to now when Access changes, unless it is changed too. Insert, Update, Delete, "
                  "Commit as on DOB.",
@@ -468,7 +468,7 @@ def details_form(row: pd.Series | None, person: bool = False):
                                 help="The district, or anything else about where you live now (optional; not used "
                                      "in the charts).")
         plan = None
-        if row is None and not person:                        # signing up: which free 1-day trial (Trial-Ind or Trial-Grp)
+        if row is None and not person:                        # signing up: which free 1-day trial (Individual: DOBT, Group: DOBGT)
             st.markdown("**Access** (a free 1-day trial; after it, the admin can keep it for you)")
             plan = st.radio("Access", ["Individual", "Group"], horizontal=True, label_visibility="collapsed", key="signup_plan",
                             captions=["Your own DOB and Now charts", "Your DOB and Now charts, people you add, and quick births"])
@@ -1100,8 +1100,8 @@ def page_logins():
                                                                                  "Chrome on Windows; blank when not known."),
                                            "Time zone": st.column_config.TextColumn(width=200, help="The time zone their browser "
                                                                                     "is set to; blank when not known."),
-                                           "Access": st.column_config.TextColumn(width=110, help="Their Access then (Admin, Trial-Ind, Trial-Grp, "
-                                                                                 "Individual, Group; 'ended' after a trial ran out); blank "
+                                           "Access": st.column_config.TextColumn(width=110, help="Their Access then (Admin, DOBT, DOBGT, "
+                                                                                 "DOB, DOBG; 'ended' after a trial ran out); blank "
                                                                                  "with none, or no customer record.")})
     ticked = edited.loc[edited["Del"].fillna(False).astype(bool), "Id"].tolist()
     said = st.session_state.pop("logins_said", None)
@@ -1207,10 +1207,10 @@ def page_accounts():
                               "Email": st.column_config.TextColumn("Email *", width=260, help="The Google account email they sign "
                                                                    "in with: required, one row per email."),
                               "Access": st.column_config.SelectboxColumn("Access", options=list(access.ACCESS), width="small",
-                                                                         help="Now, Trial-Ind, Trial-Grp, Individual, Group, Admin "
+                                                                         help="Now, DOBT, DOBGT, DOB, DOBG, Admin "
                                                                               "(see the page's help); blank is saved as Now."),
                               "Start Date": st.column_config.DatetimeColumn("Start Date", format="YYYY-MM-DD HH:mm", width=150,
-                                                                            help="When Access was set (UT): Trial-Ind and Trial-Grp "
+                                                                            help="When Access was set (UT): DOBT and DOBGT "
                                                                                  "count from it. Set to now when Access changes, "
                                                                                  "unless you change it too (to the day paid, say).")})
 

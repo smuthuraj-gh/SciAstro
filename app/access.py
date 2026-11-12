@@ -1,11 +1,11 @@
 """What a signed-in person may use, from their row of the Customers table (one per login email): Access and Start Date.
 
-Access: Now (the Now charts only); Individual (the DOB and Now charts of their own DOB record, no time limit); Group
-(unlimited: the DOB and Now charts of every DOB record under their login, people they add themselves and quick births not
-saved, no time limit); Trial-Ind and Trial-Grp (free trials of Individual and Group for 1 day from Start Date: given on
-signing up with birth details, as they pick, or by the admin); Admin (an admin, as those in the admins secret).
-Individual and Group are the paid options. A trial run out: the Now charts only. A login's DOB records share its email:
-its own (the first) and any number more (people added under it, or a family an admin set up).
+Access: Now (the Now charts only); DOB (the DOB and Now charts of their own DOB record, no time limit); DOBG (unlimited:
+the DOB and Now charts of every DOB record under their login, people they add themselves and quick births not saved, no
+time limit); DOBT and DOBGT (free trials of DOB and DOBG for 1 day from Start Date: given on signing up with birth
+details, as they pick, or by the admin); Admin (an admin, as those in the admins secret). DOB and DOBG are the paid
+options. A trial run out: the Now charts only. A login's DOB records share its email: its own (the first) and any
+number more (people added under it, or a family an admin set up).
 """
 from __future__ import annotations
 
@@ -14,14 +14,15 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-ACCESS = ("Now", "Trial-Ind", "Trial-Grp", "Individual", "Group", "Admin")
-# earlier names, read as the new ones (the database is changed to the new ones once; see db._new_access_names)
+ACCESS = ("Now", "DOBT", "DOBGT", "DOB", "DOBG", "Admin")
+# earlier names, read as the new ones (the database is changed to the new ones; see db._new_access_names)
 RENAMED = {"Free": "Now", "FreeInd": "Now", "FreeGrp": "Now",
-            "DOB": "Individual", "Ind": "Individual", "1wu": "Group", "1mu": "Group", "1yu": "Group", "TrDOB": "Trial-Ind", "TrInd": "Trial-Ind", "TrGroup": "Trial-Grp", "TrGrp": "Trial-Grp",
-           "Trial DOB": "Trial-Ind", "Trial Group": "Trial-Grp"}
-# the Access that run for a while from Access From: months, days, unlimited (else their own DOB only), in words
-PERIODS = {"Trial-Ind": (0, 1, False, "free 1-day trial (your own DOB)"), "Trial-Grp": (0, 1, True, "free 1-day trial (unlimited)")}
-PAID_NOTE = "DOB charts are a paid option (Individual or Group): ask the admin."
+           "Individual": "DOB", "Ind": "DOB", "Group": "DOBG", "1wu": "DOBG", "1mu": "DOBG", "1yu": "DOBG",
+           "Trial-Ind": "DOBT", "TrInd": "DOBT", "TrDOB": "DOBT", "Trial DOB": "DOBT",
+           "Trial-Grp": "DOBGT", "TrGrp": "DOBGT", "TrGroup": "DOBGT", "Trial Group": "DOBGT"}
+# the Access that run for a while from Start Date: months, days, unlimited (else their own DOB only), in words
+PERIODS = {"DOBT": (0, 1, False, "free 1-day trial (your own DOB)"), "DOBGT": (0, 1, True, "free 1-day trial (unlimited)")}
+PAID_NOTE = "DOB charts are a paid option (DOB or DOBG): ask the admin."
 QUICK = -1                         # the sidebar's Quick birth (not saved), in place of a record's id
 
 
@@ -53,7 +54,7 @@ def _add_months(when: datetime, months: int) -> datetime:
 
 
 def ends(access: str, since: datetime) -> datetime:
-    """When an Access of PERIODS (Trial-Ind, Trial-Grp) set at since runs out."""
+    """When an Access of PERIODS (DOBT, DOBGT) set at since runs out."""
     months, days, _, _ = PERIODS[access]
     return _add_months(since, months) + timedelta(days=days)
 
@@ -66,9 +67,9 @@ def grant(value, since: datetime | None, now: datetime) -> Grant:
         a = "Now"
     if a == "Admin":
         return Grant(admin=True, dob=True, many=True)
-    if a == "Group":                                          # unlimited, no time limit
+    if a == "DOBG":                                           # unlimited, no time limit
         return Grant(admin=False, dob=True, many=True)
-    if a == "Individual":
+    if a == "DOB":
         return Grant(admin=False, dob=True)
     if a in PERIODS:
         end, words = ends(a, since or now), PERIODS[a][3]
