@@ -955,7 +955,7 @@ BIRTH_FIELDS = ("year", "mon", "day", "hr", "mn", "country", "state", "city")   
 BIRTH_YEARS = (1800, 2399)                                     # what the ephemeris files and the date boxes cover
 REQUIRED = {"email": "Email (login)", "name": "First Name", "last_name": "Last Name", "country": "Country",
             "state": "State", "city": "City", "country_n": "Country-N", "state_n": "State-N", "city_n": "City-N"}
-# (and the birth date and time: Year, Mon, Date, Hr24, Min)
+# (and the birth date and time: Year, Mon, Date, Hr24, Min; on the DOB page, one Date and one Time)
 
 
 def missing_required(df: pd.DataFrame) -> list[str]:
@@ -972,10 +972,9 @@ def missing_required(df: pd.DataFrame) -> list[str]:
                 lacks.append(f"Birth date (the year must be from {BIRTH_YEARS[0]} to {BIRTH_YEARS[1]})")
         except (TypeError, ValueError, OverflowError):
             lacks.append("Birth date")
-        if data.get("hr") is None or not 0 <= data["hr"] <= 23:     # the birth time: Hr24 0-23, Min 0-59
-            lacks.append("Hr24")
-        if data.get("mn") is None or not 0 <= data["mn"] <= 59:
-            lacks.append("Min")
+        if (data.get("hr") is None or not 0 <= data["hr"] <= 23      # the birth time: Hr24 0-23, Min 0-59
+                or data.get("mn") is None or not 0 <= data["mn"] <= 59):
+            lacks.append("Birth time")
         if lacks:
             who = " ".join(x for x in (data.get("name"), data.get("last_name")) if x) or f"row {i}"
             out.append(f"{who}: {', '.join(lacks)}")
@@ -988,7 +987,7 @@ def customer_problems(rows: pd.DataFrame) -> list[str]:
     missing = missing_required(rows)
     if missing:
         out.append("Required for every customer: Email (login), First Name, Last Name, Country, State, City, "
-                   "the birth date and time (Year, Mon, Date, Hr24, Min), and Country-N, State-N, City-N. " + "; ".join(missing))
+                   "the birth date and time (Date, Time), and Country-N, State-N, City-N. " + "; ".join(missing))
     return out
 
 

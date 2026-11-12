@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import html
 import re
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -229,7 +229,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "time; Start Date moves to now when Access changes, unless it is changed too. Insert, Update, Delete, "
                  "Commit as on DOB.",
     "DOB": "The customers' birth details. Insert for a new customer, type changes and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. ID is the record's number, and Created and Last_Updated (UT) when it was added and last changed, all set by the app. Required (*): Email (login), First Name, "
-                 "Last Name, Country, State, City, the birth date and time (Year, Mon, Date, Hr24, Min), and where they "
+                 "Last Name, Country, State, City, the birth date and time (Date, Time), and where they "
                  "live now (Country-N, State-N, City-N). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
@@ -1215,6 +1215,48 @@ def page_accounts():
                                                                                  "unless you change it too (to the day paid, say).")})
 
 
+def birth_date(y, m, d) -> date | None:
+    """Year, Mon, Date as one date (None when any is missing or they make no date)."""
+    try:
+        return date(int(y), int(m), int(d))
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def date_parts(v) -> tuple:
+    """A date as typed in a table (a date, a datetime or YYYY-MM-DD text) as (Year, Mon, Date); blanks when none. (Not
+    through pandas' Timestamp, which stops at 2262; births go to 2399.)"""
+    if isinstance(v, datetime):
+        v = v.date()
+    if isinstance(v, date):
+        return v.year, v.month, v.day
+    try:
+        d = date.fromisoformat(str(v).strip()[:10])
+    except ValueError:
+        return None, None, None
+    return d.year, d.month, d.day
+
+
+def birth_clock(h, m) -> time | None:
+    """Hr24, Min as one time of day (None when the hour is missing or they make no time)."""
+    try:
+        return time(int(h), 0 if m is None or pd.isna(m) else int(m))
+    except (TypeError, ValueError):
+        return None
+
+
+def time_parts(v) -> tuple:
+    """A time as typed in a table (a time, a datetime or HH:MM text) as (Hr24, Min); blanks when none."""
+    if isinstance(v, datetime):
+        v = v.time()
+    if isinstance(v, time):
+        return v.hour, v.minute
+    m = re.fullmatch(r"\s*(\d{1,2})\s*[:.]\s*(\d{2})(?::\d{2})?\s*", str(v or ""))
+    if m and int(m[1]) < 24 and int(m[2]) < 60:
+        return int(m[1]), int(m[2])
+    return None, None
+
+
 def page_customers():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
@@ -1224,16 +1266,23 @@ def page_customers():
     df = db.all_customers()
     # UTC is not shown (a blank one is looked up from the birth place; one already kept stays, see below); Created and
     # Last_Updated (UT) are, read only (set by the app); the time last opened (Accessed) is kept but not shown
-    shown_fields = [f for f in db.FIELDS if f != "utc"]
+    shown_fields = [f for f in db.FIELDS if f not in ("utc", "year", "mon", "mn")]   # (Date: the whole birth date; Time: hour and minute)
     stamps = {"added_at": "Created", "updated_at": "Last_Updated"}
     show = df[["id"] + shown_fields + ["added_at", "updated_at"]].rename(columns={**db.LABELS, **stamps})
+    show[db.LABELS["day"]] = [birth_date(y, m, d) for y, m, d in zip(df["year"], df["mon"], df["day"])]
+    show[db.LABELS["hr"]] = [birth_clock(h, m) for h, m in zip(df["hr"], df["mn"])]
+    show = show.rename(columns={db.LABELS["hr"]: "Time"})
     # First Name, A-Z, to begin with; the column headers sort by any column. Saving matches rows by their record, so the
     # order shown does not matter
     by_name = show[db.LABELS["name"]].map(lambda v: v.strip().lower() if isinstance(v, str) else v)
     show = show.loc[by_name.sort_values(na_position="last", kind="stable").index].reset_index(drop=True)
     def for_store(rows: pd.DataFrame) -> pd.DataFrame:
         back = {**{v: k for k, v in db.LABELS.items()}, **{v: k for k, v in stamps.items()}}
-        out = rows.rename(columns=back).drop(columns=["updated_at"], errors="ignore")   # (Last_Updated: the app's)
+        out = rows.rename(columns={"Time": db.LABELS["hr"]}).rename(columns=back).drop(columns=["updated_at"], errors="ignore")   # (Last_Updated: the app's)
+        parts = [date_parts(v) for v in out["day"]]                 # the Date column back into Year, Mon, Date
+        out["year"], out["mon"], out["day"] = [p[0] for p in parts], [p[1] for p in parts], [p[2] for p in parts]
+        clock = [time_parts(v) for v in out["hr"]]                  # and the Time column into Hr24, Min
+        out["hr"], out["mn"] = [c[0] for c in clock], [c[1] for c in clock]
         out["utc"] = out["id"].map(df.set_index("id")["utc"])   # each customer's kept UTC, unchanged (new: blank)
         return out
 
@@ -1248,21 +1297,11 @@ def page_customers():
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The record's number, set by the app (blank on a new row until saved)."),
                                 "First Name": st.column_config.TextColumn("First Name *", help="Required."),
                                 "Last Name": st.column_config.TextColumn("Last Name *", help="Required."),
-                                "Hr24": st.column_config.NumberColumn("Hr24 *", help="Birth time, hour 0-23: required.",
-                                                                      format="%d", step=1, min_value=0, max_value=23,
-                                                                      width="small"),
-                                "Min": st.column_config.NumberColumn("Min *", help="Birth time, minute 0-59: required.",
-                                                                     format="%d", step=1, min_value=0, max_value=59,
-                                                                     width="small"),
-                                "Year": st.column_config.NumberColumn("Year *", help="Birth date: required, 1800 to 2399.",
-                                                                      format="%d", step=1, min_value=1800, max_value=2399,
-                                                                      width="small"),
-                                "Mon": st.column_config.NumberColumn("Mon *", help="Birth date: required.",
-                                                                     format="%d", step=1, min_value=1, max_value=12,
-                                                                     width="small"),
-                                "Date": st.column_config.NumberColumn("Date *", help="Birth date: required.",
-                                                                      format="%d", step=1, min_value=1, max_value=31,
-                                                                      width="small"),
+                                "Time": st.column_config.TimeColumn("Time *", help="Birth time, local, 24 h: required.",
+                                                                    format="HH:mm", step=60, width=80),
+                                "Date": st.column_config.DateColumn("Date *", help="Birth date: required, 1800 to 2399.",
+                                                                    format="YYYY-MM-DD", min_value=date(1800, 1, 1),
+                                                                    max_value=date(2399, 12, 31), width=110),
                                 "Email (login)": st.column_config.TextColumn("Email (login) *",
                                 help="Required. The Google account email this customer signs in with (they see only "
                                      "their own). An email's own customer is its first; it may have any number more (people added "
