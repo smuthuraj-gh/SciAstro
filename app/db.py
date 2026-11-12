@@ -20,11 +20,11 @@ from . import access
 from .location import visitor_device, visitor_location, visitor_timezone
 
 ROOT = Path(__file__).resolve().parent.parent
-# the customer columns in table order; Email (login) first, as it is the key, then the account: Created By, Access
+# the customer columns in table order; Email (login) first, as it is the key, then the account: Group Owner Email
 ACCOUNT_FIELDS = ("created_by",)              # (not the birth details: the charts do not read them)
 FIELDS = ["email", *ACCOUNT_FIELDS, "name", "last_name", "country", "state", "city", "other", "year", "mon", "day", "hr", "mn",
           "country_n", "state_n", "city_n", "other_n", "utc"]
-LABELS = {"name": "First Name", "last_name": "Last Name", "email": "Email (login)", "created_by": "Created By",
+LABELS = {"name": "First Name", "last_name": "Last Name", "email": "Email (login)", "created_by": "Group Owner Email",
           "access": "Access", "country": "Country", "state": "State",
           "other": "Other", "city": "City",
           "year": "Year", "mon": "Mon", "day": "Date", "hr": "Hr24", "mn": "Min", "country_n": "Country-N",
@@ -1075,7 +1075,7 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
     """Apply an edited copy of the customers table: (added, changed, deleted). original is what that copy started from,
     so a customer who joined or changed their details since is left alone. A new birth date, time or place clears the
     kept UTC offset, to be looked up again. Raises ValueError, saving nothing, when two customers would share a login email.
-    by: who did it (their email), logged in the Logins table, and Created By of a new record left blank. Created as
+    by: who did it (their email), logged in the Logins table, and Group Owner Email of a new record left blank. Created as
     edited (added_at); a new record's, left blank, is now. (Access is on the Customers table: see save_accounts.)"""
     problems = customer_problems(edited)
     if problems:
@@ -1159,7 +1159,7 @@ def add_person(rec: dict, email: str) -> int:
 def update_own_customer(rec: dict, email: str, cid: int) -> bool:
     """A member's changes to their own record cid, which must have their login email (which stays as it is; a Group's
     records share it). Returns False when it does not. The UTC offset is cleared, to be looked up again for the new birth
-    time and place. Their Created By and Access are not theirs to change: rec has none of them."""
+    time and place. Their Group Owner Email is not theirs to change: rec has none of them."""
     data = _clean({**rec, "email": email})
     problems = missing_required(pd.DataFrame([data]))      # the same rule as the DOB page's table
     if problems:

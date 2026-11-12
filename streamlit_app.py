@@ -1267,9 +1267,10 @@ def page_customers():
                                 help="Required. The Google account email this customer signs in with (they see only "
                                      "their own). An email's own customer is its first; it may have any number more (people added "
                                      "under that login, or a family). What it may see is its Access on the Customers page."),
-                                "Created By": st.column_config.TextColumn("Created By",
-                                help="Who added the record (their login email). Set by the app (the admin, or the "
-                                     "customer themself on signing up) when left blank; may be changed."),
+                                "Group Owner Email": st.column_config.TextColumn("Group Owner Email",
+                                help="The login email of the group this record belongs to: who added it (the admin, "
+                                     "the customer themself on signing up, or a member adding a person). Set by the app "
+                                     "when left blank; may be changed."),
                                 "Country": st.column_config.TextColumn("Country *", help="Birth place: required."),
                                 "State": st.column_config.TextColumn("State *", help="Birth place: required."),
                                 "City": st.column_config.TextColumn("City *", help="Birth place: required."),
