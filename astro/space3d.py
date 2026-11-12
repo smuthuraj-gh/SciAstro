@@ -39,6 +39,7 @@ SIDES = 96                        # a ring is drawn with this many straight piec
 FLAT_RING_AU = 12.0
 OUTER_RING_AU = 20.0              # Geo and Helio: a circle beyond the planets, with the AU button
 FLAT_RADIUS = 360.0               # pixels from the Earth to that circle
+ONE_CIRCLE_AT = 0.72                # AstroClock-2D's 1 Circle: every body this far out, of the way to the 12 AU circle
 FLAT_DRAG_DAYS = 0.25             # the flat page with no speed picked: how many days a pixel of dragging moves time
 FLAT_FONT = 10                    # the RA numbers, in pixels
 FLAT_DEC = (31.0, -31.0)          # the Declination graph left of the circle, as tall as it: its top and bottom, in degrees
@@ -122,7 +123,7 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
 def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
                centre: str = "Ea", flat: bool = False, places: dict | None = None, ave_jds: dict | None = None,
-               aspects: tuple = (), orbs: core.Orbs | None = None) -> dict:
+               aspects: tuple = (), orbs: core.Orbs | None = None, one_circle: bool = False) -> dict:
     """For each moment and body: its table to move it by, and (those in with_paths; all with None) its path, which the page draws
     as a trail behind it, where it has really been since the moment, kept for the whole run (72 years).
     moments: (Now or DOB, Julian day, UTC offset). centre: Ea (GeoCentric) or Su (HelioCentric). The drawing's size does not
@@ -199,7 +200,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=at["log_from"], gap=at["gap"],
                 scp_ring=reach(SCP_BEYOND_AU), scp_past=SCP_PAST_PX, sides=SIDES, small_font=SMALL_FONT, pole_font=POLE_FONT, key=("flat" if flat else "") + centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, min(1000, int((day_seconds or 60.0) * 2.5))), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
-                family=CHART_FONT_FAMILY, ra_marks=[] if flat else [dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
+                family=CHART_FONT_FAMILY, one_circle=bool(flat and one_circle), one_circle_at=ONE_CIRCLE_AT, ra_marks=[] if flat else [dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
 
 # (Spaces after every less-than: the page drops a script that seems to have tags in it.)
@@ -230,7 +231,10 @@ __SYMBOL_JS__
     const log = Math.max(Math.log10(s.dist / D.log_from), 0), lo = Math.log10(D.gap[0] / D.log_from), hi = Math.log10(D.gap[1] / D.log_from);
     const r = D.scale === "True" ? s.dist : log <= lo ? log :      // Fit: the gap past the Moon closed up
       log >= hi ? log - (hi - lo) + D.gap[2] : lo + (log - lo) / (hi - lo) * D.gap[2], a = s.ra * RAD, d = s.dec * RAD;
-    if (D.flat) return [r * Math.cos(a), r * Math.sin(a), 0];   // flat: at its RA and distance (the Dec left out)
+    if (D.flat) {                                  // flat: at its RA and distance (the Dec left out); 1 Circle: all at one distance
+      const rr = D.one_circle ? D.outer * D.one_circle_at : r;
+      return [rr * Math.cos(a), rr * Math.sin(a), 0];
+    }
     return [r * Math.cos(d) * Math.cos(a), r * Math.cos(d) * Math.sin(a), r * Math.sin(d)];
   };
   const posAt = (clock, body, t) => {             // where a body is then, and where it is drawn
@@ -714,7 +718,7 @@ __SYMBOL_JS__
 def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
                centre: str = "Ea", flat: bool = False, places: dict | None = None, ave_jds: dict | None = None,
-               aspects: tuple = (), orbs: core.Orbs | None = None) -> str:
+               aspects: tuple = (), orbs: core.Orbs | None = None, one_circle: bool = False) -> str:
     uid = "space-" + uuid.uuid4().hex[:8]
-    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places, ave_jds, aspects, orbs)).replace("<", chr(92) + "u003c")
+    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places, ave_jds, aspects, orbs, one_circle)).replace("<", chr(92) + "u003c")
     return f'<div id="{uid}"></div><script>{_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data).replace("__ID__", uid)}</script>'
