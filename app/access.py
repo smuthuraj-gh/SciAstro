@@ -1,11 +1,11 @@
-"""What a signed-in person may use, from their customer record(s): UType (Individual, Group, Admin) and Access.
+"""What a signed-in person may use, from their customer record(s)' Access.
 
-Access: Admin (an admin, as those in the admins secret); DOB (the DOB and Now charts of their own record, no time limit);
-1wu, 1mu, 1yu (unlimited: the DOB and Now charts of every record under their login, people they add themselves and quick
-births not saved, for 1 week, 1 month or 1 year from Access From, when the Access was set). DOB, 1wu, 1mu and 1yu are the
-paid options. Free, given by the admin for 1 week from Access From: TrDOB (as DOB) or TrGroup (unlimited, as 1wu). Now,
-none, or a period run out: the Now charts only. UType Admin makes an admin too. A login's records share its
-email: its own (Individual or Admin) and any number of Group ones (people added under it, or a family an admin set up).
+Access: Free (the Now charts only); Ind (the DOB and Now charts of their own record, no time limit); Group (unlimited: the
+DOB and Now charts of every record under their login, people they add themselves and quick births not saved, no time
+limit); TrInd and TrGrp (free trials of Ind and Group, given by the admin for 1 week from Access From); Admin (an admin, as
+those in the admins secret). Ind and Group are the paid options. Blank, or a trial run out: the Now charts only. A login's
+records share its email: its own (the one with an Access; the first, if more) and any number more (people added under
+it, or a family an admin set up), which have no Access of their own.
 """
 from __future__ import annotations
 
@@ -14,14 +14,13 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-UTYPES = ("Individual", "Group", "Admin")
-ACCESS = ("Admin", "DOB", "1wu", "1mu", "1yu", "TrDOB", "TrGroup", "Now")
-RENAMED = {"Trial DOB": "TrDOB", "Trial Group": "TrGroup"}   # their earlier names, kept in the database for a while
+ACCESS = ("Free", "TrInd", "TrGrp", "Ind", "Group", "Admin")
+# earlier names, read as the new ones (the database is changed to the new ones once; see db._new_access_names)
+RENAMED = {"Now": "Free", "DOB": "Ind", "1wu": "Group", "1mu": "Group", "1yu": "Group", "TrDOB": "TrInd", "TrGroup": "TrGrp",
+           "Trial DOB": "TrInd", "Trial Group": "TrGrp"}
 # the Access that run for a while from Access From: months, days, unlimited (else their own DOB only), in words
-PERIODS = {"1wu": (0, 7, True, "1 week unlimited access"), "1mu": (1, 0, True, "1 month unlimited access"),
-           "1yu": (12, 0, True, "1 year unlimited access"),
-           "TrDOB": (0, 7, False, "free 1-week trial (your own DOB)"), "TrGroup": (0, 7, True, "free 1-week trial (unlimited)")}
-PAID_NOTE = "DOB charts are a paid option (DOB, 1 week, 1 month or 1 year): ask the admin."
+PERIODS = {"TrInd": (0, 7, False, "free 1-week trial (your own DOB)"), "TrGrp": (0, 7, True, "free 1-week trial (unlimited)")}
+PAID_NOTE = "DOB charts are a paid option (Ind or Group): ask the admin."
 QUICK = -1                         # the sidebar's Quick birth (not saved), in place of a record's id
 
 
@@ -34,7 +33,7 @@ class Grant:
 
 
 def canonical(value, choices: tuple[str, ...]) -> str | None:
-    """A UType or Access as it is kept (any case, spaces trimmed), None when blank; raises ValueError when not a choice."""
+    """An Access as it is kept (any case, spaces trimmed), None when blank; raises ValueError when not a choice."""
     if value is None or (isinstance(value, float) and pd.isna(value)) or not str(value).strip():
         return None
     low = {c.lower(): c for c in choices}
@@ -53,7 +52,7 @@ def _add_months(when: datetime, months: int) -> datetime:
 
 
 def ends(access: str, since: datetime) -> datetime:
-    """When an Access of PERIODS (1wu, 1mu, 1yu, TrDOB, TrGroup) set at since runs out."""
+    """When an Access of PERIODS (TrInd, TrGrp) set at since runs out."""
     months, days, _, _ = PERIODS[access]
     return _add_months(since, months) + timedelta(days=days)
 
@@ -71,9 +70,11 @@ def grant(records: list[dict], now: datetime) -> Grant:
             return canonical(r.get(k), choices)
         except ValueError:
             return None
-    if any(val(r, "utype", UTYPES) == "Admin" or val(r, "access", ACCESS) == "Admin" for r in records):
+    if any(val(r, "access", ACCESS) == "Admin" for r in records):
         return Grant(admin=True, dob=True, many=True)
-    own_dob = any(val(r, "access", ACCESS) == "DOB" for r in records)
+    if any(val(r, "access", ACCESS) == "Group" for r in records):   # unlimited, no time limit
+        return Grant(admin=False, dob=True, many=True)
+    own_dob = any(val(r, "access", ACCESS) == "Ind" for r in records)
     many, own, lapsed = None, None, None                     # (the latest end of each: running unlimited, running own, run out)
     for r in records:
         a = val(r, "access", ACCESS)
@@ -99,13 +100,12 @@ def grant(records: list[dict], now: datetime) -> Grant:
 
 
 def own_record_id(records: list[dict]) -> int | None:
-    """A login's own record: the one that is not UType Group (the first, if there are more), else its first."""
+    """A login's own record: the one with an Access (the first, if there are more), else its first; the others are the
+    people added under it."""
     if not records:
         return None
-    def is_group(r):
-        try:
-            return canonical(r.get("utype"), UTYPES) == "Group"
-        except ValueError:
-            return False
-    own = [r for r in records if not is_group(r)] or records
+    def has_access(r):
+        v = r.get("access")
+        return v is not None and not (isinstance(v, float) and pd.isna(v)) and bool(str(v).strip())
+    own = [r for r in records if has_access(r)] or records
     return int(min(own, key=lambda r: int(r["id"]))["id"])

@@ -131,12 +131,12 @@ location.visitor_location()                                   # where they are: 
 _MINE = [] if user.is_admin else db.customers_for(user.email).to_dict("records")   # their records (all share their email)
 GRANT = (access.Grant(admin=True, dob=True, many=True) if user.is_admin
          else access.grant(_MINE, datetime.now(timezone.utc).replace(tzinfo=None)))
-OWN_ID = access.own_record_id(_MINE)                          # their own record (the others: Group, people under their login)
+OWN_ID = access.own_record_id(_MINE)                          # their own record (the others: people added under their login)
 
 
 # ---------------------------------------------------------------- who can see which customers
 def visible_customers() -> pd.DataFrame:
-    """An admin: every customer. A member: with 1wu, 1mu or 1yu running, every record under their login; else their own."""
+    """An admin: every customer. A member: with Group (or TrGrp running), every record under their login; else their own."""
     if user.is_admin:
         return db.all_customers()
     df = db.customers_for(user.email)
@@ -1213,22 +1213,18 @@ def page_customers():
                                                                       width="small"),
                                 "Email (login)": st.column_config.TextColumn("Email (login) *",
                                 help="Required. The Google account email this customer signs in with (they see only "
-                                     "their own). Each email belongs to one customer that is not UType Group (their own), "
-                                     "and to any number that are (people added under that login, or a family)."),
-                                "UType": st.column_config.SelectboxColumn("UType", options=list(access.UTYPES), width="small",
-                                help="Individual: the login's own record. Group: more records under the same email (people "
-                                     "the member added, or a family), seen with unlimited access (1wu, 1mu, 1yu). Admin: "
-                                     "an admin, as those in the admins secret."),
+                                     "their own). An email's own customer is the one with an Access; it may have any number more, "
+                                     "with Access blank (people added under that login, or a family)."),
                                 "Created By": st.column_config.TextColumn("Created By",
                                 help="Who added the record (their login email). Set by the app (the admin, or the "
                                      "customer themself on signing up) when left blank; may be changed."),
                                 "Access": st.column_config.SelectboxColumn("Access", options=list(access.ACCESS), width="small",
-                                help="Admin: an admin. DOB: the DOB and Now charts of their own record, no time limit. "
-                                     "1wu, 1mu, 1yu: unlimited, for 1 week, 1 month or 1 year from Access_From: the DOB "
-                                     "and Now charts of every record under their login, people they add on My details, "
-                                     "and quick births not saved. DOB, 1wu, 1mu and 1yu are the paid options. Free, for "
-                                     "1 week from Access_From: TrDOB (as DOB) or TrGroup (unlimited, as 1wu). Now, "
-                                     "blank, or a period run out: the Now charts only."),
+                                help="Free: the Now charts only. Ind: the DOB and Now charts of their own record, no time "
+                                     "limit. Group: unlimited, no time limit: the DOB and Now charts of every record under "
+                                     "their login, people they add on My details, and quick births not saved. Ind and Group "
+                                     "are the paid options. TrInd, TrGrp: free trials of Ind and Group, for 1 week from "
+                                     "Access_From. Admin: an admin. Blank (people added under a login), or a trial run "
+                                     "out: the Now charts only."),
                                 "Country": st.column_config.TextColumn("Country *", help="Birth place: required."),
                                 "State": st.column_config.TextColumn("State *", help="Birth place: required."),
                                 "City": st.column_config.TextColumn("City *", help="Birth place: required."),
@@ -1244,7 +1240,7 @@ def page_customers():
                                                                                 disabled=True,
                                                                                 help="When the record was last changed (UT), set by the app."),
                                 "Access_From": st.column_config.DatetimeColumn("Access_From", format="YYYY-MM-DD HH:mm",
-                                                                               help="When Access was set (UT): 1wu, 1mu and 1yu count "
+                                                                               help="When Access was set (UT): TrInd and TrGrp count "
                                                                                     "from it. Set to now when Access changes, unless "
                                                                                     "you set it here too (to the day paid, say).")})
     with st.expander("Import from the workbook"):

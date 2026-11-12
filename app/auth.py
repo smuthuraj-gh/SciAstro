@@ -1,7 +1,7 @@
 """Who is signed in, and what they may see.
 
 Sign-in is Streamlit's built-in OpenID Connect login (st.login), configured in secrets under [auth] (e.g. Google).
-Admins are the emails listed in the secret `admins`, and anyone whose customer record has UType Admin or Access Admin;
+Admins are the emails listed in the secret `admins`, and anyone whose customer record has Access Admin;
 they see and edit every customer and the orb table. Everyone else sees only the customers whose Email matches theirs
 (several for a Group), and what their Access allows (app/access.py).
 
@@ -33,7 +33,7 @@ def _admins() -> set[str]:
 
 
 def _is_admin(email: str) -> bool:
-    """An admin: listed in the admins secret, or made one by their customer record (UType Admin or Access Admin)."""
+    """An admin: listed in the admins secret, or made one by their customer record (Access Admin)."""
     return email in _admins() or has_admin_rights(email)
 
 

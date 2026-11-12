@@ -20,11 +20,11 @@ from . import access
 from .location import visitor_location
 
 ROOT = Path(__file__).resolve().parent.parent
-# the customer columns in table order; Email (login) first, as it is the key, then the account: UType, Created By, Access
-ACCOUNT_FIELDS = ("utype", "created_by", "access")              # (not the birth details: the charts do not read them)
+# the customer columns in table order; Email (login) first, as it is the key, then the account: Created By, Access
+ACCOUNT_FIELDS = ("created_by", "access")              # (not the birth details: the charts do not read them)
 FIELDS = ["email", *ACCOUNT_FIELDS, "name", "last_name", "country", "state", "city", "other", "year", "mon", "day", "hr", "mn",
           "country_n", "state_n", "city_n", "other_n", "utc"]
-LABELS = {"name": "First Name", "last_name": "Last Name", "email": "Email (login)", "utype": "UType", "created_by": "Created By",
+LABELS = {"name": "First Name", "last_name": "Last Name", "email": "Email (login)", "created_by": "Created By",
           "access": "Access", "country": "Country", "state": "State",
           "other": "Other", "city": "City",
           "year": "Year", "mon": "Mon", "day": "Date", "hr": "Hr24", "mn": "Min", "country_n": "Country-N",
@@ -37,10 +37,9 @@ customers = sa.Table(
     sa.Column("name", sa.String(120), nullable=False),       # not unique: the login email is the key
     sa.Column("last_name", sa.String(120)),
     sa.Column("email", sa.String(254)),
-    sa.Column("utype", sa.String(20)),                        # Individual, Group or Admin (see app/access.py)
     sa.Column("created_by", sa.String(254)),                  # who added the record (their login email), set by the app
-    sa.Column("access", sa.String(20)),                       # Admin, DOB, 1wu, 1mu, 1yu, TrDOB, TrGroup or Now (app/access.py)
-    sa.Column("access_from", sa.DateTime),                    # when (UT) Access was last set: 1wu, 1mu, 1yu count from it
+    sa.Column("access", sa.String(20)),                       # Free, TrInd, TrGrp, Ind, Group or Admin (app/access.py)
+    sa.Column("access_from", sa.DateTime),                    # when (UT) Access was last set: TrInd, TrGrp count from it
     sa.Column("country", sa.String(120)), sa.Column("state", sa.String(120)),
     sa.Column("other", sa.String(500)),                       # free text kept with the record (not used in the charts)
     sa.Column("city", sa.String(500)),
@@ -52,8 +51,9 @@ customers = sa.Table(
     # when (UT): the record was added, last changed, and last opened by the customer themself (set by the app)
     sa.Column("added_at", sa.DateTime), sa.Column("updated_at", sa.DateTime), sa.Column("accessed_at", sa.DateTime),
 )
-# A login email (kept in lower case) is on one customer that is not UType Group (its own) and any number that are (people
-# added under it, a family): checked by customer_problems. Blank emails are allowed for any number of customers.
+# A login email (kept in lower case) is on its own customer (the one with an Access) and any number more (people added
+# under it, a family). Blank emails are allowed for any number of customers. (A UType column kept in older stores is not
+# used: Access has replaced it.)
 # EMAIL_INDEX: the old rule, one per email.
 EMAIL_INDEX = "ux_customers_email"
 sa.Index("ix_customers_email", customers.c.email)
@@ -191,7 +191,7 @@ def engine() -> sa.Engine:
     _add_logins_location(eng)
     _add_missing_columns(eng)
     _seed_account_fields(eng)
-    _rename_access(eng)
+    _new_access_names(eng)
     _rename_planet_columns(eng)
     _rename_planet_size_columns(eng)
     _add_planet_color_name(eng)
@@ -704,21 +704,26 @@ def _add_missing_columns(eng: sa.Engine):
         c.execute(sa.text("CREATE INDEX IF NOT EXISTS ix_customers_email ON customers (email)"))
 
 
-def _rename_access(eng: sa.Engine):
-    """Access kept under an earlier name (Trial DOB, Trial Group) gets the new one (TrDOB, TrGroup); Access_From stays."""
+def _new_access_names(eng: sa.Engine):
+    """Access kept under an earlier name gets the new one (Now: Free, DOB: Ind, 1wu / 1mu / 1yu: Group, TrDOB: TrInd,
+    TrGroup: TrGrp); Access_From stays. Once, before that: a record with UType Admin (UType is no longer used) gets Access
+    Admin, so that it stays an admin."""
     with eng.begin() as c:
+        have = {col["name"] for col in sa.inspect(c).get_columns("customers")}
+        if "utype" in have and not c.execute(sa.select(settings.c.value).where(settings.c.key == "utype_admin_moved")).scalar():
+            c.execute(sa.text("UPDATE customers SET access = 'Admin' WHERE LOWER(TRIM(utype)) = 'admin'"))
+            c.execute(settings.insert().values(key="utype_admin_moved", value="1"))
         for old, new in access.RENAMED.items():
             c.execute(customers.update().where(sa.func.lower(customers.c.access) == old.lower()).values(access=new))
 
 
 def _seed_account_fields(eng: sa.Engine):
     """Once (a note among the settings says it is done): the customers already here, who could see their DOB charts, get
-    UType Individual and Access DOB, so that the new Access rules take nothing from them."""
+    Access Ind, so that the Access rules take nothing from them."""
     with eng.begin() as c:
         if c.execute(sa.select(settings.c.value).where(settings.c.key == "account_fields_set")).scalar():
             return
-        c.execute(customers.update().where(customers.c.utype.is_(None)).values(utype="Individual"))
-        c.execute(customers.update().where(customers.c.access.is_(None)).values(access="DOB"))
+        c.execute(customers.update().where(customers.c.access.is_(None)).values(access="Ind"))
         c.execute(settings.insert().values(key="account_fields_set", value="1"))
 
 
@@ -747,23 +752,12 @@ def _drop_name_unique(eng: sa.Engine):
                 c.execute(sa.text(f'DROP INDEX IF EXISTS "{i["name"]}"'))
 
 
-def shared_emails(df: pd.DataFrame) -> list[str]:
-    """Login emails given to more than one customer that is not UType Group, in a table (ignoring case and blanks): a
-    login has one own record, and any number of Group ones."""
-    e = df["email"].map(lambda v: str(v).strip().lower() if isinstance(v, str) else "")
-    group = df["utype"].map(lambda v: isinstance(v, str) and v.strip().lower() == "group") if "utype" in df else False
-    rows = pd.DataFrame({"e": e, "group": group})
-    rows = rows[rows["e"] != ""]
-    own = (~rows["group"]).groupby(rows["e"]).sum()
-    return sorted(own[own > 1].index)
-
-
 def has_admin_rights(email: str) -> bool:
-    """Whether a customer record with this login email makes them an admin (UType Admin or Access Admin)."""
+    """Whether a customer record with this login email makes them an admin (Access Admin)."""
     if not email:
         return False
     with engine().connect() as c:
-        rows = c.execute(sa.select(customers.c.utype, customers.c.access)
+        rows = c.execute(sa.select(customers.c.access)
                          .where(sa.func.lower(customers.c.email) == email.lower())).mappings().all()
     return access.grant([dict(r) for r in rows], _now()).admin
 
@@ -796,9 +790,9 @@ def _clean(rec: dict) -> dict:
             out[f] = int(float(v))
         elif f == "utc":
             out[f] = float(v)
-        elif f in ("utype", "access"):                        # as kept (Individual, 1wu ..); not a choice: as typed, refused by customer_problems
+        elif f == "access":                                  # as kept (Free, Ind ..); not a choice: as typed, refused by customer_problems
             try:
-                out[f] = access.canonical(v, access.UTYPES if f == "utype" else access.ACCESS)
+                out[f] = access.canonical(v, access.ACCESS)
             except ValueError:
                 out[f] = str(v).strip()
         else:
@@ -841,18 +835,17 @@ def missing_required(df: pd.DataFrame) -> list[str]:
 
 
 def customer_problems(rows: pd.DataFrame) -> list[str]:
-    """What stops these customer rows being saved: a login email used twice (but by a Group), a UType or Access not one
-    of the choices, or a required field missing."""
+    """What stops these customer rows being saved: an Access not one of the choices, or a required field missing."""
     out = []
-    dup = shared_emails(rows)
-    if dup:
-        out.append("A login email can belong to one customer only, and to any number more that are UType Group. Used "
-                   "by more than one that is not Group: " + ", ".join(dup))
-    for f, choices in (("utype", access.UTYPES), ("access", access.ACCESS)):
-        bad = sorted({str(v).strip() for v in rows.get(f, pd.Series(dtype=object)).dropna()
-                      if str(v).strip() and str(v).strip().lower() not in {c.lower() for c in choices}})
-        if bad:
-            out.append(f"{LABELS[f]} must be one of {', '.join(choices)} (not {', '.join(bad)})")
+    def not_a_choice(v) -> bool:                              # (an earlier name, such as DOB, is taken as the new one)
+        try:
+            access.canonical(v, access.ACCESS)
+            return False
+        except ValueError:
+            return True
+    bad = sorted({str(v).strip() for v in rows.get("access", pd.Series(dtype=object)).dropna() if not_a_choice(v)})
+    if bad:
+        out.append(f"{LABELS['access']} must be one of {', '.join(access.ACCESS)} (not {', '.join(bad)})")
     missing = missing_required(rows)
     if missing:
         out.append("Required for every customer: Email (login), First Name, Last Name, Country, State, City, "
@@ -975,7 +968,7 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
 def add_own_customer(rec: dict, email: str) -> bool:
     """A new member's own record, linked to their login email (the key: one record per email). Returns False, saving
     nothing, when that email already has one (they simply use it)."""
-    data = {**_clean({**rec, "email": email}), "utype": "Individual", "created_by": email.lower(), "access": "Now"}
+    data = {**_clean({**rec, "email": email}), "created_by": email.lower(), "access": "Free"}
     problems = missing_required(pd.DataFrame([data]))      # the same rule as the Customers table
     if problems:
         raise ValueError("Missing: " + problems[0].split(": ", 1)[-1])
@@ -989,9 +982,9 @@ def add_own_customer(rec: dict, email: str) -> bool:
 
 
 def add_person(rec: dict, email: str) -> int:
-    """A person a member with unlimited access (1wu, 1mu, 1yu) adds under their login: UType Group, their email, added by
-    them, no Access of its own. Returns the new record's id. Raises ValueError, saving nothing, when a field is missing."""
-    data = {**_clean({**rec, "email": email}), "utype": "Group", "created_by": email.lower(), "access": None}
+    """A person a member with unlimited access (Group, TrGrp) adds under their login: their email, added by them, no
+    Access of its own. Returns the new record's id. Raises ValueError, saving nothing, when a field is missing."""
+    data = {**_clean({**rec, "email": email}), "created_by": email.lower(), "access": None}
     problems = missing_required(pd.DataFrame([data]))
     if problems:
         raise ValueError("Missing: " + problems[0].split(": ", 1)[-1])
@@ -1005,7 +998,7 @@ def add_person(rec: dict, email: str) -> int:
 def update_own_customer(rec: dict, email: str, cid: int) -> bool:
     """A member's changes to their own record cid, which must have their login email (which stays as it is; a Group's
     records share it). Returns False when it does not. The UTC offset is cleared, to be looked up again for the new birth
-    time and place. Their UType, Created By and Access are not theirs to change: rec has none of them."""
+    time and place. Their Created By and Access are not theirs to change: rec has none of them."""
     data = _clean({**rec, "email": email})
     problems = missing_required(pd.DataFrame([data]))      # the same rule as the Customers table
     if problems:
