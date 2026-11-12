@@ -629,12 +629,21 @@ __SYMBOL_JS__
       const text = on[0].angle + "-" + symbolOf(l.p) + "-" + symbolOf(l.q);
       l.tag.textContent = text; l.tag.setAttribute("fill", on[0].colour);
       const had = l.tagAt === undefined ? 0.5 : l.tagAt;
+      const putTag = (x, y, box) => {
+        l.tag.setAttribute("x", x.toFixed(1)); l.tag.setAttribute("y", y.toFixed(1));
+        l.tag.style.display = ""; taken.push(box);
+      };
       for (const f of [0.5, 0.35, 0.65, 0.2, 0.8].sort((u, v) => Math.abs(u - had) - Math.abs(v - had))) {
         const x = a.x + (b.x - a.x) * f, y = a.y + (b.y - a.y) * f + 4, box = boxOf(x, y, text);
-        if (inside(box) && clear(box, taken)) {
-          l.tag.setAttribute("x", x.toFixed(1)); l.tag.setAttribute("y", y.toFixed(1));
-          l.tag.style.display = ""; l.tagAt = f; taken.push(box);
-          break;
+        if (inside(box) && clear(box, taken)) { putTag(x, y, box); l.tagAt = f; return; }
+      }
+      // no room along it (two planets close together, as in a conjunction): the nearest free place beside its middle,
+      // outward from the Earth first, so that the tag stays by the two planets
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, out = Math.atan2(my - D.height / 2, mx - D.width / 2);
+      for (let r = Math.max(a.r, b.r) + 12; r <= 90; r += 8) {
+        for (const k of [0, 1, -1, 2, -2, 3, -3, 4]) {
+          const ang = out + k * Math.PI / 4, x = mx + r * Math.cos(ang), y = my + r * Math.sin(ang) + 4, box = boxOf(x, y, text);
+          if (inside(box) && clear(box, taken)) { putTag(x, y, box); return; }
         }
       }
     });
