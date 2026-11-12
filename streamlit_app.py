@@ -294,6 +294,9 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     df = visible_customers()
     st.sidebar.markdown(f"**{user.name}**" + ("  \n:blue-badge[admin]" if user.is_admin else ""))
     auth.sign_out_button(user)
+    saved_note = st.session_state.pop("_quick_saved", None)   # a quick birth just saved
+    if saved_note:
+        st.toast(saved_note)
     locked_note = st.session_state.pop("_dob_locked", None)   # they picked DOB, which is not open to them: why
     if locked_note:
         st.toast(locked_note if isinstance(locked_note, str) else access.PAID_NOTE)
@@ -369,7 +372,11 @@ def birth_time(text: str):
 
 
 def quick_birth(base: pd.Series) -> tuple[pd.Series, Prepared]:
-    """A birth typed in the sidebar, not saved: its DOB charts, with the place now of base (their own record)."""
+    """A birth typed in the sidebar, not saved: its DOB charts, with the place now of base (their own record). A member
+    with DOBG or DOBGT may save it, with a First and Last Name, as a person under their login."""
+    if st.session_state.pop("_quick_clear", False):           # (just saved: the boxes empty again)
+        for k in ("quick_date", "quick_time", "quick_city", "quick_state", "quick_country", "quick_first", "quick_last"):
+            st.session_state.pop(k, None)
     box = st.sidebar.container(border=True)
     born = box.date_input("Birth date", value=None, min_value=datetime(1800, 1, 1).date(), max_value=datetime(2399, 12, 31).date(),
                           format="YYYY-MM-DD", key="quick_date")
@@ -393,6 +400,25 @@ def quick_birth(base: pd.Series) -> tuple[pd.Series, Prepared]:
         return row, Prepared(False, PLACE_SEARCH_DOWN)
     if prep.ok:
         box.caption(f"{born} {prep.weekday} {at:%H:%M}, UTC {prep.utc:+.2f} ({prep.birth_lat}, {prep.birth_lon}). Not saved.")
+        if not user.is_admin and GRANT.many:                  # DOBG, DOBGT: it may be kept, under their login
+            first = box.text_input("First Name", max_chars=120, key="quick_first")
+            last = box.text_input("Last Name", max_chars=120, key="quick_last")
+            if box.button("Save this birth", key="quick_save"):
+                if not (first.strip() and last.strip()):
+                    box.error("Type a First Name and a Last Name to save it.")
+                else:
+                    rec = {"name": first, "last_name": last, "country": country, "state": state, "city": city, "other": None,
+                           "year": born.year, "mon": born.month, "day": born.day, "hr": at.hour, "mn": at.minute,
+                           **{f: base.get(f) for f in ("country_n", "state_n", "city_n", "other_n")}}   # their place now, as theirs
+                    try:
+                        cid = db.add_person(rec, user.email)
+                    except ValueError as exc:
+                        box.error(str(exc))
+                    else:
+                        st.session_state["_select_customer"] = cid   # chosen in the sidebar at once
+                        st.session_state["_quick_clear"] = True
+                        st.session_state["_quick_saved"] = f"{first.strip()} {last.strip()} is saved under your login."
+                        st.rerun()
     return row, prep
 
 
