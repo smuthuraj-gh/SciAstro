@@ -205,6 +205,7 @@ def engine() -> sa.Engine:
     _seed_account_fields(eng)
     _new_access_names(eng)
     _seed_accounts(eng)
+    _link_dob_emails(eng)
     _rename_planet_columns(eng)
     _rename_planet_size_columns(eng)
     _add_planet_color_name(eng)
@@ -823,6 +824,34 @@ def _seed_accounts(eng: sa.Engine):
         c.execute(settings.insert().values(key="accounts_seeded", value="1"))
 
 
+def _ensure_accounts(c, emails) -> int:
+    """The DOB records' Email refers to the Customers table: each of these emails without a Customers row gets one, with
+    Access Now from now. Gives how many were added."""
+    want = {str(e).strip().lower() for e in emails if isinstance(e, str) and e.strip()}
+    have = {e.lower() for (e,) in c.execute(sa.select(accounts.c.email)).all()}
+    now = _now()
+    for e in sorted(want - have):
+        c.execute(accounts.insert().values(email=e, access="Now", start_date=now))
+    return len(want - have)
+
+
+def _link_dob_emails(eng: sa.Engine):
+    """Every start: a DOB record's Email with no Customers row (put there another way) gets one, with Access Now."""
+    with eng.begin() as c:
+        _ensure_accounts(c, [e for (e,) in c.execute(sa.select(customers.c.email)).all()])
+
+
+def dob_emails_in_use(emails) -> dict[str, int]:
+    """How many DOB records use each of these emails (those with none left out)."""
+    want = {str(e).strip().lower() for e in emails if isinstance(e, str) and e.strip()}
+    if not want:
+        return {}
+    with engine().connect() as c:
+        rows = c.execute(sa.select(sa.func.lower(customers.c.email), sa.func.count()).where(sa.func.lower(customers.c.email).in_(want))
+                         .group_by(sa.func.lower(customers.c.email))).all()
+    return {e: n for e, n in rows}
+
+
 def account_of(email: str) -> dict | None:
     """This login's Customers row (email, access, start_date), None when it has none."""
     if not email:
@@ -887,8 +916,18 @@ def account_problems(rows: pd.DataFrame) -> list[str]:
 
 def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None = None) -> tuple[int, int, int]:
     """Apply an edited copy of the Customers table: (added, changed, deleted). A blank Access is Now; Start Date as edited,
-    else now when Access changes (and for a new row). Raises ValueError, saving nothing, on account_problems."""
+    else now when Access changes (and for a new row). The DOB records refer to it by Email: a changed Email is changed on
+    them too, and a row whose Email DOB records still use cannot be deleted. Raises ValueError, saving nothing, on
+    account_problems or such a delete."""
     problems = account_problems(edited)
+    kept_ids = set(edited["id"].dropna().astype(int)) if "id" in edited else set()
+    still = {str(e).strip().lower() for e in edited.get("email", pd.Series(dtype=object)) if isinstance(e, str)}
+    gone = [str(r["email"]).strip().lower() for _, r in original.iterrows()
+            if pd.notna(r["id"]) and int(r["id"]) not in kept_ids and str(r["email"]).strip().lower() not in still]
+    used = dob_emails_in_use(gone)
+    if used:
+        problems.append("Not deleted: DOB records still use " + ", ".join(f"{e} ({n} record{'s' if n != 1 else ''})" for e, n in sorted(used.items()))
+                        + ". Delete those records on the DOB page, or give them another Email, first.")
     if problems:
         raise ValueError(" ".join(problems))
     added = changed = deleted = 0
@@ -916,10 +955,15 @@ def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None =
                 if a != was_access and start == was_start:    # a new Access counts from now, unless a Start Date was set too
                     start = now
                 updates.append((int(aid), dict(email=email, access=a, start_date=start)))
-        for aid, data in updates:                             # (emails let go first, so that two can swap)
+        old_email = {aid: str(original[original["id"] == aid].iloc[0]["email"]).strip().lower() for aid, _ in updates}
+        for aid, data in updates:                             # (emails let go first, so that two can swap; the DOB records too)
             c.execute(accounts.update().where(accounts.c.id == aid).values(email=f"~{aid}"))
+            if data["email"] != old_email[aid]:
+                c.execute(customers.update().where(sa.func.lower(customers.c.email) == old_email[aid]).values(email=f"~{aid}"))
         for aid, data in updates:
             c.execute(accounts.update().where(accounts.c.id == aid).values(**data)); changed += 1
+            if data["email"] != old_email[aid]:              # the DOB records follow their login's new Email
+                c.execute(customers.update().where(customers.c.email == f"~{aid}").values(email=data["email"]))
         for data in new:
             c.execute(accounts.insert().values(**data)); added += 1
         _log(c, by, "Create", added)
@@ -1136,6 +1180,7 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
             data["created_by"] = data.get("created_by") or (by.lower() if by else None)
             c.execute(sa.insert(customers).values(**data, added_at=times.get("added_at") or now, updated_at=now))
             added += 1
+        _ensure_accounts(c, edited["email"] if "email" in edited else [])   # (each Email refers to a Customers row)
         _log(c, by, "Create", added)
         _log(c, by, "Update", changed)
         _log(c, by, "Delete", deleted)
@@ -1232,6 +1277,7 @@ def import_workbook_csv(raw: bytes, by: str | None = None) -> int:
                 have.add(data["name"].lower()); n += 1
                 if data.get("email"):
                     used.add(data["email"])
+        _ensure_accounts(c, list(used))                    # (each Email refers to a Customers row)
         _log(c, by, "Create", n)
     return n
 

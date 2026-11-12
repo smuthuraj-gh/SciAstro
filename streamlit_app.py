@@ -240,7 +240,9 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "quick births not saved. DOB and DOBG are the paid options. DOBT, DOBGT: free 1-day trials "
                  "of DOB and DOBG from Start Date (given on signing up with birth details: Individual or Group, as they pick). Admin: an "
                  "admin. A trial run out: the Now charts only. A row is made, with Now, when someone signs in for the first "
-                 "time; Start Date moves to now when Access changes, unless it is changed too. Insert, Update, Delete, "
+                 "time, or when a DOB record is saved with an Email new here. The DOB records refer to this table by "
+                 "Email: changing an Email here changes it on them too, and a row whose Email DOB records still use cannot "
+                 "be deleted. Start Date moves to now when Access changes, unless it is changed too. Insert, Update, Delete, "
                  "Commit as on DOB.",
     "DOB": "The customers' birth details. Insert for a new customer, type changes and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. ID is the record's number, and Created and Last_Updated (UT) when it was added and last changed, all set by the app. Required (*): Email (login), First Name, "
                  "Last Name, Country, State, City, the birth date and time (Date, Local-Time-24hr), and where they "
@@ -1344,7 +1346,8 @@ def page_customers():
                                 "Email (login)": st.column_config.TextColumn("Email (login) *",
                                 help="Required. The Google account email this customer signs in with (they see only "
                                      "their own). An email's own customer is its first; it may have any number more (people added "
-                                     "under that login, or a family). What it may see is its Access on the Customers page."),
+                                     "under that login, or a family). It refers to the Customers page: an Email new there gets "
+                                     "a row with Access Now, and what it may see is its Access there."),
                                 "Group Owner Email": st.column_config.TextColumn("Group Owner Email",
                                 help="The login email of the group this record belongs to: who added it (the admin, "
                                      "the customer themself on signing up, or a member adding a person). Set by the app "
