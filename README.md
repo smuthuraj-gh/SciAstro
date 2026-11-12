@@ -25,7 +25,7 @@ Layout rule: everything on all pages stays aligned to the top left.
 
 Font rule: on all pages, text is at most 12 px and at least 10 px.
 
-Now rule: anyone signed in can always see the Now charts, on every chart page: with no birth details, with Access Now or a trial run out, or with birth details that cannot be worked out (picking DOB then says why it is not open).
+Now rule: anyone signed in can always see the Now charts, on every chart page: with no birth details, with Access Now or a trial run out, or with birth details that cannot be worked out (picking DOB then says why it is not open). The Time buttons show DOB first to someone whose Access is DOB, DOBG, DOBT or DOBGT, and Now first to anyone else, DOB still there (a new member picks it to reach the form for their birth details).
 
 Users sign in with Google and see only the customers whose **Email (login)** is theirs. A new member (no customer
 has their email yet) is not asked for anything: a Login row goes into the Logins table and they see the Now charts;

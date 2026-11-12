@@ -135,6 +135,19 @@ GRANT = (access.Grant(admin=True, dob=True, many=True) if user.is_admin
 OWN_ID = access.own_record_id(_MINE)                          # their own record (the others: people added under their login)
 
 
+def _access_is_dob() -> bool:
+    """Their Access is one with DOB charts: DOB, DOBG, DOBT or DOBGT."""
+    try:
+        return access.canonical((_ACCOUNT or {}).get("access"), access.ACCESS) in ("DOB", "DOBG", "DOBT", "DOBGT")
+    except ValueError:
+        return False
+
+
+# the Time buttons: DOB first for one whose Access is DOB, DOBG, DOBT or DOBGT; Now first for anyone else, with DOB still
+# there (a new member picks it to reach the form for their birth details)
+TIMES = ("DOB", "Now") if _access_is_dob() else ("Now", "DOB")
+
+
 # ---------------------------------------------------------------- who can see which customers
 def visible_customers() -> pd.DataFrame:
     """An admin: every customer. A member: with DOBG (or DOBGT running), every record under their login; else their own."""
@@ -802,9 +815,9 @@ def page_globe():
 
     if prep.now_only:                                         # no birth details: DOB opens the form for them
         dob_asked(bool(st.session_state.get("globe_DOB")), ("globe_DOB", None))
-        shown = stacked(("Now", "DOB"), ("Now",), title="Time")
+        shown = stacked(TIMES, ("Now",), title="Time")
     else:
-        shown = stacked(("Now", "DOB"), default_choice("AstroClock-3D", "Time"), title="Time")
+        shown = stacked(TIMES, default_choice("AstroClock-3D", "Time"), title="Time")
     all_bodies = list(globechart.BODY_CHOICES)
     with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # shown three a line: Mo Su Me, Ve Ma Ju, Sa NN SN
     bodies = options_under("Planets", "bodies", with_nodes, default_choice("AstroClock-3D", "Planets"), width=112)
@@ -882,9 +895,9 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         return default_choice("AstroClock-2D", title) if flat else default_choice("Geo/Helio Model", f"{model} {title}")
     if prep.now_only:                                         # no birth details: Now, and DOB opens the form for them
         dob_asked("DOB" in (st.session_state.get(f"{key}_time") or []), (f"{key}_time", ["Now"]), (f"_kept_{key}_time", ["Now"]))
-        shown = titled(head, "Time", f"{key}_t_time", ["Now", "DOB"], f"{key}_time", ["Now"], selection_mode="multi") or []
+        shown = titled(head, "Time", f"{key}_t_time", list(TIMES), f"{key}_time", ["Now"], selection_mode="multi") or []
     else:
-        shown = titled(head, "Time", f"{key}_t_time", ["Now", "DOB"], f"{key}_time", start("Time"), selection_mode="multi") or []
+        shown = titled(head, "Time", f"{key}_t_time", list(TIMES), f"{key}_time", start("Time"), selection_mode="multi") or []
     bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
                                   format_func=core.symbol_of), choices)
     aspects, one_circle = (), False
