@@ -976,9 +976,10 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
 
 
 def add_own_customer(rec: dict, email: str) -> bool:
-    """A new member's own record, linked to their login email (the key: one record per email). Returns False, saving
-    nothing, when that email already has one (they simply use it)."""
-    data = {**_clean({**rec, "email": email}), "created_by": email.lower(), "access": "Free"}
+    """A new member's own record, linked to their login email (the key: one record per email), with Access TrInd: a free
+    1-day trial of their DOB charts from now. Returns False, saving nothing, when that email already has one (they simply
+    use it)."""
+    data = {**_clean({**rec, "email": email}), "created_by": email.lower(), "access": "TrInd"}
     problems = missing_required(pd.DataFrame([data]))      # the same rule as the Customers table
     if problems:
         raise ValueError("Missing: " + problems[0].split(": ", 1)[-1])
@@ -986,7 +987,7 @@ def add_own_customer(rec: dict, email: str) -> bool:
         if c.execute(sa.select(customers.c.id).where(sa.func.lower(customers.c.email) == data["email"])).first():
             return False
         now = _now()
-        c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now, accessed_at=now))
+        c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now, accessed_at=now, access_from=now))
         _log(c, email, "Create")
     return True
 

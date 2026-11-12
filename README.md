@@ -35,9 +35,9 @@ number more with Access blank (people the member added, or a family), which that
 
 Access (app/access.py): Free, the Now charts only; Ind, the DOB and Now charts of their own record, with no time limit;
 Group, unlimited with no time limit: every record under their login, people they add (My details: Add a person) and quick
-births typed in the sidebar (not saved); TrInd and TrGrp, free trials of Ind and Group given by an admin for 1 week from
+births typed in the sidebar (not saved); TrInd and TrGrp, free trials of Ind and Group for 1 day from
 Access_From; Admin, an admin. Ind and Group are the paid options. Blank, or a trial run out: the Now charts only. Customers
-already there when Access came in were given Ind; a member who signs up gets Free until an admin changes it. Earlier
+already there when Access came in were given Ind; a member who signs up with their birth details gets TrInd (a free 1-day trial of their DOB charts, from then); after it, the Now charts until an admin gives Ind or Group. Earlier
 values are changed once: Now to Free, DOB to Ind, 1wu / 1mu / 1yu to Group, TrDOB to TrInd, TrGroup to TrGrp; the account-type
 column Access replaced is removed, a record that was an admin by it getting Access Admin.
 

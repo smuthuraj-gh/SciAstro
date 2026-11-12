@@ -2,7 +2,8 @@
 
 Access: Free (the Now charts only); Ind (the DOB and Now charts of their own record, no time limit); Group (unlimited: the
 DOB and Now charts of every record under their login, people they add themselves and quick births not saved, no time
-limit); TrInd and TrGrp (free trials of Ind and Group, given by the admin for 1 week from Access From); Admin (an admin, as
+limit); TrInd and TrGrp (free trials of Ind and Group for 1 day from Access From: TrInd given on signing up with
+birth details, either given by the admin); Admin (an admin, as
 those in the admins secret). Ind and Group are the paid options. Blank, or a trial run out: the Now charts only. A login's
 records share its email: its own (the one with an Access; the first, if more) and any number more (people added under
 it, or a family an admin set up), which have no Access of their own.
@@ -19,7 +20,7 @@ ACCESS = ("Free", "TrInd", "TrGrp", "Ind", "Group", "Admin")
 RENAMED = {"Now": "Free", "DOB": "Ind", "1wu": "Group", "1mu": "Group", "1yu": "Group", "TrDOB": "TrInd", "TrGroup": "TrGrp",
            "Trial DOB": "TrInd", "Trial Group": "TrGrp"}
 # the Access that run for a while from Access From: months, days, unlimited (else their own DOB only), in words
-PERIODS = {"TrInd": (0, 7, False, "free 1-week trial (your own DOB)"), "TrGrp": (0, 7, True, "free 1-week trial (unlimited)")}
+PERIODS = {"TrInd": (0, 1, False, "free 1-day trial (your own DOB)"), "TrGrp": (0, 1, True, "free 1-day trial (unlimited)")}
 PAID_NOTE = "DOB charts are a paid option (Ind or Group): ask the admin."
 QUICK = -1                         # the sidebar's Quick birth (not saved), in place of a record's id
 

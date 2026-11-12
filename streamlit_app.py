@@ -1225,8 +1225,9 @@ def page_customers():
                                 help="Free: the Now charts only. Ind: the DOB and Now charts of their own record, no time "
                                      "limit. Group: unlimited, no time limit: the DOB and Now charts of every record under "
                                      "their login, people they add on My details, and quick births not saved. Ind and Group "
-                                     "are the paid options. TrInd, TrGrp: free trials of Ind and Group, for 1 week from "
-                                     "Access_From. Admin: an admin. Blank (people added under a login), or a trial run "
+                                     "are the paid options. TrInd, TrGrp: free trials of Ind and Group, for 1 day from "
+                                     "Access_From (a member signing up with their birth details gets TrInd). Admin: an admin. "
+                                     "Blank (people added under a login), or a trial run "
                                      "out: the Now charts only."),
                                 "Country": st.column_config.TextColumn("Country *", help="Birth place: required."),
                                 "State": st.column_config.TextColumn("State *", help="Birth place: required."),
