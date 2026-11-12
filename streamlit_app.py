@@ -1287,8 +1287,8 @@ def page_my_details():
         st.success(st.session_state.pop("person_added"))
     if GRANT.many and not user.is_admin:
         with st.expander("Add a person", expanded=int(row["id"]) == access.QUICK):
-            st.caption("Saved under your login, to see their DOB charts while your unlimited access runs; their place now "
-                       "starts as yours.")
+            st.caption(("Saved under your login, to see their DOB charts while your unlimited access runs; " if GRANT.dob else
+                        "Saved under your login, to see their Now charts; ") + "their place now starts as yours.")
             own = visible_customers()
             own = own[own["id"] == OWN_ID]
             details_form(pd.Series({f: own.iloc[0][f] for f in ("country_n", "state_n", "city_n", "other_n")}) if len(own) else None,
@@ -1304,7 +1304,7 @@ def page_my_details():
     st.dataframe(pd.DataFrame({"Field": [db.LABELS[f].split(" (")[0] for f in db.FIELDS if f not in ("email", "utc")],
                                "Value": [shown(row[f]) for f in db.FIELDS if f not in ("email", "utc")]}),
                  hide_index=True, width="content")
-    if prep and prep.ok:
+    if prep and prep.ok and not prep.now_only:               # (Now charts only: their birth is not worked out)
         st.write(f"Born on a {prep.weekday}; UTC offset {prep.utc:+.2f} ({prep.tz}); birth place "
                  f"{prep.birth_lat}, {prep.birth_lon}.")
     if st.session_state.pop("details_saved", False):
