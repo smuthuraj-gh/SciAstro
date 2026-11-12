@@ -3,8 +3,8 @@
 Access: Admin (an admin, as those in the admins secret); DOB (the DOB and Now charts of their own record, no time limit);
 1wu, 1mu, 1yu (unlimited: the DOB and Now charts of every record under their login, people they add themselves and quick
 births not saved, for 1 week, 1 month or 1 year from Access From, when the Access was set). DOB, 1wu, 1mu and 1yu are the
-paid options. Free, given by the admin for 1 week from Access From: Trial DOB (as DOB) or Trial Group (unlimited, as 1wu).
-None, or a period run out: the Now charts only. UType Admin makes an admin too. A login's records share its
+paid options. Free, given by the admin for 1 week from Access From: TrDOB (as DOB) or TrGroup (unlimited, as 1wu). Now,
+none, or a period run out: the Now charts only. UType Admin makes an admin too. A login's records share its
 email: its own (Individual or Admin) and any number of Group ones (people added under it, or a family an admin set up).
 """
 from __future__ import annotations
@@ -15,11 +15,12 @@ from datetime import datetime, timedelta
 import pandas as pd
 
 UTYPES = ("Individual", "Group", "Admin")
-ACCESS = ("Admin", "DOB", "1wu", "1mu", "1yu", "Trial DOB", "Trial Group")
+ACCESS = ("Admin", "DOB", "1wu", "1mu", "1yu", "TrDOB", "TrGroup", "Now")
+RENAMED = {"Trial DOB": "TrDOB", "Trial Group": "TrGroup"}   # their earlier names, kept in the database for a while
 # the Access that run for a while from Access From: months, days, unlimited (else their own DOB only), in words
 PERIODS = {"1wu": (0, 7, True, "1 week unlimited access"), "1mu": (1, 0, True, "1 month unlimited access"),
            "1yu": (12, 0, True, "1 year unlimited access"),
-           "Trial DOB": (0, 7, False, "free 1-week trial (your own DOB)"), "Trial Group": (0, 7, True, "free 1-week trial (unlimited)")}
+           "TrDOB": (0, 7, False, "free 1-week trial (your own DOB)"), "TrGroup": (0, 7, True, "free 1-week trial (unlimited)")}
 PAID_NOTE = "DOB charts are a paid option (DOB, 1 week, 1 month or 1 year): ask the admin."
 QUICK = -1                         # the sidebar's Quick birth (not saved), in place of a record's id
 
@@ -37,6 +38,7 @@ def canonical(value, choices: tuple[str, ...]) -> str | None:
     if value is None or (isinstance(value, float) and pd.isna(value)) or not str(value).strip():
         return None
     low = {c.lower(): c for c in choices}
+    low.update({old.lower(): new for old, new in RENAMED.items() if new in choices})   # (an earlier name: as the new one)
     try:
         return low[str(value).strip().lower()]
     except KeyError:
@@ -51,7 +53,7 @@ def _add_months(when: datetime, months: int) -> datetime:
 
 
 def ends(access: str, since: datetime) -> datetime:
-    """When an Access of PERIODS (1wu, 1mu, 1yu, Trial DOB, Trial Group) set at since runs out."""
+    """When an Access of PERIODS (1wu, 1mu, 1yu, TrDOB, TrGroup) set at since runs out."""
     months, days, _, _ = PERIODS[access]
     return _add_months(since, months) + timedelta(days=days)
 

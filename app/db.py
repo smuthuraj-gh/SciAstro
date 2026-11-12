@@ -39,7 +39,7 @@ customers = sa.Table(
     sa.Column("email", sa.String(254)),
     sa.Column("utype", sa.String(20)),                        # Individual, Group or Admin (see app/access.py)
     sa.Column("created_by", sa.String(254)),                  # who added the record (their login email), set by the app
-    sa.Column("access", sa.String(20)),                       # Admin, DOB, 1wu, 1mu, 1yu, Trial DOB or Trial Group (app/access.py)
+    sa.Column("access", sa.String(20)),                       # Admin, DOB, 1wu, 1mu, 1yu, TrDOB, TrGroup or Now (app/access.py)
     sa.Column("access_from", sa.DateTime),                    # when (UT) Access was last set: 1wu, 1mu, 1yu count from it
     sa.Column("country", sa.String(120)), sa.Column("state", sa.String(120)),
     sa.Column("other", sa.String(500)),                       # free text kept with the record (not used in the charts)
@@ -191,6 +191,7 @@ def engine() -> sa.Engine:
     _add_logins_location(eng)
     _add_missing_columns(eng)
     _seed_account_fields(eng)
+    _rename_access(eng)
     _rename_planet_columns(eng)
     _rename_planet_size_columns(eng)
     _add_planet_color_name(eng)
@@ -703,6 +704,13 @@ def _add_missing_columns(eng: sa.Engine):
         c.execute(sa.text("CREATE INDEX IF NOT EXISTS ix_customers_email ON customers (email)"))
 
 
+def _rename_access(eng: sa.Engine):
+    """Access kept under an earlier name (Trial DOB, Trial Group) gets the new one (TrDOB, TrGroup); Access_From stays."""
+    with eng.begin() as c:
+        for old, new in access.RENAMED.items():
+            c.execute(customers.update().where(sa.func.lower(customers.c.access) == old.lower()).values(access=new))
+
+
 def _seed_account_fields(eng: sa.Engine):
     """Once (a note among the settings says it is done): the customers already here, who could see their DOB charts, get
     UType Individual and Access DOB, so that the new Access rules take nothing from them."""
@@ -967,7 +975,7 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
 def add_own_customer(rec: dict, email: str) -> bool:
     """A new member's own record, linked to their login email (the key: one record per email). Returns False, saving
     nothing, when that email already has one (they simply use it)."""
-    data = {**_clean({**rec, "email": email}), "utype": "Individual", "created_by": email.lower(), "access": None}
+    data = {**_clean({**rec, "email": email}), "utype": "Individual", "created_by": email.lower(), "access": "Now"}
     problems = missing_required(pd.DataFrame([data]))      # the same rule as the Customers table
     if problems:
         raise ValueError("Missing: " + problems[0].split(": ", 1)[-1])

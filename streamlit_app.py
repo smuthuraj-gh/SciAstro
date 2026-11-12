@@ -1173,7 +1173,8 @@ def page_customers():
     # Last_Updated (UT) are, read only (set by the app); the time last opened (Accessed) is kept but not shown
     shown_fields = [f for f in db.FIELDS if f != "utc"]
     stamps = {"added_at": "Created", "updated_at": "Last_Updated", "access_from": "Access_From"}
-    show = df[["id"] + shown_fields + list(stamps)].rename(columns={**db.LABELS, **stamps})
+    order = [c for f in shown_fields for c in ((f, "access_from") if f == "access" else (f,))]   # Access_From next to Access
+    show = df[["id"] + order + ["added_at", "updated_at"]].rename(columns={**db.LABELS, **stamps})
     # First Name, A-Z, to begin with; the column headers sort by any column. Saving matches rows by their record, so the
     # order shown does not matter
     by_name = show[db.LABELS["name"]].map(lambda v: v.strip().lower() if isinstance(v, str) else v)
@@ -1226,8 +1227,8 @@ def page_customers():
                                      "1wu, 1mu, 1yu: unlimited, for 1 week, 1 month or 1 year from Access_From: the DOB "
                                      "and Now charts of every record under their login, people they add on My details, "
                                      "and quick births not saved. DOB, 1wu, 1mu and 1yu are the paid options. Free, for "
-                                     "1 week from Access_From: Trial DOB (as DOB) or Trial Group (unlimited, as 1wu). "
-                                     "Blank, or a period run out: the Now charts only."),
+                                     "1 week from Access_From: TrDOB (as DOB) or TrGroup (unlimited, as 1wu). Now, "
+                                     "blank, or a period run out: the Now charts only."),
                                 "Country": st.column_config.TextColumn("Country *", help="Birth place: required."),
                                 "State": st.column_config.TextColumn("State *", help="Birth place: required."),
                                 "City": st.column_config.TextColumn("City *", help="Birth place: required."),
