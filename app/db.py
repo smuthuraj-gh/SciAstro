@@ -696,7 +696,7 @@ def orb_problems(rows: pd.DataFrame) -> list[str]:
 
 def _add_missing_columns(eng: sa.Engine):
     """A store made before a column was added gets it; nothing else in it changes. The old rule of one customer per
-    email (a unique index) goes: a Group's records share theirs (the Customers page checks the rest)."""
+    email (a unique index) goes: a Group's records share theirs (the DOB page checks the rest)."""
     _drop_name_unique(eng)
     have = {c["name"] for c in sa.inspect(eng).get_columns("customers")}
     with eng.begin() as c:
@@ -1015,7 +1015,7 @@ def add_own_customer(rec: dict, email: str, group: bool = False) -> bool:
     Trial-Grp, with group): a free 1-day trial of their DOB charts (unlimited, with group) from now. Returns False, saving nothing, when that email already has one (they simply
     use it)."""
     data = {**_clean({**rec, "email": email}), "created_by": email.lower(), "access": "Trial-Grp" if group else "Trial-Ind"}
-    problems = missing_required(pd.DataFrame([data]))      # the same rule as the Customers table
+    problems = missing_required(pd.DataFrame([data]))      # the same rule as the DOB page's table
     if problems:
         raise ValueError("Missing: " + problems[0].split(": ", 1)[-1])
     with engine().begin() as c:
@@ -1046,7 +1046,7 @@ def update_own_customer(rec: dict, email: str, cid: int) -> bool:
     records share it). Returns False when it does not. The UTC offset is cleared, to be looked up again for the new birth
     time and place. Their Created By and Access are not theirs to change: rec has none of them."""
     data = _clean({**rec, "email": email})
-    problems = missing_required(pd.DataFrame([data]))      # the same rule as the Customers table
+    problems = missing_required(pd.DataFrame([data]))      # the same rule as the DOB page's table
     if problems:
         raise ValueError("Missing: " + problems[0].split(": ", 1)[-1])
     data["utc"] = rec.get("utc")

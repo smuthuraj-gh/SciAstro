@@ -1,7 +1,7 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
 Pages: AstroClock-2D, AstroClock-3D, Geo/Helio Model, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only);
-Aspect Rules, Customers, Symbols, Defaults and Logins for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
+Aspect Rules, DOB (the customers), Symbols, Defaults and Logins for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
 
@@ -200,7 +200,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
               "UT). View: opened a customer's charts (once per customer per visit). Create, Update, Delete: added, changed or "
-              "deleted a customer (on Customers, by import, or their own My details), a row per customer. Login: signed in with "
+              "deleted a customer (on DOB, by import, or their own My details), a row per customer. Login: signed in with "
               "no birth details yet, seeing the Now charts only (once per visit). Location, Device, Time zone: where they were, their "
               "browser and system, and their browser's time zone. Access: theirs then. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
@@ -219,7 +219,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                        "if left blank, comes from its Aspect's name, one of Conjunction, Opposition, Square, Trine, Sextile, Semi-sextile, Semi-square, Quintile, "
                        "Sesquiquadrate, Bi-quintile, Quincunx. Changes here "
                        "apply to every chart.",
-    "Customers": "Insert for a new customer, type changes and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. ID is the record's number, and Created and Last_Updated (UT) when it was added and last changed, all set by the app. Required (*): Email (login), First Name, "
+    "DOB": "The customers. Insert for a new customer, type changes and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. ID is the record's number, and Created and Last_Updated (UT) when it was added and last changed, all set by the app. Required (*): Email (login), First Name, "
                  "Last Name, Country, State, City, the birth date and time (Year, Mon, Date, Hr24, Min), and where they "
                  "live now (Country-N, State-N, City-N). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
@@ -275,7 +275,7 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     if df.empty:
         if user.is_admin:                                     # (anyone signed in sees the Now charts)
             st.sidebar.info("No customers yet.")
-            return None, Prepared(True, "Add a customer on the Customers page for the DOB charts.", now_only=True, locked=True)
+            return None, Prepared(True, "Add a customer on the DOB page for the DOB charts.", now_only=True, locked=True)
         # a new member: no form to fill in, a Login row (once per visit), and the Now charts (birth details can be added in
         # My details, for the DOB ones)
         if not st.session_state.get("login_logged"):
@@ -312,7 +312,7 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
         st.sidebar.caption(GRANT.note)
     elif not prep.ok:                                         # birth details that cannot be worked out: the Now charts still
         st.sidebar.error(prep.message)
-        prep = Prepared(True, prep.message + (" Fix it on the Customers page." if user.is_admin else " Fix it in My details."),
+        prep = Prepared(True, prep.message + (" Fix it on the DOB page." if user.is_admin else " Fix it in My details."),
                         now_only=True, locked=True)
     else:
         hr, mn = row.get("hr"), row.get("mn")
@@ -1012,7 +1012,7 @@ def _distance_cached(dist_on, jd_from, jd_to):
 
 
 
-# Customers, Symbols and Aspect Rules: Insert, Update, Delete and Commit on the title line, as in a database. Editable tables
+# DOB (the customers), Symbols and Aspect Rules: Insert, Update, Delete and Commit on the title line, as in a database. Editable tables
 # sort by their column headers only while they cannot add or delete rows themselves, so these buttons do that. Insert, Update
 # and Delete change only the working copy shown (Delete takes the rows ticked in the first column; Update checks what has
 # been typed); nothing reaches the database until Commit, which also takes what has been typed since.
@@ -1322,9 +1322,9 @@ pages = [st.Page(page_astroclock, title="AstroClock-2D", icon=":material/science
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
-if user.is_admin:                                             # the Aspect Rules, Customers, Symbols, Defaults, Logins pages: admins only
+if user.is_admin:                                             # the Aspect Rules, DOB, Symbols, Defaults, Logins pages: admins only
     pages += [st.Page(page_aspects, title="Aspect Rules", icon=":material/tune:", url_path="aspect-rules"),
-              st.Page(page_customers, title="Customers", icon=":material/group:", url_path="customers"),
+              st.Page(page_customers, title="DOB", icon=":material/group:", url_path="dob"),
               st.Page(page_defaults, title="Defaults", icon=":material/settings:", url_path="defaults"),
               st.Page(page_logins, title="Logins", icon=":material/history:", url_path="logins"),
               st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols")]
