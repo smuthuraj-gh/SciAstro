@@ -1454,14 +1454,6 @@ def page_my_details():
     if int(row["id"]) == access.QUICK:
         st.info(("New User is" if user.is_admin else "This search is") + " not saved. Pick a saved person in the sidebar to see or change their details.")
         return
-    def shown(v) -> str:                                      # a blank stays blank, and a whole number has no .0
-        if pd.isna(v):
-            return ""
-        return str(int(v)) if isinstance(v, float) and v.is_integer() else str(v)
-
-    st.dataframe(pd.DataFrame({"Field": [db.LABELS[f].split(" (")[0] for f in db.FIELDS if f not in ("email", "utc")],
-                               "Value": [shown(row[f]) for f in db.FIELDS if f not in ("email", "utc")]}),
-                 hide_index=True, width="content")
     if prep and prep.ok and not prep.now_only:               # (Now charts only: their birth is not worked out)
         st.write(f"Born on a {prep.weekday}; UTC offset {prep.utc:+.2f} ({prep.tz}); birth place "
                  f"{prep.birth_lat}, {prep.birth_lon}.")
