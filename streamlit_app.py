@@ -250,7 +250,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "DOB details": "Your own birth details, used for the DOB charts (without them, the Now charts only). Edit my details to change them; your login "
+    "DOB details": "Your own birth details, used for the DOB charts (without them, the Now charts only). Edit DOB Details to change them; your login "
                   "email stays the same.",
 }
 
@@ -1467,7 +1467,7 @@ def page_my_details():
                  f"{prep.birth_lat}, {prep.birth_lon}.")
     if st.session_state.pop("details_saved", False):
         st.success("Your details are saved.")
-    with st.expander("Edit my details"):
+    with st.expander("Edit DOB Details"):
         details_form(row)
 
 
