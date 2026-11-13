@@ -1,10 +1,10 @@
-"""What a signed-in person may use, from their row of the Customers table (one per login email): Access, Start Date and
-End Date.
+"""What a signed-in person may use, from their row of the Customers table (one per login email): Access, Start Date, Days
+and End Date.
 
-Access: Now (the Now charts only); 1Day and 1Year (the DOB and Now charts of every DOB record under their login, and
-people they add themselves) for 1 day and for 1 year; Admin (an admin, as those in the admins secret). 1Day and 1Year are
-the paid options. End Date (UT): when they run out, 1 day or 1 year after Start Date (set by the app; the admin may set
-another). Signing up with birth details gives 1Day. Run out: the Now charts only. A login's
+Access: Now (the Now charts only); DOB and 1Year (the DOB and Now charts of every DOB record under their login, and people
+they add themselves) for Days days and for 1 year; Admin (an admin, as those in the admins secret). DOB and 1Year are the
+paid options. End Date (UT): when they run out, set by the app: Start Date + Days (DOB) or + 1 year (1Year); Start Date
+is as the admin sets it, else when Access or Days was saved. Signing up with birth details gives DOB for 1 day. Run out: the Now charts only. A login's
 DOB records share its email: its own (the first) and any number more (people added under it, or a family an admin set
 up).
 """
@@ -15,17 +15,17 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-ACCESS = ("Now", "1Day", "1Year", "Admin")
+ACCESS = ("Now", "DOB", "1Year", "Admin")
 # earlier names, read as the new ones (the database is changed to the new ones; see db._new_access_names)
 RENAMED = {"Free": "Now", "FreeInd": "Now", "FreeGrp": "Now",
-           "DOBG": "1Day", "DOB": "1Day", "Individual": "1Day", "Ind": "1Day", "Group": "1Day", "1wu": "1Day", "1mu": "1Day", "1yu": "1Day",
-           "DOBT": "1Day", "Trial-Ind": "1Day", "TrInd": "1Day", "TrDOB": "1Day", "Trial DOB": "1Day",
-           "DOBGT": "1Day", "Trial-Grp": "1Day", "TrGrp": "1Day", "TrGroup": "1Day", "Trial Group": "1Day"}
-# earlier 1-day trials: as 1Day, with End Date 1 day after Start Date (see db._new_access_names)
+           "1Day": "DOB", "DOBG": "DOB", "Individual": "DOB", "Ind": "DOB", "Group": "DOB", "1wu": "DOB", "1mu": "DOB", "1yu": "DOB",
+           "DOBT": "DOB", "Trial-Ind": "DOB", "TrInd": "DOB", "TrDOB": "DOB", "Trial DOB": "DOB",
+           "DOBGT": "DOB", "Trial-Grp": "DOB", "TrGrp": "DOB", "TrGroup": "DOB", "Trial Group": "DOB"}
+# earlier 1-day trials: as DOB, with End Date 1 day after Start Date (see db._new_access_names)
 TRIALS = ("DOBT", "Trial-Ind", "TrInd", "TrDOB", "Trial DOB", "DOBGT", "Trial-Grp", "TrGrp", "TrGroup", "Trial Group")
-SIGNUP_DAYS = 1                    # 1Day lasts this many days from Start Date (signing up gives it)
-LASTS = ("1Day", "1Year")          # the Access that run out: 1Day after 1 day, 1Year after 1 year (see period_end)
-PAID_NOTE = "DOB charts are a paid option (1Day or 1Year): ask the admin."
+SIGNUP_DAYS = 1                    # DOB with Days left blank lasts this many days (signing up gives it)
+LASTS = ("DOB", "1Year")           # the Access that run out: DOB after Days days, 1Year after 1 year (see period_end)
+PAID_NOTE = "DOB charts are a paid option (DOB or 1Year): ask the admin."
 QUICK = -1                         # the sidebar's Quick birth (not saved), in place of a record's id
 
 
@@ -57,29 +57,39 @@ def as_time(v) -> datetime | None:
     return None if pd.isna(t) else t.to_pydatetime().replace(tzinfo=None)
 
 
-def period_end(value: str, start: datetime) -> datetime:
-    """When a 1Day or 1Year from start runs out: 1 day on, or the same date and time a year on (29 February: the 28th)."""
+def period_end(value: str, start: datetime, days=None) -> datetime:
+    """When a DOB or 1Year from start runs out: days days on (blank: SIGNUP_DAYS), or the same date and time a year on
+    (29 February: the 28th)."""
     if value == "1Year":
         try:
             return start.replace(year=start.year + 1)
         except ValueError:
             return start.replace(year=start.year + 1, day=28)
-    return start + timedelta(days=SIGNUP_DAYS)
+    return start + timedelta(days=whole_days(days) or SIGNUP_DAYS)
+
+
+def whole_days(v) -> int | None:
+    """Days as a whole number of 1 or more; None when blank or not one."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return int(f) if f == f and f >= 1 and f.is_integer() else None
 
 
 def ends_at(value: str, since, until, now: datetime) -> datetime:
-    """When a 1Day or 1Year runs out: its End Date (until), else its period after its Start Date (since; blank: now)."""
+    """When a DOB or 1Year runs out: its End Date (until), else its period after its Start Date (since; blank: now)."""
     return as_time(until) or period_end(value, as_time(since) or now)
 
 
 def ended(value: str, since, until, now: datetime) -> bool:
-    """Whether a 1Day or 1Year with this Start Date and End Date has run out."""
+    """Whether a DOB or 1Year with this Start Date and End Date has run out."""
     return ends_at(value, since, until, now) <= now
 
 
 def grant(value, since: datetime | None, now: datetime, until=None) -> Grant:
     """What a person may use now (UT), by their Customers row's Access (value; blank or unknown: Now), Start Date (since)
-    and End Date (until: when 1Day or 1Year runs out; blank: 1 day or 1 year after Start Date)."""
+    and End Date (until: when DOB or 1Year runs out; blank: 1 day or 1 year after Start Date)."""
     try:
         a = canonical(value, ACCESS) or "Now"
     except ValueError:

@@ -56,16 +56,17 @@ customers = sa.Table(
 # EMAIL_INDEX: the old rule, one per email.
 EMAIL_INDEX = "ux_customers_email"
 sa.Index("ix_customers_email", customers.c.email)
-# The Customers table: a row per login email, with its Access (app/access.py), Start Date (UT; when Access was set) and
-# End Date (UT; when 1Day or 1Year runs out: 1 day or 1 year after Start Date, or as the admin sets); seen by admins only (the Customers page). Each login's DOB records (above) share
+# The Customers table: a row per login email, with its Access (app/access.py), Start Date (UT; as set, or when Access or
+# Days was saved), Days (how long DOB lasts) and End Date (UT; when DOB or 1Year runs out: Start Date + Days, or + 1 year); seen by admins only (the Customers page). Each login's DOB records (above) share
 # its email.
 accounts = sa.Table(
     "accounts", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
     sa.Column("email", sa.String(254), nullable=False),     # kept in lower case
-    sa.Column("access", sa.String(20)),                     # Now, 1Day, 1Year, Admin
+    sa.Column("access", sa.String(20)),                     # Now, DOB, 1Year, Admin
     sa.Column("start_date", sa.DateTime),
-    sa.Column("end_date", sa.DateTime),                     # when 1Day / 1Year runs out (1 day / 1 year after start_date, unless set)
+    sa.Column("end_date", sa.DateTime),                     # when DOB / 1Year runs out (start_date + days / + 1 year)
+    sa.Column("days", sa.Integer),                          # how many days DOB lasts (blank: as its End Date says)
 )
 sa.Index("ux_accounts_email", accounts.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
@@ -82,7 +83,7 @@ logins = sa.Table(
     sa.Column("location", sa.String(200)),                   # City, State, Country of the visitor's IP ("Local", or blank when unknown)
     sa.Column("device", sa.String(60)),                      # their browser and system (Chrome on Windows ..)
     sa.Column("timezone", sa.String(64)),                    # the time zone their browser is set to (Asia/Kolkata (UTC+5:30))
-    sa.Column("access", sa.String(20)),                      # their Access then (1Day .., "1Day ended"; blank: none, or no record)
+    sa.Column("access", sa.String(20)),                      # their Access then (DOB .., "DOB ended"; blank: none, or no record)
     sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete', 'Login')", name="ck_logins_activity"),
 )
 sa.Index("ix_logins_date_time", logins.c.date_time)
@@ -742,14 +743,16 @@ def _add_missing_columns(eng: sa.Engine):
 
 
 def _add_account_end_date(eng: sa.Engine):
-    """A Customers table made before End Date gets it."""
-    if "end_date" not in {col["name"] for col in sa.inspect(eng).get_columns("accounts")}:
-        with eng.begin() as c:
-            c.execute(sa.text(f"ALTER TABLE accounts ADD COLUMN end_date {sa.DateTime().compile(dialect=eng.dialect)}"))
+    """A Customers table made before End Date or Days gets them."""
+    have = {col["name"] for col in sa.inspect(eng).get_columns("accounts")}
+    with eng.begin() as c:
+        for name, kind in (("end_date", sa.DateTime()), ("days", sa.Integer())):
+            if name not in have:
+                c.execute(sa.text(f"ALTER TABLE accounts ADD COLUMN {name} {kind.compile(dialect=eng.dialect)}"))
 
 
 def _new_access_names(eng: sa.Engine):
-    """Access kept under an earlier name gets the new one (access.RENAMED: DOB, DOBT, DOBGT and the older names: 1Day;
+    """Access kept under an earlier name gets the new one (access.RENAMED: 1Day, DOBG, DOBT, DOBGT and the older names: DOB;
     Free ..: Now); Access_From stays. The Customers table's Access too, where a 1-day trial (access.TRIALS) gets End Date
     1 day after its Start Date (unless it has one)."""
     _drop_old_type_column(eng)
@@ -844,12 +847,12 @@ def _seed_accounts(eng: sa.Engine):
 
 
 def _one_day_from_today(eng: sa.Engine):
-    """Once (a note among the settings says it is done), when 1Day came to end after 1 day: each 1Day row with no End
-    Date (made when it had no time limit) gets 1 day from now."""
+    """Once (a note among the settings says it is done), when DOB (then 1Day) came to end after 1 day: each DOB row with no
+    End Date (made when it had no time limit) gets 1 day from now."""
     with eng.begin() as c:
         if c.execute(sa.select(settings.c.value).where(settings.c.key == "one_day_from_today")).scalar():
             return
-        c.execute(accounts.update().where(accounts.c.access == "1Day", accounts.c.end_date.is_(None))
+        c.execute(accounts.update().where(accounts.c.access == "DOB", accounts.c.end_date.is_(None))
                   .values(end_date=_now() + timedelta(days=access.SIGNUP_DAYS)))
         c.execute(settings.insert().values(key="one_day_from_today", value="1"))
 
@@ -905,10 +908,11 @@ def ensure_account(email: str) -> dict:
 
 
 def _set_access(c, email: str, value: str):
-    """This login's Customers row gets this Access, from now (1Day: for 1 day, 1Year: for 1 year; the row made if it has
+    """This login's Customers row gets this Access, from now (DOB: for 1 day, 1Year: for 1 year; the row made if it has
     none)."""
     now = _now()
-    data = dict(access=value, start_date=now, end_date=access.period_end(value, now) if value in access.LASTS else None)
+    data = dict(access=value, start_date=now, end_date=access.period_end(value, now) if value in access.LASTS else None,
+                days=access.SIGNUP_DAYS if value == "DOB" else None)
     if c.execute(sa.select(accounts.c.id).where(accounts.c.email == email.lower())).first():
         c.execute(accounts.update().where(accounts.c.email == email.lower()).values(**data))
     else:
@@ -916,7 +920,7 @@ def _set_access(c, email: str, value: str):
 
 
 def accounts_table() -> pd.DataFrame:
-    """The Customers table, by Email: id, email, access, start_date, end_date."""
+    """The Customers table, by Email: id, email, access, start_date, end_date, days."""
     with engine().connect() as c:
         return pd.read_sql(sa.select(accounts).order_by(accounts.c.email), c)
 
@@ -943,13 +947,19 @@ def account_problems(rows: pd.DataFrame) -> list[str]:
     wrong = sorted({str(v).strip() for v in rows.get("access", pd.Series(dtype=object)).dropna() if not_a_choice(v)})
     if wrong:
         out.append(f"Access must be one of {', '.join(access.ACCESS)} (not {', '.join(wrong)}).")
+    bad_days = sorted({str(v) for v in rows.get("days", pd.Series(dtype=object))
+                       if not (v is None or (isinstance(v, float) and pd.isna(v)) or (isinstance(v, str) and not v.strip()))
+                       and access.whole_days(v) is None})
+    if bad_days:
+        out.append(f"Days must be a whole number, 1 or more (not {', '.join(bad_days)}).")
     return out
 
 
 def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None = None) -> tuple[int, int, int]:
-    """Apply an edited copy of the Customers table: (added, changed, deleted). A blank Access is Now; Start Date as edited,
-    else now when Access changes (and for a new row); End Date as edited, for 1Day and 1Year 1 day or 1 year after Start
-    Date when left blank (or when Access becomes one of them and End Date is not changed too). The DOB records refer to it by Email: a changed Email is changed on
+    """Apply an edited copy of the Customers table: (added, changed, deleted). A blank Access is Now. End Date is worked
+    out from Start Date (it is not typed in): DOB, Days days on (blank: 1); 1Year, 1 year on; Now and Admin, none (nor
+    Days). Start Date as typed when changed (and for a new row; blank: now); when Access or Days changes and Start Date is
+    not changed too, now. The DOB records refer to it by Email: a changed Email is changed on
     them too, and a row whose Email DOB records still use cannot be deleted. Raises ValueError, saving nothing, on
     account_problems or such a delete."""
     problems = account_problems(edited)
@@ -973,28 +983,34 @@ def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None =
         for rec in edited.to_dict("records"):
             email = str(rec.get("email")).strip().lower()
             a = access.canonical(rec.get("access"), access.ACCESS) or "Now"
-            start = _stamp(rec.get("start_date"))
-            end = _stamp(rec.get("end_date"))
+            days = access.whole_days(rec.get("days")) if a == "DOB" else None
+
+            typed_start = _stamp(rec.get("start_date"))
+
+            def period(days, start):                          # from start: (start, end, days)
+                if a == "DOB":
+                    days = days or access.SIGNUP_DAYS
+                return start, access.period_end(a, start, days) if a in access.LASTS else None, days
+
             aid = rec.get("id")
             if aid is None or pd.isna(aid):
-                start = start or now
-                if a in access.LASTS and end is None:         # 1Day: 1 day, 1Year: 1 year
-                    end = access.period_end(a, start)
-                new.append(dict(email=email, access=a, start_date=start, end_date=end))
+                start, end, days = period(days, typed_start or now)
+                new.append(dict(email=email, access=a, start_date=start, end_date=end, days=days))
                 continue
             old = original[original["id"] == int(aid)]
             if old.empty:
                 continue
             was = old.iloc[0]
             was_access = access.canonical(was["access"], access.ACCESS) if isinstance(was["access"], str) else None
-            was_start = _stamp(was["start_date"])
-            was_end = _stamp(was.get("end_date"))
-            if email != str(was["email"]).lower() or a != was_access or start != was_start or end != was_end:
-                if a != was_access and start == was_start:    # a new Access counts from now, unless a Start Date was set too
-                    start = now
-                if a in access.LASTS and (end is None or (a != was_access and end == was_end)):   # 1Day: 1 day, 1Year: 1 year
-                    end = access.period_end(a, start or now)
-                updates.append((int(aid), dict(email=email, access=a, start_date=start, end_date=end)))
+            was_days = access.whole_days(was.get("days"))
+            was_start = _stamp(was.get("start_date"))
+            moved = "start_date" in rec and typed_start is not None and typed_start != was_start
+            if a != was_access or (a == "DOB" and days != was_days) or moved:
+                # a new Start Date: End Date from it; else a new Access or Days counts from now
+                start, end, days = period(days, typed_start if moved else now)
+                updates.append((int(aid), dict(email=email, access=a, start_date=start, end_date=end, days=days)))
+            elif email != str(was["email"]).lower():
+                updates.append((int(aid), dict(email=email)))
         old_email = {aid: str(original[original["id"] == aid].iloc[0]["email"]).strip().lower() for aid, _ in updates}
         for aid, data in updates:                             # (emails let go first, so that two can swap; the DOB records too)
             c.execute(accounts.update().where(accounts.c.id == aid).values(email=f"~{aid}"))
@@ -1228,7 +1244,7 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
 
 
 def add_own_customer(rec: dict, email: str) -> bool:
-    """A new member's own record, linked to their login email (the key: one record per email), with Access 1Day for
+    """A new member's own record, linked to their login email (the key: one record per email), with Access DOB for
     access.SIGNUP_DAYS (1 day) from now. Returns False, saving nothing, when that email already has one (they simply
     use it)."""
     data = {**_clean({**rec, "email": email}), "created_by": email.lower()}
@@ -1240,13 +1256,13 @@ def add_own_customer(rec: dict, email: str) -> bool:
             return False
         now = _now()
         c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now, accessed_at=now))
-        _set_access(c, email, "1Day")                     # 1Day: 1 day, from now
+        _set_access(c, email, "DOB")                      # DOB: 1 day, from now
         _log(c, email, "Create")
     return True
 
 
 def add_person(rec: dict, email: str) -> int:
-    """A person a member with 1Day or 1Year adds under their login: their email, added by them, no
+    """A person a member with DOB or 1Year adds under their login: their email, added by them, no
     Access of its own. Returns the new record's id. Raises ValueError, saving nothing, when a field is missing."""
     data = {**_clean({**rec, "email": email}), "created_by": email.lower()}
     problems = missing_required(pd.DataFrame([data]))
