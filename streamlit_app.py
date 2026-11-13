@@ -239,10 +239,9 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                        "Sesquiquadrate, Bi-quintile, Quincunx. Changes here "
                        "apply to every chart.",
     "Customers": "One row per login: its Email, its Access, Start Date (UT; when Access was set) and End Date (UT; when "
-                 "1Day runs out, blank: no time limit). Now: the Now charts only. 1Day, the paid option: the DOB and Now "
+                 "1Day runs out: 1 day after Start Date, set by the app; set a later one to keep it longer). Now: the Now charts only. 1Day, the paid option, for 1 day: the DOB and Now "
                  "charts of every DOB record under their login, and people they add, or search for without saving, on DOB "
-                 "details. Signing up with birth details gives 1Day access for 1 day (End Date 1 day on): clear End Date, or set a "
-                 "later one, to keep it. Admin: an admin. After End Date: the Now charts only. A row is made, with Now, when someone signs in for the first "
+                 "details. Signing up with birth details gives 1Day access for 1 day (End Date 1 day on). Admin: an admin. After End Date: the Now charts only. A row is made, with Now, when someone signs in for the first "
                  "time, or when a DOB record is saved with an Email new here. The DOB records refer to this table by "
                  "Email: changing an Email here changes it on them too, and a row whose Email DOB records still use cannot "
                  "be deleted. Start Date moves to now when Access changes, unless it is changed too. Insert, Update, Delete, "
@@ -1319,8 +1318,7 @@ def page_accounts():
                                                                                  "day paid, say)."),
                               "End Date": st.column_config.DatetimeColumn("End Date", format="YYYY-MM-DD HH:mm", width=150,
                                                                           help="When 1Day runs out (UT): after it, the Now "
-                                                                               "charts only. Blank: no time limit. Signing up "
-                                                                               "sets it 1 day on.")})
+                                                                               "charts only. Set by the app 1 day after Start Date (also when left blank); a later one keeps it longer.")})
 
 
 def birth_date(y, m, d) -> date | None:

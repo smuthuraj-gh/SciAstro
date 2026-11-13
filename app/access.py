@@ -2,15 +2,16 @@
 End Date.
 
 Access: Now (the Now charts only); 1Day (the DOB and Now charts of every DOB record under their login, and people they
-add themselves); Admin (an admin, as those in the admins secret). 1Day is the paid option. End Date (UT): when 1Day runs
-out (blank: no time limit); signing up with birth details gives 1Day for 1 day. Run out: the Now charts only. A login's
+add themselves) for 1 day; Admin (an admin, as those in the admins secret). 1Day is the paid option. End Date (UT): when
+1Day runs out, 1 day after Start Date (set by the app; the admin may set a later one). Signing up with birth details
+gives 1Day. Run out: the Now charts only. A login's
 DOB records share its email: its own (the first) and any number more (people added under it, or a family an admin set
 up).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 
@@ -22,7 +23,7 @@ RENAMED = {"Free": "Now", "FreeInd": "Now", "FreeGrp": "Now",
            "DOBGT": "1Day", "Trial-Grp": "1Day", "TrGrp": "1Day", "TrGroup": "1Day", "Trial Group": "1Day"}
 # earlier 1-day trials: as 1Day, with End Date 1 day after Start Date (see db._new_access_names)
 TRIALS = ("DOBT", "Trial-Ind", "TrInd", "TrDOB", "Trial DOB", "DOBGT", "Trial-Grp", "TrGrp", "TrGroup", "Trial Group")
-SIGNUP_DAYS = 1                    # signing up with birth details: 1Day for this many days
+SIGNUP_DAYS = 1                    # 1Day lasts this many days from Start Date (signing up gives it)
 PAID_NOTE = "DOB charts are a paid option (1Day): ask the admin."
 QUICK = -1                         # the sidebar's Quick birth (not saved), in place of a record's id
 
@@ -55,15 +56,19 @@ def as_time(v) -> datetime | None:
     return None if pd.isna(t) else t.to_pydatetime().replace(tzinfo=None)
 
 
-def ended(value, until, now: datetime) -> bool:
-    """Whether a 1Day with this End Date (until; blank: no time limit) has run out."""
-    end = as_time(until)
-    return end is not None and end <= now
+def ends_at(since, until, now: datetime) -> datetime:
+    """When a 1Day runs out: its End Date (until), else 1 day after its Start Date (since; blank: now)."""
+    return as_time(until) or (as_time(since) or now) + timedelta(days=SIGNUP_DAYS)
+
+
+def ended(since, until, now: datetime) -> bool:
+    """Whether a 1Day with this Start Date and End Date has run out."""
+    return ends_at(since, until, now) <= now
 
 
 def grant(value, since: datetime | None, now: datetime, until=None) -> Grant:
-    """What a person may use now (UT), by their Customers row's Access (value; blank or unknown: Now) and End Date
-    (until: when 1Day runs out; blank: no time limit)."""
+    """What a person may use now (UT), by their Customers row's Access (value; blank or unknown: Now), Start Date (since)
+    and End Date (until: when 1Day runs out; blank: 1 day after Start Date)."""
     try:
         a = canonical(value, ACCESS) or "Now"
     except ValueError:
@@ -71,9 +76,7 @@ def grant(value, since: datetime | None, now: datetime, until=None) -> Grant:
     if a == "Admin":
         return Grant(admin=True, dob=True, many=True)
     if a == "1Day":
-        end = as_time(until)
-        if end is None:                                       # no time limit
-            return Grant(admin=False, dob=True, many=True)
+        end = ends_at(since, until, now)
         if end > now:
             return Grant(admin=False, dob=True, many=True, note=f"1Day until {end:%Y-%m-%d %H:%M} UT.")
         return Grant(admin=False, dob=False, note=f"Your 1Day ended on {end:%Y-%m-%d}. " + PAID_NOTE)
