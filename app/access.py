@@ -1,9 +1,9 @@
 """What a signed-in person may use, from their row of the Customers table (one per login email): Access, Start Date and
 End Date.
 
-Access: Now (the Now charts only); DOBG (the DOB and Now charts of every DOB record under their login, and people they
-add themselves); Admin (an admin, as those in the admins secret). DOBG is the paid option. End Date (UT): when DOBG runs
-out (blank: no time limit); signing up with birth details gives DOBG for 1 day. Run out: the Now charts only. A login's
+Access: Now (the Now charts only); 1Day (the DOB and Now charts of every DOB record under their login, and people they
+add themselves); Admin (an admin, as those in the admins secret). 1Day is the paid option. End Date (UT): when 1Day runs
+out (blank: no time limit); signing up with birth details gives 1Day for 1 day. Run out: the Now charts only. A login's
 DOB records share its email: its own (the first) and any number more (people added under it, or a family an admin set
 up).
 """
@@ -14,16 +14,16 @@ from datetime import datetime
 
 import pandas as pd
 
-ACCESS = ("Now", "DOBG", "Admin")
+ACCESS = ("Now", "1Day", "Admin")
 # earlier names, read as the new ones (the database is changed to the new ones; see db._new_access_names)
 RENAMED = {"Free": "Now", "FreeInd": "Now", "FreeGrp": "Now",
-           "DOB": "DOBG", "Individual": "DOBG", "Ind": "DOBG", "Group": "DOBG", "1wu": "DOBG", "1mu": "DOBG", "1yu": "DOBG",
-           "DOBT": "DOBG", "Trial-Ind": "DOBG", "TrInd": "DOBG", "TrDOB": "DOBG", "Trial DOB": "DOBG",
-           "DOBGT": "DOBG", "Trial-Grp": "DOBG", "TrGrp": "DOBG", "TrGroup": "DOBG", "Trial Group": "DOBG"}
-# earlier 1-day trials: as DOBG, with End Date 1 day after Start Date (see db._new_access_names)
+           "DOBG": "1Day", "DOB": "1Day", "Individual": "1Day", "Ind": "1Day", "Group": "1Day", "1wu": "1Day", "1mu": "1Day", "1yu": "1Day",
+           "DOBT": "1Day", "Trial-Ind": "1Day", "TrInd": "1Day", "TrDOB": "1Day", "Trial DOB": "1Day",
+           "DOBGT": "1Day", "Trial-Grp": "1Day", "TrGrp": "1Day", "TrGroup": "1Day", "Trial Group": "1Day"}
+# earlier 1-day trials: as 1Day, with End Date 1 day after Start Date (see db._new_access_names)
 TRIALS = ("DOBT", "Trial-Ind", "TrInd", "TrDOB", "Trial DOB", "DOBGT", "Trial-Grp", "TrGrp", "TrGroup", "Trial Group")
-SIGNUP_DAYS = 1                    # signing up with birth details: DOBG for this many days
-PAID_NOTE = "DOB charts are a paid option (DOBG): ask the admin."
+SIGNUP_DAYS = 1                    # signing up with birth details: 1Day for this many days
+PAID_NOTE = "DOB charts are a paid option (1Day): ask the admin."
 QUICK = -1                         # the sidebar's Quick birth (not saved), in place of a record's id
 
 
@@ -56,27 +56,27 @@ def as_time(v) -> datetime | None:
 
 
 def ended(value, until, now: datetime) -> bool:
-    """Whether a DOBG with this End Date (until; blank: no time limit) has run out."""
+    """Whether a 1Day with this End Date (until; blank: no time limit) has run out."""
     end = as_time(until)
     return end is not None and end <= now
 
 
 def grant(value, since: datetime | None, now: datetime, until=None) -> Grant:
     """What a person may use now (UT), by their Customers row's Access (value; blank or unknown: Now) and End Date
-    (until: when DOBG runs out; blank: no time limit)."""
+    (until: when 1Day runs out; blank: no time limit)."""
     try:
         a = canonical(value, ACCESS) or "Now"
     except ValueError:
         a = "Now"
     if a == "Admin":
         return Grant(admin=True, dob=True, many=True)
-    if a == "DOBG":
+    if a == "1Day":
         end = as_time(until)
         if end is None:                                       # no time limit
             return Grant(admin=False, dob=True, many=True)
         if end > now:
-            return Grant(admin=False, dob=True, many=True, note=f"DOBG until {end:%Y-%m-%d %H:%M} UT.")
-        return Grant(admin=False, dob=False, note=f"Your DOBG ended on {end:%Y-%m-%d}. " + PAID_NOTE)
+            return Grant(admin=False, dob=True, many=True, note=f"1Day until {end:%Y-%m-%d %H:%M} UT.")
+        return Grant(admin=False, dob=False, note=f"Your 1Day ended on {end:%Y-%m-%d}. " + PAID_NOTE)
     return Grant(admin=False, dob=False, note="Now charts only. " + PAID_NOTE)
 
 

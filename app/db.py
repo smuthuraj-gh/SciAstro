@@ -57,15 +57,15 @@ customers = sa.Table(
 EMAIL_INDEX = "ux_customers_email"
 sa.Index("ix_customers_email", customers.c.email)
 # The Customers table: a row per login email, with its Access (app/access.py), Start Date (UT; when Access was set) and
-# End Date (UT; when DOBG runs out, blank: no time limit); seen by admins only (the Customers page). Each login's DOB records (above) share
+# End Date (UT; when 1Day runs out, blank: no time limit); seen by admins only (the Customers page). Each login's DOB records (above) share
 # its email.
 accounts = sa.Table(
     "accounts", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
     sa.Column("email", sa.String(254), nullable=False),     # kept in lower case
-    sa.Column("access", sa.String(20)),                     # Now, DOBG, Admin
+    sa.Column("access", sa.String(20)),                     # Now, 1Day, Admin
     sa.Column("start_date", sa.DateTime),
-    sa.Column("end_date", sa.DateTime),                     # when DOBG runs out (blank: no time limit)
+    sa.Column("end_date", sa.DateTime),                     # when 1Day runs out (blank: no time limit)
 )
 sa.Index("ux_accounts_email", accounts.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
@@ -82,7 +82,7 @@ logins = sa.Table(
     sa.Column("location", sa.String(200)),                   # City, State, Country of the visitor's IP ("Local", or blank when unknown)
     sa.Column("device", sa.String(60)),                      # their browser and system (Chrome on Windows ..)
     sa.Column("timezone", sa.String(64)),                    # the time zone their browser is set to (Asia/Kolkata (UTC+5:30))
-    sa.Column("access", sa.String(20)),                      # their Access then (DOBG .., "DOBG ended"; blank: none, or no record)
+    sa.Column("access", sa.String(20)),                      # their Access then (1Day .., "1Day ended"; blank: none, or no record)
     sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete', 'Login')", name="ck_logins_activity"),
 )
 sa.Index("ix_logins_date_time", logins.c.date_time)
@@ -748,7 +748,7 @@ def _add_account_end_date(eng: sa.Engine):
 
 
 def _new_access_names(eng: sa.Engine):
-    """Access kept under an earlier name gets the new one (access.RENAMED: DOB, DOBT, DOBGT and the older names: DOBG;
+    """Access kept under an earlier name gets the new one (access.RENAMED: DOB, DOBT, DOBGT and the older names: 1Day;
     Free ..: Now); Access_From stays. The Customers table's Access too, where a 1-day trial (access.TRIALS) gets End Date
     1 day after its Start Date (unless it has one)."""
     _drop_old_type_column(eng)
@@ -1102,7 +1102,7 @@ def _access_now(c, email: str, now) -> str | None:
         a = access.canonical(r["access"], access.ACCESS) or "Now"
     except ValueError:
         return None
-    if a == "DOBG" and access.ended(a, r["end_date"], now):
+    if a == "1Day" and access.ended(a, r["end_date"], now):
         return f"{a} ended"
     return a
 
@@ -1210,7 +1210,7 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
 
 
 def add_own_customer(rec: dict, email: str) -> bool:
-    """A new member's own record, linked to their login email (the key: one record per email), with Access DOBG for
+    """A new member's own record, linked to their login email (the key: one record per email), with Access 1Day for
     access.SIGNUP_DAYS (1 day) from now. Returns False, saving nothing, when that email already has one (they simply
     use it)."""
     data = {**_clean({**rec, "email": email}), "created_by": email.lower()}
@@ -1222,13 +1222,13 @@ def add_own_customer(rec: dict, email: str) -> bool:
             return False
         now = _now()
         c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now, accessed_at=now))
-        _set_access(c, email, "DOBG", days=access.SIGNUP_DAYS)   # DOBG for 1 day, from now
+        _set_access(c, email, "1Day", days=access.SIGNUP_DAYS)   # 1Day for 1 day, from now
         _log(c, email, "Create")
     return True
 
 
 def add_person(rec: dict, email: str) -> int:
-    """A person a member with DOBG adds under their login: their email, added by them, no
+    """A person a member with 1Day adds under their login: their email, added by them, no
     Access of its own. Returns the new record's id. Raises ValueError, saving nothing, when a field is missing."""
     data = {**_clean({**rec, "email": email}), "created_by": email.lower()}
     problems = missing_required(pd.DataFrame([data]))
