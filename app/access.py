@@ -1,10 +1,10 @@
 """What a signed-in person may use, from their row of the Customers table (one per login email): Access, Start Date and
 End Date.
 
-Access: Now (the Now charts only); 1Day (the DOB and Now charts of every DOB record under their login, and people they
-add themselves) for 1 day; Admin (an admin, as those in the admins secret). 1Day is the paid option. End Date (UT): when
-1Day runs out, 1 day after Start Date (set by the app; the admin may set a later one). Signing up with birth details
-gives 1Day. Run out: the Now charts only. A login's
+Access: Now (the Now charts only); 1Day and 1Year (the DOB and Now charts of every DOB record under their login, and
+people they add themselves) for 1 day and for 1 year; Admin (an admin, as those in the admins secret). 1Day and 1Year are
+the paid options. End Date (UT): when they run out, 1 day or 1 year after Start Date (set by the app; the admin may set
+another). Signing up with birth details gives 1Day. Run out: the Now charts only. A login's
 DOB records share its email: its own (the first) and any number more (people added under it, or a family an admin set
 up).
 """
@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-ACCESS = ("Now", "1Day", "Admin")
+ACCESS = ("Now", "1Day", "1Year", "Admin")
 # earlier names, read as the new ones (the database is changed to the new ones; see db._new_access_names)
 RENAMED = {"Free": "Now", "FreeInd": "Now", "FreeGrp": "Now",
            "DOBG": "1Day", "DOB": "1Day", "Individual": "1Day", "Ind": "1Day", "Group": "1Day", "1wu": "1Day", "1mu": "1Day", "1yu": "1Day",
@@ -24,7 +24,8 @@ RENAMED = {"Free": "Now", "FreeInd": "Now", "FreeGrp": "Now",
 # earlier 1-day trials: as 1Day, with End Date 1 day after Start Date (see db._new_access_names)
 TRIALS = ("DOBT", "Trial-Ind", "TrInd", "TrDOB", "Trial DOB", "DOBGT", "Trial-Grp", "TrGrp", "TrGroup", "Trial Group")
 SIGNUP_DAYS = 1                    # 1Day lasts this many days from Start Date (signing up gives it)
-PAID_NOTE = "DOB charts are a paid option (1Day): ask the admin."
+LASTS = ("1Day", "1Year")          # the Access that run out: 1Day after 1 day, 1Year after 1 year (see period_end)
+PAID_NOTE = "DOB charts are a paid option (1Day or 1Year): ask the admin."
 QUICK = -1                         # the sidebar's Quick birth (not saved), in place of a record's id
 
 
@@ -56,30 +57,40 @@ def as_time(v) -> datetime | None:
     return None if pd.isna(t) else t.to_pydatetime().replace(tzinfo=None)
 
 
-def ends_at(since, until, now: datetime) -> datetime:
-    """When a 1Day runs out: its End Date (until), else 1 day after its Start Date (since; blank: now)."""
-    return as_time(until) or (as_time(since) or now) + timedelta(days=SIGNUP_DAYS)
+def period_end(value: str, start: datetime) -> datetime:
+    """When a 1Day or 1Year from start runs out: 1 day on, or the same date and time a year on (29 February: the 28th)."""
+    if value == "1Year":
+        try:
+            return start.replace(year=start.year + 1)
+        except ValueError:
+            return start.replace(year=start.year + 1, day=28)
+    return start + timedelta(days=SIGNUP_DAYS)
 
 
-def ended(since, until, now: datetime) -> bool:
-    """Whether a 1Day with this Start Date and End Date has run out."""
-    return ends_at(since, until, now) <= now
+def ends_at(value: str, since, until, now: datetime) -> datetime:
+    """When a 1Day or 1Year runs out: its End Date (until), else its period after its Start Date (since; blank: now)."""
+    return as_time(until) or period_end(value, as_time(since) or now)
+
+
+def ended(value: str, since, until, now: datetime) -> bool:
+    """Whether a 1Day or 1Year with this Start Date and End Date has run out."""
+    return ends_at(value, since, until, now) <= now
 
 
 def grant(value, since: datetime | None, now: datetime, until=None) -> Grant:
     """What a person may use now (UT), by their Customers row's Access (value; blank or unknown: Now), Start Date (since)
-    and End Date (until: when 1Day runs out; blank: 1 day after Start Date)."""
+    and End Date (until: when 1Day or 1Year runs out; blank: 1 day or 1 year after Start Date)."""
     try:
         a = canonical(value, ACCESS) or "Now"
     except ValueError:
         a = "Now"
     if a == "Admin":
         return Grant(admin=True, dob=True, many=True)
-    if a == "1Day":
-        end = ends_at(since, until, now)
+    if a in LASTS:
+        end = ends_at(a, since, until, now)
         if end > now:
-            return Grant(admin=False, dob=True, many=True, note=f"1Day until {end:%Y-%m-%d %H:%M} UT.")
-        return Grant(admin=False, dob=False, note=f"Your 1Day ended on {end:%Y-%m-%d}. " + PAID_NOTE)
+            return Grant(admin=False, dob=True, many=True, note=f"{a} until {end:%Y-%m-%d %H:%M} UT.")
+        return Grant(admin=False, dob=False, note=f"Your {a} ended on {end:%Y-%m-%d}. " + PAID_NOTE)
     return Grant(admin=False, dob=False, note="Now charts only. " + PAID_NOTE)
 
 
