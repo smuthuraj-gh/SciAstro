@@ -324,6 +324,11 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     prev = st.session_state.get("customer_id")
     idx = ids.index(prev) if prev in ids else ids.index(OWN_ID) if OWN_ID in ids else 0   # (a member: their own, to start)
     cid = st.sidebar.selectbox("Customer", ids, index=idx, format_func=label.get, key="customer_id")
+    last, st.session_state["_last_customer"] = st.session_state.get("_last_customer"), cid
+    if cid == access.QUICK and last != access.QUICK and not user.is_admin and nav.url_path != "me":
+        st.session_state["_select_customer"] = access.QUICK  # New User just picked: DOB details, its Add a person form open,
+        st.session_state["_back_to"] = nav.url_path           # and Search Only / Save and Search come back here
+        st.switch_page(PAGE_BY_PATH["me"])
     if cid == access.QUICK:
         base = df[df["id"] == OWN_ID] if (df["id"] == OWN_ID).any() else df
         row, prep = quick_birth(base.iloc[0])
@@ -377,6 +382,7 @@ def quick_birth(base: pd.Series) -> tuple[pd.Series, Prepared]:
     if st.session_state.pop("_quick_clear", False):           # (just saved: the boxes empty again)
         for k in ("quick_date", "quick_time", "quick_city", "quick_state", "quick_country", "quick_first", "quick_last"):
             st.session_state.pop(k, None)
+    st.session_state.update(st.session_state.pop("_quick_fill", {}))   # (DOB details' Search Only: its birth, typed in)
     box = st.sidebar.container(border=True)
     born = box.date_input("Birth date", value=None, min_value=datetime(1800, 1, 1).date(), max_value=datetime(2399, 12, 31).date(),
                           format="YYYY-MM-DD", key="quick_date")
@@ -514,9 +520,14 @@ def details_form(row: pd.Series | None, person: bool = False):
             st.markdown("**Access** (a free 1-day trial; after it, the admin can keep it for you)")
             plan = st.radio("Access", ["Individual", "Group"], horizontal=True, label_visibility="collapsed", key="signup_plan",
                             captions=["Your own DOB and Now charts", "Your DOB and Now charts, people you add, and New User births"])
-        sent = st.form_submit_button("Save person" if person else "Save my details" if row is None else "Save changes",
-                                     type="primary")
-    if not sent:
+        search = False
+        if person:                                            # Search Only: its DOB charts as New User, not saved;
+            c1, c2, _ = st.columns([1, 1, 4])                 # Save and Search: saved, then its DOB charts
+            search = c1.form_submit_button("Search Only")
+            sent = c2.form_submit_button("Save and Search", type="primary")
+        else:
+            sent = st.form_submit_button("Save my details" if row is None else "Save changes", type="primary")
+    if not (sent or search):
         return
     try:
         at = birth_time(at_txt)
@@ -526,13 +537,14 @@ def details_form(row: pd.Series | None, person: bool = False):
     missing = [n for n, v in (("First Name", first), ("Last Name", last), ("Birth date", born), ("Birth time", at),
                               ("City", city), ("State/Region", state), ("Country", country),
                               ("City (now)", city_n), ("State/Region (now)", state_n), ("Country (now)", country_n))
-               if not (v.strip() if isinstance(v, str) else v)]
+               if not (v.strip() if isinstance(v, str) else v)
+               and not (search and n in ("First Name", "Last Name", "City (now)", "State/Region (now)", "Country (now)"))]
     if missing:
         st.error("Please fill in: " + ", ".join(missing) + ".")
         return
     try:
         born_at = locate_cached(city.strip(), state.strip(), country.strip())
-        lives_at = locate_cached(city_n.strip(), state_n.strip(), country_n.strip())
+        lives_at = True if search else locate_cached(city_n.strip(), state_n.strip(), country_n.strip())
     except places.LookupDown:
         st.error(PLACE_SEARCH_DOWN)
         return
@@ -549,9 +561,16 @@ def details_form(row: pd.Series | None, person: bool = False):
            "year": born.year, "mon": born.month, "day": born.day,
            "hr": at.hour if at else None, "mn": at.minute if at else None,     # blank time: none kept (12:00 used)
            "country_n": country_n, "state_n": state_n, "city_n": city_n}
-    if person:
-        st.session_state["_select_customer"] = db.add_person(rec, user.email)   # shown in the sidebar at once
-        st.session_state["person_added"] = f"{first} {last} is added: chosen in the sidebar."
+    if search:                                                # Search Only: New User with this birth, on the chart page
+        st.session_state["_quick_fill"] = {"quick_date": born, "quick_time": f"{at:%H:%M}", "quick_city": city.strip(),
+                                           "quick_state": state.strip(), "quick_country": country.strip(),
+                                           "quick_first": first.strip(), "quick_last": last.strip()}
+        st.session_state["_select_customer"] = st.session_state["_last_customer"] = access.QUICK
+        st.switch_page(PAGE_BY_PATH[back_page()])
+    if person:                                                # Save and Search: saved, chosen, on the chart page
+        st.session_state["_select_customer"] = st.session_state["_last_customer"] = db.add_person(rec, user.email)
+        st.session_state["_quick_saved"] = f"{first.strip()} {last.strip()} is saved under your login."
+        st.switch_page(PAGE_BY_PATH[back_page()])
     elif row is None:
         db.add_own_customer(rec, user.email, group=plan == "Group")   # an email that already has a record keeps it (nothing is changed)
         back = st.session_state.pop("_back_to", None)
@@ -566,6 +585,12 @@ def details_form(row: pd.Series | None, person: bool = False):
         db.update_own_customer(rec, user.email, int(row["id"]))
         st.session_state["details_saved"] = True
     st.rerun()
+
+
+def back_page() -> str:
+    """The chart page DOB details was opened from (else AstroClock-2D)."""
+    back = st.session_state.pop("_back_to", None)
+    return back if back in PAGE_BY_PATH and back != "me" else "astroclock-2d"
 
 
 def need_chart(prep: Prepared | None) -> bool:
@@ -1419,7 +1444,9 @@ def page_my_details():
     if GRANT.many and not user.is_admin:
         with st.expander("Add a person", expanded=int(row["id"]) == access.QUICK):
             st.caption(("Saved under your login, to see their DOB charts while your unlimited access runs; " if GRANT.dob else
-                        "Saved under your login, to see their Now charts; ") + "their place now starts as yours.")
+                        "Saved under your login, to see their Now charts; ") + "their place now starts as yours. Search Only shows "
+                       "their DOB charts as New User, not saved (no name or place now needed); Save and Search saves them, "
+                       "then shows their charts.")
             own = visible_customers()
             own = own[own["id"] == OWN_ID]
             details_form(pd.Series({f: own.iloc[0][f] for f in ("country_n", "state_n", "city_n", "other_n")}) if len(own) else None,
