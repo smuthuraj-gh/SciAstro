@@ -1,7 +1,7 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
 Pages: AstroClock-2D, AstroClock-3D, Geo/Helio Model, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only);
-Aspect Rules, Customers (each login's Access), DOB (the birth details), Symbols, Defaults and Logins for admins; My details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
+Aspect Rules, Customers (each login's Access), DOB (the birth details), Symbols, Defaults and Logins for admins; DOB details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
 
@@ -215,7 +215,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
               "UT). View: opened a customer's charts (once per customer per visit). Create, Update, Delete: added, changed or "
-              "deleted a customer (on DOB, by import, or their own My details), a row per customer. Login: signed in with "
+              "deleted a customer (on DOB, by import, or their own DOB details), a row per customer. Login: signed in with "
               "no birth details yet, seeing the Now charts only (once per visit). Location, Device, Time zone: where they were, their "
               "browser and system, and their browser's time zone. Access: theirs then. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
@@ -236,7 +236,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                        "apply to every chart.",
     "Customers": "One row per login: its Email, its Access and Start Date (UT; when Access was set). Now: the Now charts "
                  "only. DOB: the DOB and Now charts of their own DOB record, no time limit. DOBG: unlimited, no time "
-                 "limit: the DOB and Now charts of every DOB record under their login, people they add on My details, and "
+                 "limit: the DOB and Now charts of every DOB record under their login, people they add on DOB details, and "
                  "quick births not saved. DOB and DOBG are the paid options. DOBT, DOBGT: free 1-day trials "
                  "of DOB and DOBG from Start Date (given on signing up with birth details: Individual or Group, as they pick). Admin: an "
                  "admin. A trial run out: the Now charts only. A row is made, with Now, when someone signs in for the first "
@@ -250,7 +250,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "My details": "Your own birth details, used for the DOB charts (without them, the Now charts only). Edit my details to change them; your login "
+    "DOB details": "Your own birth details, used for the DOB charts (without them, the Now charts only). Edit my details to change them; your login "
                   "email stays the same.",
 }
 
@@ -305,7 +305,7 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
             st.sidebar.info("No customers yet.")
             return None, Prepared(True, "Add a customer on the DOB page for the DOB charts.", now_only=True, locked=True)
         # a new member: no form to fill in, a Login row (once per visit), and the Now charts (birth details can be added in
-        # My details, for the DOB ones)
+        # DOB details, for the DOB ones)
         if not st.session_state.get("login_logged"):
             db.log_login(user.email)
             st.session_state["login_logged"] = True
@@ -340,7 +340,7 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
         st.sidebar.caption(GRANT.note)
     elif not prep.ok:                                         # birth details that cannot be worked out: the Now charts still
         st.sidebar.error(prep.message)
-        prep = Prepared(True, prep.message + (" Fix it on the DOB page." if user.is_admin else " Fix it in My details."),
+        prep = Prepared(True, prep.message + (" Fix it on the DOB page." if user.is_admin else " Fix it in DOB details."),
                         now_only=True, locked=True)
     else:
         hr, mn = row.get("hr"), row.get("mn")
@@ -440,7 +440,7 @@ def orbs() -> core.Orbs:
 
 def dob_asked(picked: bool, *keys_reset) -> None:
     """A member with no birth details picked DOB: their Time is set back (keys_reset: (key, value) pairs, set before the
-    buttons are drawn) and the form opens on My details; once saved, they come back to this page. One whose Access does
+    buttons are drawn) and the form opens on DOB details; once saved, they come back to this page. One whose Access does
     not open the DOB charts is told so instead."""
     if not picked:
         return
@@ -1462,7 +1462,7 @@ if user.is_admin:                                             # the Aspect Rules
               st.Page(page_logins, title="Logins", icon=":material/history:", url_path="logins"),
               st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols")]
 else:
-    pages.append(st.Page(page_my_details, title="My details", icon=":material/person:", url_path="me"))
+    pages.append(st.Page(page_my_details, title="DOB details", icon=":material/person:", url_path="me"))
 home = st.Page(lambda: None, title="Home", url_path="home", default=True, visibility="hidden")   # the root URL: sends to AstroClock-2D
 nav = st.navigation([home] + pages)
 PAGE_BY_PATH = {p.url_path: p for p in pages}                 # (to go to a page from another)
