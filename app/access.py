@@ -1,28 +1,29 @@
-"""What a signed-in person may use, from their row of the Customers table (one per login email): Access and Start Date.
+"""What a signed-in person may use, from their row of the Customers table (one per login email): Access, Start Date and
+End Date.
 
-Access: Now (the Now charts only); DOB (the DOB and Now charts of their own DOB record, no time limit); DOBG (unlimited:
-the DOB and Now charts of every DOB record under their login, people they add themselves and quick births not saved, no
-time limit); DOBT and DOBGT (free trials of DOB and DOBG for 1 day from Start Date: given on signing up with birth
-details, as they pick, or by the admin); Admin (an admin, as those in the admins secret). DOB and DOBG are the paid
-options. A trial run out: the Now charts only. A login's DOB records share its email: its own (the first) and any
-number more (people added under it, or a family an admin set up).
+Access: Now (the Now charts only); DOBG (the DOB and Now charts of every DOB record under their login, and people they
+add themselves); Admin (an admin, as those in the admins secret). DOBG is the paid option. End Date (UT): when DOBG runs
+out (blank: no time limit); signing up with birth details gives DOBG for 1 day. Run out: the Now charts only. A login's
+DOB records share its email: its own (the first) and any number more (people added under it, or a family an admin set
+up).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pandas as pd
 
-ACCESS = ("Now", "DOBT", "DOBGT", "DOB", "DOBG", "Admin")
+ACCESS = ("Now", "DOBG", "Admin")
 # earlier names, read as the new ones (the database is changed to the new ones; see db._new_access_names)
 RENAMED = {"Free": "Now", "FreeInd": "Now", "FreeGrp": "Now",
-           "Individual": "DOB", "Ind": "DOB", "Group": "DOBG", "1wu": "DOBG", "1mu": "DOBG", "1yu": "DOBG",
-           "Trial-Ind": "DOBT", "TrInd": "DOBT", "TrDOB": "DOBT", "Trial DOB": "DOBT",
-           "Trial-Grp": "DOBGT", "TrGrp": "DOBGT", "TrGroup": "DOBGT", "Trial Group": "DOBGT"}
-# the Access that run for a while from Start Date: months, days, unlimited (else their own DOB only), in words
-PERIODS = {"DOBT": (0, 1, False, "free 1-day trial (your own DOB)"), "DOBGT": (0, 1, True, "free 1-day trial (unlimited)")}
-PAID_NOTE = "DOB charts are a paid option (DOB or DOBG): ask the admin."
+           "DOB": "DOBG", "Individual": "DOBG", "Ind": "DOBG", "Group": "DOBG", "1wu": "DOBG", "1mu": "DOBG", "1yu": "DOBG",
+           "DOBT": "DOBG", "Trial-Ind": "DOBG", "TrInd": "DOBG", "TrDOB": "DOBG", "Trial DOB": "DOBG",
+           "DOBGT": "DOBG", "Trial-Grp": "DOBG", "TrGrp": "DOBG", "TrGroup": "DOBG", "Trial Group": "DOBG"}
+# earlier 1-day trials: as DOBG, with End Date 1 day after Start Date (see db._new_access_names)
+TRIALS = ("DOBT", "Trial-Ind", "TrInd", "TrDOB", "Trial DOB", "DOBGT", "Trial-Grp", "TrGrp", "TrGroup", "Trial Group")
+SIGNUP_DAYS = 1                    # signing up with birth details: DOBG for this many days
+PAID_NOTE = "DOB charts are a paid option (DOBG): ask the admin."
 QUICK = -1                         # the sidebar's Quick birth (not saved), in place of a record's id
 
 
@@ -30,7 +31,7 @@ QUICK = -1                         # the sidebar's Quick birth (not saved), in p
 class Grant:
     admin: bool                    # an admin
     dob: bool                      # may see the DOB charts (otherwise the Now charts only)
-    many: bool = False             # of every record under their login, people they add and quick births (else their own only)
+    many: bool = False             # of every record under their login and people they add (else their own only)
     note: str = ""                 # what to tell them (an end date, or why DOB is not open)
 
 
@@ -46,36 +47,36 @@ def canonical(value, choices: tuple[str, ...]) -> str | None:
         raise ValueError(f"'{value}' is not one of {', '.join(choices)}") from None
 
 
-def _add_months(when: datetime, months: int) -> datetime:
-    y, m = divmod(when.month - 1 + months, 12)
-    year, month = when.year + y, m + 1
-    last = (datetime(year + month // 12, month % 12 + 1, 1) - timedelta(days=1)).day
-    return when.replace(year=year, month=month, day=min(when.day, last))
+def as_time(v) -> datetime | None:
+    """A date or time as a datetime (UT); None when blank."""
+    if v is None or (isinstance(v, float) and pd.isna(v)) or (isinstance(v, str) and not v.strip()):
+        return None
+    t = pd.Timestamp(v)
+    return None if pd.isna(t) else t.to_pydatetime().replace(tzinfo=None)
 
 
-def ends(access: str, since: datetime) -> datetime:
-    """When an Access of PERIODS (DOBT, DOBGT) set at since runs out."""
-    months, days, _, _ = PERIODS[access]
-    return _add_months(since, months) + timedelta(days=days)
+def ended(value, until, now: datetime) -> bool:
+    """Whether a DOBG with this End Date (until; blank: no time limit) has run out."""
+    end = as_time(until)
+    return end is not None and end <= now
 
 
-def grant(value, since: datetime | None, now: datetime) -> Grant:
-    """What a person may use now (UT), by their Customers row's Access (value; blank or unknown: Now) and Start Date."""
+def grant(value, since: datetime | None, now: datetime, until=None) -> Grant:
+    """What a person may use now (UT), by their Customers row's Access (value; blank or unknown: Now) and End Date
+    (until: when DOBG runs out; blank: no time limit)."""
     try:
         a = canonical(value, ACCESS) or "Now"
     except ValueError:
         a = "Now"
     if a == "Admin":
         return Grant(admin=True, dob=True, many=True)
-    if a == "DOBG":                                           # unlimited, no time limit
-        return Grant(admin=False, dob=True, many=True)
-    if a == "DOB":
-        return Grant(admin=False, dob=True)
-    if a in PERIODS:
-        end, words = ends(a, since or now), PERIODS[a][3]
+    if a == "DOBG":
+        end = as_time(until)
+        if end is None:                                       # no time limit
+            return Grant(admin=False, dob=True, many=True)
         if end > now:
-            return Grant(admin=False, dob=True, many=PERIODS[a][2], note=f"{words[0].upper()}{words[1:]}, until {end:%Y-%m-%d %H:%M} UT.")
-        return Grant(admin=False, dob=False, note=f"Your {words} ended on {end:%Y-%m-%d}. " + PAID_NOTE)
+            return Grant(admin=False, dob=True, many=True, note=f"DOBG until {end:%Y-%m-%d %H:%M} UT.")
+        return Grant(admin=False, dob=False, note=f"Your DOBG ended on {end:%Y-%m-%d}. " + PAID_NOTE)
     return Grant(admin=False, dob=False, note="Now charts only. " + PAID_NOTE)
 
 

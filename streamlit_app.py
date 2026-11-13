@@ -131,26 +131,27 @@ location.visitor_location()                                   # where they are: 
 _MINE = [] if user.is_admin else db.customers_for(user.email).to_dict("records")   # their DOB records (all share their email)
 _ACCOUNT = None if user.is_admin else db.ensure_account(user.email)
 GRANT = (access.Grant(admin=True, dob=True, many=True) if user.is_admin
-         else access.grant(_ACCOUNT.get("access"), _ACCOUNT.get("start_date"), datetime.now(timezone.utc).replace(tzinfo=None)))
+         else access.grant(_ACCOUNT.get("access"), _ACCOUNT.get("start_date"), datetime.now(timezone.utc).replace(tzinfo=None),
+                           _ACCOUNT.get("end_date")))
 OWN_ID = access.own_record_id(_MINE)                          # their own record (the others: people added under their login)
 
 
 def _access_is_dob() -> bool:
-    """Their Access is one with DOB charts: DOB, DOBG, DOBT or DOBGT."""
+    """Their Access is one with DOB charts: DOBG."""
     try:
-        return access.canonical((_ACCOUNT or {}).get("access"), access.ACCESS) in ("DOB", "DOBG", "DOBT", "DOBGT")
+        return access.canonical((_ACCOUNT or {}).get("access"), access.ACCESS) == "DOBG"
     except ValueError:
         return False
 
 
-# the Time buttons: DOB first for one whose Access is DOB, DOBG, DOBT or DOBGT; Now first for anyone else, with DOB still
+# the Time buttons: DOB first for one whose Access is DOBG; Now first for anyone else, with DOB still
 # there (a new member picks it to reach the form for their birth details)
 TIMES = ("DOB", "Now") if _access_is_dob() else ("Now", "DOB")
 
 
 # ---------------------------------------------------------------- who can see which customers
 def visible_customers() -> pd.DataFrame:
-    """An admin: every customer. A member: with DOBG (or DOBGT running), every record under their login; else their own."""
+    """An admin: every customer. A member: with DOBG (before its End Date), every record under their login; else their own."""
     if user.is_admin:
         return db.all_customers()
     df = db.customers_for(user.email)
@@ -237,12 +238,11 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                        "if left blank, comes from its Aspect's name, one of Conjunction, Opposition, Square, Trine, Sextile, Semi-sextile, Semi-square, Quintile, "
                        "Sesquiquadrate, Bi-quintile, Quincunx. Changes here "
                        "apply to every chart.",
-    "Customers": "One row per login: its Email, its Access and Start Date (UT; when Access was set). Now: the Now charts "
-                 "only. DOB: the DOB and Now charts of their own DOB record, no time limit. DOBG: unlimited, no time "
-                 "limit: the DOB and Now charts of every DOB record under their login, and people they add, or search for "
-                 "without saving, on DOB details. DOB and DOBG are the paid options. DOBT, DOBGT: free 1-day trials "
-                 "of DOB and DOBG from Start Date (given on signing up with birth details: Individual or Group, as they pick). Admin: an "
-                 "admin. A trial run out: the Now charts only. A row is made, with Now, when someone signs in for the first "
+    "Customers": "One row per login: its Email, its Access, Start Date (UT; when Access was set) and End Date (UT; when "
+                 "DOBG runs out, blank: no time limit). Now: the Now charts only. DOBG, the paid option: the DOB and Now "
+                 "charts of every DOB record under their login, and people they add, or search for without saving, on DOB "
+                 "details. Signing up with birth details gives DOBG for 1 day (End Date 1 day on): clear End Date, or set a "
+                 "later one, to keep it. Admin: an admin. After End Date: the Now charts only. A row is made, with Now, when someone signs in for the first "
                  "time, or when a DOB record is saved with an Email new here. The DOB records refer to this table by "
                  "Email: changing an Email here changes it on them too, and a row whose Email DOB records still use cannot "
                  "be deleted. Start Date moves to now when Access changes, unless it is changed too. Insert, Update, Delete, "
@@ -324,7 +324,7 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     searched = st.session_state.get("_searched")              # a member's birth from DOB details' Search Only (not saved)
     if GRANT.dob and (user.is_admin or (GRANT.many and searched)):   # admins: New User, a birth typed in the sidebar
         label[access.QUICK] = "New User" if user.is_admin else searched
-    if GRANT.many and not user.is_admin:                      # DOBG, DOBGT: a person to add, from the same list
+    if GRANT.many and not user.is_admin:                      # DOBG: a person to add, from the same list
         label[ADD_PERSON] = "+ Add a person"
     ids = list(label)
     if "_select_customer" in st.session_state:                # (a person just added: shown at once)
@@ -390,7 +390,7 @@ def birth_time(text: str):
 
 def quick_birth(base: pd.Series) -> tuple[pd.Series, Prepared]:
     """A birth typed in the sidebar, not saved: its DOB charts, with the place now of base (their own record). A member
-    with DOBG or DOBGT may save it, with a First and Last Name, as a person under their login."""
+    with DOBG may save it, with a First and Last Name, as a person under their login."""
     if st.session_state.pop("_quick_clear", False):           # (just saved: the boxes empty again)
         for k in ("quick_date", "quick_time", "quick_city", "quick_state", "quick_country", "quick_first", "quick_last"):
             st.session_state.pop(k, None)
@@ -418,7 +418,7 @@ def quick_birth(base: pd.Series) -> tuple[pd.Series, Prepared]:
         return row, Prepared(False, PLACE_SEARCH_DOWN)
     if prep.ok:
         box.caption(f"{born} {prep.weekday} {at:%H:%M}, UTC {prep.utc:+.2f} ({prep.birth_lat}, {prep.birth_lon}). Not saved.")
-        if not user.is_admin and GRANT.many:                  # DOBG, DOBGT: it may be kept, under their login
+        if not user.is_admin and GRANT.many:                  # DOBG: it may be kept, under their login
             first = box.text_input("First Name", max_chars=120, key="quick_first")
             last = box.text_input("Last Name", max_chars=120, key="quick_last")
             if box.button("Save this birth", key="quick_save"):
@@ -528,11 +528,9 @@ def details_form(row: pd.Series | None, person: bool = False):
         other_n = c4.text_input("District/Other", value=txt("other_n"), max_chars=500, key=f"{k}other_n",
                                 help="The district, or anything else about where you live now (optional; not used "
                                      "in the charts).")
-        plan = None
-        if row is None and not person:                        # signing up: which free 1-day trial (Individual: DOBT, Group: DOBGT)
-            st.markdown("**Access** (a free 1-day trial; after it, the admin can keep it for you)")
-            plan = st.radio("Access", ["Individual", "Group"], horizontal=True, label_visibility="collapsed", key="signup_plan",
-                            captions=["Your own DOB and Now charts", "Your DOB and Now charts, and people you add or search for"])
+        if row is None and not person:                        # signing up: DOBG for 1 day
+            st.caption("Signing up gives you DOBG for 1 day: your DOB and Now charts, and people you add or search for. "
+                       "After it, the admin can keep it for you.")
         search = False
         if person:                                            # Search Only: its DOB charts as New User, not saved;
             c1, c2, _ = st.columns([1, 1, 4])                 # Save and Search: saved, then its DOB charts
@@ -586,7 +584,7 @@ def details_form(row: pd.Series | None, person: bool = False):
         st.session_state["_quick_saved"] = f"{first.strip()} {last.strip()} is saved under your login."
         st.switch_page(PAGE_BY_PATH[back_page()])
     elif row is None:
-        db.add_own_customer(rec, user.email, group=plan == "Group")   # an email that already has a record keeps it (nothing is changed)
+        db.add_own_customer(rec, user.email)                 # (DOBG for 1 day) an email that already has a record keeps it (nothing is changed)
         back = st.session_state.pop("_back_to", None)
         if back in PAGE_BY_PATH:                              # they came from a chart's DOB: back to it
             st.switch_page(PAGE_BY_PATH[back])
@@ -1205,8 +1203,8 @@ def page_logins():
                                                                                  "Chrome on Windows; blank when not known."),
                                            "Time zone": st.column_config.TextColumn(width=200, help="The time zone their browser "
                                                                                     "is set to; blank when not known."),
-                                           "Access": st.column_config.TextColumn(width=110, help="Their Access then (Admin, DOBT, DOBGT, "
-                                                                                 "DOB, DOBG; 'ended' after a trial ran out); blank "
+                                           "Access": st.column_config.TextColumn(width=110, help="Their Access then (Now, DOBG, Admin; "
+                                                                                 "'DOBG ended' after its End Date); blank "
                                                                                  "with none, or no customer record.")})
     ticked = edited.loc[edited["Del"].fillna(False).astype(bool), "Id"].tolist()
     said = st.session_state.pop("logins_said", None)
@@ -1294,12 +1292,12 @@ def page_aspects():
 
 
 def page_accounts():
-    """The Customers table: a row per login, with its Access and Start Date."""
+    """The Customers table: a row per login, with its Access, Start Date and End Date."""
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     df = db.accounts_table()
-    names = {"email": "Email", "access": "Access", "start_date": "Start Date"}
-    show = df[["id", "email", "access", "start_date"]].rename(columns=names)
+    names = {"email": "Email", "access": "Access", "start_date": "Start Date", "end_date": "End Date"}
+    show = df[["id", "email", "access", "start_date", "end_date"]].rename(columns=names)
     back = {v: k for k, v in names.items()}
 
     def commit(rows: pd.DataFrame) -> str:
@@ -1313,12 +1311,16 @@ def page_accounts():
                               "Email": st.column_config.TextColumn("Email *", width=260, help="The Google account email they sign "
                                                                    "in with: required, one row per email."),
                               "Access": st.column_config.SelectboxColumn("Access", options=list(access.ACCESS), width="small",
-                                                                         help="Now, DOBT, DOBGT, DOB, DOBG, Admin "
+                                                                         help="Now, DOBG, Admin "
                                                                               "(see the page's help); blank is saved as Now."),
                               "Start Date": st.column_config.DatetimeColumn("Start Date", format="YYYY-MM-DD HH:mm", width=150,
-                                                                            help="When Access was set (UT): DOBT and DOBGT "
-                                                                                 "count from it. Set to now when Access changes, "
-                                                                                 "unless you change it too (to the day paid, say).")})
+                                                                            help="When Access was set (UT). Set to now when "
+                                                                                 "Access changes, unless you change it too (to the "
+                                                                                 "day paid, say)."),
+                              "End Date": st.column_config.DatetimeColumn("End Date", format="YYYY-MM-DD HH:mm", width=150,
+                                                                          help="When DOBG runs out (UT): after it, the Now "
+                                                                               "charts only. Blank: no time limit. Signing up "
+                                                                               "sets it 1 day on.")})
 
 
 def birth_date(y, m, d) -> date | None:
