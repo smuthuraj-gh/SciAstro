@@ -172,6 +172,9 @@ def record_items(row: pd.Series) -> tuple:
 _chosen: tuple[pd.Series | None, Prepared | None] = (None, None)
 
 
+ADD_PERSON = -2                                               # the Customer list's "+ Add a person": its form on DOB details
+
+
 def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     """The customer chosen in the sidebar (chosen once per run, before the page; see the end of this file)."""
     return _chosen
@@ -321,12 +324,23 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     searched = st.session_state.get("_searched")              # a member's birth from DOB details' Search Only (not saved)
     if GRANT.dob and (user.is_admin or (GRANT.many and searched)):   # admins: New User, a birth typed in the sidebar
         label[access.QUICK] = "New User" if user.is_admin else searched
+    if GRANT.many and not user.is_admin:                      # DOBG, DOBGT: a person to add, from the same list
+        label[ADD_PERSON] = "+ Add a person"
     ids = list(label)
     if "_select_customer" in st.session_state:                # (a person just added: shown at once)
         st.session_state["customer_id"] = st.session_state.pop("_select_customer")
+    last = st.session_state.get("_last_customer")
+    if st.session_state.get("customer_id") == ADD_PERSON and last == ADD_PERSON and nav.url_path != "me":
+        st.session_state["customer_id"] = OWN_ID if OWN_ID in ids else ids[0]   # (left DOB details for a chart: a person again)
     prev = st.session_state.get("customer_id")
     idx = ids.index(prev) if prev in ids else ids.index(OWN_ID) if OWN_ID in ids else 0   # (a member: their own, to start)
     cid = st.sidebar.selectbox("Customer", ids, index=idx, format_func=label.get, key="customer_id")
+    st.session_state["_last_customer"] = cid
+    if cid == ADD_PERSON:                                     # its form is on DOB details
+        if nav.url_path != "me":
+            st.session_state["_select_customer"] = ADD_PERSON
+            st.switch_page(PAGE_BY_PATH["me"])
+        return pd.Series({"id": ADD_PERSON, "name": "Add a person", "last_name": ""}), None
     if cid == access.QUICK:
         base = df[df["id"] == OWN_ID] if (df["id"] == OWN_ID).any() else df
         row, prep = quick_birth(base.iloc[0])
@@ -1441,16 +1455,16 @@ def page_my_details():
         return
     if st.session_state.get("person_added"):
         st.success(st.session_state.pop("person_added"))
-    if GRANT.many and not user.is_admin:
-        with st.expander("Add a person", expanded=int(row["id"]) == access.QUICK):
-            st.caption(("Saved under your login, to see their DOB charts while your unlimited access runs; " if GRANT.dob else
-                        "Saved under your login, to see their Now charts; ") + "their place now starts as yours. Search Only shows "
-                       "their DOB charts, not saved, as a Search choice in the sidebar (no name or place now needed); Save and Search saves them, "
-                       "then shows their charts.")
-            own = visible_customers()
-            own = own[own["id"] == OWN_ID]
-            details_form(pd.Series({f: own.iloc[0][f] for f in ("country_n", "state_n", "city_n", "other_n")}) if len(own) else None,
-                         person=True)
+    if int(row["id"]) == ADD_PERSON:                          # "+ Add a person" picked in the Customer list
+        st.caption(("Saved under your login, to see their DOB charts while your unlimited access runs; " if GRANT.dob else
+                    "Saved under your login, to see their Now charts; ") + "their place now starts as yours. Search Only shows "
+                   "their DOB charts, not saved, as a Search choice in the sidebar (no name or place now needed); Save and Search saves them, "
+                   "then shows their charts.")
+        own = visible_customers()
+        own = own[own["id"] == OWN_ID]
+        details_form(pd.Series({f: own.iloc[0][f] for f in ("country_n", "state_n", "city_n", "other_n")}) if len(own) else None,
+                     person=True)
+        return
     if int(row["id"]) == access.QUICK:
         st.info(("New User is" if user.is_admin else "This search is") + " not saved. Pick a saved person in the sidebar to see or change their details.")
         return
