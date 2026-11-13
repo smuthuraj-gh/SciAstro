@@ -237,7 +237,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Customers": "One row per login: its Email, its Access and Start Date (UT; when Access was set). Now: the Now charts "
                  "only. DOB: the DOB and Now charts of their own DOB record, no time limit. DOBG: unlimited, no time "
                  "limit: the DOB and Now charts of every DOB record under their login, people they add on DOB details, and "
-                 "quick births not saved. DOB and DOBG are the paid options. DOBT, DOBGT: free 1-day trials "
+                 "New User births not saved. DOB and DOBG are the paid options. DOBT, DOBGT: free 1-day trials "
                  "of DOB and DOBG from Start Date (given on signing up with birth details: Individual or Group, as they pick). Admin: an "
                  "admin. A trial run out: the Now charts only. A row is made, with Now, when someone signs in for the first "
                  "time, or when a DOB record is saved with an Email new here. The DOB records refer to this table by "
@@ -317,7 +317,7 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     label = {int(i): (f"{f} ({e})" if (full == f).sum() > 1 and e else f)
              for i, f, e in zip(df["id"], full, df["email"].fillna(""))}
     if GRANT.many and GRANT.dob:                              # unlimited access (and admins): a birth typed in, not saved
-        label[access.QUICK] = "+ Quick birth (not saved)"
+        label[access.QUICK] = "New User"
     ids = list(label)
     if "_select_customer" in st.session_state:                # (a person just added: shown at once)
         st.session_state["customer_id"] = st.session_state.pop("_select_customer")
@@ -384,15 +384,15 @@ def quick_birth(base: pd.Series) -> tuple[pd.Series, Prepared]:
     city = box.text_input("City", key="quick_city")
     state = box.text_input("State/Region", key="quick_state")
     country = box.text_input("Country", key="quick_country")
-    row = pd.Series({**base.to_dict(), "id": access.QUICK, "name": "Quick birth", "last_name": "", "other": None,
+    row = pd.Series({**base.to_dict(), "id": access.QUICK, "name": "New User", "last_name": "", "other": None,
                      "utc": None, "city": city.strip(), "state": state.strip(), "country": country.strip()})
     try:
         at = birth_time(at_txt)
     except ValueError:
-        return row, Prepared(False, "Quick birth: type the birth time as hh:mm in 24 hours, e.g. 14:30.")
+        return row, Prepared(False, "New User: type the birth time as hh:mm in 24 hours, e.g. 14:30.")
     if born is None or at is None or not all(v.strip() for v in (city, state, country)):
         box.caption("Type a birth date, time and place to see its DOB charts. Nothing is saved.")
-        return row, Prepared(False, "Quick birth: type a birth date, time and place in the sidebar.")
+        return row, Prepared(False, "New User: type a birth date, time and place in the sidebar.")
     row = pd.Series({**row.to_dict(), "year": born.year, "mon": born.month, "day": born.day, "hr": at.hour, "mn": at.minute})
     try:
         prep = prepare(record_items(row))
@@ -513,7 +513,7 @@ def details_form(row: pd.Series | None, person: bool = False):
         if row is None and not person:                        # signing up: which free 1-day trial (Individual: DOBT, Group: DOBGT)
             st.markdown("**Access** (a free 1-day trial; after it, the admin can keep it for you)")
             plan = st.radio("Access", ["Individual", "Group"], horizontal=True, label_visibility="collapsed", key="signup_plan",
-                            captions=["Your own DOB and Now charts", "Your DOB and Now charts, people you add, and quick births"])
+                            captions=["Your own DOB and Now charts", "Your DOB and Now charts, people you add, and New User births"])
         sent = st.form_submit_button("Save person" if person else "Save my details" if row is None else "Save changes",
                                      type="primary")
     if not sent:
@@ -1425,7 +1425,7 @@ def page_my_details():
             details_form(pd.Series({f: own.iloc[0][f] for f in ("country_n", "state_n", "city_n", "other_n")}) if len(own) else None,
                          person=True)
     if int(row["id"]) == access.QUICK:
-        st.info("A quick birth is not saved. Pick a saved person in the sidebar to see or change their details.")
+        st.info("New User is not saved. Pick a saved person in the sidebar to see or change their details.")
         return
     def shown(v) -> str:                                      # a blank stays blank, and a whole number has no .0
         if pd.isna(v):
