@@ -329,8 +329,8 @@ def _pick_customer_box() -> tuple[pd.Series | None, Prepared | None]:
     label = {int(i): (f"{f} ({e})" if (full == f).sum() > 1 and e else f)
              for i, f, e in zip(df["id"], full, df["email"].fillna(""))}
     searched = st.session_state.get("_searched")              # a member's birth from DOB Details' Search Only (not saved)
-    if GRANT.dob and (user.is_admin or (GRANT.many and searched)):   # admins: New User, a birth typed in the sidebar
-        label[access.QUICK] = "New User" if user.is_admin else searched
+    if GRANT.dob and GRANT.many and searched and not user.is_admin:   # (admins add births on the DOB page)
+        label[access.QUICK] = searched
     ids = list(label)
     if "_select_customer" in st.session_state:                # (a person just added: shown at once)
         st.session_state["customer_id"] = st.session_state.pop("_select_customer")
@@ -398,15 +398,15 @@ def quick_birth(base: pd.Series) -> tuple[pd.Series, Prepared]:
     city = box.text_input("City", key="quick_city")
     state = box.text_input("State/Region", key="quick_state")
     country = box.text_input("Country", key="quick_country")
-    row = pd.Series({**base.to_dict(), "id": access.QUICK, "name": "New User", "last_name": "", "other": None,
+    row = pd.Series({**base.to_dict(), "id": access.QUICK, "name": "Search", "last_name": "", "other": None,
                      "utc": None, "city": city.strip(), "state": state.strip(), "country": country.strip()})
     try:
         at = birth_time(at_txt)
     except ValueError:
-        return row, Prepared(False, "New User: type the birth time as hh:mm in 24 hours, e.g. 14:30.")
+        return row, Prepared(False, "Search: type the birth time as hh:mm in 24 hours, e.g. 14:30.")
     if born is None or at is None or not all(v.strip() for v in (city, state, country)):
         box.caption("Type a birth date, time and place to see its DOB charts. Nothing is saved.")
-        return row, Prepared(False, "New User: type a birth date, time and place in the sidebar.")
+        return row, Prepared(False, "Search: type a birth date, time and place in the sidebar.")
     row = pd.Series({**row.to_dict(), "year": born.year, "mon": born.month, "day": born.day, "hr": at.hour, "mn": at.minute})
     try:
         prep = prepare(record_items(row))
@@ -528,7 +528,7 @@ def details_form(row: pd.Series | None, person: bool = False):
             st.caption("Signing up gives you DOB access for 1 day: your DOB and Now charts, and people you add or search for. "
                        "After it, the admin can keep it for you.")
         search = False
-        if person:                                            # Search Only: its DOB charts as New User, not saved;
+        if person:                                            # Search Only: its DOB charts, not saved;
             c1, c2, _ = st.columns([1, 1, 4])                 # Save and Search: saved, then its DOB charts
             search = c1.form_submit_button("Search Only")
             sent = c2.form_submit_button("Save and Search", type="primary")
@@ -1463,7 +1463,7 @@ def page_my_details():
         with st.expander("Add a DOB"):
             add_person_form()
     if int(row["id"]) == access.QUICK:
-        st.info(("New User is" if user.is_admin else "This search is") + " not saved. Pick a saved person in the sidebar to see or change their details.")
+        st.info("This search is not saved. Pick a saved person in the sidebar to see or change their details.")
     else:
         if prep and prep.ok and not prep.now_only:           # (Now charts only: their birth is not worked out)
             st.write(f"Born on a {prep.weekday}; UTC offset {prep.utc:+.2f} ({prep.tz}); birth place "
