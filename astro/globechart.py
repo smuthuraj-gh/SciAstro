@@ -463,6 +463,9 @@ __SYMBOL_JS__
   bodies.forEach((body) => {
     const c = body.b.colour;
     if (D.by_distance) body.spoke = make("line", spokeG, {stroke: c, "stroke-width": 1, "stroke-dasharray": "2 3", style: "pointer-events:none"});
+    body.place = D.places.find((pl) => D.sets[pl.set] === body.set);   // CB for DOB, CN for Now
+    if (D.by_distance && body.place)                 // AU: a line from CB (DOB) or CN (Now) on the Earth to the planet
+      body.link = make("line", spokeG, {stroke: body.place.colour, "stroke-width": 0.9, opacity: 0.55, style: "pointer-events:none"});
     body.mark = make("circle", markG, {fill: body.hollow ? "white" : c, stroke: c, "stroke-width": 2, style: "pointer-events:auto"});
     body.tip = make("title", body.mark);
     body.label = symbolTag(markG, body.name, c, body.hollow);
@@ -618,6 +621,11 @@ __SYMBOL_JS__
       const hidden = z < 0 && Math.hypot(x - D.cx, y - D.cy) < D.earth;   // behind the Earth
       const fade = z >= 0 ? 1 : 0.55, size = arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec";
       const pct = (s.dist * D.au_km - b.lo) / (b.hi - b.lo) * 100;
+      if (body.link) {                             // from CB or CN, where it is on the turning Earth, to the planet
+        const [px, py, pz] = placeOnEarth(body.place, t);
+        [["x1", px], ["y1", py], ["x2", x], ["y2", y]].forEach(([a, v]) => body.link.setAttribute(a, v.toFixed(1)));
+        body.link.style.display = hidden || pz < 0 ? "none" : "";   // (its place on the far side of the Earth: none)
+      }
       if (body.spoke) {                            // from the planet out to its RA and Dec on the sphere
         [["x1", x], ["y1", y], ["x2", sx], ["y2", sy]].forEach(([a, v]) => body.spoke.setAttribute(a, v.toFixed(1)));
         body.spoke.setAttribute("opacity", z >= 0 ? 0.8 : 0.35);
