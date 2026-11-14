@@ -857,19 +857,28 @@ def _one_day_from_today(eng: sa.Engine):
         c.execute(settings.insert().values(key="one_day_from_today", value="1"))
 
 
-def _ensure_accounts(c, emails) -> int:
-    """The DOB records' Email refers to the Customers table: each of these emails without a Customers row gets one, with
-    Access Now from now. Gives how many were added."""
+def _ensure_accounts(c, emails, first=()) -> int:
+    """The DOB records' Email refers to the Customers table: each of these emails without a Customers row gets one. A
+    login's first DOB entry gives it DOB for 1 day from now: a new row, or one of first (emails with no DOB record before)
+    whose Access is Now. Gives how many rows were added."""
     want = {str(e).strip().lower() for e in emails if isinstance(e, str) and e.strip()}
-    have = {e.lower() for (e,) in c.execute(sa.select(accounts.c.email)).all()}
+    have = {e.lower(): a for e, a in c.execute(sa.select(accounts.c.email, accounts.c.access)).all()}
     now = _now()
-    for e in sorted(want - have):
-        c.execute(accounts.insert().values(email=e, access="Now", start_date=now))
-    return len(want - have)
+    one_day = dict(access="DOB", days=access.SIGNUP_DAYS, start_date=now, end_date=access.period_end("DOB", now))
+    for e in sorted(want - set(have)):
+        c.execute(accounts.insert().values(email=e, **one_day))
+    for e in sorted({str(e).strip().lower() for e in first if isinstance(e, str)} & want & set(have)):
+        try:
+            now_only = (access.canonical(have[e], access.ACCESS) or "Now") == "Now"
+        except ValueError:
+            now_only = True
+        if now_only:                                          # (signed in before, with no DOB record: Now)
+            c.execute(accounts.update().where(accounts.c.email == e).values(**one_day))
+    return len(want - set(have))
 
 
 def _link_dob_emails(eng: sa.Engine):
-    """Every start: a DOB record's Email with no Customers row (put there another way) gets one, with Access Now."""
+    """Every start: a DOB record's Email with no Customers row (put there another way) gets one, with DOB for 1 day."""
     with eng.begin() as c:
         _ensure_accounts(c, [e for (e,) in c.execute(sa.select(customers.c.email)).all()])
 
@@ -1025,6 +1034,27 @@ def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None =
         _log(c, by, "Update", changed)
         _log(c, by, "Delete", deleted)
     return added, changed, deleted
+
+
+def set_dob_days(changes: dict[str, int], by: str | None = None) -> int:
+    """From the DOB page: each login email given gets Access DOB for that many days from now (its Customers row's Days,
+    Start Date now and End Date; Access Now becomes DOB). Raises ValueError, saving nothing, for an email with no
+    Customers row or with Access Admin. Gives how many rows were changed."""
+    now = _now()
+    with engine().begin() as c:
+        rows = {r["email"]: dict(r) for r in c.execute(sa.select(accounts).where(
+            accounts.c.email.in_([e.lower() for e in changes]))).mappings().all()}
+        missing = sorted(e for e in changes if e.lower() not in rows)
+        admins = sorted(e for e in changes if e.lower() in rows and access.canonical(rows[e.lower()]["access"], access.ACCESS) == "Admin")
+        if missing or admins:
+            raise ValueError(" ".join(
+                ([f"No Customers row for {', '.join(missing)}."] if missing else [])
+                + ([f"Days is not used for Admin: {', '.join(admins)}."] if admins else [])))
+        for e, days in changes.items():
+            c.execute(accounts.update().where(accounts.c.email == e.lower()).values(
+                access="DOB", days=days, start_date=now, end_date=access.period_end("DOB", now, days)))
+        _log(c, by, "Update", len(changes))
+    return len(changes)
 
 
 def has_admin_rights(email: str) -> bool:
@@ -1201,6 +1231,7 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
     keep_ids = set(edited["id"].dropna().astype(int)) if "id" in edited else set()
     now = _now()
     with engine().begin() as c:
+        had = {e.strip().lower() for (e,) in c.execute(sa.select(customers.c.email).where(customers.c.email.isnot(None))).all()}   # (emails with a DOB record before)
         for cid in set(original["id"].astype(int)) - keep_ids:
             c.execute(sa.delete(customers).where(customers.c.id == cid)); deleted += 1
         new, updates = [], []
@@ -1235,7 +1266,7 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
             data["created_by"] = data.get("created_by") or (by.lower() if by else None)
             c.execute(sa.insert(customers).values(**data, added_at=times.get("added_at") or now, updated_at=now))
             added += 1
-        _ensure_accounts(c, edited["email"] if "email" in edited else [])   # (each Email refers to a Customers row)
+        _ensure_accounts(c, edited["email"] if "email" in edited else [], first=set(edited.get("email", pd.Series(dtype=object)).dropna().str.strip().str.lower()) - had)   # (each Email refers to a Customers row; a first DOB entry: DOB for 1 day)
         _log(c, by, "Create", added)
         _log(c, by, "Update", changed)
         _log(c, by, "Delete", deleted)
@@ -1319,6 +1350,7 @@ def import_workbook_csv(raw: bytes, by: str | None = None) -> int:
     current = all_customers()
     have = set(current["name"].str.lower())
     used = set(current["email"].dropna().str.lower())
+    had = set(used)
     n = 0
     with engine().begin() as c:
         for rec in src.to_dict("records"):
@@ -1332,7 +1364,7 @@ def import_workbook_csv(raw: bytes, by: str | None = None) -> int:
                 have.add(data["name"].lower()); n += 1
                 if data.get("email"):
                     used.add(data["email"])
-        _ensure_accounts(c, list(used))                    # (each Email refers to a Customers row)
+        _ensure_accounts(c, list(used), first=used - had)  # (each Email refers to a Customers row; a first DOB entry: DOB for 1 day)
         _log(c, by, "Create", n)
     return n
 
