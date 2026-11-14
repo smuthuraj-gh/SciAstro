@@ -544,7 +544,23 @@ __SYMBOL_JS__
       trail(g.p, t);
       g.draw(g.p.pts, g.p.tip);
     });
-    const placed = marks.map((g) => {
+    const states = marks.map((g) => posAt(g.m.clock, g.m.name, t).s);
+    const inSpace = (s) => {                         // a body's place in space (AU), from its RA, Dec and distance
+      const ra = s.ra * Math.PI / 180, dec = s.dec * Math.PI / 180;
+      return [s.dist * Math.cos(dec) * Math.cos(ra), s.dist * Math.cos(dec) * Math.sin(ra), s.dist * Math.sin(dec)];
+    };
+    const node = (n) => n === "NN" || n === "SN";
+    const apart = (i) => {                           // Geo/Helio: how far it is from each other body of the same moment, in AU
+      if (D.flat || node(marks[i].m.name)) return "";
+      const here = inSpace(states[i]);
+      const lines = marks.map((o, j) => {
+        if (j === i || o.m.clock !== marks[i].m.clock || node(o.m.name)) return null;
+        const there = inSpace(states[j]);
+        return "\n  " + symbolOf(o.m.name) + ": " + Math.hypot(here[0] - there[0], here[1] - there[1], here[2] - there[2]).toPrecision(4) + " AU";
+      }).filter(Boolean);
+      return lines.length ? "\nDistance to the others:" + lines.join("") : "";
+    };
+    const placed = marks.map((g, i) => {
       const {s, p: at} = posAt(g.m.clock, g.m.name, t), [x, y, z] = point(at);
       // sized by how wide it looks from the Earth then, on AstroClock-3D's logarithmic scale (to true scale the planets would not show)
       const seen = sizing(g.m.clock)[g.m.name], r = radiusAt(g.m.rule, sizing(g.m.clock), t);
@@ -554,7 +570,7 @@ __SYMBOL_JS__
       g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDec/Lati: " + signed(s.dec) + "\nRA: " + s.ra.toFixed(2) + size +
         "\nDistance from " + fromWord(g.m.name) + ": " + s.dist.toPrecision(4) + " AU" +
         (D.around && g.m.name === "Mo" ? "\n(drawn round the Earth, farther out than to scale)" : "") +
-        (g.m.name === "NN" || g.m.name === "SN" ? "\n(on the Moon's path: at the Moon's distance)" : "");
+        (g.m.name === "NN" || g.m.name === "SN" ? "\n(on the Moon's path: at the Moon's distance)" : "") + apart(i);
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
       g.e.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       g.label.setAttribute("opacity", z >= 0 ? 1 : 0.6);
