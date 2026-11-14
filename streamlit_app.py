@@ -252,7 +252,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "DOB Details": "Get more days: pick 1, 7, 30, 90, 180 or 365 days and press Add days; they are added to your End Date while it runs, else from now. With DOB access, Add a DOB (below): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit DOB Details to change them; your login "
+    "DOB Details": "Get more days: pick 1, 7, 30, 90, 180 or 365 days and press Add days; they are added to your End Date while it runs, else from now. With DOB access, Add a DOB (below): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them; your login "
                   "email stays the same.",
 }
 
@@ -1463,7 +1463,7 @@ def page_my_details():
                      f"{prep.birth_lat}, {prep.birth_lon}.")
         if st.session_state.pop("details_saved", False):
             st.success("Your details are saved.")
-        with st.expander("Edit DOB Details"):
+        with st.expander("Edit a DOB"):
             details_form(row)
     if not user.is_admin:                                     # a customer adds DOB days themselves (no payment yet)
         more_days_box()
