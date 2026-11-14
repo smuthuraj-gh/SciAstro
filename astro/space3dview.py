@@ -69,6 +69,7 @@ def space_figure(centre: str, bodies, paths, moments, fit: bool, places: dict | 
     fig = go.Figure()
     fig.add_trace(_ball(ball_r, c["colour"], c["name"]))
     outer = ball_r
+    jd_globe = globe_moment(moments)
     for clock, jd in moments:
         hollow = clock == "DOB"
         for name in bodies:
@@ -98,11 +99,11 @@ def space_figure(centre: str, bodies, paths, moments, fit: bool, places: dict | 
                                        name=f"{title} {clock}", showlegend=False,
                                        hovertemplate=f"{title} {clock}: one trip from then<extra></extra>"))
         got = (places or {}).get(clock)
-        if centre == "Ea" and got:                            # CB or CN on the Earth, turned as it was then
+        if centre == "Ea" and got:                            # CB or CN at its place on the Earth (as the globe is turned)
             label, lat, lon = got
-            px, py, pz = _xyz(core.lst(jd, lon), lat, ball_r)
+            px, py, pz = _xyz(core.lst(jd_globe, lon), lat, ball_r * 1.01)
             fig.add_trace(go.Scatter3d(x=[px], y=[py], z=[pz], mode="markers+text", text=[label], textposition="bottom center",
-                                       marker=dict(size=5, color=core.colour(label)), showlegend=False,
+                                       marker=dict(size=5, color=core.colour(label)), showlegend=False, name=f"{label} on the Earth",
                                        textfont=dict(size=11, color=core.colour(label)), hovertemplate=f"{label} ({clock})<extra></extra>"))
     span = max(outer, _reach(FAR_AU, fit, c) if moving else 0) * 1.08
     for au in c["rings"][fit] if show_au else ():            # distance rings on the equator plane (AU)
@@ -132,10 +133,18 @@ def space_figure(centre: str, bodies, paths, moments, fit: bool, places: dict | 
     return fig
 
 
-def space_js(centre: str, bodies, moments, fit: bool, day_seconds: float | None) -> str:
+def globe_moment(moments) -> float | None:
+    """The one moment the Earth is drawn turned as: Now if shown, else DOB."""
+    return dict(moments).get("Now", moments[0][1] if moments else None)
+
+
+def space_js(centre: str, bodies, moments, fit: bool, day_seconds: float | None, places: dict | None = None) -> str:
     """Rotate in 1s, for the 3D view: time runs from each moment, day_seconds a day of it (the speed picked), and each body's
     marker moves to where it really was then, its hover box with it; the clock of each moment at the top. The tables are
-    the same as the other pages' (72 years of RA, Dec and distance), and the markers are found by their names."""
+    the same as the other pages' (72 years of RA, Dec and distance), and the markers are found by their names. Geo: the
+    Earth drawn as a globe, land and sea from Plotly's own world map (the one its map charts load, from cdn.plot.ly), with
+    coastlines, lines of latitude and longitude every 30 degrees, and CB and CN at their places, turned as at the globe's
+    moment and turning with time."""
     from . import globechart, space3d
     c = CENTRE[centre]
     tables = {}
@@ -151,8 +160,13 @@ def space_js(centre: str, bodies, moments, fit: bool, day_seconds: float | None)
                 tb = globechart._motion_table(name, jd)
             tables[f"{core.symbol_of(name)} {clock}"] = dict(step=tb["step"], ra=tb["ra"], dec=tb["dec"], dist=tb["dist"],
                                                            shift=tb["shift"], name=name)
+    globe = None
+    if centre == "Ea" and moments:
+        jd_globe = globe_moment(moments)
+        globe = dict(gst0=core.lst(jd_globe, 0.0), r=c["fit_r"] if fit else c["true_r"], spin=globechart.EARTH_DEGREES_A_DAY,
+                     places={f"{label} on the Earth": [lat, lon] for label, lat, lon in (places or {}).values()})
     data = dict(tables=tables, jd={clock: jd for clock, jd in moments}, day_seconds=day_seconds, days=space3d.RUN_DAYS, fit=fit,
-                fit_r=c["fit_r"], log_from=c["log_from"], gap=list(c["gap"]), word=c["name"].lower())
+                fit_r=c["fit_r"], log_from=c["log_from"], gap=list(c["gap"]), word=c["name"].lower(), globe=globe)
     return ("const M = " + json.dumps(data, separators=(",", ":")).replace("<", "\\u003c") + ";\n" + """
   const RAD = Math.PI / 180;
   const reach = (au) => {                          // as space3dview._reach
@@ -167,6 +181,85 @@ def space_js(centre: str, bodies, moments, fit: bool, day_seconds: float | None)
     return {ra: (tb.ra[i] + turn * f + 360) % 360, dec: tb.dec[i] + (tb.dec[i + 1] - tb.dec[i]) * f,
             dist: tb.dist[i] + (tb.dist[i + 1] - tb.dist[i]) * f};
   };
+  // Geo: the Earth as a globe (land and sea, coastlines, a 30-degree grid, CB and CN), turned as at the globe's moment
+  const G = M.globe, STEP = 3, OCEAN = "rgb(60,120,190)", LAND = "rgb(110,160,90)";
+  let globe = null;
+  const lonLatXYZ = (lon, lat, r, gst) => {        // a place on the Earth, in the sky's frame: RA = sidereal time + longitude
+    const ra = (gst + lon) * RAD, la = lat * RAD;
+    return [r * Math.cos(la) * Math.cos(ra), r * Math.cos(la) * Math.sin(ra), r * Math.sin(la)];
+  };
+  const lines3d = (lines, r, gst) => {             // lines of [lon, lat] as one trace's x, y, z (null between them)
+    const x = [], y = [], z = [];
+    lines.forEach((ln) => { ln.forEach(([lo, la]) => { const p = lonLatXYZ(lo, la, r, gst); x.push(p[0]); y.push(p[1]); z.push(p[2]); });
+                            x.push(null); y.push(null); z.push(null); });
+    return [x, y, z];
+  };
+  const turnGlobe = (gst) => {                     // the globe and what is on it, turned to this sidereal time
+    if (!globe) return;
+    const X = [], Y = [], Z = [];
+    globe.lats.forEach((la) => {
+      const xr = [], yr = [], zr = [];
+      globe.lons.forEach((lo) => { const p = lonLatXYZ(lo, la, G.r, gst); xr.push(p[0]); yr.push(p[1]); zr.push(p[2]); });
+      X.push(xr); Y.push(yr); Z.push(zr);
+    });
+    const c = lines3d(globe.coast, G.r * 1.004, gst), g = lines3d(globe.grid, G.r * 1.002, gst);
+    const xs = [X, c[0], g[0]], ys = [Y, c[1], g[1]], zs = [Z, c[2], g[2]], at = [globe.earth, globe.coastAt, globe.gridAt];
+    Object.entries(G.places).forEach(([name, [la, lo]]) => {
+      const i = gd.data.findIndex((d) => d.name === name);
+      if (i >= 0) { const p = lonLatXYZ(lo, la, G.r * 1.01, gst); xs.push([p[0]]); ys.push([p[1]]); zs.push([p[2]]); at.push(i); }
+    });
+    Plotly.restyle(gd, {x: xs, y: ys, z: zs}, at);
+  };
+  const makeGlobe = (topo) => {                    // land and sea from the world map's land shapes, its coastlines
+    const [sx, sy] = topo.transform.scale, [tx, ty] = topo.transform.translate;
+    const arcs = topo.arcs.map((a) => { let x = 0, y = 0; return a.map(([dx, dy]) => { x += dx; y += dy; return [x * sx + tx, y * sy + ty]; }); });
+    const arc = (i) => (i >= 0 ? arcs[i] : arcs[~i].slice().reverse());
+    const join = (ids) => ids.reduce((pts, i) => pts.concat(pts.length ? arc(i).slice(1) : arc(i)), []);
+    const rings = [];
+    topo.objects.land.geometries.forEach((g) => {
+      (g.type === "Polygon" ? [g.arcs] : g.type === "MultiPolygon" ? g.arcs : []).forEach((poly) => poly.forEach((ids) => {
+        const pts = join(ids), lo = pts.map((p) => p[0]), la = pts.map((p) => p[1]);
+        rings.push({pts, box: [Math.min(...lo), Math.max(...lo), Math.min(...la), Math.max(...la)]});
+      }));
+    });
+    const isLand = (lo, la) => {                   // inside an odd number of the land's rings (even-odd, so lakes are holes)
+      if (la < -84) return true;                   // (the map stops short of the south pole: Antarctica)
+      let inside = false;
+      rings.forEach(({pts, box}) => {
+        if (lo < box[0] || lo > box[1] || la < box[2] || la > box[3]) return;
+        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+          const [xi, yi] = pts[i], [xj, yj] = pts[j];
+          if ((yi > la) !== (yj > la) && lo < (xj - xi) * (la - yi) / (yj - yi) + xi) inside = !inside;
+        }
+      });
+      return inside;
+    };
+    const lats = [], lons = [];
+    for (let la = -90; la <= 90; la += STEP) lats.push(la);
+    for (let lo = -180; lo <= 180; lo += STEP) lons.push(lo);
+    const colour = lats.map((la) => lons.map((lo) => (isLand(lo, la) ? 1 : 0)));
+    const coast = [];
+    topo.objects.coastlines.geometries.forEach((g) => {
+      (g.type === "LineString" ? [g.arcs] : g.type === "MultiLineString" ? g.arcs : []).forEach((ids) => coast.push(join(ids)));
+    });
+    const grid = [];
+    for (let la = -60; la <= 60; la += 30) { const ln = []; for (let lo = -180; lo <= 180; lo += 5) ln.push([lo, la]); grid.push(ln); }
+    for (let lo = -180; lo < 180; lo += 30) { const ln = []; for (let la = -90; la <= 90; la += 5) ln.push([lo, la]); grid.push(ln); }
+    const earth = gd.data.findIndex((d) => d.type === "surface");
+    const n = gd.data.length;
+    Plotly.restyle(gd, {surfacecolor: [colour], cmin: 0, cmax: 1, opacity: 1,
+                        colorscale: [[[0, OCEAN], [0.5, OCEAN], [0.5, LAND], [1, LAND]]]}, [earth]);
+    Plotly.addTraces(gd, [
+      {type: "scatter3d", mode: "lines", x: [], y: [], z: [], line: {color: "rgb(35,60,35)", width: 2}, hoverinfo: "skip", showlegend: false, name: "coastlines"},
+      {type: "scatter3d", mode: "lines", x: [], y: [], z: [], line: {color: "rgba(255,255,255,0.55)", width: 1}, hoverinfo: "skip", showlegend: false, name: "latitude and longitude"}]);
+    globe = {lats, lons, coast, grid, earth, coastAt: n, gridAt: n + 1};
+    turnGlobe(G.gst0);
+  };
+  if (G) {
+    const known = window.PlotlyGeoAssets && window.PlotlyGeoAssets.topojson && window.PlotlyGeoAssets.topojson.world_110m;
+    if (known) makeGlobe(known);
+    else fetch("https://cdn.plot.ly/un/world_110m.json").then((r) => r.json()).then(makeGlobe).catch(() => {});   // (none: a plain blue Earth)
+  }
   const idx = [], keys = [];
   gd.data.forEach((d, i) => { if (M.tables[d.name]) { idx.push(i); keys.push(d.name); } });
   const when = (jd) => new Date((jd - 2440587.5) * 86400000).toISOString().slice(0, 16).replace("T", " ") + " UT";
@@ -183,6 +276,7 @@ def space_js(centre: str, bodies, moments, fit: bool, day_seconds: float | None)
                 "\\u003cbr>Distance from " + M.word + ": " + s.dist.toPrecision(4) + " AU\\u003cextra>\\u003c/extra>");
     });
     Plotly.restyle(gd, {x: xs, y: ys, z: zs, hovertemplate: tips}, idx);
+    if (G) turnGlobe(G.gst0 + G.spin * t);         // the Earth turning with time
     Plotly.relayout(gd, {"title.text": Object.entries(M.jd).map(([c, jd]) => c + " " + when(jd + t)).join("   ")});
     setTimeout(tick, 250);
   };
