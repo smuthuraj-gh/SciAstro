@@ -50,6 +50,10 @@ MOTION_DAYS = 26298               # how far time runs (72 years) before it start
 NODE_STEP_DAYS = 2.0              # the Moon's true node wobbles over days
 MOTION_STEP_DAYS = {"Mo": 0.5, "Me": 2.0, "Ve": 4.0, "Su": 5.0, "Ma": 5.0, "Ju": 20.0, "Sa": 20.0}    # ... and their steps
 CX, CY = SKY_RADIUS + 58.0, HEIGHT / 2.0   # at the left, room left for the name WCE
+# AU (Coordinates): each planet inside the sphere, along its RA and Dec, at a radius by its distance from the Earth, on a
+# logarithmic scale from DIST_AU[0] (just outside the Earth: the Moon) to DIST_AU[1] (the sphere: past Saturn)
+DIST_AU = (0.0023, 11.0)
+DIST_INNER = (EARTH_RADIUS + 16.0) / SKY_RADIUS   # where DIST_AU[0] is drawn, as a part of the sphere's radius
 TEXT_W, TEXT_H = 8.0, 18.0      # a character's width and a line's height, for keeping labels apart
 
 
@@ -71,6 +75,7 @@ class GlobeInput:
     orbs: object = None               # core.Orbs, with aspects
     show_celes: bool = True           # the names NCP, SCP, WCE and ECE, the dots at the poles, the axis and the celestial equator
     show_houses: bool = False         # the twelve house lines from CB and CN, on the sphere, turning with the Earth
+    show_distance: bool = False       # AU: each planet inside the sphere at a radius by its distance from the Earth
     bodies: tuple = BODY_CHOICES      # the bodies to show, with their RA and Dec lines
     paths: tuple = BODY_CHOICES       # the bodies whose paths to draw
     utc_birth: float | None = None    # the UTC offsets the clocks show their moments in, hours (None: in UT)
@@ -323,6 +328,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
                 node_names=[n for n in NODE_CHOICES if n in g.bodies], name_order=ASPECT_NAMES, shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p, texts=core.SIZE_TEXTS_GLOBE) for p in core.BUTTON_ORDER + ["NN", "SN", "CB", "CN"]}, family=SYMBOL_FONT_FAMILY, node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
+                by_distance=g.show_distance, dist_au=DIST_AU, dist_inner=DIST_INNER,
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, min(1000, int((day_seconds or 60.0) * 2.5))))
 
 
@@ -447,8 +453,15 @@ __SYMBOL_JS__
     if (D.show_dec) body.decLine = line(b.colour, body.hollow);
     bodies.push(body);
   }));
+  const spokeG = markG.parentNode.insertBefore(document.createElementNS(NS, "g"), markG);   // AU: planet to its place on the sphere
+  const reach = (au) => {                          // AU: how far out a distance is drawn, as a part of the sphere's radius
+    const lo = Math.log10(D.dist_au[0]), hi = Math.log10(D.dist_au[1]);
+    const f = Math.min(1, Math.max(0, (Math.log10(Math.max(au, 1e-6)) - lo) / (hi - lo)));
+    return D.dist_inner + (1 - D.dist_inner) * f;
+  };
   bodies.forEach((body) => {
     const c = body.b.colour;
+    if (D.by_distance) body.spoke = make("line", spokeG, {stroke: c, "stroke-width": 1, "stroke-dasharray": "2 3", style: "pointer-events:none"});
     body.mark = make("circle", markG, {fill: body.hollow ? "white" : c, stroke: c, "stroke-width": 2, style: "pointer-events:auto"});
     body.tip = make("title", body.mark);
     body.label = symbolTag(markG, body.name, c, body.hollow);
@@ -585,7 +598,8 @@ __SYMBOL_JS__
     });
     bodies.forEach((body) => {
       const b = body.b, s = sample(b, t);
-      const [x, y, z] = point(s.ra, s.dec);
+      const [sx, sy, z] = point(s.ra, s.dec), k = D.by_distance ? reach(s.dist) : 1;   // AU: drawn in from the sphere by its distance
+      const x = D.cx + (sx - D.cx) * k, y = D.cy + (sy - D.cy) * k;
       if (body.raLine) {
         const pts = [];
         for (let v = -90; v !== 93; v += 3) pts.push([s.ra, v]);
@@ -601,6 +615,11 @@ __SYMBOL_JS__
       const hidden = z < 0 && Math.hypot(x - D.cx, y - D.cy) < D.earth;   // behind the Earth
       const fade = z >= 0 ? 1 : 0.55, size = arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec";
       const pct = (s.dist * D.au_km - b.lo) / (b.hi - b.lo) * 100;
+      if (body.spoke) {                            // from the planet out to its RA and Dec on the sphere
+        [["x1", x], ["y1", y], ["x2", sx], ["y2", sy]].forEach(([a, v]) => body.spoke.setAttribute(a, v.toFixed(1)));
+        body.spoke.setAttribute("opacity", z >= 0 ? 0.8 : 0.35);
+        body.spoke.style.display = hidden ? "none" : "";
+      }
       Object.assign(body, {x, y, r, hidden, fade});
       body.mark.setAttribute("cx", x.toFixed(1)); body.mark.setAttribute("cy", y.toFixed(1));
       body.mark.setAttribute("r", r.toFixed(1)); body.mark.setAttribute("opacity", fade);
@@ -609,7 +628,7 @@ __SYMBOL_JS__
       body.label.setAttribute("opacity", fade);
       body.tip.textContent = body.tipName + " (" + (z >= 0 ? "near" : "far") + " side of the sphere)\nDec/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2) +
         "\nRA: " + s.ra.toFixed(2) + "\nAngular Size: " + size +
-        "\nDistance from earth: " + Math.max(0, Math.round(pct)) + "%" + moving(body, s, t);
+        "\nDistance from earth: " + s.dist.toPrecision(4) + " AU (" + Math.max(0, Math.round(pct)) + "%)" + moving(body, s, t);
       if (!hidden) taken.push([x - r - 1, y - r - 1, x + r + 1, y + r + 1]);   // no label may cover a marker
     });
     nodes.forEach((node) => {
