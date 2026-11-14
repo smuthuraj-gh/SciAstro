@@ -250,7 +250,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "+ Add a person": "A person to add under your login (DOB access): their birth details, with Search Only (their DOB "
+    "Add a Person": "A person to add under your login (DOB access): their birth details, with Search Only (their DOB "
                       "charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts).",
     "DOB details": "Your own birth details, used for the DOB charts (without them, the Now charts only). Edit DOB Details to change them; your login "
                   "email stays the same.",
@@ -1535,8 +1535,6 @@ pages = [st.Page(page_astroclock, title="AstroClock-2D", icon=":material/science
          st.Page(page_globe, title="AstroClock-3D", icon=":material/language:", url_path="astroclock-3d"),
          st.Page(page_centric, title="Geo/Helio Model", icon=":material/orbit:", url_path="geo-helio-model"),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
-         *([st.Page(page_add_person, title="+ Add a person", icon=":material/person_add:", url_path="add-person")]
-           if GRANT.many and not user.is_admin else []),      # DOB members: a person to add, below Aspects
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
 if user.is_admin:                                             # the Aspect Rules, DOB, Symbols, Defaults, Logins pages: admins only
@@ -1548,6 +1546,8 @@ if user.is_admin:                                             # the Aspect Rules
               st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols")]
 else:
     pages.append(st.Page(page_my_details, title="DOB details", icon=":material/person:", url_path="me"))
+    if GRANT.many:                                            # DOB members: a person to add, below DOB details
+        pages.append(st.Page(page_add_person, title="Add a Person", icon=":material/person_add:", url_path="add-person"))
 home = st.Page(lambda: None, title="Home", url_path="home", default=True, visibility="hidden")   # the root URL: sends to AstroClock-2D
 nav = st.navigation([home] + pages)
 PAGE_BY_PATH = {p.url_path: p for p in pages}                 # (to go to a page from another)
