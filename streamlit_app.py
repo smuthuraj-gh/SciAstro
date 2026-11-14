@@ -238,9 +238,10 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Customers": "One row per login: its Email, its Access, Start Date (UT) and End Date (UT; when DOB runs out), with "
                  "a Days box. Now: the Now charts only. DOB, the paid option: the DOB and Now charts of every DOB record "
                  "under their login, and people they add, or search for without saving, on DOB Details, until End Date. "
-                 "End Date is worked out by the app on Commit: type Days (how many days DOB lasts; it is not kept, and "
-                 "is blank again after) and End Date becomes now + Days. Change Start Date to count from another day (it "
-                 "keeps the length, or uses the Days typed with it); a new DOB with no Days lasts 1 day. "
+                 "End Date is worked out by the app: pick Days (1, 7, 30, 90, 180 or 365 to add) and press Update: End Date is "
+                 "extended by them, from End Date while it runs, else from now (Access becomes DOB); Days is not kept. "
+                 "Then Commit. Change Start Date to count from another day (it keeps the length); a new DOB with no Days "
+                 "lasts 1 day. "
                  "Signing up with birth details gives DOB for 1 day. Admin: an admin. After End Date: the Now charts only. A row is made, with Now, when someone signs in for the first "
                  "time. A login's first DOB record (signing up, or saved on the DOB page) gives it DOB for 1 day. The DOB records refer to this table by "
                  "Email: changing an Email here changes it on them too, and a row whose Email DOB records still use cannot "
@@ -1124,8 +1125,9 @@ def _distance_cached(dist_on, jd_from, jd_to):
 # and Delete change only the working copy shown (Delete takes the rows ticked in the first column; Update checks what has
 # been typed); nothing reaches the database until Commit, which also takes what has been typed since.
 def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: dict | None = None, width: str = "stretch",
-               height: int | None = None) -> None:
-    """problems(rows) gives what is wrong with the rows as they stand; commit(rows) saves them and gives what to report."""
+               height: int | None = None, on_update=None) -> None:
+    """problems(rows) gives what is wrong with the rows as they stand; commit(rows) saves them and gives what to report;
+    on_update(rows), when given, gives the rows as Update stages them (e.g. worked-out columns filled in)."""
     pressed = next((name for name in ("Insert", "Update", "Delete", "Commit")
                     if TITLE_SLOT.button(name, key=f"{key}_{name}", type="primary" if name == "Commit" else "secondary")), None)
     view = st.session_state.get(f"{key}_working", show).copy()
@@ -1159,7 +1161,7 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
         if wrong:
             st.error(f"Not {'updated' if pressed == 'Update' else 'committed'}. " + "; ".join(wrong))
         elif pressed == "Update":
-            stage(rows, "Updated. Press Commit to save it to the database.")
+            stage(on_update(rows) if on_update else rows, "Updated. Press Commit to save it to the database.")
         else:
             try:
                 report = commit(rows)
@@ -1303,6 +1305,7 @@ def page_accounts():
             *db.save_accounts(rows.rename(columns=back), df if base is None else base.rename(columns=back), by=user.email))
 
     crud_table("acct_editor", show, lambda rows: db.account_problems(rows.rename(columns=back)), commit, width="content",
+               on_update=lambda rows: db.apply_days(rows.rename(columns=back)).rename(columns=names),   # Days: End Date extended
                height="auto" if len(st.session_state.get("acct_editor_working", show)) <= 18 else 700,
                column_config={"id": None,
                               "Email": st.column_config.TextColumn("Email *", width=260, help="The Google account email they sign "
@@ -1314,14 +1317,15 @@ def page_accounts():
                                                                             help="When DOB counts from (UT). Change it "
                                                                                  "to count from another day (the day paid, say); "
                                                                                  "changing Access or typing Days alone sets it to now."),
-                              "Days": st.column_config.NumberColumn("Days", min_value=1, step=1, format="%d", width="small",
-                                                                    help="Type how many days DOB lasts, then Commit: End Date "
-                                                                         "becomes Start Date + Days. Not kept (blank again after). "
-                                                                         "Not used for Now or Admin."),
+                              "Days": st.column_config.SelectboxColumn("Days", options=list(access.DAY_PACKS), width="small",
+                                                                    help="Pick how many days to add (1, 7, 30, 90, 180, 365), then press Update: End "
+                                                                         "Date is extended by them (from End Date while it runs, else "
+                                                                         "from now; Access becomes DOB). Then Commit to save. Not kept "
+                                                                         "(blank again after). Not used for Admin."),
                               "End Date": st.column_config.DatetimeColumn("End Date", format="YYYY-MM-DD HH:mm", width=150, disabled=True,
                                                                           help="When DOB runs out (UT): after it, the Now "
-                                                                               "charts only. Worked out by the app on Commit: Start "
-                                                                               "Date + Days.")})
+                                                                               "charts only. Worked out by the app: extended by the "
+                                                                               "Days typed (on Update).")})
 
 
 def birth_date(y, m, d) -> date | None:

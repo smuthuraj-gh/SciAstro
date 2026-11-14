@@ -72,6 +72,15 @@ def whole_days(v) -> int | None:
     return int(f) if f == f and f >= 1 and f.is_integer() else None
 
 
+def extend(since, until, now: datetime, days: int) -> tuple[datetime, datetime]:
+    """A DOB with days more: (Start Date, End Date). Added to its End Date while that runs (Start Date kept), else from
+    now (Start Date now)."""
+    end = as_time(until)
+    if end is not None and end > now:
+        return as_time(since) or now, end + timedelta(days=days)
+    return now, now + timedelta(days=days)
+
+
 def ends_at(value: str, since, until, now: datetime) -> datetime:
     """When a DOB runs out: its End Date (until), else its period after its Start Date (since; blank: now)."""
     return as_time(until) or period_end(value, as_time(since) or now)

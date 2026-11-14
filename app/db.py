@@ -968,16 +968,40 @@ def account_problems(rows: pd.DataFrame) -> list[str]:
     bad_days = sorted({str(v) for v in rows.get("days", pd.Series(dtype=object))
                        if not (v is None or (not isinstance(v, str) and pd.isna(v)) or (isinstance(v, str) and not v.strip()))
                        and access.whole_days(v) is None})
+    bad_days += sorted({str(v) for v in rows.get("days", pd.Series(dtype=object))
+                        if access.whole_days(v) is not None and access.whole_days(v) not in access.DAY_PACKS})
     if bad_days:
-        out.append(f"Days must be a whole number, 1 or more (not {', '.join(bad_days)}).")
+        out.append(f"Days must be one of {', '.join(map(str, access.DAY_PACKS))} (not {', '.join(bad_days)}).")
+    return out
+
+
+def apply_days(rows: pd.DataFrame) -> pd.DataFrame:
+    """The Customers table's Days box, applied (on Update, and again on Commit): each row with Days typed gets Access DOB
+    and its End Date extended by that many days, from its End Date while that runs, else from now (Start Date then
+    now). Days is then cleared (it is not kept). Admin rows are left alone."""
+    out = rows.copy()
+    if "days" not in out:
+        return out
+    now = _now()
+    for i, r in out.iterrows():
+        days = access.whole_days(r.get("days"))
+        try:
+            a = access.canonical(r.get("access"), access.ACCESS)
+        except ValueError:
+            a = None
+        if not days or a == "Admin":
+            continue
+        start, end = access.extend(r.get("start_date"), r.get("end_date"), now, days)
+        out.at[i, "access"], out.at[i, "start_date"], out.at[i, "end_date"] = "DOB", pd.Timestamp(start), pd.Timestamp(end)
+    out["days"] = pd.Series([pd.NA] * len(out), index=out.index, dtype="Int64")
     return out
 
 
 def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None = None) -> tuple[int, int, int]:
-    """Apply an edited copy of the Customers table: (added, changed, deleted). A blank Access is Now. End Date is worked
-    out from Start Date (it is not typed in): DOB, Days days on (Days: typed, not kept); Now and Admin, none (nor
-    Days). Start Date as typed when changed (and for a new row; blank: now); when Access or Days changes and Start Date is
-    not changed too, now. The DOB records refer to it by Email: a changed Email is changed on
+    """Apply an edited copy of the Customers table: (added, changed, deleted). A blank Access is Now. End Date is not
+    typed in: Days typed extends it (apply_days: from End Date while it runs, else from now); a row newly DOB with no
+    Days gets 1 day from now; Now and Admin have none. Start Date as typed when changed (a DOB keeps its length);
+    blank on a new row: now. The DOB records refer to it by Email: a changed Email is changed on
     them too, and a row whose Email DOB records still use cannot be deleted. Raises ValueError, saving nothing, on
     account_problems or such a delete."""
     problems = account_problems(edited)
@@ -991,6 +1015,7 @@ def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None =
                         + ". Delete those records on the DOB page, or give them another Email, first.")
     if problems:
         raise ValueError(" ".join(problems))
+    edited = apply_days(edited)                               # (Days typed and Commit pressed without Update: the same)
     added = changed = deleted = 0
     keep = set(edited["id"].dropna().astype(int)) if "id" in edited else set()
     now = _now()
@@ -1001,15 +1026,17 @@ def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None =
         for rec in edited.to_dict("records"):
             email = str(rec.get("email")).strip().lower()
             a = access.canonical(rec.get("access"), access.ACCESS) or "Now"
-            days = access.whole_days(rec.get("days")) if a == "DOB" else None   # (typed to work out End Date; not kept)
-            typed_start = _stamp(rec.get("start_date"))
+            typed_start, typed_end = _stamp(rec.get("start_date")), _stamp(rec.get("end_date"))
 
-            def period(start, days):                          # from start: (start, end)
-                return start, access.period_end(a, start, days) if a in access.LASTS else None
+            def period(start):                                # from start: (start, end); DOB: 1 day
+                return start, access.period_end(a, start) if a in access.LASTS else None
 
             aid = rec.get("id")
             if aid is None or pd.isna(aid):
-                start, end = period(typed_start or now, days)
+                if a == "DOB" and typed_end:                  # (its Days applied)
+                    start, end = typed_start or now, typed_end
+                else:
+                    start, end = period(typed_start or now)
                 new.append(dict(email=email, access=a, start_date=start, end_date=end))
                 continue
             old = original[original["id"] == int(aid)]
@@ -1019,13 +1046,17 @@ def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None =
             was_access = access.canonical(was["access"], access.ACCESS) if isinstance(was["access"], str) else None
             was_start, was_end = _stamp(was.get("start_date")), _stamp(was.get("end_date"))
             moved = "start_date" in rec and typed_start is not None and typed_start != was_start
-            if a != was_access or days or moved:
-                # a new Start Date: End Date from it; else a new Access or Days typed counts from now. A new Start Date
-                # alone keeps the length it had.
-                if moved and not days and a == was_access == "DOB" and was_start and was_end:
+            extended = a == "DOB" and typed_end is not None and typed_end != was_end   # (Days applied)
+            if extended:
+                updates.append((int(aid), dict(email=email, access=a, start_date=typed_start or was_start or now, end_date=typed_end)))
+            elif a != was_access:                             # a new Access: from now (DOB: 1 day)
+                start, end = period(typed_start if moved else now)
+                updates.append((int(aid), dict(email=email, access=a, start_date=start, end_date=end)))
+            elif moved:                                       # a new Start Date alone: a DOB keeps its length
+                if a == "DOB" and was_start and was_end:
                     start, end = typed_start, typed_start + (was_end - was_start)
                 else:
-                    start, end = period(typed_start if moved else now, days)
+                    start, end = period(typed_start)
                 updates.append((int(aid), dict(email=email, access=a, start_date=start, end_date=end)))
             elif email != str(was["email"]).lower():
                 updates.append((int(aid), dict(email=email)))
