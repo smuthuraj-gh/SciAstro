@@ -252,7 +252,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "DOB Details": "With DOB access, Add a Person (below): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit DOB Details to change them; your login "
+    "DOB Details": "Get more days: pick 1, 7, 30, 90, 180 or 365 days and press Add days; they are added to your End Date while it runs, else from now. With DOB access, Add a Person (below): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit DOB Details to change them; your login "
                   "email stays the same.",
 }
 
@@ -1465,9 +1465,31 @@ def page_my_details():
             st.success("Your details are saved.")
         with st.expander("Edit DOB Details"):
             details_form(row)
+    if not user.is_admin:                                     # a customer adds DOB days themselves (no payment yet)
+        more_days_box()
     if GRANT.many and not user.is_admin:                      # DOB members: a person to add, below their own details
         with st.expander("Add a Person"):
             add_person_form()
+
+
+def more_days_box():
+    """Get more days: the customer picks how many (access.DAY_PACKS) and they are added at once, from their End Date
+    while it runs, else from now."""
+    said = st.session_state.pop("days_added", None)
+    if said:
+        st.success(said)
+    with st.expander("Get more days"):
+        st.caption((GRANT.note or "DOB charts open.") + " Days are added to your End Date while it runs, else from now.")
+        c1, c2, _ = st.columns([1, 1, 4], vertical_alignment="bottom")
+        days = c1.selectbox("Days", access.DAY_PACKS, index=1, key="more_days")
+        if c2.button("Add days", key="more_days_add", type="primary"):
+            try:
+                end = db.add_days(user.email, int(days))
+            except ValueError as exc:
+                st.error(str(exc))
+            else:
+                st.session_state["days_added"] = f"{days} day{'s' if days != 1 else ''} added: DOB until {end:%Y-%m-%d %H:%M} UT."
+                st.rerun()
 
 
 core.SIZE_TEXTS, core.SIZE_WORDS, core.SIZE_TEXTS_HELIO, core.SIZE_TEXTS_GLOBE, core.SIZE_TEXTS_CLOCK = db.planet_sizes()   # and their sizes

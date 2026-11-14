@@ -1046,6 +1046,34 @@ def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None =
     return added, changed, deleted
 
 
+def add_days(email: str, days: int) -> datetime:
+    """A customer adds days to their own DOB (DOB Details: Get more days; no payment yet): counted from their End Date
+    while it runs, else from now (Start Date then now too). Access becomes DOB. Gives the new End Date. Raises
+    ValueError for days not in access.DAY_PACKS, or for an admin."""
+    if days not in access.DAY_PACKS:
+        raise ValueError(f"Days must be one of {', '.join(map(str, access.DAY_PACKS))}.")
+    now = _now()
+    with engine().begin() as c:
+        r = c.execute(sa.select(accounts).where(accounts.c.email == email.lower())).mappings().first()
+        try:
+            a = access.canonical(r["access"], access.ACCESS) if r else None
+        except ValueError:
+            a = None
+        if a == "Admin":
+            raise ValueError("An admin's access has no end.")
+        running = a == "DOB" and not access.ended("DOB", r["start_date"], r["end_date"], now)
+        start = _stamp(r["start_date"]) if running else now
+        base = access.ends_at("DOB", r["start_date"], r["end_date"], now) if running else now
+        end = base + timedelta(days=days)
+        data = dict(access="DOB", start_date=start, end_date=end)
+        if r:
+            c.execute(accounts.update().where(accounts.c.email == email.lower()).values(**data))
+        else:
+            c.execute(accounts.insert().values(email=email.lower(), **data))
+        _log(c, email, "Update")
+    return end
+
+
 def has_admin_rights(email: str) -> bool:
     """Whether this login's Customers row makes them an admin (Access Admin)."""
     got = account_of(email) if email else None
