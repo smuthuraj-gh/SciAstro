@@ -57,11 +57,13 @@ def _place(centre: str, name: str, jd: float) -> tuple[float, float, float]:
 FAR_AU = 11.0                      # running: the view reaches out to here (past Saturn at its farthest), so none runs out of it
 
 
-def space_figure(centre: str, bodies, paths, moments, fit: bool, places: dict | None = None, moving: bool = False) -> go.Figure:
+def space_figure(centre: str, bodies, paths, moments, fit: bool, places: dict | None = None, moving: bool = False,
+                 show_au: bool = True) -> go.Figure:
     """The 3D view round centre (Ea or Su): bodies at each of moments ((clock, Julian day), DOB hollow), the Planet Paths of
     paths over one trip from that moment (DOB dashed), the celestial axis and equator with RA 0..270, rings of distance on
     the equator plane, and (Geo) CB and CN on the Earth (places: {clock: (label, lat, lon)}). Fit: Geo/Helio Model's Fit
-    scale, else in AU. moving: time will run (space_js), so the view reaches far enough for all, with room for the clock."""
+    scale, else in AU. moving: time will run (space_js), so the view reaches far enough for all, with room for the clock.
+    show_au: the rings of distance (the page's AU button)."""
     c = CENTRE[centre]
     ball_r = c["fit_r"] if fit else c["true_r"]
     fig = go.Figure()
@@ -103,7 +105,7 @@ def space_figure(centre: str, bodies, paths, moments, fit: bool, places: dict | 
                                        marker=dict(size=5, color=core.colour(label)), showlegend=False,
                                        textfont=dict(size=11, color=core.colour(label)), hovertemplate=f"{label} ({clock})<extra></extra>"))
     span = max(outer, _reach(FAR_AU, fit, c) if moving else 0) * 1.08
-    for au in c["rings"][fit]:                                # distance rings on the equator plane
+    for au in c["rings"][fit] if show_au else ():            # distance rings on the equator plane (AU)
         r = _reach(au, fit, c)
         if r > span:
             continue
