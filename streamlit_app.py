@@ -235,10 +235,12 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                        "if left blank, comes from its Aspect's name, one of Conjunction, Opposition, Square, Trine, Sextile, Semi-sextile, Semi-square, Quintile, "
                        "Sesquiquadrate, Bi-quintile, Quincunx. Changes here "
                        "apply to every chart.",
-    "Customers": "One row per login: its Email, its Access, Start Date (UT), Days and End Date (UT; when DOB runs "
-                 "out). Now: the Now charts only. DOB, the paid option: the DOB and Now charts of every DOB record "
-                 "under their login, and people they add, or search for without saving, on DOB Details, for Days days. "
-                 "End Date is worked out by the app: Start Date + Days (Days blank: 1). Change Start Date to count from another day; changing Access or Days alone counts from now. "
+    "Customers": "One row per login: its Email, its Access, Start Date (UT) and End Date (UT; when DOB runs out), with "
+                 "a Days box. Now: the Now charts only. DOB, the paid option: the DOB and Now charts of every DOB record "
+                 "under their login, and people they add, or search for without saving, on DOB Details, until End Date. "
+                 "End Date is worked out by the app on Commit: type Days (how many days DOB lasts; it is not kept, and "
+                 "is blank again after) and End Date becomes now + Days. Change Start Date to count from another day (it "
+                 "keeps the length, or uses the Days typed with it); a new DOB with no Days lasts 1 day. "
                  "Signing up with birth details gives DOB for 1 day. Admin: an admin. After End Date: the Now charts only. A row is made, with Now, when someone signs in for the first "
                  "time. A login's first DOB record (signing up, or saved on the DOB page) gives it DOB for 1 day. The DOB records refer to this table by "
                  "Email: changing an Email here changes it on them too, and a row whose Email DOB records still use cannot "
@@ -1280,12 +1282,14 @@ def page_aspects():
 
 
 def page_accounts():
-    """The Customers table: a row per login, with its Access, Start Date, Days and End Date (worked out, not typed)."""
+    """The Customers table: a row per login, with its Access, Start Date and End Date (worked out, not typed), and a
+    Days box (typed to work out End Date; not kept)."""
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     df = db.accounts_table()
     names = {"email": "Email", "access": "Access", "start_date": "Start Date", "days": "Days", "end_date": "End Date"}
-    show = df[["id", "email", "access", "start_date", "days", "end_date"]].rename(columns=names)
+    show = df[["id", "email", "access", "start_date", "end_date"]].assign(days=pd.Series(dtype="Int64"))
+    show = show[["id", "email", "access", "start_date", "days", "end_date"]].rename(columns=names)   # (Days: blank, to type)
     back = {v: k for k, v in names.items()}
 
     def commit(rows: pd.DataFrame) -> str:
@@ -1304,9 +1308,10 @@ def page_accounts():
                               "Start Date": st.column_config.DatetimeColumn("Start Date", format="YYYY-MM-DD HH:mm", width=150,
                                                                             help="When DOB counts from (UT). Change it "
                                                                                  "to count from another day (the day paid, say); "
-                                                                                 "changing Access or Days alone sets it to now."),
+                                                                                 "changing Access or typing Days alone sets it to now."),
                               "Days": st.column_config.NumberColumn("Days", min_value=1, step=1, format="%d", width="small",
-                                                                    help="How many days DOB lasts from Start Date (blank: 1). "
+                                                                    help="Type how many days DOB lasts, then Commit: End Date "
+                                                                         "becomes Start Date + Days. Not kept (blank again after). "
                                                                          "Not used for Now or Admin."),
                               "End Date": st.column_config.DatetimeColumn("End Date", format="YYYY-MM-DD HH:mm", width=150, disabled=True,
                                                                           help="When DOB runs out (UT): after it, the Now "

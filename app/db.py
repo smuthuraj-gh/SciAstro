@@ -56,7 +56,7 @@ customers = sa.Table(
 EMAIL_INDEX = "ux_customers_email"
 sa.Index("ix_customers_email", customers.c.email)
 # The Customers table: a row per login email, with its Access (app/access.py), Start Date (UT; as set, or when Access or
-# Days was saved), Days (how long DOB lasts) and End Date (UT; when DOB runs out: Start Date + Days); seen by admins only (the Customers page). Each login's DOB records (above) share
+# Days was saved) and End Date (UT; when DOB runs out: Start Date + the Days typed on the Customers page, not kept); seen by admins only (the Customers page). Each login's DOB records (above) share
 # its email.
 accounts = sa.Table(
     "accounts", meta,
@@ -64,8 +64,7 @@ accounts = sa.Table(
     sa.Column("email", sa.String(254), nullable=False),     # kept in lower case
     sa.Column("access", sa.String(20)),                     # Now, DOB, Admin
     sa.Column("start_date", sa.DateTime),
-    sa.Column("end_date", sa.DateTime),                     # when DOB runs out (start_date + days)
-    sa.Column("days", sa.Integer),                          # how many days DOB lasts (blank: as its End Date says)
+    sa.Column("end_date", sa.DateTime),                     # when DOB runs out (start_date + the days typed)
 )
 sa.Index("ux_accounts_email", accounts.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
@@ -743,12 +742,14 @@ def _add_missing_columns(eng: sa.Engine):
 
 
 def _add_account_end_date(eng: sa.Engine):
-    """A Customers table made before End Date or Days gets them."""
+    """A Customers table made before End Date gets it; one with the Days column (Days is only typed now, to work out
+    End Date) loses that."""
     have = {col["name"] for col in sa.inspect(eng).get_columns("accounts")}
     with eng.begin() as c:
-        for name, kind in (("end_date", sa.DateTime()), ("days", sa.Integer())):
-            if name not in have:
-                c.execute(sa.text(f"ALTER TABLE accounts ADD COLUMN {name} {kind.compile(dialect=eng.dialect)}"))
+        if "end_date" not in have:
+            c.execute(sa.text(f"ALTER TABLE accounts ADD COLUMN end_date {sa.DateTime().compile(dialect=eng.dialect)}"))
+        if "days" in have:
+            c.execute(sa.text("ALTER TABLE accounts DROP COLUMN days"))
 
 
 def _new_access_names(eng: sa.Engine):
@@ -874,7 +875,7 @@ def _ensure_accounts(c, emails, first=()) -> int:
     want = {str(e).strip().lower() for e in emails if isinstance(e, str) and e.strip()}
     have = {e.lower(): a for e, a in c.execute(sa.select(accounts.c.email, accounts.c.access)).all()}
     now = _now()
-    one_day = dict(access="DOB", days=access.SIGNUP_DAYS, start_date=now, end_date=access.period_end("DOB", now))
+    one_day = dict(access="DOB", start_date=now, end_date=access.period_end("DOB", now))
     for e in sorted(want - set(have)):
         c.execute(accounts.insert().values(email=e, **one_day))
     for e in sorted({str(e).strip().lower() for e in first if isinstance(e, str)} & want & set(have)):
@@ -929,8 +930,7 @@ def ensure_account(email: str) -> dict:
 def _set_access(c, email: str, value: str):
     """This login's Customers row gets this Access, from now (DOB: for 1 day; the row made if it has none)."""
     now = _now()
-    data = dict(access=value, start_date=now, end_date=access.period_end(value, now) if value in access.LASTS else None,
-                days=access.SIGNUP_DAYS if value == "DOB" else None)
+    data = dict(access=value, start_date=now, end_date=access.period_end(value, now) if value in access.LASTS else None)
     if c.execute(sa.select(accounts.c.id).where(accounts.c.email == email.lower())).first():
         c.execute(accounts.update().where(accounts.c.email == email.lower()).values(**data))
     else:
@@ -938,7 +938,7 @@ def _set_access(c, email: str, value: str):
 
 
 def accounts_table() -> pd.DataFrame:
-    """The Customers table, by Email: id, email, access, start_date, end_date, days."""
+    """The Customers table, by Email: id, email, access, start_date, end_date."""
     with engine().connect() as c:
         return pd.read_sql(sa.select(accounts).order_by(accounts.c.email), c)
 
@@ -966,7 +966,7 @@ def account_problems(rows: pd.DataFrame) -> list[str]:
     if wrong:
         out.append(f"Access must be one of {', '.join(access.ACCESS)} (not {', '.join(wrong)}).")
     bad_days = sorted({str(v) for v in rows.get("days", pd.Series(dtype=object))
-                       if not (v is None or (isinstance(v, float) and pd.isna(v)) or (isinstance(v, str) and not v.strip()))
+                       if not (v is None or (not isinstance(v, str) and pd.isna(v)) or (isinstance(v, str) and not v.strip()))
                        and access.whole_days(v) is None})
     if bad_days:
         out.append(f"Days must be a whole number, 1 or more (not {', '.join(bad_days)}).")
@@ -975,7 +975,7 @@ def account_problems(rows: pd.DataFrame) -> list[str]:
 
 def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None = None) -> tuple[int, int, int]:
     """Apply an edited copy of the Customers table: (added, changed, deleted). A blank Access is Now. End Date is worked
-    out from Start Date (it is not typed in): DOB, Days days on (blank: 1); Now and Admin, none (nor
+    out from Start Date (it is not typed in): DOB, Days days on (Days: typed, not kept); Now and Admin, none (nor
     Days). Start Date as typed when changed (and for a new row; blank: now); when Access or Days changes and Start Date is
     not changed too, now. The DOB records refer to it by Email: a changed Email is changed on
     them too, and a row whose Email DOB records still use cannot be deleted. Raises ValueError, saving nothing, on
@@ -1001,32 +1001,32 @@ def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None =
         for rec in edited.to_dict("records"):
             email = str(rec.get("email")).strip().lower()
             a = access.canonical(rec.get("access"), access.ACCESS) or "Now"
-            days = access.whole_days(rec.get("days")) if a == "DOB" else None
-
+            days = access.whole_days(rec.get("days")) if a == "DOB" else None   # (typed to work out End Date; not kept)
             typed_start = _stamp(rec.get("start_date"))
 
-            def period(days, start):                          # from start: (start, end, days)
-                if a == "DOB":
-                    days = days or access.SIGNUP_DAYS
-                return start, access.period_end(a, start, days) if a in access.LASTS else None, days
+            def period(start, days):                          # from start: (start, end)
+                return start, access.period_end(a, start, days) if a in access.LASTS else None
 
             aid = rec.get("id")
             if aid is None or pd.isna(aid):
-                start, end, days = period(days, typed_start or now)
-                new.append(dict(email=email, access=a, start_date=start, end_date=end, days=days))
+                start, end = period(typed_start or now, days)
+                new.append(dict(email=email, access=a, start_date=start, end_date=end))
                 continue
             old = original[original["id"] == int(aid)]
             if old.empty:
                 continue
             was = old.iloc[0]
             was_access = access.canonical(was["access"], access.ACCESS) if isinstance(was["access"], str) else None
-            was_days = access.whole_days(was.get("days"))
-            was_start = _stamp(was.get("start_date"))
+            was_start, was_end = _stamp(was.get("start_date")), _stamp(was.get("end_date"))
             moved = "start_date" in rec and typed_start is not None and typed_start != was_start
-            if a != was_access or (a == "DOB" and days != was_days) or moved:
-                # a new Start Date: End Date from it; else a new Access or Days counts from now
-                start, end, days = period(days, typed_start if moved else now)
-                updates.append((int(aid), dict(email=email, access=a, start_date=start, end_date=end, days=days)))
+            if a != was_access or days or moved:
+                # a new Start Date: End Date from it; else a new Access or Days typed counts from now. A new Start Date
+                # alone keeps the length it had.
+                if moved and not days and a == was_access == "DOB" and was_start and was_end:
+                    start, end = typed_start, typed_start + (was_end - was_start)
+                else:
+                    start, end = period(typed_start if moved else now, days)
+                updates.append((int(aid), dict(email=email, access=a, start_date=start, end_date=end)))
             elif email != str(was["email"]).lower():
                 updates.append((int(aid), dict(email=email)))
         old_email = {aid: str(original[original["id"] == aid].iloc[0]["email"]).strip().lower() for aid, _ in updates}
