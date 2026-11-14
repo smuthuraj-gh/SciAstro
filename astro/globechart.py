@@ -50,9 +50,10 @@ MOTION_DAYS = 26298               # how far time runs (72 years) before it start
 NODE_STEP_DAYS = 2.0              # the Moon's true node wobbles over days
 MOTION_STEP_DAYS = {"Mo": 0.5, "Me": 2.0, "Ve": 4.0, "Su": 5.0, "Ma": 5.0, "Ju": 20.0, "Sa": 20.0}    # ... and their steps
 CX, CY = SKY_RADIUS + 58.0, HEIGHT / 2.0   # at the left, room left for the name WCE
-# AU (Coordinates): each planet inside the sphere, along its RA and Dec, at a radius by its distance from the Earth, on a
-# logarithmic scale from DIST_AU[0] (just outside the Earth: the Moon) to DIST_AU[1] (the sphere: past Saturn)
-DIST_AU = (0.0023, 11.0)
+# AU (Coordinates): each planet inside the sphere, along its RA and Dec, at a radius by its distance from the Earth, from
+# the Earth's surface out to DIST_AU[1] at the sphere (past Saturn), on Fit or True (Coordinates): Fit as Geo/Helio Model's
+# (space3d: each tenfold distance the same room, the empty space between the Moon and the planets taken out), True to scale
+DIST_AU = (0.0013, 11.0)
 DIST_INNER = (EARTH_RADIUS + 16.0) / SKY_RADIUS   # where DIST_AU[0] is drawn, as a part of the sphere's radius
 TEXT_W, TEXT_H = 8.0, 18.0      # a character's width and a line's height, for keeping labels apart
 
@@ -76,6 +77,7 @@ class GlobeInput:
     show_celes: bool = True           # the names NCP, SCP, WCE and ECE, the dots at the poles, the axis and the celestial equator
     show_houses: bool = False         # the twelve house lines from CB and CN, on the sphere, turning with the Earth
     show_distance: bool = False       # AU: each planet inside the sphere at a radius by its distance from the Earth
+    scale: str = "Fit"                # AU's scale: Fit (as Geo/Helio Model's) or True (to scale)
     bodies: tuple = BODY_CHOICES      # the bodies to show, with their RA and Dec lines
     paths: tuple = BODY_CHOICES       # the bodies whose paths to draw
     utc_birth: float | None = None    # the UTC offsets the clocks show their moments in, hours (None: in UT)
@@ -300,6 +302,14 @@ def _paths(g: GlobeInput) -> list[dict]:
     return out
 
 
+def _fit_scale(scale: str = "Fit") -> dict:
+    """AU's scale: Fit, as Geo/Helio Model's (space3d): the distance drawn at the Earth, the space taken out, and how far
+    DIST_AU[1] reaches on it (the sphere); or True, to scale (the same keys, for the page)."""
+    from . import space3d                                     # (here: space3d itself imports this module)
+    return dict(scale="True" if scale == "True" else "Fit", log_from=space3d.LOG_FROM_AU, gap=list(space3d.GAP),
+                outer=space3d._reach(DIST_AU[1], space3d.FIT), outer_au=DIST_AU[1])
+
+
 def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False) -> dict:
     """All the page needs to place the bodies at any moment after the start."""
     jd, facing = _start(g)
@@ -328,7 +338,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
                 node_names=[n for n in NODE_CHOICES if n in g.bodies], name_order=ASPECT_NAMES, shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p, texts=core.SIZE_TEXTS_GLOBE) for p in core.BUTTON_ORDER + ["NN", "SN", "CB", "CN"]}, family=SYMBOL_FONT_FAMILY, node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
-                by_distance=g.show_distance, dist_au=DIST_AU, dist_inner=DIST_INNER,
+                by_distance=g.show_distance, dist_au=DIST_AU, dist_inner=DIST_INNER, fit=_fit_scale(g.scale),
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, min(1000, int((day_seconds or 60.0) * 2.5))))
 
 
@@ -455,10 +465,13 @@ __SYMBOL_JS__
     bodies.push(body);
   }));
   const spokeG = markG.parentNode.insertBefore(document.createElementNS(NS, "g"), markG);   // AU: planet to its place on the sphere
-  const reach = (au) => {                          // AU: how far out a distance is drawn, as a part of the sphere's radius
-    const lo = Math.log10(D.dist_au[0]), hi = Math.log10(D.dist_au[1]);
-    const f = Math.min(1, Math.max(0, (Math.log10(Math.max(au, 1e-6)) - lo) / (hi - lo)));
-    return D.dist_inner + (1 - D.dist_inner) * f;
+  const reach = (au) => {                          // AU: how far out a distance is drawn, as a part of the sphere's radius,
+    const F = D.fit;                                 // on Geo/Helio Model's Fit scale (as space3d._reach)
+    if (F.scale === "True") return D.dist_inner + (1 - D.dist_inner) * Math.min(1, Math.max(au, 0) / F.outer_au);   // to scale
+    const log = Math.max(Math.log10(Math.max(au, 1e-9) / F.log_from), 0);
+    const a = Math.log10(F.gap[0] / F.log_from), b = Math.log10(F.gap[1] / F.log_from);
+    const fit = log <= a ? log : log >= b ? log - (b - a) + F.gap[2] : a + (log - a) / (b - a) * F.gap[2];
+    return D.dist_inner + (1 - D.dist_inner) * Math.min(1, fit / F.outer);
   };
   bodies.forEach((body) => {
     const c = body.b.colour;
