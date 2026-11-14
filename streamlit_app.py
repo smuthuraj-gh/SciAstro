@@ -252,7 +252,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "DOB Details": "Get more days: pick 1, 7, 30, 90, 180 or 365 days and press Add days; they are added to your End Date while it runs, else from now. With DOB access, Add a Person (below): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit DOB Details to change them; your login "
+    "DOB Details": "Get more days: pick 1, 7, 30, 90, 180 or 365 days and press Add days; they are added to your End Date while it runs, else from now. With DOB access, Add a DOB (below): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit DOB Details to change them; your login "
                   "email stays the same.",
 }
 
@@ -303,7 +303,7 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 def _pick_customer_box() -> tuple[pd.Series | None, Prepared | None]:
     df = visible_customers()
-    if nav.url_path != "me":                                  # (the chart page Add a Person's buttons go back to)
+    if nav.url_path != "me":                                  # (the chart page Add a DOB's buttons go back to)
         st.session_state["_last_chart_page"] = nav.url_path
     saved_note = st.session_state.pop("_quick_saved", None)   # a quick birth just saved
     if saved_note:
@@ -595,7 +595,7 @@ def details_form(row: pd.Series | None, person: bool = False):
 
 
 def back_page() -> str:
-    """The chart page Add a person (or DOB Details) was opened from (else AstroClock-2D)."""
+    """The chart page Add a DOB (or DOB Details) was opened from (else AstroClock-2D)."""
     back = st.session_state.pop("_back_to", None) or st.session_state.get("_last_chart_page")
     return back if back in PAGE_BY_PATH and back != "me" else "astroclock-2d"
 
@@ -1468,7 +1468,7 @@ def page_my_details():
     if not user.is_admin:                                     # a customer adds DOB days themselves (no payment yet)
         more_days_box()
     if GRANT.many and not user.is_admin:                      # DOB members: a person to add, below their own details
-        with st.expander("Add a Person"):
+        with st.expander("Add a DOB"):
             add_person_form()
 
 
