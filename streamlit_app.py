@@ -1,7 +1,7 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
 Pages: AstroClock-2D, AstroClock-3D, Geo/Helio Model, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only);
-Aspect Rules, Customers (each login's Access), DOB (the birth details), Symbols, Defaults and Logins for admins; DOB details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
+Aspect Rules, Customers (each login's Access), DOB (the birth details), Symbols, Defaults and Logins for admins; DOB Details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
 
@@ -216,7 +216,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
               "UT). View: opened a customer's charts (once per customer per visit). Create, Update, Delete: added, changed or "
-              "deleted a customer (on DOB, by import, or their own DOB details), a row per customer. Login: signed in with "
+              "deleted a customer (on DOB, by import, or their own DOB Details), a row per customer. Login: signed in with "
               "no birth details yet, seeing the Now charts only (once per visit). Location, Device, Time zone: where they were, their "
               "browser and system, and their browser's time zone. Access: theirs then. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
@@ -237,7 +237,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                        "apply to every chart.",
     "Customers": "One row per login: its Email, its Access, Start Date (UT), Days and End Date (UT; when DOB runs "
                  "out). Now: the Now charts only. DOB, the paid option: the DOB and Now charts of every DOB record "
-                 "under their login, and people they add, or search for without saving, on DOB details, for Days days. "
+                 "under their login, and people they add, or search for without saving, on DOB Details, for Days days. "
                  "End Date is worked out by the app: Start Date + Days (Days blank: 1). Change Start Date to count from another day; changing Access or Days alone counts from now. "
                  "Signing up with birth details gives DOB for 1 day. Admin: an admin. After End Date: the Now charts only. A row is made, with Now, when someone signs in for the first "
                  "time. A login's first DOB record (signing up, or saved on the DOB page) gives it DOB for 1 day. The DOB records refer to this table by "
@@ -252,7 +252,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
     "Add a Person": "A person to add under your login (DOB access): their birth details, with Search Only (their DOB "
                       "charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts).",
-    "DOB details": "Your own birth details, used for the DOB charts (without them, the Now charts only). Edit DOB Details to change them; your login "
+    "DOB Details": "Your own birth details, used for the DOB charts (without them, the Now charts only). Edit DOB Details to change them; your login "
                   "email stays the same.",
 }
 
@@ -309,7 +309,7 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
             st.sidebar.info("No customers yet.")
             return None, Prepared(True, "Add a customer on the DOB page for the DOB charts.", now_only=True, locked=True)
         # a new member: no form to fill in, a Login row (once per visit), and the Now charts (birth details can be added in
-        # DOB details, for the DOB ones)
+        # DOB Details, for the DOB ones)
         if not st.session_state.get("login_logged"):
             db.log_login(user.email)
             st.session_state["login_logged"] = True
@@ -320,7 +320,7 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     full = (df["name"].fillna("") + " " + df["last_name"].fillna("")).str.strip()
     label = {int(i): (f"{f} ({e})" if (full == f).sum() > 1 and e else f)
              for i, f, e in zip(df["id"], full, df["email"].fillna(""))}
-    searched = st.session_state.get("_searched")              # a member's birth from DOB details' Search Only (not saved)
+    searched = st.session_state.get("_searched")              # a member's birth from DOB Details' Search Only (not saved)
     if GRANT.dob and (user.is_admin or (GRANT.many and searched)):   # admins: New User, a birth typed in the sidebar
         label[access.QUICK] = "New User" if user.is_admin else searched
     ids = list(label)
@@ -345,7 +345,7 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
         st.sidebar.caption(GRANT.note)
     elif not prep.ok:                                         # birth details that cannot be worked out: the Now charts still
         st.sidebar.error(prep.message)
-        prep = Prepared(True, prep.message + (" Fix it on the DOB page." if user.is_admin else " Fix it in DOB details."),
+        prep = Prepared(True, prep.message + (" Fix it on the DOB page." if user.is_admin else " Fix it in DOB Details."),
                         now_only=True, locked=True)
     else:
         hr, mn = row.get("hr"), row.get("mn")
@@ -382,7 +382,7 @@ def quick_birth(base: pd.Series) -> tuple[pd.Series, Prepared]:
     if st.session_state.pop("_quick_clear", False):           # (just saved: the boxes empty again)
         for k in ("quick_date", "quick_time", "quick_city", "quick_state", "quick_country", "quick_first", "quick_last"):
             st.session_state.pop(k, None)
-    st.session_state.update(st.session_state.pop("_quick_fill", {}))   # (DOB details' Search Only: its birth, typed in)
+    st.session_state.update(st.session_state.pop("_quick_fill", {}))   # (DOB Details' Search Only: its birth, typed in)
     box = st.sidebar.container(border=True)
     born = box.date_input("Birth date", value=None, min_value=datetime(1800, 1, 1).date(), max_value=datetime(2399, 12, 31).date(),
                           format="YYYY-MM-DD", key="quick_date")
@@ -447,7 +447,7 @@ def orbs() -> core.Orbs:
 
 def dob_asked(picked: bool, *keys_reset) -> None:
     """A member with no birth details picked DOB: their Time is set back (keys_reset: (key, value) pairs, set before the
-    buttons are drawn) and the form opens on DOB details; once saved, they come back to this page. One whose Access does
+    buttons are drawn) and the form opens on DOB Details; once saved, they come back to this page. One whose Access does
     not open the DOB charts is told so instead."""
     if not picked:
         return
@@ -588,7 +588,7 @@ def details_form(row: pd.Series | None, person: bool = False):
 
 
 def back_page() -> str:
-    """The chart page Add a person (or DOB details) was opened from (else AstroClock-2D)."""
+    """The chart page Add a person (or DOB Details) was opened from (else AstroClock-2D)."""
     back = st.session_state.pop("_back_to", None) or st.session_state.get("_last_chart_page")
     return back if back in PAGE_BY_PATH and back not in ("me", "add-person") else "astroclock-2d"
 
@@ -1545,8 +1545,8 @@ if user.is_admin:                                             # the Aspect Rules
               st.Page(page_logins, title="Logins", icon=":material/history:", url_path="logins"),
               st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols")]
 else:
-    pages.append(st.Page(page_my_details, title="DOB details", icon=":material/person:", url_path="me"))
-    if GRANT.many:                                            # DOB members: a person to add, below DOB details
+    pages.append(st.Page(page_my_details, title="DOB Details", icon=":material/person:", url_path="me"))
+    if GRANT.many:                                            # DOB members: a person to add, below DOB Details
         pages.append(st.Page(page_add_person, title="Add a Person", icon=":material/person_add:", url_path="add-person"))
 home = st.Page(lambda: None, title="Home", url_path="home", default=True, visibility="hidden")   # the root URL: sends to AstroClock-2D
 nav = st.navigation([home] + pages)
