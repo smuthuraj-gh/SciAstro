@@ -78,6 +78,7 @@ class GlobeInput:
     show_houses: bool = False         # the twelve house lines from CB and CN, on the sphere, turning with the Earth
     show_distance: bool = False       # AU: each planet inside the sphere at a radius by its distance from the Earth
     fit: bool = False                 # Fit: AU on Geo/Helio Model's Fit scale (else to scale)
+    show_links: bool = False          # Co: a line from CB (DOB) or CN (Now) on the Earth to each planet
     bodies: tuple = BODY_CHOICES      # the bodies to show, with their RA and Dec lines
     paths: tuple = BODY_CHOICES       # the bodies whose paths to draw
     utc_birth: float | None = None    # the UTC offsets the clocks show their moments in, hours (None: in UT)
@@ -338,7 +339,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
                 node_names=[n for n in NODE_CHOICES if n in g.bodies], name_order=ASPECT_NAMES, shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p, texts=core.SIZE_TEXTS_GLOBE) for p in core.BUTTON_ORDER + ["NN", "SN", "CB", "CN"]}, family=SYMBOL_FONT_FAMILY, node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
-                by_distance=g.show_distance, dist_au=DIST_AU, dist_inner=DIST_INNER, fit=_fit_scale("Fit" if g.fit else "True"),
+                by_distance=g.show_distance, show_links=g.show_links, dist_au=DIST_AU, dist_inner=DIST_INNER, fit=_fit_scale("Fit" if g.fit else "True"),
                 house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, min(1000, int((day_seconds or 60.0) * 2.5))))
 
 
@@ -477,7 +478,7 @@ __SYMBOL_JS__
     const c = body.b.colour;
     if (D.by_distance) body.spoke = make("line", spokeG, {stroke: c, "stroke-width": 1, "stroke-dasharray": "2 3", style: "pointer-events:none"});
     body.place = D.places.find((pl) => D.sets[pl.set] === body.set);   // CB for DOB, CN for Now
-    if (D.by_distance && body.place)                 // AU: a line from CB (DOB) or CN (Now) on the Earth to the planet
+    if (D.show_links && body.place)                  // Co: a line from CB (DOB) or CN (Now) on the Earth to the planet
       body.link = make("line", spokeG, {stroke: body.place.colour, "stroke-width": 0.9, opacity: 0.55, style: "pointer-events:none"});
     body.mark = make("circle", markG, {fill: body.hollow ? "white" : c, stroke: c, "stroke-width": 2, style: "pointer-events:auto"});
     body.tip = make("title", body.mark);
