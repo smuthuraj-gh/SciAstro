@@ -252,9 +252,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "Add a Person": "A person to add under your login (DOB access): their birth details, with Search Only (their DOB "
-                      "charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts).",
-    "DOB Details": "Your own birth details, used for the DOB charts (without them, the Now charts only). Edit DOB Details to change them; your login "
+    "DOB Details": "With DOB access, Add a Person (below): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit DOB Details to change them; your login "
                   "email stays the same.",
 }
 
@@ -295,10 +293,17 @@ PLACE_SEARCH_DOWN = "The place search is not answering just now. Please try agai
 
 
 def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
+    """The sidebar, right after the page list: the Customer box (and what goes with it), then who is signed in."""
+    try:
+        return _pick_customer_box()
+    finally:                                                  # (also after a page switch or rerun: harmless)
+        st.sidebar.markdown(f"**{user.name}**" + ("  \n:blue-badge[admin]" if user.is_admin else ""))
+        auth.sign_out_button(user)
+
+
+def _pick_customer_box() -> tuple[pd.Series | None, Prepared | None]:
     df = visible_customers()
-    st.sidebar.markdown(f"**{user.name}**" + ("  \n:blue-badge[admin]" if user.is_admin else ""))
-    auth.sign_out_button(user)
-    if nav.url_path not in ("me", "add-person"):              # (the chart page Add a person's buttons go back to)
+    if nav.url_path != "me":                                  # (the chart page Add a Person's buttons go back to)
         st.session_state["_last_chart_page"] = nav.url_path
     saved_note = st.session_state.pop("_quick_saved", None)   # a quick birth just saved
     if saved_note:
@@ -592,7 +597,7 @@ def details_form(row: pd.Series | None, person: bool = False):
 def back_page() -> str:
     """The chart page Add a person (or DOB Details) was opened from (else AstroClock-2D)."""
     back = st.session_state.pop("_back_to", None) or st.session_state.get("_last_chart_page")
-    return back if back in PAGE_BY_PATH and back not in ("me", "add-person") else "astroclock-2d"
+    return back if back in PAGE_BY_PATH and back != "me" else "astroclock-2d"
 
 
 def need_chart(prep: Prepared | None) -> bool:
@@ -1452,24 +1457,25 @@ def page_my_details():
         st.success(st.session_state.pop("person_added"))
     if int(row["id"]) == access.QUICK:
         st.info(("New User is" if user.is_admin else "This search is") + " not saved. Pick a saved person in the sidebar to see or change their details.")
-        return
-    if prep and prep.ok and not prep.now_only:               # (Now charts only: their birth is not worked out)
-        st.write(f"Born on a {prep.weekday}; UTC offset {prep.utc:+.2f} ({prep.tz}); birth place "
-                 f"{prep.birth_lat}, {prep.birth_lon}.")
-    if st.session_state.pop("details_saved", False):
-        st.success("Your details are saved.")
-    with st.expander("Edit DOB Details"):
-        details_form(row)
+    else:
+        if prep and prep.ok and not prep.now_only:           # (Now charts only: their birth is not worked out)
+            st.write(f"Born on a {prep.weekday}; UTC offset {prep.utc:+.2f} ({prep.tz}); birth place "
+                     f"{prep.birth_lat}, {prep.birth_lon}.")
+        if st.session_state.pop("details_saved", False):
+            st.success("Your details are saved.")
+        with st.expander("Edit DOB Details"):
+            details_form(row)
+    if GRANT.many and not user.is_admin:                      # DOB members: a person to add, below their own details
+        with st.expander("Add a Person"):
+            add_person_form()
 
 
 core.SIZE_TEXTS, core.SIZE_WORDS, core.SIZE_TEXTS_HELIO, core.SIZE_TEXTS_GLOBE, core.SIZE_TEXTS_CLOCK = db.planet_sizes()   # and their sizes
 core.SYMBOL_TEXTS = db.planet_symbols()                       # and their symbols, shown in place of the SNs
 DEFAULT_TEXTS = db.defaults_map()                             # what each page's inputs start as (the Defaults table)
 core.COLOURS.update(core.DEFAULT_COLOURS | db.planet_colours())   # every chart's colours are the Symbols table's (a deleted row's, the usual one)
-def page_add_person():
-    """A person to add under their login (DOB members): its form, with Search Only and Save and Search."""
-    if not (GRANT.many and not user.is_admin):
-        st.stop()
+def add_person_form():
+    """A person to add under their login (DOB members, on DOB Details): its form, with Search Only and Save and Search."""
     st.caption(("Saved under your login, to see their DOB charts while your DOB access runs; " if GRANT.dob else
                 "Saved under your login, to see their Now charts; ") + "their place now starts as yours. Search Only shows "
                "their DOB charts, not saved, as a Search choice in the sidebar (no name or place now needed); Save and Search "
@@ -1495,10 +1501,8 @@ if user.is_admin:                                             # the Aspect Rules
               st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols")]
 else:
     pages.append(st.Page(page_my_details, title="DOB Details", icon=":material/person:", url_path="me"))
-    if GRANT.many:                                            # DOB members: a person to add, below DOB Details
-        pages.append(st.Page(page_add_person, title="Add a Person", icon=":material/person_add:", url_path="add-person"))
 home = st.Page(lambda: None, title="Home", url_path="home", default=True, visibility="hidden")   # the root URL: sends to AstroClock-2D
-nav = st.navigation([home] + pages)
+nav = st.navigation([home] + pages, expanded=True)            # every page shown (no "View more"): the Customer box right below
 PAGE_BY_PATH = {p.url_path: p for p in pages}                 # (to go to a page from another)
 if nav is home:                                               # / opens /astroclock-2d, keeping any query
     st.switch_page(PAGE_BY_PATH["astroclock-2d"], query_params=st.query_params.to_dict())
