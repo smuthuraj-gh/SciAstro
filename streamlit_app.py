@@ -192,7 +192,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "now, solid lines, with CN, a house, at the place now.",
     "Geo/Helio Model": "Centric Model: Geo, GeoCentric, the Earth at the centre, or Helio, HelioCentric, the Sun at the centre; each keeps its own choices on the other buttons. "
                   "GeoCentric: the paths of the Sun, Moon and planets around the Earth (Ea), each at its own distance from the Earth (on AstroClock-3D all are on one sphere). "
-                  "3D, beside AU: in place of the drawing, a true 3D view, to drag to turn and scroll to zoom: the Earth (Geo) or the Sun (Helio) in the middle, the planets picked at their real directions and distances (one moment each for Now and DOB, DOB hollow), their Planet Paths over one trip from then, the celestial axis and equator, rings of distance in AU, CB and CN on the Earth; on Fit, or True with True on (the body in the middle not to scale); point at a planet for its RA, Dec and distance. "
+                  "3D, beside AU: in place of the drawing, a true 3D view, to drag to turn and scroll to zoom: the Earth (Geo) or the Sun (Helio) in the middle, the planets picked at their real directions and distances (one moment each for Now and DOB, DOB hollow), their Planet Paths over one trip from then, the celestial axis and equator, rings of distance in AU, CB and CN on the Earth; on Fit, or True with True on (the body in the middle not to scale); Rotate in 1s: time runs from each moment at the speed picked, the planets moving to where they really were, with the date and time at the top (Manual or none: it stands still; drag to turn it either way); point at a planet for its RA, Dec and distance. "
                   "Point at a planet for its distance from the centre and, under Distance to the others, how far it is from each other body shown at that moment, in AU (straight across space). "
                   "Each point is placed by its RA, Dec and distance. North is up, the axis from NCP to SCP tilted 23.44 degrees on the page, with everything else leaning with it. AU: all the tags, NCP, SCP and the RA names, and rings on the plane of the Earth's equator, each with its distance from the Earth in AU, out to 20 AU (1 AU is about the Sun's distance); off, the drawing has no tags. "
                   "Rotate in 1s: Manual: time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second: 1s a second, 1m a minute, 1h an hour, 1d a day, 1w a week, 1mo a month, 1y a year: the clock beside the name gives the date and time, and the Sun, Moon and planets move as they really did, nearer and farther, the Moon's path going with it (time starts again after 72 years; refresh the page to go back to the start). With none picked it holds still. Each has its symbol inside its marker (☉ Su, ☽ Mo, ☿ Me, ♀ Ve, ♂ Ma, ♃ Ju, ♄ Sa, ⊕ Ea). Sizes follow the Size_Geo column of Symbols: usually a planet by how big it looks from the Earth at that moment (a logarithmic scale, as to true scale the planets would not show), so it grows as it comes nearer, and the Earth as its Size says (Tiny, a dot, when it says nothing readable; to true scale it would be far smaller still). Point at a planet for its Dec/Lati, RA, Angular Size and distance, or at a path for its span and distances. "
@@ -897,7 +897,7 @@ def page_globe():
     coords_on = default_choice("AstroClock-3D", "Coordinates")
     coords = head.container(width="content", gap="xxsmall")   # Coordinates, with its options below it in fixed rows
     if coords.pills("Coordinates", ["Coordinates"], default="Coordinates", key="globe_coords_on", label_visibility="collapsed"):
-        for row_of in (["Ho", "Ce", "AU"], ["Co", "RA"], ["De", "Lat", "Lon"]):
+        for row_of in (["Ho", "Ce", "AU"], ["Co", "RA", "De"], ["Lat", "Lon"]):
             shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[n for n in row_of if n in coords_on],
                                   key=f"globe_coords_{row_of[0]}", label_visibility="collapsed")
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
@@ -1010,9 +1010,15 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     if view_3d:                                               # 3D: in true 3D, to turn and zoom with the mouse (one moment each)
         places = {**({"DOB": ("CB", prep.birth_lat, prep.birth_lon)} if prep.birth_lon is not None else {}),
                   **({"Now": ("CN", prep.cn[0], prep.cn[1])} if prep.cn else {})}
-        st.plotly_chart(space3dview.space_figure(centre, bodies, tuple(with_paths), [(m[0], m[1]) for m in moments], scale == space3d.FIT,
-                                                 places), config={"scrollZoom": True, "displaylogo": False}, key=f"{key}_3d_chart",
-                        width="content")                      # (its own size, at the top left)
+        moving = bool(day_seconds) and not manual            # Rotate in 1s: time runs at the speed picked
+        at = [(m[0], m[1]) for m in moments]
+        fig = space3dview.space_figure(centre, bodies, tuple(with_paths), at, scale == space3d.FIT, places, moving=moving)
+        if moving:                                            # (the HTML is built only from the chart and the tables: safe to run)
+            st.html(mapchart.fit_html(fig, after_js=space3dview.space_js(centre, bodies, at, scale == space3d.FIT, day_seconds)),
+                    unsafe_allow_javascript=True)
+        else:
+            st.plotly_chart(fig, config={"scrollZoom": True, "displaylogo": False}, key=f"{key}_3d_chart",
+                            width="content")                  # (its own size, at the top left)
         return
     st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre, flat,
                                {**({"DOB": ("CB", prep.birth_lon)} if prep.birth_lon is not None else {}),

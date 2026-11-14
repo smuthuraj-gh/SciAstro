@@ -50,6 +50,12 @@ class Spots:
 INSET_L, INSET_R = 15, 11
 
 
+def _script_safe(text: str) -> str:
+    """JSON for inside a script on the page: every "<" written as \\u003c (the same in JSON), as st.html's sanitizer drops a
+    whole script that has a "<" before a letter or "/" in it (a hover box's <br>, say)."""
+    return text.replace("<", "\\u003c")
+
+
 def fit_html(fig: go.Figure, after_js: str = "") -> str:
     """The chart as HTML scaled as a whole to the page's zoom, exactly as laid out (so no label can come to overlap
     another), reaching INSET_L / INSET_R past the text column. Any chart with a fixed layout width and height."""
@@ -94,7 +100,7 @@ def fit_html(fig: go.Figure, after_js: str = "") -> str:
     const s = document.createElement("script");
     s.id = "plotly-js"; s.src = "{cdn}"; document.head.appendChild(s);
   }}
-  const fig = {fig.to_json()};
+  const fig = {_script_safe(fig.to_json())};
   (function draw() {{
     if (!window.Plotly) return setTimeout(draw, 50);
     // (the mouse wheel scrolls the page, never zooms a chart; a globe has no zoom or reset buttons: it stays as it is)
