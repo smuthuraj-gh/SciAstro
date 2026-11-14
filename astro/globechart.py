@@ -419,8 +419,9 @@ __SYMBOL_JS__
   };
   const curve = (pts) => {                         // the path data of a line's near side and of its far side
     let near = "", far = "", side = null, last = "";
-    pts.forEach(([ra, dec]) => {
-      const [x, y, z] = point(ra, dec), here = z >= 0, at = x.toFixed(1) + " " + y.toFixed(1);
+    pts.forEach(([ra, dec, k]) => {                // (k: AU, drawn in from the sphere by the distance then)
+      const [sx, sy, z] = point(ra, dec), f = k === undefined ? 1 : k, here = z >= 0;
+      const x = D.cx + (sx - D.cx) * f, y = D.cy + (sy - D.cy) * f, at = x.toFixed(1) + " " + y.toFixed(1);
       if (here !== side) {
         const start = (last ? "M" + last + "L" : "M") + at;
         if (here) near += start; else far += start;
@@ -558,8 +559,8 @@ __SYMBOL_JS__
   });
   let pathsFacing = null, pathsAt = null, trailFrom = null;
   const TRAIL_MOST = 1500;                         // the most points a trail is drawn with: a long one is thinned, evenly
-  const trailAt = (p, s) => {                      // where the body was, s days on
-    if (!p.node) { const q = sample(p.table, s); return [q.ra, q.dec]; }
+  const trailAt = (p, s) => {                      // where the body was, s days on (AU: at its distance then, too)
+    if (!p.node) { const q = sample(p.table, s); return D.by_distance ? [q.ra, q.dec, reach(q.dist), q.dist] : [q.ra, q.dec]; }
     const [ra, dec] = nodeSample(p.set.node, s);
     return [(ra + p.turn + 720) % 360, p.sign * dec];
   };
@@ -571,8 +572,10 @@ __SYMBOL_JS__
     for (let n = 0; n * gap < run; n++) p.pts.push(trailAt(p, trailFrom + n * gap));
     if (run > 0) p.pts.push(trailAt(p, t));         // to the body itself
     const decs = p.pts.map((q) => q[1]), show = (v) => (v >= 0 ? "+" : "") + v.toFixed(2), days = Math.round(run);
+    const aus = p.pts.filter((q) => q.length > 3).map((q) => q[3]);
     p.tip = p.name + " " + p.clock + ": where it has been since time started running, " + days + (days === 1 ? " day" : " days") +
-      (decs.length ? " (Dec between " + show(Math.min(...decs)) + " and " + show(Math.max(...decs)) + ")" : "");
+      (decs.length ? " (Dec between " + show(Math.min(...decs)) + " and " + show(Math.max(...decs)) + ")" : "") +
+      (aus.length ? "\nDistance from earth between " + Math.min(...aus).toPrecision(4) + " and " + Math.max(...aus).toPrecision(4) + " AU" : "");
   };
   const drawPaths = () => {                        // named only on pointing at them
     paths.forEach((p) => p.draw(p.pts, p.tip, p.colour, p.width));
