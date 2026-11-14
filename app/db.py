@@ -227,6 +227,7 @@ def engine() -> sa.Engine:
     _add_defaults_index(eng)
     _seed_defaults(eng)
     _set_time_now(eng)
+    _rename_dec_button(eng)
     return eng
 
 
@@ -313,6 +314,18 @@ NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects
 
 
 TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio model", "geo time"), ("geo/helio model", "helio time"))
+
+
+def _rename_dec_button(eng: sa.Engine):
+    """AstroClock-3D's Dec button (under Coordinates) is called De: a Defaults row that names Dec gets De."""
+    with eng.begin() as c:
+        rows = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(
+            sa.func.lower(defaults.c.page) == "astroclock-3d", sa.func.lower(defaults.c.options) == "coordinates")).all()
+        for rid, choices in rows:
+            parts = [p.strip() for p in (choices or "").split(",")]
+            if any(p.lower() == "dec" for p in parts):
+                new = ", ".join("De" if p.lower() == "dec" else p for p in parts if p)
+                c.execute(defaults.update().where(defaults.c.id == rid).values(choices=new))
 
 
 def _set_time_now(eng: sa.Engine):
