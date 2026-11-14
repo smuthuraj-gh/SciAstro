@@ -173,9 +173,6 @@ def record_items(row: pd.Series) -> tuple:
 _chosen: tuple[pd.Series | None, Prepared | None] = (None, None)
 
 
-ADD_PERSON = -2                                               # the Customer list's "+ Add a person": its form on DOB details
-
-
 def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     """The customer chosen in the sidebar (chosen once per run, before the page; see the end of this file)."""
     return _chosen
@@ -253,6 +250,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
+    "+ Add a person": "A person to add under your login (DOB access): their birth details, with Search Only (their DOB "
+                      "charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts).",
     "DOB details": "Your own birth details, used for the DOB charts (without them, the Now charts only). Edit DOB Details to change them; your login "
                   "email stays the same.",
 }
@@ -297,7 +296,7 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     df = visible_customers()
     st.sidebar.markdown(f"**{user.name}**" + ("  \n:blue-badge[admin]" if user.is_admin else ""))
     auth.sign_out_button(user)
-    if nav.url_path != "me":                                  # (the chart page DOB details' buttons go back to)
+    if nav.url_path not in ("me", "add-person"):              # (the chart page Add a person's buttons go back to)
         st.session_state["_last_chart_page"] = nav.url_path
     saved_note = st.session_state.pop("_quick_saved", None)   # a quick birth just saved
     if saved_note:
@@ -324,23 +323,12 @@ def _pick_customer() -> tuple[pd.Series | None, Prepared | None]:
     searched = st.session_state.get("_searched")              # a member's birth from DOB details' Search Only (not saved)
     if GRANT.dob and (user.is_admin or (GRANT.many and searched)):   # admins: New User, a birth typed in the sidebar
         label[access.QUICK] = "New User" if user.is_admin else searched
-    if GRANT.many and not user.is_admin:                      # DOB: a person to add, from the same list
-        label[ADD_PERSON] = "+ Add a person"
     ids = list(label)
     if "_select_customer" in st.session_state:                # (a person just added: shown at once)
         st.session_state["customer_id"] = st.session_state.pop("_select_customer")
-    last = st.session_state.get("_last_customer")
-    if st.session_state.get("customer_id") == ADD_PERSON and last == ADD_PERSON and nav.url_path != "me":
-        st.session_state["customer_id"] = OWN_ID if OWN_ID in ids else ids[0]   # (left DOB details for a chart: a person again)
     prev = st.session_state.get("customer_id")
     idx = ids.index(prev) if prev in ids else ids.index(OWN_ID) if OWN_ID in ids else 0   # (a member: their own, to start)
     cid = st.sidebar.selectbox("Customer", ids, index=idx, format_func=label.get, key="customer_id")
-    st.session_state["_last_customer"] = cid
-    if cid == ADD_PERSON:                                     # its form is on DOB details
-        if nav.url_path != "me":
-            st.session_state["_select_customer"] = ADD_PERSON
-            st.switch_page(PAGE_BY_PATH["me"])
-        return pd.Series({"id": ADD_PERSON, "name": "Add a person", "last_name": ""}), None
     if cid == access.QUICK:
         base = df[df["id"] == OWN_ID] if (df["id"] == OWN_ID).any() else df
         row, prep = quick_birth(base.iloc[0])
@@ -600,9 +588,9 @@ def details_form(row: pd.Series | None, person: bool = False):
 
 
 def back_page() -> str:
-    """The chart page DOB details was opened from (else AstroClock-2D)."""
+    """The chart page Add a person (or DOB details) was opened from (else AstroClock-2D)."""
     back = st.session_state.pop("_back_to", None) or st.session_state.get("_last_chart_page")
-    return back if back in PAGE_BY_PATH and back != "me" else "astroclock-2d"
+    return back if back in PAGE_BY_PATH and back not in ("me", "add-person") else "astroclock-2d"
 
 
 def need_chart(prep: Prepared | None) -> bool:
@@ -1460,16 +1448,6 @@ def page_my_details():
         return
     if st.session_state.get("person_added"):
         st.success(st.session_state.pop("person_added"))
-    if int(row["id"]) == ADD_PERSON:                          # "+ Add a person" picked in the Customer list
-        st.caption(("Saved under your login, to see their DOB charts while your unlimited access runs; " if GRANT.dob else
-                    "Saved under your login, to see their Now charts; ") + "their place now starts as yours. Search Only shows "
-                   "their DOB charts, not saved, as a Search choice in the sidebar (no name or place now needed); Save and Search saves them, "
-                   "then shows their charts.")
-        own = visible_customers()
-        own = own[own["id"] == OWN_ID]
-        details_form(pd.Series({f: own.iloc[0][f] for f in ("country_n", "state_n", "city_n", "other_n")}) if len(own) else None,
-                     person=True)
-        return
     if int(row["id"]) == access.QUICK:
         st.info(("New User is" if user.is_admin else "This search is") + " not saved. Pick a saved person in the sidebar to see or change their details.")
         return
@@ -1486,10 +1464,26 @@ core.SIZE_TEXTS, core.SIZE_WORDS, core.SIZE_TEXTS_HELIO, core.SIZE_TEXTS_GLOBE, 
 core.SYMBOL_TEXTS = db.planet_symbols()                       # and their symbols, shown in place of the SNs
 DEFAULT_TEXTS = db.defaults_map()                             # what each page's inputs start as (the Defaults table)
 core.COLOURS.update(core.DEFAULT_COLOURS | db.planet_colours())   # every chart's colours are the Symbols table's (a deleted row's, the usual one)
+def page_add_person():
+    """A person to add under their login (DOB members): its form, with Search Only and Save and Search."""
+    if not (GRANT.many and not user.is_admin):
+        st.stop()
+    st.caption(("Saved under your login, to see their DOB charts while your DOB access runs; " if GRANT.dob else
+                "Saved under your login, to see their Now charts; ") + "their place now starts as yours. Search Only shows "
+               "their DOB charts, not saved, as a Search choice in the sidebar (no name or place now needed); Save and Search "
+               "saves them, then shows their charts.")
+    own = visible_customers()
+    own = own[own["id"] == OWN_ID]
+    details_form(pd.Series({f: own.iloc[0][f] for f in ("country_n", "state_n", "city_n", "other_n")}) if len(own) else None,
+                 person=True)
+
+
 pages = [st.Page(page_astroclock, title="AstroClock-2D", icon=":material/science:", url_path="astroclock-2d"),
          st.Page(page_globe, title="AstroClock-3D", icon=":material/language:", url_path="astroclock-3d"),
          st.Page(page_centric, title="Geo/Helio Model", icon=":material/orbit:", url_path="geo-helio-model"),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
+         *([st.Page(page_add_person, title="+ Add a person", icon=":material/person_add:", url_path="add-person")]
+           if GRANT.many and not user.is_admin else []),      # DOB members: a person to add, below Aspects
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
 if user.is_admin:                                             # the Aspect Rules, DOB, Symbols, Defaults, Logins pages: admins only
