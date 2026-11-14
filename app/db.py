@@ -1046,27 +1046,6 @@ def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None =
     return added, changed, deleted
 
 
-def set_dob_days(changes: dict[str, int], by: str | None = None) -> int:
-    """From the DOB page: each login email given gets Access DOB for that many days from now (its Customers row's Days,
-    Start Date now and End Date; Access Now becomes DOB). Raises ValueError, saving nothing, for an email with no
-    Customers row or with Access Admin. Gives how many rows were changed."""
-    now = _now()
-    with engine().begin() as c:
-        rows = {r["email"]: dict(r) for r in c.execute(sa.select(accounts).where(
-            accounts.c.email.in_([e.lower() for e in changes]))).mappings().all()}
-        missing = sorted(e for e in changes if e.lower() not in rows)
-        admins = sorted(e for e in changes if e.lower() in rows and access.canonical(rows[e.lower()]["access"], access.ACCESS) == "Admin")
-        if missing or admins:
-            raise ValueError(" ".join(
-                ([f"No Customers row for {', '.join(missing)}."] if missing else [])
-                + ([f"Days is not used for Admin: {', '.join(admins)}."] if admins else [])))
-        for e, days in changes.items():
-            c.execute(accounts.update().where(accounts.c.email == e.lower()).values(
-                access="DOB", days=days, start_date=now, end_date=access.period_end("DOB", now, days)))
-        _log(c, by, "Update", len(changes))
-    return len(changes)
-
-
 def has_admin_rights(email: str) -> bool:
     """Whether this login's Customers row makes them an admin (Access Admin)."""
     got = account_of(email) if email else None

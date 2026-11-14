@@ -244,7 +244,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email: changing an Email here changes it on them too, and a row whose Email DOB records still use cannot "
                  "be deleted. Insert, Update, Delete, "
                  "Commit as on DOB.",
-    "DOB": "The customers' birth details. Days and End Date: the login's DOB access (its Email's row on the Customers page); type Days and Commit to give that login DOB for that many days from now (End Date worked out). Insert for a new customer, type changes and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. ID is the record's number, and Created and Last_Updated (UT) when it was added and last changed, all set by the app. Required (*): Email (login), First Name, "
+    "DOB": "The customers' birth details. Insert for a new customer, type changes and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. ID is the record's number, and Created and Last_Updated (UT) when it was added and last changed, all set by the app. Required (*): Email (login), First Name, "
                  "Last Name, Country, State, City, the birth date and time (Date, Local-Time-24hr), and where they "
                  "live now (Country-N, State-N, City-N). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
@@ -1375,38 +1375,7 @@ def page_customers():
     # order shown does not matter
     by_name = show[db.LABELS["name"]].map(lambda v: v.strip().lower() if isinstance(v, str) else v)
     show = show.loc[by_name.sort_values(na_position="last", kind="stable").index].reset_index(drop=True)
-    # each login's Days and End Date (from the Customers page, by Email): Days typed here gives that login DOB for that
-    # many days from now; End Date is worked out, read only
-    acct = db.accounts_table().set_index("email")
-    login = show[db.LABELS["email"]].map(lambda v: v.strip().lower() if isinstance(v, str) else None)
-    show["Days"] = login.map(acct["days"]).astype("Int64")
-    show["End Date"] = login.map(acct["end_date"])
-
-    def days_changes(rows: pd.DataFrame) -> tuple[dict[str, int], list[str]]:
-        """Each login email whose Days was changed here: (email: days, problems)."""
-        want, bad, twice = {}, set(), set()
-        have = acct["days"].to_dict()
-        for e, d in zip(rows[db.LABELS["email"]], rows["Days"]):
-            if not isinstance(e, str) or not e.strip() or d is None or pd.isna(d):
-                continue
-            n = access.whole_days(d)
-            if n is None:
-                bad.add(str(d)); continue
-            e = e.strip().lower()
-            if access.whole_days(have.get(e)) == n:           # (as it is: a record left alone)
-                continue
-            if e in want and want[e] != n:
-                twice.add(e)
-            want[e] = n
-        out = []
-        if bad:
-            out.append(f"Days must be a whole number, 1 or more (not {', '.join(sorted(bad))}).")
-        if twice:
-            out.append("Records with the same Email share its Days: give them one number (" + ", ".join(sorted(twice)) + ").")
-        return want, out
-
     def for_store(rows: pd.DataFrame) -> pd.DataFrame:
-        rows = rows.drop(columns=["Days", "End Date"], errors="ignore")   # (the login's, saved on its own)
         back = {**{v: k for k, v in db.LABELS.items()}, **{v: k for k, v in stamps.items()}}
         out = rows.rename(columns={"Local-Time-24hr": db.LABELS["hr"]}).rename(columns=back).drop(columns=["updated_at"], errors="ignore")   # (Last_Updated: the app's)
         parts = [date_parts(v) for v in out["day"]]                 # the Date column back into Year, Mon, Date
@@ -1419,22 +1388,10 @@ def page_customers():
     def commit(rows: pd.DataFrame) -> str:
         # against what the working copy started from: a member who joined or changed their details since is left alone
         base = st.session_state.get("cust_editor_base")
-        days, _ = days_changes(rows)
-        said = "Committed: {} added, {} changed, {} deleted.".format(
+        return "Committed: {} added, {} changed, {} deleted.".format(
             *db.save_customers(for_store(rows), df if base is None else for_store(base), by=user.email))
-        if days:                                              # (after the records: a new Email has its Customers row by now)
-            db.set_dob_days(days, by=user.email)
-            said += " Days set for " + ", ".join(f"{e} ({n})" for e, n in sorted(days.items())) + ": DOB from now."
-        return said
 
-    def problems(rows: pd.DataFrame) -> list[str]:
-        out = db.customer_problems(for_store(rows)) + days_changes(rows)[1]
-        admins = sorted(e for e in days_changes(rows)[0] if e in acct.index and acct.loc[e, "access"] == "Admin")
-        if admins:
-            out.append("Days is not used for Admin: " + ", ".join(admins) + ".")
-        return out
-
-    crud_table("cust_editor", show, problems, commit,
+    crud_table("cust_editor", show, lambda rows: db.customer_problems(for_store(rows)), commit,
                height="auto" if len(st.session_state.get("cust_editor_working", show)) <= 18 else 700,   # nothing below it overlapped
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The record's number, set by the app (blank on a new row until saved)."),
                                 "First Name": st.column_config.TextColumn("First Name *", help="Required."),
@@ -1463,16 +1420,7 @@ def page_customers():
                                                                                 "when left blank; may be changed."),
                                 "Last_Updated": st.column_config.DatetimeColumn("Last_Updated", format="YYYY-MM-DD HH:mm",
                                                                                 disabled=True,
-                                                                                help="When the record was last changed (UT), set by the app."),
-                                "Days": st.column_config.NumberColumn("Days", min_value=1, step=1, format="%d", width="small",
-                                                                      help="The login's DOB access, in days (its Email's row on the "
-                                                                           "Customers page): type a number and Commit to give it DOB "
-                                                                           "for that many days from now. Records with the same Email "
-                                                                           "share it."),
-                                "End Date": st.column_config.DatetimeColumn("End Date", format="YYYY-MM-DD HH:mm", disabled=True,
-                                                                            width=150,
-                                                                            help="When the login's DOB runs out (UT): now + Days, "
-                                                                                 "worked out by the app.")})
+                                                                                help="When the record was last changed (UT), set by the app.")})
     with st.expander("Import from the workbook"):
         st.write("Save the workbook's Customers tab as CSV (Customer, Country, State, City, Other, Year, Mon, Date, "
                  "Hr24, Min, Country-N, State-N, City-N, Other-N; Other and Other-N may be left out) and upload it. "
