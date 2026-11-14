@@ -54,6 +54,7 @@ CX, CY = SKY_RADIUS + 58.0, HEIGHT / 2.0   # at the left, room left for the name
 # the Earth's surface out to DIST_AU[1] at the sphere (past Saturn), on Fit or True (Coordinates): Fit as Geo/Helio Model's
 # (space3d: each tenfold distance the same room, the empty space between the Moon and the planets taken out), True to scale
 DIST_AU = (0.0013, 11.0)
+SCALE_BUTTONS = ("Fit", "Tru")    # AU's scale buttons under Coordinates: Fit, and Tru (true scale)
 DIST_INNER = (EARTH_RADIUS + 16.0) / SKY_RADIUS   # where DIST_AU[0] is drawn, as a part of the sphere's radius
 TEXT_W, TEXT_H = 8.0, 18.0      # a character's width and a line's height, for keeping labels apart
 
@@ -77,7 +78,7 @@ class GlobeInput:
     show_celes: bool = True           # the names NCP, SCP, WCE and ECE, the dots at the poles, the axis and the celestial equator
     show_houses: bool = False         # the twelve house lines from CB and CN, on the sphere, turning with the Earth
     show_distance: bool = False       # AU: each planet inside the sphere at a radius by its distance from the Earth
-    scale: str = "Fit"                # AU's scale: Fit (as Geo/Helio Model's) or True (to scale)
+    scale: str = "Fit"                # AU's scale: Fit (as Geo/Helio Model's) or Tru (true scale)
     bodies: tuple = BODY_CHOICES      # the bodies to show, with their RA and Dec lines
     paths: tuple = BODY_CHOICES       # the bodies whose paths to draw
     utc_birth: float | None = None    # the UTC offsets the clocks show their moments in, hours (None: in UT)
@@ -306,7 +307,7 @@ def _fit_scale(scale: str = "Fit") -> dict:
     """AU's scale: Fit, as Geo/Helio Model's (space3d): the distance drawn at the Earth, the space taken out, and how far
     DIST_AU[1] reaches on it (the sphere); or True, to scale (the same keys, for the page)."""
     from . import space3d                                     # (here: space3d itself imports this module)
-    return dict(scale="True" if scale == "True" else "Fit", log_from=space3d.LOG_FROM_AU, gap=list(space3d.GAP),
+    return dict(scale="True" if scale in ("True", "Tru") else "Fit", log_from=space3d.LOG_FROM_AU, gap=list(space3d.GAP),
                 outer=space3d._reach(DIST_AU[1], space3d.FIT), outer_au=DIST_AU[1])
 
 

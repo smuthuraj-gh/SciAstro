@@ -108,7 +108,7 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("AstroClock-3D", "Planet Path", "Su"),
     ("AstroClock-3D", "Major Aspects", ""),
     ("AstroClock-3D", "Minor Aspects", ""),
-    ("AstroClock-3D", "Coordinates", "Celes"),
+    ("AstroClock-3D", "Coordinates", "Ce"),
     ("AstroClock-3D", "Rotate in 1s", "Manual"),
     ("Geo/Helio Model", "Centric Model", "Geo"),
     ("Geo/Helio Model", "Geo Time", "Now"),
@@ -316,15 +316,15 @@ NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects
 TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio model", "geo time"), ("geo/helio model", "helio time"))
 
 
-COORD_BUTTONS_RENAMED = {"dec": "De", "lati": "Lat", "long": "Lon"}   # AstroClock-3D's Coordinates buttons' earlier names
+COORD_BUTTONS_RENAMED = {"dec": "De", "lati": "Lat", "long": "Lon", "house": "Ho", "celes": "Ce", "true": "Tru"}   # AstroClock-3D's Coordinates buttons' earlier names
 
 
 def _rename_dec_button(eng: sa.Engine):
-    """AstroClock-3D's Coordinates buttons Dec, Lati and Long are called De, Lat and Lon: a Defaults row that names them
-    gets the new names."""
+    """AstroClock-3D's Coordinates buttons Dec, Lati, Long, House, Celes and True are called De, Lat, Lon, Ho, Ce and Tru: a Defaults row that
+    names them gets the new names."""
     with eng.begin() as c:
         rows = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(
-            sa.func.lower(defaults.c.page) == "astroclock-3d", sa.func.lower(defaults.c.options) == "coordinates")).all()
+            sa.func.lower(defaults.c.page) == "astroclock-3d", sa.func.lower(defaults.c.options).in_(["coordinates", "scale"]))).all()
         for rid, choices in rows:
             parts = [p.strip() for p in (choices or "").split(",")]
             if any(p.lower() in COORD_BUTTONS_RENAMED for p in parts):
