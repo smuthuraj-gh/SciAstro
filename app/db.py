@@ -114,13 +114,13 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Geo/Helio Model", "Geo Time", "Now"),
     ("Geo/Helio Model", "Geo Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa"),
     ("Geo/Helio Model", "Geo Planet Path", "Mo, Su, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio Model", "Geo Coordinates", "Fit"),
+    ("Geo/Helio Model", "Geo Coordinates", ""),
     ("Geo/Helio Model", "Geo AU", "On"),
     ("Geo/Helio Model", "Geo Rotate in 1s", "Manual"),
     ("Geo/Helio Model", "Helio Time", "Now"),
     ("Geo/Helio Model", "Helio Planets", "Mo, Ea, Me, Ve, Ma, Ju, Sa"),
     ("Geo/Helio Model", "Helio Planet Path", "Mo, Ea, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio Model", "Helio Coordinates", "Fit"),
+    ("Geo/Helio Model", "Helio Coordinates", ""),
     ("Geo/Helio Model", "Helio AU", "On"),
     ("Geo/Helio Model", "Helio Rotate in 1s", "Manual"),
     ("Aspects", "Start Date (UT)", "DOB"),
@@ -330,6 +330,10 @@ def _rename_dec_button(eng: sa.Engine):
             if any(p.lower() in COORD_BUTTONS_RENAMED for p in parts):
                 new = ", ".join(COORD_BUTTONS_RENAMED.get(p.lower(), p) for p in parts if p)
                 c.execute(defaults.update().where(defaults.c.id == rid).values(choices=new))
+        # Geo/Helio Model's Fit button is gone (Fit unless True): a Coordinates row of Fit is blank
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio model",
+                                          sa.func.lower(defaults.c.options).in_(["geo coordinates", "helio coordinates"]),
+                                          sa.func.lower(sa.func.trim(defaults.c.choices)) == "fit").values(choices=""))
 
 
 def _set_time_now(eng: sa.Engine):
