@@ -252,7 +252,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "DOB Details": "Get more days: pick 1, 7, 30, 90, 180 or 365 days and press Add days; they are added to your End Date while it runs, else from now. With DOB access, Add a DOB (below): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them; your login "
+    "DOB Details": "Get more days: pick 1, 7, 30, 90, 180 or 365 days and press Add days; they are added to your End Date while it runs, else from now. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them; your login "
                   "email stays the same.",
 }
 
@@ -1455,6 +1455,9 @@ def page_my_details():
         return
     if st.session_state.get("person_added"):
         st.success(st.session_state.pop("person_added"))
+    if GRANT.many and not user.is_admin:                      # DOB members: a person to add, at the top
+        with st.expander("Add a DOB"):
+            add_person_form()
     if int(row["id"]) == access.QUICK:
         st.info(("New User is" if user.is_admin else "This search is") + " not saved. Pick a saved person in the sidebar to see or change their details.")
     else:
@@ -1467,9 +1470,6 @@ def page_my_details():
             details_form(row)
     if not user.is_admin:                                     # a customer adds DOB days themselves (no payment yet)
         more_days_box()
-    if GRANT.many and not user.is_admin:                      # DOB members: a person to add, below their own details
-        with st.expander("Add a DOB"):
-            add_person_form()
 
 
 def more_days_box():
