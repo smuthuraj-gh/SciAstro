@@ -1011,7 +1011,8 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         places = {**({"DOB": ("CB", prep.birth_lat, prep.birth_lon)} if prep.birth_lon is not None else {}),
                   **({"Now": ("CN", prep.cn[0], prep.cn[1])} if prep.cn else {})}
         st.plotly_chart(space3dview.space_figure(centre, bodies, tuple(with_paths), [(m[0], m[1]) for m in moments], scale == space3d.FIT,
-                                                 places), config={"scrollZoom": True, "displaylogo": False}, key=f"{key}_3d_chart")
+                                                 places), config={"scrollZoom": True, "displaylogo": False}, key=f"{key}_3d_chart",
+                        width="content")                      # (its own size, at the top left)
         return
     st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre, flat,
                                {**({"DOB": ("CB", prep.birth_lon)} if prep.birth_lon is not None else {}),

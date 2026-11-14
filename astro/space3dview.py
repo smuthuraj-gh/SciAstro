@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 from . import core, space3d
 from .mapchart import CHART_FONT_FAMILY
 
-HEIGHT = 720
+WIDTH, HEIGHT = 820, 720           # a fixed size, shown at the top left of the page (not stretched to its width)
 LINE_COLOUR = "rgb(120,120,120)"
 # the body at the centre: its colour, its radius on Fit (in Fit units: each tenfold distance one unit) and on True (in AU),
 # neither to scale; the Fit scale's distance drawn at it and space taken out; AU rings on Fit and on True; the paths' spans
@@ -119,7 +119,7 @@ def space_figure(centre: str, bodies, paths, moments, fit: bool, places: dict | 
         fig.add_trace(go.Scatter3d(x=[x], y=[y], z=[0], mode="text", text=[f"RA {ra}"], hoverinfo="skip", showlegend=False,
                                    textfont=dict(size=10, color=LINE_COLOUR)))
     axis = dict(visible=False, range=[-span, span])
-    fig.update_layout(height=HEIGHT, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor="white",
+    fig.update_layout(width=WIDTH, height=HEIGHT, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor="white", autosize=False,
                       scene=dict(xaxis=axis, yaxis=axis, zaxis=axis, aspectmode="cube", bgcolor="white",
                                  camera=dict(eye=dict(x=1.3, y=1.3, z=0.7))),
                       font=dict(family=CHART_FONT_FAMILY, size=11))
