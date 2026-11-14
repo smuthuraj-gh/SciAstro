@@ -1450,10 +1450,6 @@ def page_customers():
                                      "under that login, or a family). It refers to the Customers page: an Email new there gets "
                                      "a row with DOB for 1 day (so does a login with Access Now getting its first record), and what it may "
                                      "see is its Access there."),
-                                "Group Owner Email": st.column_config.TextColumn("Group Owner Email",
-                                help="The login email of the group this record belongs to: who added it (the admin, "
-                                     "the customer themself on signing up, or a member adding a person). Set by the app "
-                                     "when left blank; may be changed."),
                                 "Country": st.column_config.TextColumn("Country *", help="Birth place: required."),
                                 "State": st.column_config.TextColumn("State *", help="Birth place: required."),
                                 "City": st.column_config.TextColumn("City *", help="Birth place: required."),

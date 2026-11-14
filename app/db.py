@@ -20,11 +20,11 @@ from . import access
 from .location import visitor_device, visitor_location, visitor_timezone
 
 ROOT = Path(__file__).resolve().parent.parent
-# the customer columns in table order; Email (login) first, as it is the key, then the account: Group Owner Email
-ACCOUNT_FIELDS = ("created_by",)              # (not the birth details: the charts do not read them)
+# the customer columns in table order; Email (login) first, as it is the key
+ACCOUNT_FIELDS = ()                           # (none now: Group Owner Email, created_by, was dropped)
 FIELDS = ["email", *ACCOUNT_FIELDS, "name", "last_name", "country", "state", "city", "other", "year", "mon", "day", "hr", "mn",
           "country_n", "state_n", "city_n", "other_n", "utc"]
-LABELS = {"name": "First Name", "last_name": "Last Name", "email": "Email (login)", "created_by": "Group Owner Email",
+LABELS = {"name": "First Name", "last_name": "Last Name", "email": "Email (login)",
           "access": "Access", "country": "Country", "state": "State",
           "other": "Other", "city": "City",
           "year": "Year", "mon": "Mon", "day": "Date", "hr": "Hr24", "mn": "Min", "country_n": "Country-N",
@@ -37,7 +37,6 @@ customers = sa.Table(
     sa.Column("name", sa.String(120), nullable=False),       # not unique: the login email is the key
     sa.Column("last_name", sa.String(120)),
     sa.Column("email", sa.String(254)),
-    sa.Column("created_by", sa.String(254)),                  # who added the record (their login email), set by the app
     sa.Column("access", sa.String(20)),                       # (earlier: each login's Access, now in the Customers table: see accounts)
     sa.Column("access_from", sa.DateTime),                    # (earlier: when it was set, now the Customers table's Start Date)
     sa.Column("country", sa.String(120)), sa.Column("state", sa.String(120)),
@@ -204,6 +203,7 @@ def engine() -> sa.Engine:
     _allow_login_activity(eng)
     _add_logins_columns(eng)
     _add_missing_columns(eng)
+    _drop_owner_column(eng)
     _add_account_end_date(eng)
     _seed_account_fields(eng)
     _new_access_names(eng)
@@ -772,6 +772,16 @@ def _new_access_names(eng: sa.Engine):
 OLD_TYPE = "utype"                                            # the account-type column Access replaced
 
 
+OLD_OWNER = "created_by"                                      # the Group Owner Email column, no longer used
+
+
+def _drop_owner_column(eng: sa.Engine):
+    """A store made with the Group Owner Email column (who added each record; never read) loses it."""
+    with eng.begin() as c:
+        if OLD_OWNER in {col["name"] for col in sa.inspect(c).get_columns("customers")}:
+            c.execute(sa.text(f"ALTER TABLE customers DROP COLUMN {OLD_OWNER}"))
+
+
 def _drop_old_type_column(eng: sa.Engine):
     """A store made with the account-type column Access replaced loses it; first (unless already done), a record that was
     an admin by it gets Access Admin, so that it stays an admin."""
@@ -1093,9 +1103,8 @@ def _clean(rec: dict) -> dict:
             out[f] = float(v)
         else:
             out[f] = str(v).strip()
-    for f in ("email", "created_by"):
-        if out.get(f):
-            out[f] = out[f].lower()
+    if out.get("email"):
+        out["email"] = out["email"].lower()
     return out
 
 
@@ -1222,7 +1231,7 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
     """Apply an edited copy of the customers table: (added, changed, deleted). original is what that copy started from,
     so a customer who joined or changed their details since is left alone. A new birth date, time or place clears the
     kept UTC offset, to be looked up again. Raises ValueError, saving nothing, when two customers would share a login email.
-    by: who did it (their email), logged in the Logins table, and Group Owner Email of a new record left blank. Created as
+    by: who did it (their email), logged in the Logins table. Created as
     edited (added_at); a new record's, left blank, is now. (Access is on the Customers table: see save_accounts.)"""
     problems = customer_problems(edited)
     if problems:
@@ -1263,7 +1272,6 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
             c.execute(sa.update(customers).where(customers.c.id == cid).values(**data, updated_at=now))
             changed += 1
         for data, times in new:
-            data["created_by"] = data.get("created_by") or (by.lower() if by else None)
             c.execute(sa.insert(customers).values(**data, added_at=times.get("added_at") or now, updated_at=now))
             added += 1
         _ensure_accounts(c, edited["email"] if "email" in edited else [], first=set(edited.get("email", pd.Series(dtype=object)).dropna().str.strip().str.lower()) - had)   # (each Email refers to a Customers row; a first DOB entry: DOB for 1 day)
@@ -1277,7 +1285,7 @@ def add_own_customer(rec: dict, email: str) -> bool:
     """A new member's own record, linked to their login email (the key: one record per email), with Access DOB for
     access.SIGNUP_DAYS (1 day) from now. Returns False, saving nothing, when that email already has one (they simply
     use it)."""
-    data = {**_clean({**rec, "email": email}), "created_by": email.lower()}
+    data = _clean({**rec, "email": email})
     problems = missing_required(pd.DataFrame([data]))      # the same rule as the DOB page's table
     if problems:
         raise ValueError("Missing: " + problems[0].split(": ", 1)[-1])
@@ -1294,7 +1302,7 @@ def add_own_customer(rec: dict, email: str) -> bool:
 def add_person(rec: dict, email: str) -> int:
     """A person a member with DOB adds under their login: their email, added by them, no
     Access of its own. Returns the new record's id. Raises ValueError, saving nothing, when a field is missing."""
-    data = {**_clean({**rec, "email": email}), "created_by": email.lower()}
+    data = _clean({**rec, "email": email})
     problems = missing_required(pd.DataFrame([data]))
     if problems:
         raise ValueError("Missing: " + problems[0].split(": ", 1)[-1])
@@ -1308,7 +1316,7 @@ def add_person(rec: dict, email: str) -> int:
 def update_own_customer(rec: dict, email: str, cid: int) -> bool:
     """A member's changes to their own record cid, which must have their login email (which stays as it is; a Group's
     records share it). Returns False when it does not. The UTC offset is cleared, to be looked up again for the new birth
-    time and place. Their Group Owner Email is not theirs to change: rec has none of them."""
+    time and place."""
     data = _clean({**rec, "email": email})
     problems = missing_required(pd.DataFrame([data]))      # the same rule as the DOB page's table
     if problems:
@@ -1359,7 +1367,6 @@ def import_workbook_csv(raw: bytes, by: str | None = None) -> int:
                 data["email"] = None
             if data.get("name") and data["name"].lower() not in have and data["name"].lower() != "new":
                 now = _now()
-                data["created_by"] = by.lower() if by else None
                 c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now))
                 have.add(data["name"].lower()); n += 1
                 if data.get("email"):
