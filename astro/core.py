@@ -223,10 +223,12 @@ def start_orb(angle: float) -> float:
 
 @dataclass
 class Orbs:
-    """The orb table: a row per aspect (Aspect, Angle, Mo-RA .. Sa-RA, NN-RA, SN-RA, Mo-De .. SN-De): an RA orb and a Dec
-    orb per planet (a Dec orb missing: its RA orb)."""
+    """The orb table (Aspect, Angle, Mo-RA .. Sa-RA, NN-RA, SN-RA, Mo-De .. SN-De): an RA orb and a Dec orb per planet (a Dec
+    orb missing: its RA orb). The Aspect Rules table has one row, for every angle; a row for an angle of its own (an older
+    table) still counts for that angle."""
     table: pd.DataFrame
     _lookup: dict = field(default_factory=dict, init=False, repr=False)
+    _every: dict = field(default_factory=dict, init=False, repr=False)   # the first row's: for any angle
 
     def __post_init__(self):
         for _, row in self.table.iterrows():
@@ -240,9 +242,10 @@ class Orbs:
                     v = pd.to_numeric(row[col], errors="coerce")
                     if pd.notna(v) and v >= 0:
                         self._lookup[(ang, c[:2], c[2:].upper() == "-DE")] = float(v)
+                        self._every.setdefault((c[:2], c[2:].upper() == "-DE"), float(v))
 
     def planet(self, angle: float, name: str, is_dec: bool = False) -> float:
-        got = self._lookup.get((float(angle), name, is_dec), -1.0)
+        got = self._lookup.get((float(angle), name, is_dec), self._every.get((name, is_dec), -1.0))
         return got if got >= 0 or not is_dec else self.planet(angle, name)   # (no Dec orb: its RA orb)
 
     def pair(self, angle: float, n1: str, n2: str, is_dec: bool = False) -> float:

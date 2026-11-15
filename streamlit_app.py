@@ -232,11 +232,10 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                 "only, who can Insert, Update, Delete and Commit rows.",
     "Symbols": "The Symbols table: the short name (SAbr), symbol (Symb), long name (SDesc) and colour (RGB, and its name, Color) of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
                "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SAbr is unique, and stays once a row is in the table. Symb is what the pages show in place of its SAbr, the SAbr itself when blank. On AstroClock-2D, AstroClock-3D and Geo/Helio Model the conventional symbols are drawn, in the row's RGB colour; anything else is shown as typed, an emoji such as the baby in its own colours. RGB is rgb(r,g,b) or #rrggbb; Color is its name in words, for reference, and may be blank. Size_Clock-3D says how AstroClock-3D draws the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; Tiny, a dot with no symbol; Small, 9 pixels; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SAbr or SDesc (Bigger than Moon); blank, as usual (a planet by its angular size, Ea a dot, the nodes and places 9 pixels). Size_Clock-2D says the same for AstroClock-2D, its Dec and Distance(%) graphs (it starts as Size_Geo), Size_Geo for Geo/Helio Model's Geo, and Size_Helio for its Helio (it starts as Size_Geo, with the Moon Tiny). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on Geo/Helio Model's Geo; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
-    "Aspect Rules": "The orbs: for each aspect and planet, how far from exact still counts as the aspect, the same "
-                       "for RA and for Declination. A pair of planets uses the total of their two orbs (RA and Dec each). A new row's Angle, "
-                       "if left blank, comes from its Aspect's name, one of Conjunction, Opposition, Square, Trine, Sextile, Semi-sextile, Semi-square, Quintile, "
-                       "Sesquiquadrate, Bi-quintile, Quincunx. Changes here "
-                       "apply to every chart.",
+    "Aspect Rules": "The orbs: one row, for every aspect (Conjunction 0, Opposition 180, Square 90, Trine 120, Sextile 60, "
+                       "Semi-sextile 30, Semi-square 45, Quintile 72, Sesquiquadrate 135, Bi-quintile 144, Quincunx 150): for each "
+                       "planet, an RA orb and a Dec orb, how far from exact still counts as the aspect. A pair of planets uses the "
+                       "total of their two orbs (RA and Dec each). Type the changes and press Save; they apply to every chart.",
     "Customers": "One row per login: its Email, its Access, Start Date (UT) and End Date (UT; when DOB runs out), with "
                  "a Days box. Now: the Now charts only. DOB, the paid option: the DOB and Now charts of every DOB record "
                  "under their login, and people they add, or search for without saving, on DOB Details, until End Date. "
@@ -1039,9 +1038,11 @@ def page_range():
 
 
 def rule_angles() -> dict[int, str]:
-    """The Aspect Rules table's aspects, by angle (whole degrees): their names, as Aspects shows them."""
+    """The aspects, by angle (whole degrees): their names, as Aspects shows them (the Aspect Rules table has one row of orbs
+    for them all; the names and angles are the usual ones)."""
     out = {}
-    for name, ang in zip(db.orb_table()["Aspect"], db.orb_table()["Angle"]):
+    names = core.default_orb_table()
+    for name, ang in zip(names["Aspect"], names["Angle"]):
         try:
             a = float(ang)
         except (TypeError, ValueError):
@@ -1279,14 +1280,26 @@ def page_aspects():
         st.stop()
     table = db.orb_table()
     st.caption("A pair is in aspect when RA is within the RA orb of the angle and the two Decs within the Dec orb of "
-               "equal or mirrored, at every angle. A pair uses the total of its two planets' "
-               "orbs; CB and CN take the planet's.")
-    crud_table("orb_editor", table.assign(_angle=table["Angle"]), lambda rows: db.orb_problems(db.with_angles(rows)),
-               lambda rows: (db.save_orb_table(db.with_angles(rows).pipe(lambda r: r[r["Angle"].notna()]).drop(columns="_angle")),
-                             "Committed.")[1],
-               column_config={"_angle": None, "Angle": st.column_config.NumberColumn("Angle", format="%g", width="small"),   # a new row's, if blank, from its Aspect's name
-                              **{c: st.column_config.NumberColumn(core.with_symbols(c[:-3]) + (" RA" if c.endswith("-RA") else " Dec"))
-                                 for c in db.ORB_COLUMNS}})   # ☽︎ RA, ☉︎ RA .. ☽︎ Dec ..
+               "equal or mirrored, at every angle. One row of orbs for every aspect; a pair uses the total of its two "
+               "planets' orbs (RA and Dec each); CB and CN take the planet's.")
+    show = table[db.ORB_COLUMNS].head(1)
+    edited = st.data_editor(show, hide_index=True, num_rows="fixed", key="orb_editor", width="content",
+                            column_config={c: st.column_config.NumberColumn(core.with_symbols(c[:-3]) + (" RA" if c.endswith("-RA") else " Dec"),
+                                                                            min_value=0.0, format="%g")
+                                           for c in db.ORB_COLUMNS})   # ☽︎ RA, ☉︎ RA .. ☽︎ Dec ..
+    said = st.session_state.pop("orb_said", None)
+    if said:
+        st.success(said)
+    if st.button("Save", type="primary", key="orb_save"):
+        wrong = db.orb_problems(edited)
+        if wrong:
+            st.error("Not saved. " + " ".join(wrong))
+        else:
+            db.save_orb_table(edited)
+            st.cache_data.clear()                             # charts kept with the old orbs
+            st.session_state.pop("orb_editor", None)
+            st.session_state["orb_said"] = "Saved: these orbs now apply to every aspect."
+            st.rerun()
     if st.button("Reset to defaults"):
         st.session_state["orb_reset_ask"] = True
     if st.session_state.get("orb_reset_ask"):
@@ -1294,7 +1307,7 @@ def page_aspects():
         yes, no = st.columns(2, width=220)
         if yes.button("Yes, reset", type="primary", key="orb_reset_yes"):
             db.save_orb_table(core.default_orb_table())
-            for name in ("orb_reset_ask", "orb_editor_working", "orb_editor_base", "orb_editor"):
+            for name in ("orb_reset_ask", "orb_editor"):
                 st.session_state.pop(name, None)
             st.cache_data.clear()
             st.rerun()

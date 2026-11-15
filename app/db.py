@@ -149,7 +149,8 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("size_helio", sa.String(40)),                   # how the HelioCentric chart sizes it: Size_Helio
     sa.Column("size_clock_2d", sa.String(40)),                   # how the AstroClock-2D chart sizes it: Size_Clock-2D
 )
-# The Aspect Rules table: a row per aspect, with its RA orb and its Dec orb per planet (-RA, -De); pos keeps the order shown
+# The Aspect Rules table: one row, ALL_ASPECTS, with an RA orb and a Dec orb per planet (-RA, -De), for every angle (kept
+# under angle 0; pos 0)
 ORB_COLUMNS = [c for c in core.default_orb_table().columns if c not in ("Aspect", "Angle")]
 aspect_details = sa.Table(
     "aspect_details", meta,
@@ -221,6 +222,7 @@ def engine() -> sa.Engine:
     _add_orb_nn_ra(eng)
     _seed_aspect_details(eng)
     _add_orb_dec(eng)
+    _one_orb_row(eng)
     _rename_defaults_page(eng)
     _add_defaults_index(eng)
     _seed_defaults(eng)
@@ -454,15 +456,30 @@ def _seed_aspect_details(eng: sa.Engine):
             return
         kept = c.execute(sa.select(settings.c.value).where(settings.c.key == "orbs")).scalar()
         table = pd.read_csv(io.StringIO(kept)) if kept else core.default_orb_table()
-        rows = _orb_rows(table.dropna(subset=["Angle"]).drop_duplicates("Angle"))
+        rows = _orb_rows(table.dropna(subset=["Angle"]).head(1))   # (one row: for every angle)
         if rows:
             c.execute(aspect_details.insert(), rows)
 
 
+ALL_ASPECTS = "All aspects"                                   # the Aspect Rules table's one row
+
+
+def _one_orb_row(eng: sa.Engine):
+    """An Aspect Rules table with a row per aspect keeps only its first (by pos), as the one row for every angle."""
+    with eng.begin() as c:
+        rows = c.execute(sa.select(aspect_details.c.angle).order_by(aspect_details.c.pos)).all()
+        if not rows or (len(rows) == 1 and rows[0][0] == 0.0):
+            return
+        keep = rows[0][0]
+        c.execute(sa.delete(aspect_details).where(aspect_details.c.angle != keep))
+        c.execute(aspect_details.update().values(angle=0.0, pos=0, aspect=ALL_ASPECTS))
+
+
 def _orb_rows(table: pd.DataFrame) -> list[dict]:
+    """The one row to keep: the table's first, for every angle."""
     rows = []
-    for pos, (_, r) in enumerate(table.iterrows()):
-        row = {"angle": float(r["Angle"]), "pos": pos, "aspect": str(r["Aspect"]).strip()}
+    for pos, (_, r) in enumerate(table.head(1).iterrows()):
+        row = {"angle": 0.0, "pos": pos, "aspect": ALL_ASPECTS}
         for c in ORB_COLUMNS:
             v = pd.to_numeric(r.get(c), errors="coerce")
             row[c.lower().replace("-", "_")] = None if pd.isna(v) else float(v)
@@ -705,48 +722,11 @@ def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
     return added, changed, len(set(old) - kept)
 
 
-def aspect_angles() -> dict[str, float]:
-    """The angle of each aspect by its name, in lower case (from the defaults): how a new row gets its Angle."""
-    d = core.default_orb_table()
-    return {str(a).strip().lower(): float(g) for a, g in zip(d["Aspect"], d["Angle"])}
-
-
-def with_angles(rows: pd.DataFrame) -> pd.DataFrame:
-    """These rows, a new one (no Angle yet) given the angle of its Aspect's name."""
-    rows, angles = rows.copy(), aspect_angles()
-    new = rows["Angle"].isna()
-    # (a blank or unknown name stays blank: NaN, as None does not fit the number column on pandas 3)
-    rows.loc[new, "Angle"] = rows.loc[new, "Aspect"].map(lambda a: angles.get(_cell(a).lower(), float("nan"))).astype(float)
-    return rows
-
-
-def orb_problems(rows: pd.DataFrame) -> list[str]:
-    """What is wrong with the orb table's rows (_angle: the Angle a row is kept under; blank on a new one). Each needs an
-    Aspect, a unique Angle (which stays on a row already there) and every orb a number of 0 or more."""
-    out, seen = [], set()
-    orbs = [c for c in rows.columns if c not in ("Aspect", "Angle", "_angle")]
-    numbers = rows[orbs].apply(pd.to_numeric, errors="coerce")
-    for i, r in rows.iterrows():
-        aspect, kept = _cell(r["Aspect"]), r["_angle"]
-        angle = pd.to_numeric(r["Angle"], errors="coerce")
-        if pd.isna(kept) and not aspect and pd.isna(angle) and numbers.loc[i].isna().all():
-            continue                                               # a wholly empty new row does not count
-        label = aspect or "New row"
-        if pd.notna(kept) and angle != kept:
-            out.append(f"{label}: the Angle of a row already in the table cannot be changed")
-        if not aspect:
-            out.append(f"{label}: Aspect is empty")
-        if aspect and pd.isna(angle):
-            out.append(f"{label}: give an Angle (0 to 180), or an Aspect that is one of " + ", ".join(core.default_orb_table()["Aspect"]))
-        elif pd.notna(angle) and not 0 <= angle <= 180:
-            out.append(f"{label}: Angle must be a number from 0 to 180")
-        elif pd.notna(angle) and angle in seen:
-            out.append(f"{label}: {aspect} ({angle:g}) is already in the table")
-        else:
-            seen.add(angle)
-        if numbers.loc[i].isna().any() or (numbers.loc[i] < 0).any():
-            out.append(f"{label}: every orb must be a number of 0 or more")
-    return out
+def orb_problems(row: pd.DataFrame) -> list[str]:
+    """What is wrong with the Aspect Rules table's one row: every orb must be a number of 0 or more."""
+    numbers = row[[c for c in ORB_COLUMNS if c in row]].apply(pd.to_numeric, errors="coerce")
+    bad = [c for c in numbers.columns if numbers[c].isna().any() or (numbers[c] < 0).any()]
+    return [f"Every orb must be a number of 0 or more (not {', '.join(bad)})."] if bad else []
 
 
 def _add_missing_columns(eng: sa.Engine):
@@ -1439,7 +1419,7 @@ def import_workbook_csv(raw: bytes, by: str | None = None) -> int:
 
 # ---------------------------------------------------------------- the orb table
 def orb_table() -> pd.DataFrame:
-    """The Aspect Rules table, with the columns the charts read: Aspect, Angle, Mo-RA .. SN-RA."""
+    """The Aspect Rules table, with the columns the charts read: Aspect, Angle, Mo-RA .. SN-DE (one row, for every angle)."""
     with engine().connect() as c:
         rows = c.execute(sa.select(aspect_details).order_by(aspect_details.c.pos)).mappings().all()
     return pd.DataFrame([{"Aspect": r["aspect"], "Angle": r["angle"],
