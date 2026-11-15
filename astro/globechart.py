@@ -625,12 +625,11 @@ __SYMBOL_JS__
       if (body.link) {                             // from CB or CN, where it is on the turning Earth, to the planet
         const [px, py, pz] = placeOnEarth(body.place, t);
         [["x1", px], ["y1", py], ["x2", x], ["y2", y]].forEach(([a, v]) => body.link.setAttribute(a, v.toFixed(1)));
-        body.link.style.display = hidden || pz < 0 ? "none" : "";   // (its place on the far side of the Earth: none)
+        body.link.setAttribute("opacity", hidden || pz < 0 ? 0.25 : 0.55);   // every planet's: fainter from or to the far side
       }
-      if (body.spoke) {                            // from the planet out to its RA and Dec on the sphere
+      if (body.spoke) {                            // from the planet out to its RA and Dec on the sphere (every planet's)
         [["x1", x], ["y1", y], ["x2", sx], ["y2", sy]].forEach(([a, v]) => body.spoke.setAttribute(a, v.toFixed(1)));
-        body.spoke.setAttribute("opacity", z >= 0 ? 0.8 : 0.35);
-        body.spoke.style.display = hidden ? "none" : "";
+        body.spoke.setAttribute("opacity", z >= 0 && !hidden ? 0.8 : 0.35);
       }
       Object.assign(body, {x, y, r, hidden, fade});
       body.mark.setAttribute("cx", x.toFixed(1)); body.mark.setAttribute("cy", y.toFixed(1));
