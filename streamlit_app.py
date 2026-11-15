@@ -1551,3 +1551,4 @@ _chosen = _pick_customer()                                    # the sidebar's cu
 top_line(nav.title, _chosen[0])
 nav.run()
 st.sidebar.caption(f"Swiss Ephemeris via {se.BACKEND}. Equatorial (RA / Dec) only.")
+st.sidebar.caption("Developed by Senthil Muthuraj")             # at the foot of every page's sidebar
