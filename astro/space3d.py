@@ -17,14 +17,13 @@ WIDTH, HEIGHT = 1100, 900          # taller than the orbits need, for the RA lin
 RADIUS = 300.0                    # pixels from the Earth to the farthest thing drawn
 VIEW = (130, 110, WIDTH, HEIGHT - 110)       # the part of the drawing shown (left, top, width, height): the drawing at the top left
 FLAT_VIEW = (30, 50, WIDTH, HEIGHT - 50)    # the same for the flat page
-SCALES = (FIT := "Fit", "True")   # Fit: each tenfold distance the same room, without the empty space between the Moon and the planets
+FIT = "Fit"                       # the scale: each tenfold distance the same room, without the empty space between the Moon and the planets
 GAP = (0.003, 0.25, 0.03)         # Fit: from just past the Moon's farthest (AU) to inside any planet's nearest (Venus about 0.26),
                                   # drawn as only this much (a tenth of a doubling: a thin space)
 LOG_FROM_AU = 0.0013              # on Fit, the distance drawn at the Earth (the Moon, about 0.0024-0.0027, close by)
 SPANS = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN}     # days, points, name: one trip round the sky
-RINGS = {FIT: (0.01, 0.5, 1.0, 2.5, 5.0, 10.0),            # just past the Moon (in the space taken out, so not to scale there), then the planets
-         "True": (0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)}   # AU; at most RINGS_SHOWN of them
-RINGS_SHOWN = {FIT: 6, "True": 4}   # at most this many rings, the outermost ones
+RINGS = (0.01, 0.5, 1.0, 2.5, 5.0, 10.0)   # AU: just past the Moon (in the space taken out, so not to scale there), then the planets
+RINGS_SHOWN = 6                   # at most this many rings, the outermost ones
 RA_MARKS = (0, 90, 180, 270)
 RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroClock-3D) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
@@ -54,12 +53,11 @@ HELIO_LOG_FROM_AU = 0.12          # on Fit, the distance drawn at the Sun (Mercu
 HELIO_SPANS = {"Mo": (27.32, 110, "Moon Path"), "Me": (87.97, 200, "Mercury Path"), "Ve": (224.7, 200, "Venus Path"), "Ea": (365.25, 200, "Earth Path"),
                "Ma": (687.0, 300, "Mars Path"), "Ju": (4333.0, 400, "Jupiter Path"), "Sa": (10759.0, 400, "Saturn Path")}   # a year each
 HELIO_STEP_DAYS = {"Me": 1.0, "Ve": 2.0, "Ea": 2.0, "Ma": 4.0, "Ju": 20.0, "Sa": 20.0}
-HELIO_RINGS = {FIT: (0.5, 1.0, 2.5, 5.0, 10.0),   # all of them (on True those inside 1 AU would be lost in the Sun's mark)
-               "True": (1.0, 2.5, 5.0, 10.0)}
+HELIO_RINGS = (0.5, 1.0, 2.5, 5.0, 10.0)   # AU
 NO_GAP = (1.0, 1.0, 0.0)          # nothing taken out
 # by the body at the centre: the distance drawn there on Fit, the space taken out, the rings, the paths' spans, and its name in words
 CENTRES = {"Ea": dict(log_from=LOG_FROM_AU, gap=GAP, rings=RINGS, rings_shown=RINGS_SHOWN, spans=SPANS, word="earth"),
-           "Su": dict(log_from=HELIO_LOG_FROM_AU, gap=NO_GAP, rings=HELIO_RINGS, rings_shown={FIT: 5, "True": 4}, spans=HELIO_SPANS, word="the Sun")}
+           "Su": dict(log_from=HELIO_LOG_FROM_AU, gap=NO_GAP, rings=HELIO_RINGS, rings_shown=5, spans=HELIO_SPANS, word="the Sun")}
 
 
 TABLE_KEYS = ("step", "ra", "dec", "dist", "km", "shift", "at0")   # what the page reads of a table
@@ -105,10 +103,8 @@ def _node_geo_rows(name: str, start: float, days: int) -> dict:
             "dec": [-d if flip else d for d in node["dec"]], "dist": dist, "km": 0.0}
 
 
-def _reach(au: float, scale: str, log_from: float = LOG_FROM_AU, gap: tuple = GAP) -> float:
-    """How far from the centre a distance is drawn, before fitting to the page."""
-    if scale == "True":
-        return au
+def _reach(au: float, scale: str = FIT, log_from: float = LOG_FROM_AU, gap: tuple = GAP) -> float:
+    """How far from the centre a distance is drawn on the Fit scale, before fitting to the page."""
     log = max(math.log10(au / log_from), 0.0)
     a, b = math.log10(gap[0] / log_from), math.log10(gap[1] / log_from)
     return log if log <= a else log - (b - a) + gap[2] if log >= b else a + (log - a) / (b - a) * gap[2]
@@ -179,7 +175,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                         whole = _motion_table(q, jd, RUN_DAYS)
                         ave_tables.setdefault(clock, {})[q] = {k: whole[k] for k in TABLE_KEYS}
     outer = outer or 1.0
-    wanted = [au for au in at["rings"][scale] if reach(au) <= outer][-at["rings_shown"][scale]:] if show_au else []
+    wanted = [au for au in at["rings"] if reach(au) <= outer][-at["rings_shown"]:] if show_au else []
     if show_au:                                               # the outer circle too, beyond the planets
         wanted = wanted + [OUTER_RING_AU]
     if flat:                                                  # only the 12 AU circle, always, at the edge
@@ -198,7 +194,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                 houses=[dict(clock=c, place=places[c][0], ra=core.lst(jd, places[c][1])) for c, jd, _ in moments if c in (places or {})],
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
-                au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, scale=scale, log_from=at["log_from"], gap=at["gap"],
+                au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, log_from=at["log_from"], gap=at["gap"],
                 scp_ring=reach(SCP_BEYOND_AU), scp_past=SCP_PAST_PX, sides=SIDES, small_font=SMALL_FONT, pole_font=POLE_FONT, key=("flat" if flat else "") + centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, min(1000, int((day_seconds or 60.0) * 2.5))), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=SYMBOL_FONT_FAMILY, one_circle=bool(flat and one_circle), one_circle_at=ONE_CIRCLE_AT, ra_marks=[] if flat else [dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
@@ -230,7 +226,7 @@ __SYMBOL_JS__
   };
   const xyz = (s) => {                             // as space3d._xyz, at the distance as the scale draws it
     const log = Math.max(Math.log10(s.dist / D.log_from), 0), lo = Math.log10(D.gap[0] / D.log_from), hi = Math.log10(D.gap[1] / D.log_from);
-    const r = D.scale === "True" ? s.dist : log <= lo ? log :      // Fit: the gap past the Moon closed up
+    const r = log <= lo ? log :                    // Fit: the gap past the Moon closed up
       log >= hi ? log - (hi - lo) + D.gap[2] : lo + (log - lo) / (hi - lo) * D.gap[2], a = s.ra * RAD, d = s.dec * RAD;
     if (D.flat) {                                  // flat: at its RA and distance (the Dec left out); Aspect: all at one distance
       const rr = D.one_circle ? D.outer * D.one_circle_at : r;

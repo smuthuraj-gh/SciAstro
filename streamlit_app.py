@@ -974,7 +974,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         major = core.in_order(titled(head, "Major Aspects", f"{key}_t_major", GLOBE_MAJOR, f"{key}_major", start("Major Aspects"), selection_mode="multi"), GLOBE_MAJOR)
         minor = core.in_order(titled(head, "Minor Aspects", f"{key}_t_minor", GLOBE_MINOR, f"{key}_minor", start("Minor Aspects"), selection_mode="multi"), GLOBE_MINOR)
         aspects = tuple(int(a) for a in major + minor)
-        with_paths, scale, show_au, view_3d = [], space3d.FIT, True, False
+        with_paths, show_au, view_3d = [], True, False
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with House and Aspect below it (the title off: neither)
         show_houses = one_circle = False
         if kept_pills(coords, "Coordinates", ["Coordinates"], f"{key}_t_coords", "Coordinates", label_visibility="collapsed"):
@@ -985,7 +985,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         with_paths = core.in_order(titled(head, "Planet Path", f"{key}_t_paths", core.shown_order(choices), f"{key}_paths", start("Planet Path"),
                                           selection_mode="multi", format_func=core.symbol_of), choices)
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with AU and 3D below it (always the Fit scale)
-        scale, show_au, view_3d = space3d.FIT, False, False  # (with the title off: Fit, no tags, not 3D)
+        show_au, view_3d = False, False                      # (with the title off: no tags, not 3D)
         if kept_pills(coords, "Coordinates", ["Coordinates"], f"{key}_t_scale", "Coordinates", label_visibility="collapsed"):
             below = coords.container(horizontal=True, width="content", gap="xxsmall")
             show_au = bool(kept_pills(below, "AU", ["AU"], f"{key}_au", start("AU"), label_visibility="collapsed"))
@@ -1010,15 +1010,15 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
                   **({"Now": ("CN", prep.cn[0], prep.cn[1])} if prep.cn else {})}
         moving = bool(day_seconds) and not manual            # Rotate in 1s: time runs at the speed picked
         at = [(m[0], m[1]) for m in moments]
-        fig = space3dview.space_figure(centre, bodies, tuple(with_paths), at, scale == space3d.FIT, places, moving=moving,
+        fig = space3dview.space_figure(centre, bodies, tuple(with_paths), at, places, moving=moving,
                                        show_au=show_au)          # (the AU rings with AU on only)
         # (the HTML is built only from the chart and the tables, never from what a user typed: safe to run) the script draws
         # the Earth as a globe, and with a speed picked moves the planets and turns the Earth
-        st.html(mapchart.fit_html(fig, after_js=space3dview.space_js(centre, bodies, at, scale == space3d.FIT,
+        st.html(mapchart.fit_html(fig, after_js=space3dview.space_js(centre, bodies, at,
                                                                      day_seconds if moving else None, places)),
                 unsafe_allow_javascript=True)
         return
-    st.html(space3d.space_html(bodies, moments, scale, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre, flat,
+    st.html(space3d.space_html(bodies, moments, space3d.FIT, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre, flat,
                                {**({"DOB": ("CB", prep.birth_lon)} if prep.birth_lon is not None else {}),
                                 **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat and show_houses else None, ave_jds,
                                aspects, orbs() if aspects else None, one_circle),

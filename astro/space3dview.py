@@ -13,12 +13,11 @@ from .mapchart import CHART_FONT_FAMILY
 
 WIDTH, HEIGHT = 820, 720           # a fixed size, shown at the top left of the page (not stretched to its width)
 LINE_COLOUR = "rgb(120,120,120)"
-# the body at the centre: its colour, its radius on Fit (in Fit units: each tenfold distance one unit) and on True (in AU),
-# neither to scale; the Fit scale's distance drawn at it and space taken out; AU rings on Fit and on True; the paths' spans
-CENTRE = {"Ea": dict(colour="rgb(70,130,200)", fit_r=0.18, true_r=0.12, log_from=space3d.LOG_FROM_AU, gap=space3d.GAP,
-                     rings={True: (0.01, 1.0, 5.0, 10.0), False: (1.0, 5.0, 10.0)}, spans=space3d.SPANS, name="Earth"),
-          "Su": dict(colour="rgb(250,190,40)", fit_r=0.15, true_r=0.15, log_from=space3d.HELIO_LOG_FROM_AU, gap=space3d.NO_GAP,
-                     rings={True: (0.5, 1.0, 5.0, 10.0), False: (1.0, 5.0, 10.0)}, spans=space3d.HELIO_SPANS, name="Sun")}
+# the body at the centre: its colour, its radius (in Fit units: each tenfold distance one unit; not to scale); the Fit scale's distance drawn at it and space taken out; AU rings on Fit and on True; the paths' spans
+CENTRE = {"Ea": dict(colour="rgb(70,130,200)", fit_r=0.18, log_from=space3d.LOG_FROM_AU, gap=space3d.GAP,
+                     rings=(0.01, 1.0, 5.0, 10.0), spans=space3d.SPANS, name="Earth"),
+          "Su": dict(colour="rgb(250,190,40)", fit_r=0.15, log_from=space3d.HELIO_LOG_FROM_AU, gap=space3d.NO_GAP,
+                     rings=(0.5, 1.0, 5.0, 10.0), spans=space3d.HELIO_SPANS, name="Sun")}
 PATH_POINTS = 240                  # points a Planet Path is drawn with
 
 
@@ -40,9 +39,9 @@ def marker_radius(rule: dict, jd: float) -> float:
     return max(1.0, MARKER_RANGE[0] + (MARKER_RANGE[1] - MARKER_RANGE[0]) * share + rule["add"])
 
 
-def _reach(au: float, fit: bool, c: dict) -> float:
+def _reach(au: float, c: dict) -> float:
     """How far from the centre a distance is drawn: Fit as Geo/Helio Model's Fit scale (past the centre body), else in AU."""
-    return c["fit_r"] + space3d._reach(au, space3d.FIT, c["log_from"], c["gap"]) if fit else au
+    return c["fit_r"] + space3d._reach(au, space3d.FIT, c["log_from"], c["gap"])
 
 
 def _xyz(ra: float, dec: float, r: float) -> tuple[float, float, float]:
@@ -75,15 +74,15 @@ def _place(centre: str, name: str, jd: float) -> tuple[float, float, float]:
 FAR_AU = 11.0                      # running: the view reaches out to here (past Saturn at its farthest), so none runs out of it
 
 
-def space_figure(centre: str, bodies, paths, moments, fit: bool, places: dict | None = None, moving: bool = False,
+def space_figure(centre: str, bodies, paths, moments, places: dict | None = None, moving: bool = False,
                  show_au: bool = True) -> go.Figure:
     """The 3D view round centre (Ea or Su): bodies at each of moments ((clock, Julian day), DOB hollow), the Planet Paths of
     paths over one trip from that moment (DOB dashed), the celestial axis and equator with RA 0..270, rings of distance on
-    the equator plane, and (Geo) CB and CN on the Earth (places: {clock: (label, lat, lon)}). Fit: Geo/Helio Model's Fit
-    scale, else in AU. moving: time will run (space_js), so the view reaches far enough for all, with room for the clock.
+    the equator plane, and (Geo) CB and CN on the Earth (places: {clock: (label, lat, lon)}). On Geo/Helio Model's Fit
+    scale. moving: time will run (space_js), so the view reaches far enough for all, with room for the clock.
     show_au: the rings of distance (the page's AU button)."""
     c = CENTRE[centre]
-    ball_r = c["fit_r"] if fit else c["true_r"]
+    ball_r = c["fit_r"]
     fig = go.Figure()
     fig.add_trace(_ball(ball_r, c["colour"], c["name"]))
     outer = ball_r
@@ -92,7 +91,7 @@ def space_figure(centre: str, bodies, paths, moments, fit: bool, places: dict | 
         hollow = clock == "DOB"
         for name in bodies:
             ra, dec, au = _place(centre, name, jd)
-            r = _reach(au, fit, c)
+            r = _reach(au, c)
             outer = max(outer, r)
             x, y, z = _xyz(ra, dec, r)
             colour, sym = core.colour(name), core.symbol_of(name)
@@ -111,7 +110,7 @@ def space_figure(centre: str, bodies, paths, moments, fit: bool, places: dict | 
             xyz = []
             for i in range(PATH_POINTS + 1):
                 ra, dec, au = _place(centre, name, jd + days * i / PATH_POINTS)
-                xyz.append(_xyz(ra, dec, _reach(au, fit, c)))
+                xyz.append(_xyz(ra, dec, _reach(au, c)))
             outer = max(outer, max(math.sqrt(a * a + b * b + d * d) for a, b, d in xyz))
             fig.add_trace(go.Scatter3d(x=[q[0] for q in xyz], y=[q[1] for q in xyz], z=[q[2] for q in xyz], mode="lines",
                                        line=dict(color=core.colour(name), width=3, dash="dash" if hollow else "solid"),
@@ -124,9 +123,9 @@ def space_figure(centre: str, bodies, paths, moments, fit: bool, places: dict | 
             fig.add_trace(go.Scatter3d(x=[px], y=[py], z=[pz], mode="markers+text", text=[label], textposition="bottom center",
                                        marker=dict(size=5, color=core.colour(label)), showlegend=False, name=f"{label} on the Earth",
                                        textfont=dict(size=11, color=core.colour(label)), hovertemplate=f"{label} ({clock})<extra></extra>"))
-    span = max(outer, _reach(FAR_AU, fit, c) if moving else 0) * 1.08
-    for au in c["rings"][fit] if show_au else ():            # distance rings on the equator plane (AU)
-        r = _reach(au, fit, c)
+    span = max(outer, _reach(FAR_AU, c) if moving else 0) * 1.08
+    for au in c["rings"] if show_au else ():                 # distance rings on the equator plane (AU)
+        r = _reach(au, c)
         if r > span:
             continue
         ring = [_xyz(360 * i / 96, 0, r) for i in range(97)]
@@ -157,7 +156,7 @@ def globe_moment(moments) -> float | None:
     return dict(moments).get("Now", moments[0][1] if moments else None)
 
 
-def space_js(centre: str, bodies, moments, fit: bool, day_seconds: float | None, places: dict | None = None) -> str:
+def space_js(centre: str, bodies, moments, day_seconds: float | None, places: dict | None = None) -> str:
     """Rotate in 1s, for the 3D view: time runs from each moment, day_seconds a day of it (the speed picked), and each body's
     marker moves to where it really was then, its hover box with it; the clock of each moment at the top. The tables are
     the same as the other pages' (72 years of RA, Dec and distance), and the markers are found by their names. Geo: the
@@ -182,7 +181,7 @@ def space_js(centre: str, bodies, moments, fit: bool, day_seconds: float | None,
     globe = None
     if centre == "Ea" and moments:
         jd_globe = globe_moment(moments)
-        globe = dict(gst0=core.lst(jd_globe, 0.0), r=c["fit_r"] if fit else c["true_r"], spin=globechart.EARTH_DEGREES_A_DAY,
+        globe = dict(gst0=core.lst(jd_globe, 0.0), r=c["fit_r"], spin=globechart.EARTH_DEGREES_A_DAY,
                      places={f"{label} on the Earth": [lat, lon] for label, lat, lon in (places or {}).values()})
     # the sizes, as the Symbols table's Size column says: each mark's rule, and the tables (as seen from the Earth) of the
     # planets whose angular size it goes by
@@ -199,13 +198,12 @@ def space_js(centre: str, bodies, moments, fit: bool, day_seconds: float | None,
                 tb = globechart._motion_table(rule["of"], jd)
                 sizing[clock][rule["of"]] = dict(step=tb["step"], dist=tb["dist"], shift=tb["shift"], ra=tb["ra"][:2], dec=tb["dec"][:2],
                                                  km=BODY_RADIUS_KM[rule["of"]])
-    data = dict(tables=tables, jd={clock: jd for clock, jd in moments}, day_seconds=day_seconds, days=space3d.RUN_DAYS, fit=fit,
+    data = dict(tables=tables, jd={clock: jd for clock, jd in moments}, day_seconds=day_seconds, days=space3d.RUN_DAYS,
                 fit_r=c["fit_r"], log_from=c["log_from"], gap=list(c["gap"]), word=c["name"].lower(), globe=globe,
                 rules=rules, sizing=sizing, au_km=core.AU_KM, arcsec=list(SIZE_RANGE_ARCSEC), radii=list(MARKER_RANGE))
     return ("const M = " + json.dumps(data, separators=(",", ":")).replace("<", "\\u003c") + ";\n" + """
   const RAD = Math.PI / 180;
   const reach = (au) => {                          // as space3dview._reach
-    if (!M.fit) return au;
     const log = Math.max(Math.log10(Math.max(au, 1e-9) / M.log_from), 0);
     const a = Math.log10(M.gap[0] / M.log_from), b = Math.log10(M.gap[1] / M.log_from);
     return M.fit_r + (log <= a ? log : log >= b ? log - (b - a) + M.gap[2] : a + (log - a) / (b - a) * M.gap[2]);
