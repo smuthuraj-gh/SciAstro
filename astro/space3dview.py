@@ -22,6 +22,24 @@ CENTRE = {"Ea": dict(colour="rgb(70,130,200)", fit_r=0.18, true_r=0.12, log_from
 PATH_POINTS = 240                  # points a Planet Path is drawn with
 
 
+def size_texts(centre: str) -> dict:
+    """The Symbols table's Size column the flat drawing of this centre sizes its marks by: Size_Geo, or Size_Helio."""
+    return core.SIZE_TEXTS if centre == "Ea" else core.SIZE_TEXTS_HELIO
+
+
+def marker_radius(rule: dict, jd: float) -> float:
+    """A mark's radius in pixels by its Size rule (core.size_rule), as on the flat drawing (space3d's radiusAt): a fixed
+    radius, or the angular size of rule["of"] seen from the Earth then, on a logarithmic scale, plus rule["add"]."""
+    from .globechart import BODY_RADIUS_KM, MARKER_RANGE, SIZE_RANGE_ARCSEC
+    if "px" in rule:
+        return rule["px"]
+    au = core.position(rule["of"], jd).dist_au
+    arcsec = 2 * math.degrees(math.atan(BODY_RADIUS_KM[rule["of"]] / (au * core.AU_KM))) * 3600
+    lo, hi = math.log(SIZE_RANGE_ARCSEC[0]), math.log(SIZE_RANGE_ARCSEC[1])
+    share = max(0.0, min(1.0, (math.log(arcsec) - lo) / (hi - lo)))
+    return max(1.0, MARKER_RANGE[0] + (MARKER_RANGE[1] - MARKER_RANGE[0]) * share + rule["add"])
+
+
 def _reach(au: float, fit: bool, c: dict) -> float:
     """How far from the centre a distance is drawn: Fit as Geo/Helio Model's Fit scale (past the centre body), else in AU."""
     return c["fit_r"] + space3d._reach(au, space3d.FIT, c["log_from"], c["gap"]) if fit else au
@@ -81,7 +99,8 @@ def space_figure(centre: str, bodies, paths, moments, fit: bool, places: dict | 
             fig.add_trace(go.Scatter3d(
                 x=[x], y=[y], z=[z], mode="markers+text", text=[sym], textposition="top center", showlegend=False,
                 textfont=dict(size=14, color=colour, family=CHART_FONT_FAMILY), name=f"{sym} {clock}",
-                marker=dict(size=9 if name in ("Su", "Mo", "Ea") else 7, color="white" if hollow else colour,
+                marker=dict(size=2 * marker_radius(core.size_rule(name, texts=size_texts(centre)), jd),   # (a diameter)
+                            color="white" if hollow else colour,
                             line=dict(color=colour, width=3), symbol="circle-open" if hollow else "circle"),
                 hovertemplate=f"{sym} {clock}<br>RA: {ra:.2f}<br>Dec/Lati: {dec:+.2f}<br>Distance from {c['name'].lower()}: "
                               f"{au:.4g} AU<extra></extra>"))
@@ -165,8 +184,24 @@ def space_js(centre: str, bodies, moments, fit: bool, day_seconds: float | None,
         jd_globe = globe_moment(moments)
         globe = dict(gst0=core.lst(jd_globe, 0.0), r=c["fit_r"] if fit else c["true_r"], spin=globechart.EARTH_DEGREES_A_DAY,
                      places={f"{label} on the Earth": [lat, lon] for label, lat, lon in (places or {}).values()})
+    # the sizes, as the Symbols table's Size column says: each mark's rule, and the tables (as seen from the Earth) of the
+    # planets whose angular size it goes by
+    from .globechart import BODY_RADIUS_KM, MARKER_RANGE, SIZE_RANGE_ARCSEC
+    rules, sizing = {}, {}
+    for clock, jd in moments:
+        sizing[clock] = {}
+        for name in bodies:
+            if name in ("NN", "SN") and centre != "Ea":
+                continue
+            rule = core.size_rule(name, texts=size_texts(centre))
+            rules[f"{core.symbol_of(name)} {clock}"] = dict(rule, clock=clock)
+            if "of" in rule and rule["of"] not in sizing[clock]:
+                tb = globechart._motion_table(rule["of"], jd)
+                sizing[clock][rule["of"]] = dict(step=tb["step"], dist=tb["dist"], shift=tb["shift"], ra=tb["ra"][:2], dec=tb["dec"][:2],
+                                                 km=BODY_RADIUS_KM[rule["of"]])
     data = dict(tables=tables, jd={clock: jd for clock, jd in moments}, day_seconds=day_seconds, days=space3d.RUN_DAYS, fit=fit,
-                fit_r=c["fit_r"], log_from=c["log_from"], gap=list(c["gap"]), word=c["name"].lower(), globe=globe)
+                fit_r=c["fit_r"], log_from=c["log_from"], gap=list(c["gap"]), word=c["name"].lower(), globe=globe,
+                rules=rules, sizing=sizing, au_km=core.AU_KM, arcsec=list(SIZE_RANGE_ARCSEC), radii=list(MARKER_RANGE))
     return ("const M = " + json.dumps(data, separators=(",", ":")).replace("<", "\\u003c") + ";\n" + """
   const RAD = Math.PI / 180;
   const reach = (au) => {                          // as space3dview._reach
@@ -275,7 +310,17 @@ def space_js(centre: str, bodies, moments, fit: bool, day_seconds: float | None,
       tips.push(k + "\\u003cbr>RA: " + s.ra.toFixed(2) + "\\u003cbr>Dec/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2) +
                 "\\u003cbr>Distance from " + M.word + ": " + s.dist.toPrecision(4) + " AU\\u003cextra>\\u003c/extra>");
     });
-    Plotly.restyle(gd, {x: xs, y: ys, z: zs, hovertemplate: tips}, idx);
+    const sizes = keys.map((k) => {                // by the Symbols table's Size, as on the flat drawing (a diameter)
+      const rule = M.rules[k];
+      if (!rule) return 14;
+      if (rule.px !== undefined) return 2 * rule.px;
+      const b = M.sizing[rule.clock][rule.of], u = (t + b.shift) / b.step, i = Math.max(0, Math.min(Math.floor(u), b.dist.length - 2));
+      const au = b.dist[i] + (b.dist[i + 1] - b.dist[i]) * (u - i), arcsec = 2 * Math.atan(b.km / (au * M.au_km)) / RAD * 3600;
+      const lo = Math.log(M.arcsec[0]), hi = Math.log(M.arcsec[1]);
+      const share = Math.max(0, Math.min(1, (Math.log(arcsec) - lo) / (hi - lo)));
+      return 2 * Math.max(1, M.radii[0] + (M.radii[1] - M.radii[0]) * share + rule.add);
+    });
+    Plotly.restyle(gd, {x: xs, y: ys, z: zs, hovertemplate: tips, "marker.size": sizes}, idx);
     if (G) turnGlobe(G.gst0 + G.spin * t);         // the Earth turning with time
     Plotly.relayout(gd, {"title.text": Object.entries(M.jd).map(([c, jd]) => c + " " + when(jd + t)).join("   ")});
     setTimeout(tick, 250);
