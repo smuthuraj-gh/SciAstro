@@ -530,8 +530,12 @@ __SYMBOL_JS__
       const mark = make("g", markG, {style: "pointer-events:auto"});
       make("rect", mark, {x: -9, y: -9, width: 18, height: 18, fill: "transparent"});   // to point at, the gaps too
       drawShape(mark, name, colour, hollow ? 1.2 : 2.2);   // thinner for DOB, as the planets are hollow
+      const place = D.places.find((pl) => D.sets[pl.set] === s);   // CB for DOB, CN for Now
       nodes.push({name, turn, sign, pole, s, mark, tip: make("title", mark),      // with its RA and Dec lines, as the planets'
-                  raLine: D.show_ra ? line(colour, hollow) : null, decLine: D.show_dec ? line(colour, hollow) : null});
+                  raLine: D.show_ra ? line(colour, hollow) : null, decLine: D.show_dec ? line(colour, hollow) : null,
+                  place,                           // AU: at the Moon's distance; Sp and Co lines as the planets'
+                  spoke: D.by_distance && D.show_spokes ? make("line", spokeG, {stroke: colour, "stroke-width": 1, "stroke-dasharray": "2 3", style: "pointer-events:none"}) : null,
+                  link: D.show_links && place ? make("line", spokeG, {stroke: place.colour, "stroke-width": 0.9, opacity: 0.55, style: "pointer-events:none"}) : null});
     });
   });
   const nodeAt = (node, t) => {                    // between its two nearest table rows
@@ -643,7 +647,10 @@ __SYMBOL_JS__
       if (!hidden) taken.push([x - r - 1, y - r - 1, x + r + 1, y + r + 1]);   // no label may cover a marker
     });
     nodes.forEach((node) => {
-      const at = nodeAt(node, t), [x, y, z] = point(at.ra, at.dec), tipName = symbolOf(node.name) + " " + node.s.clock;
+      const at = nodeAt(node, t), [sx, sy, z] = point(at.ra, at.dec), tipName = symbolOf(node.name) + " " + node.s.clock;
+      // AU: on the Moon's path, so at the Moon's distance then, drawn in from the sphere as a planet is
+      const moonAU = D.by_distance ? sample(node.s.tables.Mo, t).dist : null, k = D.by_distance ? reach(moonAU) : 1;
+      const x = D.cx + (sx - D.cx) * k, y = D.cy + (sy - D.cy) * k;
       if (node.raLine) {
         const pts = [];
         for (let v = -90; v !== 93; v += 3) pts.push([at.ra, v]);
@@ -655,6 +662,15 @@ __SYMBOL_JS__
         node.decLine(pts, tipName + " Dec/Lati: " + (at.dec >= 0 ? "+" : "") + at.dec.toFixed(2));
       }
       const hidden = z < 0 && Math.hypot(x - D.cx, y - D.cy) < D.earth, fade = z >= 0 ? 1 : 0.55;
+      if (node.link) {                             // Co: from CB or CN on the turning Earth (fainter from or to the far side)
+        const [px, py, pz] = placeOnEarth(node.place, t);
+        [["x1", px], ["y1", py], ["x2", x], ["y2", y]].forEach(([a, v]) => node.link.setAttribute(a, v.toFixed(1)));
+        node.link.setAttribute("opacity", hidden || pz < 0 ? 0.25 : 0.55);
+      }
+      if (node.spoke) {                            // Sp: out to its RA and Dec on the sphere
+        [["x1", x], ["y1", y], ["x2", sx], ["y2", sy]].forEach(([a, v]) => node.spoke.setAttribute(a, v.toFixed(1)));
+        node.spoke.setAttribute("opacity", z >= 0 && !hidden ? 0.8 : 0.35);
+      }
       Object.assign(node, {x, y, hidden, fade});
       const nr = radiusAt(D.size_rules[node.name], node.s.tables, t);   // by its Size in the Symbols table
       node.r = nr;
@@ -662,7 +678,8 @@ __SYMBOL_JS__
       node.mark.setAttribute("opacity", fade);
       node.mark.style.display = hidden ? "none" : "";
       node.tip.textContent = symbolOf(node.name) + " " + node.s.clock + ": the Moon's " + node.pole + " node (" + (z >= 0 ? "near" : "far") +
-        " side of the sphere)\nDec/Lati: " + (at.dec >= 0 ? "+" : "") + at.dec.toFixed(2) + "\nRA: " + at.ra.toFixed(2);
+        " side of the sphere)\nDec/Lati: " + (at.dec >= 0 ? "+" : "") + at.dec.toFixed(2) + "\nRA: " + at.ra.toFixed(2) +
+        (moonAU === null ? "" : "\nDistance from earth: " + moonAU.toPrecision(4) + " AU (the Moon's: on its path)");
       if (!hidden) taken.push([x - nr, y - nr, x + nr, y + nr]);
     });
     // a small planet is drawn over a big one (only when the order changes: moving a mark would lose its hover box)
