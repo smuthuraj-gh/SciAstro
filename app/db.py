@@ -328,6 +328,11 @@ def _rename_dec_button(eng: sa.Engine):
             if any(p.lower() in COORD_BUTTONS_RENAMED for p in parts):
                 new = ", ".join(COORD_BUTTONS_RENAMED.get(p.lower(), p) for p in parts if p)
                 c.execute(defaults.update().where(defaults.c.id == rid).values(choices=new))
+        # AstroClock-2D's Aspect button is called 1circle: a Defaults row for it (and a choice of it) gets the new name
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "aspect")
+                  .values(options="1circle"))
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "1circle",
+                                          sa.func.lower(sa.func.trim(defaults.c.choices)) == "aspect").values(choices="1circle"))
         # Geo/Helio Model's Fit and True buttons are gone (always Fit): its Coordinates rows go
         c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == "geo/helio model",
                                           sa.func.lower(defaults.c.options).in_(["geo coordinates", "helio coordinates"])))
