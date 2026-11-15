@@ -2,8 +2,8 @@
 
 Ported from the Excel workbook's VBA (modSE, modTable, modMap, modMovement); the rules are the same:
 an aspect at an angle holds when the RA separation is within the RA orb of the angle and the two Decs are within the
-Dec orb of equal or mirrored (one rule for every angle). A pair's orb is the larger of its two planets' orbs; a house
-point (CB, CN) takes the planet's.
+Dec orb of equal or mirrored (one rule for every angle). A pair's orb is the total of its two planets' orbs (RA and Dec
+each); a house point (CB, CN) takes the planet's.
 """
 from __future__ import annotations
 
@@ -246,8 +246,9 @@ class Orbs:
         return got if got >= 0 or not is_dec else self.planet(angle, name)   # (no Dec orb: its RA orb)
 
     def pair(self, angle: float, n1: str, n2: str, is_dec: bool = False) -> float:
-        o = max(self.planet(angle, n1, is_dec), self.planet(angle, n2, is_dec))
-        return o if o >= 0 else start_orb(angle)
+        """A pair's orb: the total of its two planets' orbs (a house point, CB or CN, with none: the planet's alone)."""
+        got = [o for o in (self.planet(angle, n1, is_dec), self.planet(angle, n2, is_dec)) if o >= 0]
+        return sum(got) if got else start_orb(angle)
 
 
 def default_orb_table() -> pd.DataFrame:
@@ -294,7 +295,7 @@ class AspectEvent:
 
 def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[int], orbs: Orbs) -> list[AspectEvent]:
     """Each time two of the planets come into one of the aspects (C / O / Q / T / S) across the period. The Moon's nodes (NN,
-    SN) may be among them, with their own orbs where the Aspect Rules table has them (NN-RA, SN-RA), as the planets', the larger of the pair's;
+    SN) may be among them, with their own orbs where the Aspect Rules table has them (NN-RA, SN-RA), as the planets', the total of the pair's;
     NN with SN is never one (they are always opposite)."""
     names = shown_order([p for p in BUTTON_ORDER + ["NN", "SN"] if p in labels])   # named in this order: 0-Mo-Su .. 0-Sa-SN
     if len(names) < 2 or not angles:
