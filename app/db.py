@@ -102,6 +102,59 @@ help_table = sa.Table(
     sa.Column("abbreviation", sa.String(20), nullable=False, unique=True),
     sa.Column("description", sa.String(500)),
 )
+HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
+    # the pages
+    ("AstroClock-2D", "Page: the Geo drawing seen from above the north celestial pole, each planet at its RA and distance, with the Dec and Distance(%) graphs"),
+    ("AstroClock-3D", "Page: the Earth turning inside the celestial sphere, the planets on it at their RA and Dec (3D: a true 3D view)"),
+    ("Geo/Helio Model", "Page: the planets' paths at their real distances round the Earth (Geo) or the Sun (Helio)"),
+    ("Aspects", "Page: when the planets are in aspect, between a start and an end date"),
+    ("Planets Cycles", "Page: each planet's RA and Dec over time, between a start and an end date"),
+    ("Planets Distance(%)", "Page: each planet's Distance(%) from the Earth over time"),
+    ("DOB Details", "Page (members): their birth details, and people added under their login"),
+    ("Help", "Page: this table of the app's names and what they mean (admins change it)"),
+    ("Aspect Rules", "Page (admins): the orbs, RA and Dec, a pair of planets must be within to be in aspect"),
+    ("Customers", "Page (admins): a row per login: Email, Access, Start Date, Days, End Date"),
+    ("Defaults", "Page (admins): what each page's buttons start as (Page, Options, Choices)"),
+    ("Logins", "Page (admins): who opened, added, changed or deleted what, when and from where"),
+    ("Readme", "Page (admins): the app's README file"),
+    ("Symbols", "Page (admins): each planet's symbol, short name, colour and size"),
+    # the title buttons
+    ("Time", "Title button: which moment the charts show, Now or DOB (one at a time)"),
+    ("Planets", "Title button: which planets (and NN, SN) to show"),
+    ("Planet Path", "Title button: the path of each planet picked"),
+    ("Major Aspects", "Title button: the major aspect angles to draw: 0, 60, 90, 120, 180"),
+    ("Minor Aspects", "Title button: the minor aspect angles to draw: 30, 45, 72, 135, 144, 150"),
+    ("Coordinates", "Title button: which lines and tags to show (Ho, Ce, AU, 3D, Sp, SpC, RA, De, La, Lg, 1C, DA)"),
+    ("Rotate in 1s", "Title button: how much time passes each second (Manual, 1s to 1y)"),
+    ("Centric Model", "Title button: Geo (the Earth at the centre) or Helio (the Sun at the centre)"),
+    ("Start Date (UT)", "When a chart over time starts: DOB or Now"),
+    ("End Date (UT)", "When a chart over time ends: Now, or the start plus a time (e.g. 5 days, 2 years)"),
+    # the aspect angles
+    ("0", "Conjunction: two planets together (major aspect)"), ("60", "Sextile (major aspect)"),
+    ("90", "Square (major aspect)"), ("120", "Trine (major aspect)"), ("180", "Opposition (major aspect)"),
+    ("30", "Semi-sextile (minor aspect)"), ("45", "Semi-square (minor aspect)"), ("72", "Quintile (minor aspect)"),
+    ("135", "Sesquiquadrate (minor aspect)"), ("144", "Biquintile (minor aspect)"), ("150", "Quincunx (minor aspect)"),
+    ("0-Ma-Ju", "An aspect line's tag: the angle, then the two planets (here Mars and Jupiter in conjunction)"),
+    ("Orb", "How far from the exact angle two planets may be and still count as in aspect (Aspect Rules)"),
+    # the drawings' tags
+    ("H01 to H12", "House tags: the twelve house lines, 30 degrees apart from the RA of CB and of CN"),
+    ("UT", "Universal Time"), ("UTC", "Universal Time, Coordinated: UTC+5.50 is 5 h 30 min ahead of it"),
+    ("Fit", "The scale of distance used: each tenfold distance takes the same room"),
+    # the tables' buttons and columns
+    ("Insert", "Table button: adds a blank row at the bottom to fill in (saving any edits first)"),
+    ("Update", "Table button: saves the rows as they stand"),
+    ("Delete", "Table button: deletes the rows ticked in Del"),
+    ("Ignore", "Table button: drops the changes not saved yet"),
+    ("Reset to Previous", "Table button: puts the table back as it was before its last save"),
+    ("Del", "Table column: tick a row, then press Delete"),
+    ("Access", "Customers column: Now (the Now charts), DOB (the DOB charts, for Days days) or Admin"),
+    ("Days", "Customers column: days of DOB access to add (1, 7, 30, 90, 180, 365); End Date is extended by them"),
+    ("SAbr", "Symbols column: a planet's short name (Su, Mo ..)"), ("Symb", "Symbols column: a planet's symbol"),
+    ("SDesc", "Symbols column: a planet's name"), ("RGB", "Symbols column: a planet's colour, rgb(r,g,b)"),
+    ("Size_Clock-2D", "Symbols column: a planet's mark size on AstroClock-2D"),
+    ("Size_Clock-3D", "Symbols column: a planet's mark size on AstroClock-3D"),
+    ("Size_Geo", "Symbols column: a planet's mark size on Geo"), ("Size_Helio", "Symbols column: a planet's mark size on Helio"),
+]
 HELP_INDEX = "ux_help_abbre"                                   # one row per Abbreviation, whatever its case (Su and su are one)
 sa.Index(HELP_INDEX, sa.func.lower(help_table.c.abbreviation), unique=True)
 HELP_ROWS = [                                                 # the abbreviations the pages use, as the table starts
@@ -109,7 +162,7 @@ HELP_ROWS = [                                                 # the abbreviation
     ("Ea", "Earth"), ("NN", "The Moon's north node: where its path crosses the Sun's going north"),
     ("SN", "The Moon's south node: where its path crosses the Sun's going south"),
     ("CB", "The place of birth, on the Earth"), ("CN", "The place now, on the Earth"),
-    ("DOB", "Date of birth: the planets at birth"), ("Now", "The planets now"),
+    ("DOB", "Date of birth: as a Time, the planets at birth; also the admins' page of every customer's birth details"), ("Now", "The planets now"),
     ("Ave", "Average: each planet's Distance(%) halfway between DOB and Now"),
     ("RA", "Right Ascension: a planet's position along the celestial equator, 0 to 360 degrees"),
     ("Dec", "Declination: a planet's angle north (+) or south (-) of the celestial equator"),
@@ -457,15 +510,21 @@ def _add_help_index(eng: sa.Engine):
 
 
 def _seed_help(eng: sa.Engine):
-    """Once (a note among the settings says it is done, so a row deleted since stays deleted): the Help table gets HELP_ROWS."""
+    """Once per set (a note among the settings says which, so a row deleted since stays deleted): the Help table gets the
+    rows of HELP_ROWS, then of HELP_ROWS_2, it lacks (rows already there, the admins' own, are left as they are)."""
     with eng.begin() as c:
-        if c.execute(sa.select(settings.c.value).where(settings.c.key == "help_seeded")).scalar():
+        done = c.execute(sa.select(settings.c.value).where(settings.c.key == "help_seeded")).scalar()
+        if done == "2":
             return
+        wanted = HELP_ROWS_2 if done == "1" else HELP_ROWS + HELP_ROWS_2
         have = {a.lower() for (a,) in c.execute(sa.select(help_table.c.abbreviation)).all()}
-        new = [dict(abbreviation=a, description=d) for a, d in HELP_ROWS if a.lower() not in have]
+        new = [dict(abbreviation=a, description=d) for a, d in wanted if a.lower() not in have]
         if new:
             c.execute(help_table.insert(), new)
-        c.execute(settings.insert().values(key="help_seeded", value="1"))
+        if done is None:
+            c.execute(settings.insert().values(key="help_seeded", value="2"))
+        else:
+            c.execute(settings.update().where(settings.c.key == "help_seeded").values(value="2"))
 
 
 # ---------------------------------------------------------------- the Help table
