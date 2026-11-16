@@ -78,7 +78,7 @@ class GlobeInput:
     show_houses: bool = False         # the twelve house lines from CB and CN, on the sphere, turning with the Earth
     show_distance: bool = False       # AU: each planet inside the sphere at a radius by its distance from the Earth
     show_links: bool = False          # Co: a line from CB (DOB) or CN (Now) on the Earth to each planet
-    show_spokes: bool = False         # Sp (with AU): a dashed line from the Earth at latitude = the planet's Dec, through the planet, out to its RA and Dec on the sphere
+    show_spokes: bool = False         # Sp (with AU): a dashed line from the Earth's centre, through the planet, out to its RA and Dec on the sphere
     bodies: tuple = BODY_CHOICES      # the bodies to show, with their RA and Dec lines
     paths: tuple = BODY_CHOICES       # the bodies whose paths to draw
     utc_birth: float | None = None    # the UTC offsets the clocks show their moments in, hours (None: in UT)
@@ -631,9 +631,8 @@ __SYMBOL_JS__
         [["x1", px], ["y1", py], ["x2", x], ["y2", y]].forEach(([a, v]) => body.link.setAttribute(a, v.toFixed(1)));
         body.link.setAttribute("opacity", hidden || pz < 0 ? 0.25 : 0.55);   // every planet's: fainter from or to the far side
       }
-      if (body.spoke) {                            // from the Earth, where the planet is overhead (latitude = its Dec), through
-        const e = D.earth / D.sky;                 // the planet, out to its RA and Dec on the sphere (every planet's)
-        [["x1", D.cx + (sx - D.cx) * e], ["y1", D.cy + (sy - D.cy) * e], ["x2", sx], ["y2", sy]].forEach(([a, v]) => body.spoke.setAttribute(a, v.toFixed(1)));
+      if (body.spoke) {                            // from the Earth's centre, through the planet, out to its RA and Dec on the sphere
+        [["x1", D.cx], ["y1", D.cy], ["x2", sx], ["y2", sy]].forEach(([a, v]) => body.spoke.setAttribute(a, v.toFixed(1)));
         body.spoke.setAttribute("opacity", z >= 0 && !hidden ? 0.8 : 0.35);
       }
       Object.assign(body, {x, y, r, hidden, fade});
@@ -668,9 +667,8 @@ __SYMBOL_JS__
         [["x1", px], ["y1", py], ["x2", x], ["y2", y]].forEach(([a, v]) => node.link.setAttribute(a, v.toFixed(1)));
         node.link.setAttribute("opacity", hidden || pz < 0 ? 0.25 : 0.55);
       }
-      if (node.spoke) {                            // Sp: from the Earth (latitude = its Dec) out to its RA and Dec on the sphere
-        const e = D.earth / D.sky;
-        [["x1", D.cx + (sx - D.cx) * e], ["y1", D.cy + (sy - D.cy) * e], ["x2", sx], ["y2", sy]].forEach(([a, v]) => node.spoke.setAttribute(a, v.toFixed(1)));
+      if (node.spoke) {                            // Sp: from the Earth's centre out to its RA and Dec on the sphere
+        [["x1", D.cx], ["y1", D.cy], ["x2", sx], ["y2", sy]].forEach(([a, v]) => node.spoke.setAttribute(a, v.toFixed(1)));
         node.spoke.setAttribute("opacity", z >= 0 && !hidden ? 0.8 : 0.35);
       }
       Object.assign(node, {x, y, hidden, fade});
