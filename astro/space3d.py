@@ -462,7 +462,7 @@ __SYMBOL_JS__
     make("title", distScale).textContent = "Distance(%) from earth, 0 nearest to 100 farthest: the planets at the time picked, then Ave, to the right";
     const distTag = words("rgb(90,90,90)");
     distTag.setAttribute("text-anchor", "end");     // (right of the bar, at the drawing's right edge)
-    distTag.setAttribute("x", D.view[0] + D.view[2] - 4); distTag.setAttribute("y", (cy + R + 56).toFixed(1)); distTag.textContent = "Distance(%)";
+    distTag.setAttribute("x", D.view[0] + D.view[2] - 4); distTag.setAttribute("y", (cy + R + 39).toFixed(1)); distTag.textContent = "Distance(%)";   // (above its columns' names)
     if (distMarks.length) {                        // the AU scale, left of the bar: a tick at each mark, numbered left of the planets
       let auTicks = "";
       AU_MARKS.forEach((v) => {
@@ -474,12 +474,12 @@ __SYMBOL_JS__
       const auScale = make("path", svg, {d: auTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
       make("title", auScale).textContent = "Distance from earth in AU (not to scale: its marks evenly spaced): the planets at the time picked, to the left";
       const auName = words("rgb(90,90,90)");
-      auName.setAttribute("x", DIST_X - DIST_AU / 2); auName.setAttribute("y", (cy + R + 39).toFixed(1)); auName.textContent = "AU";
+      auName.setAttribute("x", DIST_X - DIST_AU / 2); auName.setAttribute("y", (cy + R + 56).toFixed(1)); auName.textContent = "AU";   // (on the line of Dec and RA)
     }
     [...distClocks, "Ave"].filter((name) => name !== "Ave" || aveMarks.length).forEach((name) => {   // which column is which, above that tag
       const x = distCol(name);
       const side = words("rgb(90,90,90)");
-      side.setAttribute("x", x); side.setAttribute("y", (cy + R + 39).toFixed(1)); side.textContent = name;
+      side.setAttribute("x", x); side.setAttribute("y", (cy + R + 56).toFixed(1)); side.textContent = name;   // (on the line of Dec and RA)
     });
   }
   const clear = (a, taken) => taken.every((b) => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
