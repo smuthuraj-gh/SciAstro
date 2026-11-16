@@ -96,6 +96,7 @@ defaults = sa.Table(
     sa.Column("page", sa.String(60), nullable=False),
     sa.Column("options", sa.String(60), nullable=False),
     sa.Column("choices", sa.String(500)),
+    sa.Column("allowed_values", sa.String(500)),             # what the input may offer (blank: all the app has); its buttons only those
 )
 # The Help table: a row per abbreviation the pages use (Abbreviation) and what it means (Description); kept by admins (the Help
 # page), filled once with the app's own (HELP_ROWS).
@@ -319,6 +320,7 @@ def engine() -> sa.Engine:
     _one_orb_row(eng)
     _rename_defaults_page(eng)
     _add_defaults_index(eng)
+    _add_defaults_allowed(eng)
     _seed_defaults(eng)
     _set_time_now(eng)
     _rename_dec_button(eng)
@@ -379,6 +381,13 @@ def _rename_defaults_options(eng: sa.Engine):
             if "options" in have:
                 c.execute(sa.text("ALTER TABLE defaults RENAME COLUMN options TO choices"))
             c.execute(sa.text("ALTER TABLE defaults RENAME COLUMN title TO options"))
+
+
+def _add_defaults_allowed(eng: sa.Engine):
+    """A Defaults table made before its Allowed_Values column gets it (its rows kept, blank: all the app has)."""
+    if "allowed_values" not in {c["name"] for c in sa.inspect(eng).get_columns("defaults")}:
+        with eng.begin() as c:
+            c.execute(sa.text(f"ALTER TABLE defaults ADD COLUMN allowed_values {defaults.c.allowed_values.type.compile(dialect=eng.dialect)}"))
 
 
 def _add_defaults_index(eng: sa.Engine):
@@ -599,8 +608,16 @@ def defaults_table() -> pd.DataFrame:
     with engine().connect() as c:
         rows = c.execute(sa.select(defaults).order_by(sa.func.lower(defaults.c.page), sa.func.lower(defaults.c.options),
                                                       sa.func.lower(sa.func.coalesce(defaults.c.choices, "")))).mappings().all()
-    return pd.DataFrame([{"Page": r["page"], "Options": r["options"], "Choices": r["choices"]} for r in rows],
-                        columns=["Page", "Options", "Choices"])
+    return pd.DataFrame([{"Page": r["page"], "Options": r["options"], "Choices": r["choices"],
+                          "Allowed_Values": r["allowed_values"]} for r in rows],
+                        columns=["Page", "Options", "Choices", "Allowed_Values"])
+
+
+def defaults_allowed_map() -> dict[tuple[str, str], str]:
+    """The Defaults table's Allowed_Values by its Page and Options, both in lower case (only those set)."""
+    with engine().connect() as c:
+        rows = c.execute(sa.select(defaults.c.page, defaults.c.options, defaults.c.allowed_values)).all()
+    return {(p.strip().lower(), t.strip().lower()): a for p, t, a in rows if a and a.strip()}
 
 
 def defaults_map() -> dict[tuple[str, str], str]:
@@ -636,7 +653,8 @@ def defaults_problems(rows: pd.DataFrame) -> list[str]:
 
 def save_defaults(rows: pd.DataFrame) -> int:
     """Makes the Defaults table these rows (wholly empty ones left out); gives how many it has."""
-    keep = [dict(page=_cell(r["Page"]), options=_cell(r["Options"]), choices=_cell(r["Choices"]) or None)
+    keep = [dict(page=_cell(r["Page"]), options=_cell(r["Options"]), choices=_cell(r["Choices"]) or None,
+                 allowed_values=_cell(r.get("Allowed_Values")) or None)
             for _, r in rows.iterrows() if _cell(r["Page"]) or _cell(r["Options"]) or _cell(r["Choices"])]
     with engine().begin() as c:
         c.execute(sa.delete(defaults))

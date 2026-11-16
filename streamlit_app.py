@@ -258,7 +258,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
               "browser and system, and their browser's time zone. Access: theirs then. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
               "either asks first, and a deleted row cannot be brought back.",
-    "Defaults": "The Defaults table: what each page's inputs start as. A row per input: its Page, its Options and its "
+    "Defaults": "The Defaults table: what each page's inputs start as, and what they offer. Value: what the page starts with (type a new one and press Update: it becomes the Choices). Allowed_Values: what the input offers, all its values or those typed there, comma-separated (its buttons are then only those; clear it for all again; dates, text boxes and single on / off buttons cannot be narrowed). A row per input: its Page, its Options and its "
                 "Choices. Buttons: the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0, 180; Manual), "
                 "blank for none; one on / off button (AU): On or Off. Start Date (UT): DOB or Now. End Date (UT): Now, or "
                 "Start Date (UT) + a time, e.g. 5 days, 2 years 6 months (years, months, weeks, days), which moves with the "
@@ -771,9 +771,30 @@ def default_choice(page: str, title: str):
     choices, multi, own = default_inputs()[(page, title)]
     text = DEFAULT_TEXTS.get((page.lower(), title.lower()))
     if text is None:
-        return own
-    value, wrong = read_options(choices, multi, text)
-    return own if wrong else value
+        value = own
+    else:
+        value, wrong = read_options(choices, multi, text)
+        value = own if wrong else value
+    if isinstance(choices, list) and len(choices) > 1:        # (kept within what the input offers: Allowed_Values)
+        allowed = [str(o) for o in offered(page, title, choices)]
+        if multi:
+            value = [v for v in (value or []) if str(v) in allowed]
+        elif value is not None and str(value) not in allowed:
+            value = allowed[0] if allowed else None
+    return value
+
+
+def offered(page: str, title: str, options: list) -> list:
+    """The options an input offers: those its Defaults row's Allowed_Values names (in the app's order), else all of them
+    (and all of them too when Allowed_Values names none of them: an input is never left with nothing)."""
+    text = ALLOWED_TEXTS.get((page.lower(), title.lower()))
+    if not text:
+        return list(options)
+    spec = default_inputs().get((page, title))
+    names = spec[0] if spec and isinstance(spec[0], list) else [str(o) for o in options]
+    picked, _ = read_options(names, True, text)
+    keep = [o for o in options if str(o) in {str(x) for x in picked}]
+    return keep or list(options)
 
 
 def options_problems(rows: pd.DataFrame) -> list[str]:
@@ -862,20 +883,24 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
     jds = period(prep, head, page)
     # on / off buttons, as on Distance: every choice always in view
     choices = core.BUTTON_ORDER + (["NN", "SN"] if nodes else [])
+    choices = offered(page, "Planets", choices)
     dec_on = core.in_order(titled(head, "Planets", f"{keys}t_planets", core.shown_order(choices), f"{keys}dec_on_v2", default_choice(page, "Planets"),
                                   selection_mode="multi", format_func=core.symbol_of), choices)
     ea_names = {str(a): a for a in rangechart.EA_NAME}         # the buttons 0, 60, 90, 120, 180 -> their angles
     minor = []
     if aspect_buttons:
-        ea = core.in_order(titled(head, "Major Aspects", f"{keys}t_major", list(ea_names), f"{keys}ea_on_v5", default_choice(page, "Major Aspects"),
-                                  selection_mode="multi"), list(ea_names))
-        minor = [int(a) for a in core.in_order(titled(head, "Minor Aspects", f"{keys}t_minor", GLOBE_MINOR, f"{keys}minor_on_v1",
-                                                      default_choice(page, "Minor Aspects"), selection_mode="multi"), GLOBE_MINOR)]
+        major_names = offered(page, "Major Aspects", list(ea_names))
+        minor_names = offered(page, "Minor Aspects", GLOBE_MINOR)
+        ea = core.in_order(titled(head, "Major Aspects", f"{keys}t_major", major_names, f"{keys}ea_on_v5", default_choice(page, "Major Aspects"),
+                                  selection_mode="multi"), major_names)
+        minor = [int(a) for a in core.in_order(titled(head, "Minor Aspects", f"{keys}t_minor", minor_names, f"{keys}minor_on_v1",
+                                                      default_choice(page, "Minor Aspects"), selection_mode="multi"), minor_names)]
     else:                                                     # an on / off button for each group, with its angles below it
         groups = default_choice(page, "Aspects")
         ruled = rule_angles()                                 # the angles the Aspect Rules table has
 
         def group(title: str, key: str, names: list) -> list:
+            names = offered(page, title, names) if names else names
             box = head.container(width="content", gap="xxsmall")
             if not box.pills(title, [title], default=title if title in groups else None, key=f"{keys}{key}_on", label_visibility="collapsed"):
                 return []
@@ -917,7 +942,8 @@ def page_globe():
         box = head.container(width="content", gap="xxsmall")
         if not box.pills("Time", ["Time"], default="Time", key="globe_Time_on", label_visibility="collapsed"):
             return []
-        got = box.pills("Which Time", list(TIMES), default=default, key="globe_time", label_visibility="collapsed", width=48)
+        got = box.pills("Which Time", offered("AstroClock-3D", "Time", list(TIMES)), default=default, key="globe_time",
+                        label_visibility="collapsed", width=48)
         return [got] if got else []
 
     def options_under(title: str, key: str, names: list, default: list, width: int = 84) -> tuple:
@@ -937,20 +963,23 @@ def page_globe():
         shown = one_time(default_choice("AstroClock-3D", "Time"))
     all_bodies = list(globechart.BODY_CHOICES)
     with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # shown three a line: Mo Su Me, Ve Ma Ju, Sa NN SN
-    bodies = options_under("Planets", "bodies", with_nodes, default_choice("AstroClock-3D", "Planets"), width=112)
-    paths = options_under("Planet Path", "paths", with_nodes, default_choice("AstroClock-3D", "Planet Path"), width=112)
-    major = options_under("Major Aspects", "major", GLOBE_MAJOR, default_choice("AstroClock-3D", "Major Aspects"), width=90)
-    minor = options_under("Minor Aspects", "minor", GLOBE_MINOR, default_choice("AstroClock-3D", "Minor Aspects"), width=90)
+    bodies = options_under("Planets", "bodies", offered("AstroClock-3D", "Planets", with_nodes), default_choice("AstroClock-3D", "Planets"), width=112)
+    paths = options_under("Planet Path", "paths", offered("AstroClock-3D", "Planet Path", with_nodes), default_choice("AstroClock-3D", "Planet Path"), width=112)
+    major = options_under("Major Aspects", "major", offered("AstroClock-3D", "Major Aspects", GLOBE_MAJOR), default_choice("AstroClock-3D", "Major Aspects"), width=90)
+    minor = options_under("Minor Aspects", "minor", offered("AstroClock-3D", "Minor Aspects", GLOBE_MINOR), default_choice("AstroClock-3D", "Minor Aspects"), width=90)
     coords_on = default_choice("AstroClock-3D", "Coordinates")
     coords = head.container(width="content", gap="xxsmall")   # Coordinates, with its options below it in fixed rows
     if coords.pills("Coordinates", ["Coordinates"], default="Coordinates", key="globe_coords_on", label_visibility="collapsed"):
-        for row_of in (["Ho", "Ce", "AU"], ["3D", "Sp", "SpC"], ["RA", "De", "La", "Lg"]):
+        coords_ok = set(offered("AstroClock-3D", "Coordinates", ["Ho", "Ce", "AU", "3D", "Sp", "SpC", "RA", "De", "La", "Lg"]))
+        for row_of in ([n for n in r if n in coords_ok] for r in (["Ho", "Ce", "AU"], ["3D", "Sp", "SpC"], ["RA", "De", "La", "Lg"])):
+            if not row_of:
+                continue
             shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[n for n in row_of if n in coords_on],
                                   key=f"globe_coords_{row_of[0]}", label_visibility="collapsed")
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds, manual = None, False
     if spin.pills("Rotate in 1s", ["Rotate in 1s"], default="Rotate in 1s", key="globe_rotate", label_visibility="collapsed"):
-        speed = spin.pills("Rotate speed", SPEED_CHOICES, default=default_choice("AstroClock-3D", "Rotate in 1s"), key="globe_speed",
+        speed = spin.pills("Rotate speed", offered("AstroClock-3D", "Rotate in 1s", SPEED_CHOICES), default=default_choice("AstroClock-3D", "Rotate in 1s"), key="globe_speed",
                            label_visibility="collapsed", width=96)   # (Manual, 1s on a line; 1m, 1h, 1d on the next; then 1w, 1mo, 1y)
         manual = speed == globechart.MANUAL                           # the Earth is dragged round by hand
         day_seconds = globechart.SPEEDS.get(speed)                    # nothing picked: it holds still
@@ -997,7 +1026,7 @@ def page_centric():
     head = st.container(horizontal=True, vertical_alignment="top", gap="small")
     if not need_chart(prep):
         return
-    model = (titled(head, "Centric Model", "t_centric", list(CENTRIC_MODELS), "centric_model", default_choice("Geo/Helio Model", "Centric Model"))
+    model = (titled(head, "Centric Model", "t_centric", offered("Geo/Helio Model", "Centric Model", list(CENTRIC_MODELS)), "centric_model", default_choice("Geo/Helio Model", "Centric Model"))
              or st.session_state.get("_kept_centric_model") or "Geo")   # (with the title off, the model last picked)
     space_page(head, prep, *CENTRIC_MODELS[model], model=model)
 
@@ -1027,18 +1056,24 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     model is shown; they start as the Defaults table says (Geo Time .. Helio Rotate in 1s)."""
     def start(title: str):
         return default_choice("AstroClock-2D", title) if flat else default_choice("Geo/Helio Model", f"{model} {title}")
+
+    def may(title: str, options: list) -> list:
+        """What this input offers (its Defaults row's Allowed_Values)."""
+        return offered("AstroClock-2D", title, options) if flat else offered("Geo/Helio Model", f"{model} {title}", options)
     if prep.now_only:                                         # no birth details: Now, and DOB opens the form for them
         dob_asked(st.session_state.get(f"{key}_when") == "DOB", (f"{key}_when", "Now"), (f"_kept_{key}_when", "Now"))
         when = titled(head, "Time", f"{key}_t_time", list(TIMES), f"{key}_when", "Now")
     else:
-        when = titled(head, "Time", f"{key}_t_time", list(TIMES), f"{key}_when", start("Time"))
+        when = titled(head, "Time", f"{key}_t_time", may("Time", list(TIMES)), f"{key}_when", start("Time"))
     shown = [when] if when else []                            # Now or DOB, one at a time
+    choices = tuple(may("Planets", list(choices)))
     bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
                                   format_func=core.symbol_of), choices)
     aspects, one_circle = (), False
     if flat:      # no Planet Path, Coordinates or AU buttons: no paths, always Fit
-        major = core.in_order(titled(head, "Major Aspects", f"{key}_t_major", GLOBE_MAJOR, f"{key}_major", start("Major Aspects"), selection_mode="multi"), GLOBE_MAJOR)
-        minor = core.in_order(titled(head, "Minor Aspects", f"{key}_t_minor", GLOBE_MINOR, f"{key}_minor", start("Minor Aspects"), selection_mode="multi"), GLOBE_MINOR)
+        major_names, minor_names = may("Major Aspects", GLOBE_MAJOR), may("Minor Aspects", GLOBE_MINOR)
+        major = core.in_order(titled(head, "Major Aspects", f"{key}_t_major", major_names, f"{key}_major", start("Major Aspects"), selection_mode="multi"), major_names)
+        minor = core.in_order(titled(head, "Minor Aspects", f"{key}_t_minor", minor_names, f"{key}_minor", start("Minor Aspects"), selection_mode="multi"), minor_names)
         aspects = tuple(int(a) for a in major + minor)
         with_paths, show_au, show_celes = [], True, True
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ho, 1C and DA below it (the title off: none)
@@ -1050,8 +1085,9 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
             # DA: the Ave planets on the Distance(%) graph (on to start)
             show_ave = bool(kept_pills(below, "DA", ["DA"], f"{key}_dav", start("DA"), label_visibility="collapsed"))
     else:
-        with_paths = core.in_order(titled(head, "Planet Path", f"{key}_t_paths", core.shown_order(choices), f"{key}_paths", start("Planet Path"),
-                                          selection_mode="multi", format_func=core.symbol_of), choices)
+        path_names = tuple(may("Planet Path", list(choices)))
+        with_paths = core.in_order(titled(head, "Planet Path", f"{key}_t_paths", core.shown_order(path_names), f"{key}_paths", start("Planet Path"),
+                                          selection_mode="multi", format_func=core.symbol_of), path_names)
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ce and AU below it (always the Fit scale)
         show_au, show_celes = False, True                     # (the title off: no tags)
         if kept_pills(coords, "Coordinates", ["Coordinates"], f"{key}_t_scale", "Coordinates", label_visibility="collapsed"):
@@ -1059,7 +1095,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
             # Ce, first: the celestial coordinates (on to start); then AU
             show_celes = bool(kept_pills(below, "Ce", ["Ce"], f"{key}_ce", start("Ce") or "Ce", label_visibility="collapsed"))
             show_au = bool(kept_pills(below, "AU", ["AU"], f"{key}_au", start("AU"), label_visibility="collapsed"))
-    speed = titled(head, "Rotate in 1s", f"{key}_t_speed", FLAT_SPEED_CHOICES if flat else SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
+    speed = titled(head, "Rotate in 1s", f"{key}_t_speed", may("Rotate in 1s", FLAT_SPEED_CHOICES if flat else SPEED_CHOICES), f"{key}_speed", start("Rotate in 1s"))
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (not on the flat page: no Manual there)
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
     jd_now = core.now_jd()
@@ -1176,8 +1212,9 @@ def page_distance():
         return
     jds = period(prep, head, "Planets Distance(%)")
     # on / off buttons: all seven planets always in view (a selection box would hide some, or not fit on the line)
-    dist_on = core.in_order(titled(head, "Planets", "t_dist", core.shown_order(core.BUTTON_ORDER), "dist_on_v2", default_choice("Planets Distance(%)", "Planets"),
-                                   selection_mode="multi", format_func=core.symbol_of), core.BUTTON_ORDER)
+    dist_names = offered("Planets Distance(%)", "Planets", core.BUTTON_ORDER)
+    dist_on = core.in_order(titled(head, "Planets", "t_dist", core.shown_order(dist_names), "dist_on_v2", default_choice("Planets Distance(%)", "Planets"),
+                                   selection_mode="multi", format_func=core.symbol_of), dist_names)
     if jds is None:
         return
     with st.spinner("Drawing..."):
@@ -1394,22 +1431,52 @@ def page_logins():
             st.rerun()
 
 
-def allowed_values(page, options) -> str:
-    """What a Defaults row's Choices may hold (its Allowed_Values column, not kept): the values its input takes."""
-    spec = {(p.lower(), o.lower()): s for (p, o), s in default_inputs().items()}.get(
+def input_spec(page, options):
+    """A Defaults row's input: (its choices, more than one may be picked, the app's own default); None when no page has it."""
+    return {(p.lower(), o.lower()): s for (p, o), s in default_inputs().items()}.get(
         (str(page or "").strip().lower(), str(options or "").strip().lower()))
+
+
+def is_list_input(spec) -> bool:
+    """An input of buttons to pick from (not a date, a text box or one on / off button): its Allowed_Values can narrow it."""
+    return spec is not None and isinstance(spec[0], list) and len(spec[0]) > 1
+
+
+def allowed_values(page, options, stored=None) -> str:
+    """A Defaults row's Allowed_Values as shown: those kept (stored), else every value its input takes; for a date, a text
+    box or one on / off button, what Choices may hold (those cannot be narrowed)."""
+    spec = input_spec(page, options)
     if spec is None:
         return "" if not (page and options) else "(no page has that input)"
     choices, multi, _ = spec
     if choices == START:
-        return "one of: DOB, Now"
+        return "DOB or Now"
     if choices == END:
         return "Now, or Start Date (UT) + a time (e.g. 5 days, 2 years 6 months)"
     if choices == TEXT:
         return f"any text, at most {TEXT_MOST} characters (blank: empty)"
     if len(choices) == 1:
         return f"On or Off ({choices[0]})"
-    return ("any of: " if multi else "one of: ") + ", ".join(map(str, choices))
+    kept = db._cell(stored)
+    return kept if kept else ", ".join(map(str, choices))
+
+
+def allowed_to_keep(page, options, text) -> tuple[str | None, list[str]]:
+    """Allowed_Values as typed, as it is kept: (the values named, in the app's order, or None for all of them / an input
+    that cannot be narrowed; what was not understood)."""
+    spec = input_spec(page, options)
+    if not is_list_input(spec):
+        return None, []
+    text = re.sub(r"(?i)^\s*(one|any)\s+of\s*:\s*", "", db._cell(text))
+    if not text:
+        return None, []
+    picked, wrong = read_options(spec[0], True, text)
+    if wrong:
+        return text, wrong
+    if not picked:
+        return None, ["none named"]
+    names = [str(c) for c in spec[0] if str(c) in {str(x) for x in picked}]
+    return (None if len(names) == len(spec[0]) else ", ".join(names)), []
 
 
 def value_in_use(page, options, choices) -> str:
@@ -1439,26 +1506,73 @@ def value_in_use(page, options, choices) -> str:
 
 
 def page_defaults():
+    """The Defaults table: Page, Options, Choices (what the input starts as), Value (that, as the page reads it; typed in,
+    it becomes the Choices) and Allowed_Values (what the input may offer: typed in, its buttons are only those)."""
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     table = db.defaults_table()
-    # Value: what the page starts with; Allowed_Values: what Choices may hold (both worked out by the app, not kept)
-    with_value = lambda rows: rows.assign(
-        Value=[value_in_use(p, o, ch) for p, o, ch in zip(rows["Page"], rows["Options"], rows["Choices"])],
-        Allowed_Values=[allowed_values(p, o) for p, o in zip(rows["Page"], rows["Options"])])
-    table = with_value(table)
-    crud_table("defaults_table", table, lambda rows: db.defaults_problems(rows) + options_problems(rows),
-               lambda rows: f"Saved: {db.save_defaults(rows)} row(s).", on_update=with_value,
+
+    def shown(rows: pd.DataFrame) -> pd.DataFrame:
+        """The rows as the page shows them: Value worked out from Choices, Allowed_Values all the input's values when none
+        are kept."""
+        return rows.assign(
+            Value=[value_in_use(p, o, ch) for p, o, ch in zip(rows["Page"], rows["Options"], rows["Choices"])],
+            Allowed_Values=[allowed_values(p, o, a) for p, o, a in zip(rows["Page"], rows["Options"], rows["Allowed_Values"])]
+        )[["Page", "Options", "Choices", "Value", "Allowed_Values"]]
+
+    def typed_in(rows: pd.DataFrame) -> pd.DataFrame:
+        """What was typed, put where it is kept (on Update, Insert, Delete): a Value changed from what Choices gives
+        becomes the Choices; Allowed_Values as the app keeps it (blank: all)."""
+        out = rows.copy()
+        for i, r in out.iterrows():
+            was = value_in_use(r["Page"], r["Options"], r["Choices"])
+            now = db._cell(r.get("Value"))
+            if now and now != was:                            # a Value typed in: the Choices it means
+                now = re.sub(r"\s*\(app default\)\s*$", "", now)
+                out.at[i, "Choices"] = "" if now == "(none)" else now
+            kept, _ = allowed_to_keep(r["Page"], r["Options"], r.get("Allowed_Values"))
+            if not _:
+                out.at[i, "Allowed_Values"] = kept or allowed_values(r["Page"], r["Options"])
+        return shown(out)
+
+    def problems(rows: pd.DataFrame) -> list[str]:
+        out = db.defaults_problems(rows) + options_problems(rows)
+        for _, r in rows.iterrows():
+            page, title = db._cell(r["Page"]), db._cell(r["Options"])
+            if not (page and title):
+                continue
+            kept, wrong = allowed_to_keep(page, title, r.get("Allowed_Values"))
+            if wrong:
+                out.append(f"{page} / {title}: Allowed_Values '{', '.join(wrong)}' not understood")
+                continue
+            spec = input_spec(page, title)
+            if kept and is_list_input(spec):                  # what it starts with must be among what it offers
+                value, bad = read_options(spec[0], spec[1], db._cell(r["Choices"]))
+                start = value if isinstance(value, list) else ([value] if value else [])
+                outside = [str(v) for v in start if str(v) not in kept.split(", ")]
+                if not bad and outside:
+                    out.append(f"{page} / {title}: Choices {', '.join(outside)} not in its Allowed_Values")
+        return out
+
+    def commit(rows: pd.DataFrame) -> str:
+        keep = rows.copy()
+        keep["Allowed_Values"] = [allowed_to_keep(p, o, a)[0] for p, o, a in zip(rows["Page"], rows["Options"], rows["Allowed_Values"])]
+        return f"Saved: {db.save_defaults(keep)} row(s)."
+
+    table = shown(table)
+    crud_table("defaults_table", table, problems, commit, on_update=typed_in,
                height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
                column_config={"Page": st.column_config.TextColumn(width=170), "Options": st.column_config.TextColumn(width=170),
                               "Choices": st.column_config.TextColumn(width=300),
-                              "Value": st.column_config.TextColumn("Value", width=260, disabled=True,
-                                                                  help="What the page starts with: Choices as the page reads "
-                                                                       "them, or the app's own default when it cannot (worked "
-                                                                       "out by the app; not kept)."),
-                              "Allowed_Values": st.column_config.TextColumn("Allowed_Values", width="large", disabled=True,
-                                                                   help="The values Choices may hold for this input (worked "
-                                                                        "out by the app; not kept).")})
+                              "Value": st.column_config.TextColumn("Value", width=260,
+                                                                  help="What the page starts with (Choices as the page reads "
+                                                                       "them, or the app's own default when it cannot). Type "
+                                                                       "a new one and press Update: it becomes the Choices."),
+                              "Allowed_Values": st.column_config.TextColumn("Allowed_Values", width="large",
+                                                                   help="What the input offers: all its values, or those typed "
+                                                                        "here (comma-separated; the page shows only those "
+                                                                        "buttons). Clear it for all of them again. Dates, text "
+                                                                        "boxes and single on / off buttons cannot be narrowed.")})
 
 
 def page_readme():
@@ -1753,7 +1867,7 @@ def more_days_box():
             c1, c2, c3, _ = st.columns([1, 1.4, 1, 2.6], vertical_alignment="bottom")
             # (both start as the Defaults table says: DOB Details / Days and / Pay / Coupon)
             start_days = default_choice("DOB Details", "Days")
-            packs = list(access.DAY_PACKS)
+            packs = [int(d) for d in offered("DOB Details", "Days", [str(d) for d in access.DAY_PACKS])]
             days = c1.selectbox("Days", packs, index=packs.index(int(start_days)) if str(start_days or "").isdigit()
                                 and int(start_days) in packs else 1, key="more_days")
             coupon = c2.text_input("Pay / Coupon", value=default_choice("DOB Details", "Pay / Coupon") or "",
@@ -1776,6 +1890,7 @@ def more_days_box():
 core.SIZE_TEXTS, core.SIZE_WORDS, core.SIZE_TEXTS_HELIO, core.SIZE_TEXTS_GLOBE, core.SIZE_TEXTS_CLOCK = db.planet_sizes()   # and their sizes
 core.SYMBOL_TEXTS = db.planet_symbols()                       # and their symbols, shown in place of the SNs
 DEFAULT_TEXTS = db.defaults_map()                             # what each page's inputs start as (the Defaults table)
+ALLOWED_TEXTS = db.defaults_allowed_map()                     # and what each may offer (its Allowed_Values, where set)
 core.COLOURS.update(core.DEFAULT_COLOURS | db.planet_colours())   # every chart's colours are the Symbols table's (a deleted row's, the usual one)
 def add_person_form():
     """A person to add under their login (DOB members, on DOB Details): its form, with Search Only and Save and Search."""
