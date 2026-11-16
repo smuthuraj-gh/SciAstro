@@ -171,7 +171,6 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
     fig.update_layout(width=WIDTH, height=HEIGHT, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor=SKY, autosize=False,
                       scene=dict(xaxis=axis, yaxis=axis, zaxis=axis, aspectmode="cube", bgcolor=SKY, dragmode="turntable",
                                  camera=dict(eye=dict(x=0.85, y=0.85, z=0.55))),   # close, a little from above: north above the plane
-                      title=dict(font=dict(size=12, color=TEXT_COLOUR), x=0.01, xanchor="left", y=0.985, yanchor="top"),   # the clock
                       hoverlabel=dict(font=dict(size=11)), font=dict(family=CHART_FONT_FAMILY, size=11, color=TEXT_COLOUR))
     return fig
 
@@ -181,7 +180,8 @@ def globe_moment(moments) -> float | None:
     return dict(moments).get("Now", moments[0][1] if moments else None)
 
 
-def space_js(centre: str, bodies, moments, day_seconds: float | None, places: dict | None = None) -> str:
+def space_js(centre: str, bodies, moments, day_seconds: float | None, places: dict | None = None,
+             offsets: dict | None = None) -> str:
     """Rotate in 1s, for the 3D view: time runs from each moment, day_seconds a day of it (the speed picked), and each body's
     marker moves to where it really was then, its hover box with it; the clock of each moment at the top. The tables are
     the same as the other pages' (72 years of RA, Dec and distance), and the markers are found by their names. Geo: the
@@ -223,7 +223,9 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
                 tb = globechart._motion_table(rule["of"], jd)
                 sizing[clock][rule["of"]] = dict(step=tb["step"], dist=tb["dist"], shift=tb["shift"], ra=tb["ra"][:2], dec=tb["dec"][:2],
                                                  km=BODY_RADIUS_KM[rule["of"]])
-    data = dict(tables=tables, jd={clock: jd for clock, jd in moments}, day_seconds=day_seconds, days=space3d.RUN_DAYS,
+    # the clock beside the customer's name, as the drawing's: each moment's date and time at its place's UTC offset
+    clocks = [dict(clock=clock, jd=jd, offset=(offsets or {}).get(clock)) for clock, jd in moments]
+    data = dict(tables=tables, jd={clock: jd for clock, jd in moments}, day_seconds=day_seconds, days=space3d.RUN_DAYS, clocks=clocks,
                 fit_r=c["fit_r"], log_from=c["log_from"], gap=list(c["gap"]), word=c["name"].lower(), globe=globe,
                 rules=rules, sizing=sizing, mark_scale=MARK_SCALE, au_km=core.AU_KM, arcsec=list(SIZE_RANGE_ARCSEC), radii=list(MARKER_RANGE))
     return ("const M = " + json.dumps(data, separators=(",", ":")).replace("<", "\\u003c") + ";\n" + """
@@ -320,7 +322,16 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
   }
   const idx = [], keys = [];
   gd.data.forEach((d, i) => { if (M.tables[d.name]) { idx.push(i); keys.push(d.name); } });
-  const when = (jd) => new Date((jd - 2440587.5) * 86400000).toISOString().slice(0, 16).replace("T", " ") + " UT";
+  const pad2 = (v) => (v >= 0 ? "+" : "-") + Math.abs(v).toFixed(2);
+  const clockLine = (s, t) => {                    // as the drawing's: its date and time, at its place's UTC offset
+    const known = s.offset !== null && s.offset !== undefined, off = known ? s.offset : 0;
+    const ms = (s.jd + t - 2440587.5) * 86400000 + off * 3600000 + 500;       // to the nearest second
+    return s.clock + " " + new Date(ms).toISOString().slice(0, 19).replace("T", " ") + (known ? " UTC" + pad2(off) : " UT");
+  };
+  const showClocks = (t) => {                      // in the page's clock, beside the customer's name
+    const box = document.querySelector(".globe-clock");
+    if (box) box.textContent = M.clocks.map((s) => clockLine(s, t)).join("    ");
+  };
   const started = performance.now();
   const tick = () => {
     if (!gd.isConnected) return;                   // (a newer drawing has replaced this one)
@@ -345,8 +356,8 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     });
     Plotly.restyle(gd, {x: xs, y: ys, z: zs, hovertemplate: tips, "marker.size": sizes}, idx);
     if (G) turnGlobe(G.gst0 + G.spin * t);         // the Earth turning with time
-    Plotly.relayout(gd, {"title.text": Object.entries(M.jd).map(([c, jd]) => c + " " + when(jd + t)).join("   ")});
+    showClocks(t);
     setTimeout(tick, 250);
   };
-  if (M.day_seconds) tick();
+  if (M.day_seconds) tick(); else showClocks(0);   // (standing still: the moment's own time)
 """)
