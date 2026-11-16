@@ -344,7 +344,9 @@ __SYMBOL_JS__
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow)};
   });
-  const DIST_X = D.width - 46, DIST_AVE = 52, DIST_DOB = 82;   // flat: the Distance(%) graph's line, right of the circle; how far right of it the Ave planets stand (beyond its numbers), and how far left DOB's (beyond Now's)
+  // flat: the Distance(%) graph's line, right of the circle, with all its planets to its right, beyond its numbers: the time
+  // picked (DOB, Now) in the first column, then Ave; DIST_FIRST, DIST_STEP: the first column's distance from it, and between them
+  const DIST_X = D.width - 116, DIST_FIRST = 44, DIST_STEP = 34;   // flat: the Distance(%) graph's line, right of the circle; how far right of it the Ave planets stand (beyond its numbers), and how far left DOB's (beyond Now's)
   const distY = (pct) => D.height / 2 + D.outer * D.fit * (2 * (100 - pct) / 100 - 1);
   const distMarks = (D.flat ? D.marks.filter((m) => D.dist_range[m.name]) : []).map((m) => {   // each planet on it: DOB and, nearer the line, Now to its left
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
@@ -385,6 +387,9 @@ __SYMBOL_JS__
     const e = make("circle", svg, {fill: m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, false)};
   });
+  // the Distance(%) graph's columns: the times shown (DOB before Now), then Ave
+  const distClocks = ["DOB", "Now"].filter((c) => distMarks.some((g) => g.m.clock === c));
+  const distCol = (name) => DIST_X + DIST_FIRST + DIST_STEP * (name === "Ave" ? distClocks.length : Math.max(0, distClocks.indexOf(name)));
   const marks = D.marks.map((m) => {
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 2, style: "pointer-events:auto"});
     const tip = make("title", e), label = symbolTag(svg, m.name, m.colour, m.hollow);
@@ -438,10 +443,12 @@ __SYMBOL_JS__
       }
     }
     const distScale = make("path", svg, {d: "M" + DIST_X + " " + distY(100).toFixed(1) + "V" + distY(0).toFixed(1) + distTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
-    make("title", distScale).textContent = "Distance(%) from earth, 0 nearest to 100 farthest: DOB and Now to the left, Ave to the right";
+    make("title", distScale).textContent = "Distance(%) from earth, 0 nearest to 100 farthest: the planets at the time picked, then Ave, to the right";
     const distTag = words("rgb(90,90,90)");
+    distTag.setAttribute("text-anchor", "start");   // (to the right of the bar, over its planets)
     distTag.setAttribute("x", DIST_X); distTag.setAttribute("y", (cy + R + 56).toFixed(1)); distTag.textContent = "Distance(%)";
-    [["DOB", DIST_X - DIST_DOB], ["Now", DIST_X - DEC_LEAD], ["Ave", DIST_X + DIST_AVE]].forEach(([name, x]) => {   // which side is which, above that tag
+    [...distClocks, "Ave"].filter((name) => name !== "Ave" || aveMarks.length).forEach((name) => {   // which column is which, above that tag
+      const x = distCol(name);
       const side = words("rgb(90,90,90)");
       side.setAttribute("x", x); side.setAttribute("y", (cy + R + 39).toFixed(1)); side.textContent = name;
     });
@@ -587,7 +594,7 @@ __SYMBOL_JS__
     // the Distance(%) graph, the same way: marks at the same distance overlap
     distMarks.forEach((g) => {
       const s = posAt(g.m.clock, g.m.name, t).s, r = radiusAt(g.m.rule, sizing(g.m.clock), t), [lo, hi] = D.dist_range[g.m.name];
-      const pct = Math.max(0, Math.min(100, (s.dist - lo) / (hi - lo) * 100)), y = distY(pct), x = DIST_X - (g.m.clock === "Now" ? DEC_LEAD : DIST_DOB);
+      const pct = Math.max(0, Math.min(100, (s.dist - lo) / (hi - lo) * 100)), y = distY(pct), x = distCol(g.m.clock);
       g.e.setAttribute("r", r.toFixed(1));
       g.lead.setAttribute("d", "M" + x.toFixed(1) + " " + y.toFixed(1) + "H" + DIST_X);
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
@@ -595,7 +602,7 @@ __SYMBOL_JS__
       g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDistance(%) from earth: " + pct.toFixed(1);
     });
     aveMarks.forEach((g) => {
-      const pct = avePct(g.m.name, t), r = aveRadius(g.m.rule, t), y = distY(pct), x = DIST_X + DIST_AVE;
+      const pct = avePct(g.m.name, t), r = aveRadius(g.m.rule, t), y = distY(pct), x = distCol("Ave");
       g.e.setAttribute("r", r.toFixed(1));
       g.lead.setAttribute("d", "M" + x.toFixed(1) + " " + y.toFixed(1) + "H" + DIST_X);
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
