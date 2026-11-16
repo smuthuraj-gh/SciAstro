@@ -353,14 +353,12 @@ __SYMBOL_JS__
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
     if (m.hollow) lead.setAttribute("stroke-dasharray", "3 2");
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
-    // left of the bar: the planet again, with its distance from the Earth in AU written to its left
-    const auLead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
-    if (m.hollow) auLead.setAttribute("stroke-dasharray", "3 2");
+    // left of the bar: the planet again, with its distance from the Earth in AU written to its left (in the order of that distance)
     const auE = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     const au = words(m.colour, D.flat_font);
     au.setAttribute("text-anchor", "end");
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow),
-            auLead, auE, auTip: make("title", auE), auLabel: symbolTag(svg, m.name, m.colour, m.hollow), au};
+            auE, auTip: make("title", auE), auLabel: symbolTag(svg, m.name, m.colour, m.hollow), au};
   });
   // flat: each pair of the planets shown, at each moment: its line and tag when in aspect (under the planets, drawn after)
   const aspectLines = [];
@@ -612,21 +610,18 @@ __SYMBOL_JS__
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
       fitSymbol(g.label, x, y, r);
       g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDistance(%) from earth: " + pct.toFixed(1) + "\nDistance from earth: " + s.dist.toPrecision(4) + " AU";
-      const ax = DIST_X - DIST_AU;                  // left of the bar: the planet with its AU
-      g.auE.setAttribute("r", r.toFixed(1)); g.auE.setAttribute("cx", ax.toFixed(1)); g.auE.setAttribute("cy", y.toFixed(1));
-      g.auLead.setAttribute("d", "M" + ax.toFixed(1) + " " + y.toFixed(1) + "H" + DIST_X);
-      fitSymbol(g.auLabel, ax, y, r);
       g.auTip.textContent = g.tip.textContent;
       g.au.textContent = s.dist.toFixed(s.dist < 0.1 ? 4 : 2);
-      g.auY = y;
+      Object.assign(g, {auDist: s.dist, auR: r});
     });
-    // the AU values, one under another where planets are close (never on top of each other), right-aligned left of the marks
-    const auGap = D.flat_font * 1.25;
-    let auLow = -Infinity;
-    [...distMarks].sort((a, b) => a.auY - b.auY).forEach((g) => {
-      const y = Math.max(g.auY + D.flat_font / 3, auLow + auGap);
-      g.au.setAttribute("x", (DIST_X - DIST_AU - 16).toFixed(1)); g.au.setAttribute("y", y.toFixed(1));
-      auLow = y;
+    // left of the bar: the planets in the order of their distance in AU, the nearest at the bottom, evenly up the bar's height
+    // (re-ordered as time runs), each with its AU to its left
+    const auX = DIST_X - DIST_AU, auBottom = distY(0), auStep = (distY(0) - distY(100)) / Math.max(distMarks.length, 1);
+    [...distMarks].sort((a, b) => a.auDist - b.auDist).forEach((g, i) => {
+      const y = auBottom - auStep * (i + 0.5);
+      g.auE.setAttribute("r", g.auR.toFixed(1)); g.auE.setAttribute("cx", auX.toFixed(1)); g.auE.setAttribute("cy", y.toFixed(1));
+      fitSymbol(g.auLabel, auX, y, g.auR);
+      g.au.setAttribute("x", (auX - 16).toFixed(1)); g.au.setAttribute("y", (y + D.flat_font / 3).toFixed(1));
     });
     aveMarks.forEach((g) => {
       const pct = avePct(g.m.name, t), r = aveRadius(g.m.rule, t), y = distY(pct), x = distCol("Ave");
