@@ -345,8 +345,10 @@ def _pick_customer_box() -> tuple[pd.Series | None, Prepared | None]:
     saved_note = st.session_state.pop("_quick_saved", None)   # a quick birth just saved
     if saved_note:
         st.toast(saved_note)
-    locked_note = st.session_state.pop("_dob_locked", None)   # they picked DOB, which is not open to them (none, or run out):
-    if locked_note:                                           # where to get more days, on the page (not a toast, which fades)
+    # they picked DOB, which is not open to them (none, or run out): where to get more days, on the page (not a toast, which
+    # fades); on DOB Details, below its boxes (page_notes)
+    locked_note = st.session_state.pop("_dob_locked", None) if nav.url_path != "me" else None
+    if locked_note:
         st.warning(locked_note if isinstance(locked_note, str) else access.PAID_NOTE)
     if df.empty:
         if user.is_admin:                                     # (anyone signed in sees the Now charts)
@@ -1823,25 +1825,37 @@ def page_my_details():
     if row is None:
         new_member_form()
         more_days_box()                                       # (every member can add days, birth details or not)
+        page_notes()
         return
-    if st.session_state.get("person_added"):
-        st.success(st.session_state.pop("person_added"))
     if GRANT.many and not user.is_admin:                      # DOB members: a person to add, at the top
         with st.expander("Add a DOB"):
             add_person_form()
     if int(row["id"]) == access.QUICK:
         st.info("This search is not saved. Pick a saved person in the sidebar to see or change their details.")
         more_days_box()
+        page_notes()
     else:
         if prep and prep.ok and not prep.now_only:           # (Now charts only: their birth is not worked out)
             st.write(f"Born on a {prep.weekday}; UTC offset {prep.utc:+.2f} ({prep.tz}); birth place "
                      f"{prep.birth_lat}, {prep.birth_lon}.")
-        if st.session_state.pop("details_saved", False):
-            st.success("Your details are saved.")
         with st.expander("Edit a DOB"):
             details_form(row)
         more_days_box()                                       # every member adds DOB days themselves (free for now; later
                                                               # paid), below Edit a DOB
+        page_notes()
+
+
+def page_notes():
+    """DOB Details' messages, below its boxes: DOB not open (they picked it on a chart page), days added, their details
+    saved."""
+    locked = st.session_state.pop("_dob_locked", None)
+    if locked:
+        st.warning(locked if isinstance(locked, str) else access.PAID_NOTE)
+    said = st.session_state.pop("days_added", None)
+    if said:
+        st.success(said)
+    if st.session_state.pop("details_saved", False):
+        st.success("Your details are saved.")
 
 
 FREE_COUPONS = ("free",)                                       # coupons that add days free (any case); payment to come
@@ -1853,9 +1867,6 @@ def more_days_box():
     (the payment goes here, before db.add_days)."""
     if user.is_admin:
         return
-    said = st.session_state.pop("days_added", None)
-    if said:
-        st.success(said)
     # (open when they were sent here for it: they picked DOB, which is not open to them)
     with st.expander("Get more days of access", expanded=st.session_state.pop("_open_more_days", False)):
         note = (GRANT.note or "DOB charts open.") if GRANT.dob else "Now charts only: add days here to open the DOB charts."
