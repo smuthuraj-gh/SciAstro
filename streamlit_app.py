@@ -1623,10 +1623,14 @@ def more_days_box():
         note = (GRANT.note or "DOB charts open.") if GRANT.dob else "Now charts only: add days here to open the DOB charts."
         st.caption(note + " Days are added to your End Date while it runs, else from now. For now, apply the coupon "
                    "Free to add them free.")
-        c1, c2, c3, _ = st.columns([1, 1.4, 1, 2.6], vertical_alignment="bottom")
-        days = c1.selectbox("Days", access.DAY_PACKS, index=1, key="more_days")
-        coupon = c2.text_input("Pay / Coupon", key="more_days_coupon", max_chars=30, placeholder="Free")   # (payment to come)
-        if c3.button("Add days", key="more_days_add", type="primary"):
+        # (a form: Enter in Pay / Coupon adds the days as Add days does; before, Enter only changed the box, and nothing
+        # was added)
+        with st.form("more_days_form", border=False, enter_to_submit=True):
+            c1, c2, c3, _ = st.columns([1, 1.4, 1, 2.6], vertical_alignment="bottom")
+            days = c1.selectbox("Days", access.DAY_PACKS, index=1, key="more_days")
+            coupon = c2.text_input("Pay / Coupon", key="more_days_coupon", max_chars=30, placeholder="Free")   # (payment to come)
+            pressed = c3.form_submit_button("Add days", type="primary")
+        if pressed:
             if (coupon or "").strip().lower() not in FREE_COUPONS:   # (the payment goes here, in place of a coupon)
                 st.error("Payment is not open yet: apply the coupon Free to add the days free.")
                 return
