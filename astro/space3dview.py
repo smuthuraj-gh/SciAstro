@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import math
+import random
 
 import plotly.graph_objects as go
 
@@ -12,7 +13,15 @@ from . import core, space3d
 from .mapchart import CHART_FONT_FAMILY
 
 WIDTH, HEIGHT = 820, 720           # a fixed size, shown at the top left of the page (not stretched to its width)
-LINE_COLOUR = "rgb(120,120,120)"
+# the look: a night sky with fixed stars; soft lines and rings, so that the planets stand out; text 10 to 12 px
+SKY = "rgb(8,12,28)"
+LINE_COLOUR = "rgba(190,200,225,0.75)"     # the axis, the equator, NCP / SCP and the RA names
+RING_COLOUR = "rgba(150,165,205,0.45)"     # the AU rings
+PLANE_COLOUR = "rgb(120,150,220)"          # the plane of the equator, faint
+TEXT_COLOUR = "rgb(220,226,240)"
+STARS = 450                                # fixed stars in the background (the same every time)
+MARK_SCALE = 1.0                           # a mark's diameter: its Size radius (as on the flat drawing) times this; in 3D the
+                                           # inner planets crowd the Earth, so smaller than the drawing's (twice the radius)
 # the body at the centre: its colour, its radius (in Fit units: each tenfold distance one unit; not to scale); the Fit scale's distance drawn at it and space taken out; AU rings on Fit and on True; the paths' spans
 CENTRE = {"Ea": dict(colour="rgb(70,130,200)", fit_r=0.18, log_from=space3d.LOG_FROM_AU, gap=space3d.GAP,
                      rings=(0.01, 1.0, 5.0, 10.0), spans=space3d.SPANS, name="Earth"),
@@ -84,7 +93,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
     c = CENTRE[centre]
     ball_r = c["fit_r"]
     fig = go.Figure()
-    fig.add_trace(_ball(ball_r, c["colour"], c["name"]))
+    fig.add_trace(_ball(ball_r, c["colour"], c["name"]))       # (first: the page's script finds the Earth as the first surface)
     outer = ball_r
     jd_globe = globe_moment(moments)
     for clock, jd in moments:
@@ -97,10 +106,11 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
             colour, sym = core.colour(name), core.symbol_of(name)
             fig.add_trace(go.Scatter3d(
                 x=[x], y=[y], z=[z], mode="markers+text", text=[sym], textposition="top center", showlegend=False,
-                textfont=dict(size=14, color=colour, family=CHART_FONT_FAMILY), name=f"{sym} {clock}",
-                marker=dict(size=2 * marker_radius(core.size_rule(name, texts=size_texts(centre)), jd),   # (a diameter)
-                            color="white" if hollow else colour,
-                            line=dict(color=colour, width=3), symbol="circle-open" if hollow else "circle"),
+                textfont=dict(size=12, color=colour, family=CHART_FONT_FAMILY), name=f"{sym} {clock}",
+                marker=dict(size=MARK_SCALE * marker_radius(core.size_rule(name, texts=size_texts(centre)), jd),   # (a diameter)
+                            color=SKY if hollow else colour,   # (DOB: hollow, its rim in its colour; Now: a white rim)
+                            line=dict(color=colour if hollow else "rgba(255,255,255,0.85)", width=2 if hollow else 1),
+                            symbol="circle-open" if hollow else "circle", opacity=1),
                 hovertemplate=f"{sym} {clock}<br>RA: {ra:.2f}<br>Dec/Lati: {dec:+.2f}<br>Distance from {c['name'].lower()}: "
                               f"{au:.4g} AU<extra></extra>"))
         for name in paths:                                    # Planet Path: one trip round from the moment
@@ -113,7 +123,8 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
                 xyz.append(_xyz(ra, dec, _reach(au, c)))
             outer = max(outer, max(math.sqrt(a * a + b * b + d * d) for a, b, d in xyz))
             fig.add_trace(go.Scatter3d(x=[q[0] for q in xyz], y=[q[1] for q in xyz], z=[q[2] for q in xyz], mode="lines",
-                                       line=dict(color=core.colour(name), width=3, dash="dash" if hollow else "solid"),
+                                       line=dict(color=core.colour(name), width=2.5, dash="dash" if hollow else "solid"),
+                                       opacity=0.8,
                                        name=f"{title} {clock}", showlegend=False,
                                        hovertemplate=f"{title} {clock}: one trip from then<extra></extra>"))
         got = (places or {}).get(clock)
@@ -124,30 +135,44 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
                                        marker=dict(size=5, color=core.colour(label)), showlegend=False, name=f"{label} on the Earth",
                                        textfont=dict(size=11, color=core.colour(label)), hovertemplate=f"{label} ({clock})<extra></extra>"))
     span = max(outer, _reach(FAR_AU, c) if moving else 0) * 1.08
+    stars = random.Random(7)                                  # fixed stars, far out (the same each time)
+    sx, sy, sz = [], [], []
+    for _ in range(STARS):
+        u, v, r = stars.uniform(-1, 1), stars.uniform(0, 2 * math.pi), span * stars.uniform(0.93, 1.0)
+        sx.append(r * math.sqrt(1 - u * u) * math.cos(v)); sy.append(r * math.sqrt(1 - u * u) * math.sin(v)); sz.append(r * u)
+    fig.add_trace(go.Scatter3d(x=sx, y=sy, z=sz, mode="markers", hoverinfo="skip", showlegend=False, name="stars",
+                               marker=dict(size=[stars.choice((1.2, 1.6, 2.2)) for _ in range(STARS)], color="white", opacity=0.6)))
+    n = 48                                                    # the plane of the equator: a faint disc, north above it
+    rs, angs = [span * i / 4 for i in range(5)], [2 * math.pi * j / n for j in range(n + 1)]
+    fig.add_trace(go.Surface(x=[[r * math.cos(a) for a in angs] for r in rs], y=[[r * math.sin(a) for a in angs] for r in rs],
+                             z=[[0.0] * (n + 1) for _ in rs], colorscale=[[0, PLANE_COLOUR], [1, PLANE_COLOUR]], showscale=False,
+                             opacity=0.07, hoverinfo="skip", name="the plane of the equator"))
     for au in c["rings"] if show_au else ():                 # distance rings on the equator plane (AU)
         r = _reach(au, c)
         if r > span:
             continue
         ring = [_xyz(360 * i / 96, 0, r) for i in range(97)]
         fig.add_trace(go.Scatter3d(x=[q[0] for q in ring], y=[q[1] for q in ring], z=[0] * 97, mode="lines", hoverinfo="skip",
-                                   line=dict(color="rgb(200,200,200)", width=1), showlegend=False))
+                                   line=dict(color=RING_COLOUR, width=1.5, dash="dot"), showlegend=False))
         fig.add_trace(go.Scatter3d(x=[r], y=[0], z=[0], mode="text", text=[f"{au:g} AU"], hoverinfo="skip", showlegend=False,
-                                   textfont=dict(size=10, color=LINE_COLOUR)))
-    fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, 0], z=[-span, span], mode="lines+text", text=["SCP", "NCP"],   # the celestial axis
-                               line=dict(color=LINE_COLOUR, width=3), textfont=dict(size=12, color=LINE_COLOUR),
+                                   textfont=dict(size=10, color=TEXT_COLOUR)))
+    pole = span * 0.62                                        # the celestial axis: just past the planets, not up into empty space
+    fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, 0], z=[-pole, pole], mode="lines+text", text=["SCP", "NCP"],   # the celestial axis
+                               line=dict(color=LINE_COLOUR, width=2), textfont=dict(size=12, color=TEXT_COLOUR),
                                hoverinfo="skip", showlegend=False))
     eq = [_xyz(360 * i / 96, 0, span) for i in range(97)]     # and the celestial equator
     fig.add_trace(go.Scatter3d(x=[q[0] for q in eq], y=[q[1] for q in eq], z=[0] * 97, mode="lines", hoverinfo="skip",
-                               line=dict(color=LINE_COLOUR, width=2), showlegend=False))
+                               line=dict(color=LINE_COLOUR, width=1.5), showlegend=False))
     for ra in (0, 90, 180, 270):
         x, y, _ = _xyz(ra, 0, span * 1.06)
         fig.add_trace(go.Scatter3d(x=[x], y=[y], z=[0], mode="text", text=[f"RA {ra}"], hoverinfo="skip", showlegend=False,
-                                   textfont=dict(size=10, color=LINE_COLOUR)))
+                                   textfont=dict(size=10, color=TEXT_COLOUR)))
     axis = dict(visible=False, range=[-span, span])
-    fig.update_layout(width=WIDTH, height=HEIGHT, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor="white", autosize=False,
-                      scene=dict(xaxis=axis, yaxis=axis, zaxis=axis, aspectmode="cube", bgcolor="white",
-                                 camera=dict(eye=dict(x=1.3, y=1.3, z=0.7))),
-                      font=dict(family=CHART_FONT_FAMILY, size=11))
+    fig.update_layout(width=WIDTH, height=HEIGHT, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor=SKY, autosize=False,
+                      scene=dict(xaxis=axis, yaxis=axis, zaxis=axis, aspectmode="cube", bgcolor=SKY, dragmode="turntable",
+                                 camera=dict(eye=dict(x=0.85, y=0.85, z=0.55))),   # close, a little from above: north above the plane
+                      title=dict(font=dict(size=12, color=TEXT_COLOUR), x=0.01, xanchor="left", y=0.985, yanchor="top"),   # the clock
+                      hoverlabel=dict(font=dict(size=11)), font=dict(family=CHART_FONT_FAMILY, size=11, color=TEXT_COLOUR))
     return fig
 
 
@@ -200,7 +225,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
                                                  km=BODY_RADIUS_KM[rule["of"]])
     data = dict(tables=tables, jd={clock: jd for clock, jd in moments}, day_seconds=day_seconds, days=space3d.RUN_DAYS,
                 fit_r=c["fit_r"], log_from=c["log_from"], gap=list(c["gap"]), word=c["name"].lower(), globe=globe,
-                rules=rules, sizing=sizing, au_km=core.AU_KM, arcsec=list(SIZE_RANGE_ARCSEC), radii=list(MARKER_RANGE))
+                rules=rules, sizing=sizing, mark_scale=MARK_SCALE, au_km=core.AU_KM, arcsec=list(SIZE_RANGE_ARCSEC), radii=list(MARKER_RANGE))
     return ("const M = " + json.dumps(data, separators=(",", ":")).replace("<", "\\u003c") + ";\n" + """
   const RAD = Math.PI / 180;
   const reach = (au) => {                          // as space3dview._reach
@@ -215,7 +240,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
             dist: tb.dist[i] + (tb.dist[i + 1] - tb.dist[i]) * f};
   };
   // Geo: the Earth as a globe (land and sea, coastlines, a 30-degree grid, CB and CN), turned as at the globe's moment
-  const G = M.globe, STEP = 3, OCEAN = "rgb(60,120,190)", LAND = "rgb(110,160,90)";
+  const G = M.globe, STEP = 3, OCEAN = "rgb(25,70,150)", LAND = "rgb(85,150,80)";
   let globe = null;
   const lonLatXYZ = (lon, lat, r, gst) => {        // a place on the Earth, in the sky's frame: RA = sidereal time + longitude
     const ra = (gst + lon) * RAD, la = lat * RAD;
@@ -283,8 +308,8 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     Plotly.restyle(gd, {surfacecolor: [colour], cmin: 0, cmax: 1, opacity: 1,
                         colorscale: [[[0, OCEAN], [0.5, OCEAN], [0.5, LAND], [1, LAND]]]}, [earth]);
     Plotly.addTraces(gd, [
-      {type: "scatter3d", mode: "lines", x: [], y: [], z: [], line: {color: "rgb(35,60,35)", width: 2}, hoverinfo: "skip", showlegend: false, name: "coastlines"},
-      {type: "scatter3d", mode: "lines", x: [], y: [], z: [], line: {color: "rgba(255,255,255,0.55)", width: 1}, hoverinfo: "skip", showlegend: false, name: "latitude and longitude"}]);
+      {type: "scatter3d", mode: "lines", x: [], y: [], z: [], line: {color: "rgba(225,240,220,0.85)", width: 1.5}, hoverinfo: "skip", showlegend: false, name: "coastlines"},
+      {type: "scatter3d", mode: "lines", x: [], y: [], z: [], line: {color: "rgba(255,255,255,0.25)", width: 1}, hoverinfo: "skip", showlegend: false, name: "latitude and longitude"}]);
     globe = {lats, lons, coast, grid, earth, coastAt: n, gridAt: n + 1};
     turnGlobe(G.gst0);
   };
@@ -310,13 +335,13 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     });
     const sizes = keys.map((k) => {                // by the Symbols table's Size, as on the flat drawing (a diameter)
       const rule = M.rules[k];
-      if (!rule) return 14;
-      if (rule.px !== undefined) return 2 * rule.px;
+      if (!rule) return M.mark_scale * 7;
+      if (rule.px !== undefined) return M.mark_scale * rule.px;
       const b = M.sizing[rule.clock][rule.of], u = (t + b.shift) / b.step, i = Math.max(0, Math.min(Math.floor(u), b.dist.length - 2));
       const au = b.dist[i] + (b.dist[i + 1] - b.dist[i]) * (u - i), arcsec = 2 * Math.atan(b.km / (au * M.au_km)) / RAD * 3600;
       const lo = Math.log(M.arcsec[0]), hi = Math.log(M.arcsec[1]);
       const share = Math.max(0, Math.min(1, (Math.log(arcsec) - lo) / (hi - lo)));
-      return 2 * Math.max(1, M.radii[0] + (M.radii[1] - M.radii[0]) * share + rule.add);
+      return M.mark_scale * Math.max(1, M.radii[0] + (M.radii[1] - M.radii[0]) * share + rule.add);
     });
     Plotly.restyle(gd, {x: xs, y: ys, z: zs, hovertemplate: tips, "marker.size": sizes}, idx);
     if (G) turnGlobe(G.gst0 + G.spin * t);         // the Earth turning with time
