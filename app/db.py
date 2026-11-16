@@ -342,6 +342,13 @@ def _rename_dec_button(eng: sa.Engine):
         c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio model",
                                           sa.func.lower(defaults.c.options).in_(["geo spc", "helio spc"]),
                                           sa.func.lower(sa.func.trim(defaults.c.choices)) == "co").values(choices="SpC"))
+        # Time is Now or DOB, one at a time: a Time row naming both keeps the first
+        for page, title in TIME_ROWS:
+            for rid, choices in c.execute(sa.select(defaults.c.id, defaults.c.choices).where(
+                    sa.func.lower(defaults.c.page) == page, sa.func.lower(defaults.c.options) == title)).all():
+                parts = [p.strip() for p in (choices or "").split(",") if p.strip()]
+                if len(parts) > 1:
+                    c.execute(defaults.update().where(defaults.c.id == rid).values(choices=parts[0]))
         # Geo/Helio Model's 3D, Sp and SpC buttons have moved to AstroClock-3D (its Coordinates): their rows go
         c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == "geo/helio model", sa.func.lower(defaults.c.options).in_(
             [f"{m} {b}" for m in ("geo", "helio") for b in ("3d", "sp", "spc")])))

@@ -189,7 +189,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "to the start). Below it, Manual: the Earth, the celestial sphere, Ho, RA, Dec, La and Lg are frozen together; drag the chart sideways to turn them as one unit and see the other side of the AstroClock-3D. Or pick a speed to start, how much time passes each second: 1s a second, 1m a minute, 1h an hour, 1d a day, 1w a week, 1mo a month, 1y a year; with none picked it holds still. The Earth starts as it was at that "
                   "moment, so a planet is straight above the place it was overhead. Each planet is on the sphere at its RA and Declination, with its symbol inside its marker (☉ Su, ☽ Mo, ☿ Me, ♀ Ve, ♂ Ma, ♃ Ju, ♄ Sa), sized as the Size_Clock-3D column of Symbols says, usually by how big it looks from the Earth then (a "
                   "logarithmic scale, as to true scale the planets would not show; point at one for its Dec/Lati, RA, Angular Size, Distance from earth and the others approaching and leaving it in Dec/Lati; at CB or CN for its Long, Dec/Lati, RA and the planets approaching and leaving its Dec/Lati). The far side of the sphere is "
-                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines, and the Moon's north and south nodes (NN, SN), where its path crosses the Sun's, drawn with their symbols (☊ and ☋; point at one for its details). Major Aspects (0, 60, 90, 120, 180; black) and Minor Aspects (30, 45, 72, 135, 144, 150; grey): pick the angles to draw a line between any two planets or nodes shown (not NN with SN) that are in that aspect, by the orbs in Aspect Rules, as time runs; dotted for DOB, each with its tag, as 0-Ma-Ju, along it where there is room, or beside it when the two are too close (point at a line for its name). Coordinates, with Ho, Ce, AU, 3D, Sp, SpC, RA, De, La and Lg below it: which lines to show. 3D: in place of the sphere, a true 3D view, to drag to turn and scroll to zoom: the Earth in the middle as a globe (as on the sphere: land and sea, coastlines, borders, lines of latitude and longitude every 30 degrees, turned as it was then and turning with time, with CB and CN on it), the planets picked at their real directions and distances on the Fit scale (one moment each for Now and DOB, DOB hollow), sized as the Symbols table's Size_Geo says, each with its symbol inside, their Planet Paths over one trip from then; with Ce the celestial coordinates (the axis with NCP and SCP, the equator and its RA names, its plane), with AU the rings of distance in AU on that plane, with Sp a dashed spoke from the Earth through each planet out to the edge of the view, with SpC a line from CB or CN to each planet; Rotate in 1s: time runs from each moment at the speed picked (Manual or none: it stands still); point at a planet for its RA, Dec and distance and its distance to the others. AU: each planet drawn inside the sphere, along its RA and Dec, at a radius by its distance from the Earth, from the Earth out to the sphere (past Saturn), to scale (the Moon on the Earth, the inner planets close to it, Saturn near the sphere; NN and SN, on the Moon's path, at the Moon's distance), and with Sp a dashed line (spoke) out to its place on the sphere, where its RA, Dec and aspect lines are, and its Planet Path at its distances too (point at a path for how near and far it came; NN and SN stay on the sphere); off, all are on the sphere. Point at a planet for its distance in AU. SpC: a thin line to every planet from CB (DOB planets) or CN (Now planets) on the Earth, fainter where it runs to or from the far side (to the planet inside the sphere with AU on, on the sphere with it off). Ce: the axis with the names NCP and SCP and the dots at the poles, and the celestial equator with the names WCE and ECE. Ho: the house lines, twelve on the sphere, 30 degrees apart from the RA of CB (dashed) and of CN (solid), named H01 to H12, turning with the Earth, with each line's RA at its lower right (on the near side, where there is room). RA, De: the RA lines and the Dec lines of each planet, and of NN and SN, on the sphere, and "
+                  "fainter, and hidden behind the Earth. Planets, picking from the list below it: which of the Sun, Moon and planets to show, with their RA and Dec lines, and the Moon's north and south nodes (NN, SN), where its path crosses the Sun's, drawn with their symbols (☊ and ☋; point at one for its details). Major Aspects (0, 60, 90, 120, 180; black) and Minor Aspects (30, 45, 72, 135, 144, 150; grey): pick the angles to draw a line between any two planets or nodes shown (not NN with SN) that are in that aspect, by the orbs in Aspect Rules, as time runs; dotted for DOB, each with its tag, as 0-Ma-Ju, along it where there is room, or beside it when the two are too close (point at a line for its name). Coordinates, with Ho, Ce, AU, 3D, Sp, SpC, RA, De, La and Lg below it: which lines to show. 3D: in place of the sphere, a true 3D view, to drag to turn and scroll to zoom: the Earth in the middle as a globe (as on the sphere: land and sea, coastlines, borders, lines of latitude and longitude every 30 degrees, turned as it was then and turning with time, with CB and CN on it), the planets picked at their real directions and distances on the Fit scale (at the time picked: Now, or DOB, hollow), sized as the Symbols table's Size_Geo says, each with its symbol inside, their Planet Paths over one trip from then; with Ce the celestial coordinates (the axis with NCP and SCP, the equator and its RA names, its plane), with AU the rings of distance in AU on that plane, with Sp a dashed spoke from the Earth through each planet out to the edge of the view, with SpC a line from CB or CN to each planet; Rotate in 1s: time runs from each moment at the speed picked (Manual or none: it stands still); point at a planet for its RA, Dec and distance and its distance to the others. AU: each planet drawn inside the sphere, along its RA and Dec, at a radius by its distance from the Earth, from the Earth out to the sphere (past Saturn), to scale (the Moon on the Earth, the inner planets close to it, Saturn near the sphere; NN and SN, on the Moon's path, at the Moon's distance), and with Sp a dashed line (spoke) out to its place on the sphere, where its RA, Dec and aspect lines are, and its Planet Path at its distances too (point at a path for how near and far it came; NN and SN stay on the sphere); off, all are on the sphere. Point at a planet for its distance in AU. SpC: a thin line to every planet from CB (DOB planets) or CN (Now planets) on the Earth, fainter where it runs to or from the far side (to the planet inside the sphere with AU on, on the sphere with it off). Ce: the axis with the names NCP and SCP and the dots at the poles, and the celestial equator with the names WCE and ECE. Ho: the house lines, twelve on the sphere, 30 degrees apart from the RA of CB (dashed) and of CN (solid), named H01 to H12, turning with the Earth, with each line's RA at its lower right (on the near side, where there is room). RA, De: the RA lines and the Dec lines of each planet, and of NN and SN, on the sphere, and "
                   "of CB and CN on the Earth. La, Lg: the Earth's lines of latitude and of longitude, every 30 degrees, turning with it. Planet Path, picking from the list below it: a trail behind each body picked, drawn only while time runs, "
                   "where it has really been since time started running (none while it stands still; each start begins new ones; up to 72 years). DOB: at birth, hollow, dashed lines, with CB, a baby, at the birth place. Now: the planets "
                   "now, solid lines, with CN, a house, at the place now.",
@@ -629,14 +629,14 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
     """Every page input the Defaults table can set, by (Page, Options): (its choices, or START / END; more than one may be
     picked; the app's own default, used when the table has no row for it)."""
     globe = list(globechart.BODY_CHOICES) + list(globechart.NODE_CHOICES)
-    out = {("AstroClock-2D", "Time"): (["Now", "DOB"], True, ["Now"]),
+    out = {("AstroClock-2D", "Time"): (["Now", "DOB"], False, "Now"),   # (Time: Now or DOB, one at a time)
            ("AstroClock-2D", "Planets"): (globe, True, globe),
            ("AstroClock-2D", "Major Aspects"): (GLOBE_MAJOR, True, []),
            ("AstroClock-2D", "Minor Aspects"): (GLOBE_MINOR, True, []),
            ("AstroClock-2D", "House"): (["House"], False, "House"),
            ("AstroClock-2D", "1circle"): (["1circle"], False, None),
            ("AstroClock-2D", "Rotate in 1s"): (FLAT_SPEED_CHOICES, False, None),
-           ("AstroClock-3D", "Time"): (["Now", "DOB"], True, ["Now"]),
+           ("AstroClock-3D", "Time"): (["Now", "DOB"], False, "Now"),
            ("AstroClock-3D", "Planets"): (globe, True, globe),
            ("AstroClock-3D", "Planet Path"): (globe, True, ["Su"]),
            ("AstroClock-3D", "Major Aspects"): (GLOBE_MAJOR, True, []),
@@ -645,7 +645,7 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
            ("AstroClock-3D", "Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL),
            ("Geo/Helio Model", "Centric Model"): (["Geo", "Helio"], False, "Geo")}
     for model, bodies in (("Geo", globechart.BODY_CHOICES), ("Helio", space3d.HELIO_BODIES)):
-        out |= {("Geo/Helio Model", f"{model} Time"): (["Now", "DOB"], True, ["Now"]),
+        out |= {("Geo/Helio Model", f"{model} Time"): (["Now", "DOB"], False, "Now"),
                 ("Geo/Helio Model", f"{model} Planets"): (list(bodies), True, list(bodies)),
                 ("Geo/Helio Model", f"{model} Planet Path"): (list(bodies), True, list(bodies)),
                 ("Geo/Helio Model", f"{model} AU"): (["AU"], False, "AU"),
@@ -865,13 +865,13 @@ def page_globe():
     if not need_chart(prep):
         return
 
-    def stacked(names: tuple, default: tuple, title: str | None = None) -> list:
-        """Buttons one below another; those on. Under a title button, shown only with that on."""
+    def one_time(default) -> list:
+        """Time, with Now or DOB below it, one at a time (DOB above Now for one whose Access is DOB): [the one picked]."""
         box = head.container(width="content", gap="xxsmall")
-        if title and not box.pills(title, [title], default=title, key=f"globe_{title}_on", label_visibility="collapsed"):
+        if not box.pills("Time", ["Time"], default="Time", key="globe_Time_on", label_visibility="collapsed"):
             return []
-        return [n for n in names if box.pills(n, [n], default=n if n in default else None, key=f"globe_{n}",
-                                              label_visibility="collapsed")]
+        got = box.pills("Which Time", list(TIMES), default=default, key="globe_time", label_visibility="collapsed", width=48)
+        return [got] if got else []
 
     def options_under(title: str, key: str, names: list, default: list, width: int = 84) -> tuple:
         """A button with options listed below it, two a line (width: room for two), to pick from; those picked, none with
@@ -884,10 +884,10 @@ def page_globe():
                                    names))
 
     if prep.now_only:                                         # no birth details: DOB opens the form for them
-        dob_asked(bool(st.session_state.get("globe_DOB")), ("globe_DOB", None))
-        shown = stacked(TIMES, ("Now",), title="Time")
+        dob_asked(st.session_state.get("globe_time") == "DOB", ("globe_time", "Now"))
+        shown = one_time("Now")
     else:
-        shown = stacked(TIMES, default_choice("AstroClock-3D", "Time"), title="Time")
+        shown = one_time(default_choice("AstroClock-3D", "Time"))
     all_bodies = list(globechart.BODY_CHOICES)
     with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # shown three a line: Mo Su Me, Ve Ma Ju, Sa NN SN
     bodies = options_under("Planets", "bodies", with_nodes, default_choice("AstroClock-3D", "Planets"), width=112)
@@ -981,10 +981,11 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     def start(title: str):
         return default_choice("AstroClock-2D", title) if flat else default_choice("Geo/Helio Model", f"{model} {title}")
     if prep.now_only:                                         # no birth details: Now, and DOB opens the form for them
-        dob_asked("DOB" in (st.session_state.get(f"{key}_time") or []), (f"{key}_time", ["Now"]), (f"_kept_{key}_time", ["Now"]))
-        shown = titled(head, "Time", f"{key}_t_time", list(TIMES), f"{key}_time", ["Now"], selection_mode="multi") or []
+        dob_asked(st.session_state.get(f"{key}_when") == "DOB", (f"{key}_when", "Now"), (f"_kept_{key}_when", "Now"))
+        when = titled(head, "Time", f"{key}_t_time", list(TIMES), f"{key}_when", "Now")
     else:
-        shown = titled(head, "Time", f"{key}_t_time", list(TIMES), f"{key}_time", start("Time"), selection_mode="multi") or []
+        when = titled(head, "Time", f"{key}_t_time", list(TIMES), f"{key}_when", start("Time"))
+    shown = [when] if when else []                            # Now or DOB, one at a time
     bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
                                   format_func=core.symbol_of), choices)
     aspects, one_circle = (), False
