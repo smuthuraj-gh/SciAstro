@@ -257,7 +257,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "DOB Details": "Get more days of access (every member): pick 1, 7, 30, 90, 180 or 365 days, apply the coupon Free (for now, free) and press Add days; they are added to your End Date while it runs, else from now, and open the DOB charts. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them; your login "
+    "DOB Details": "Get more days of access (every member): pick 1, 7, 30, 90, 180 or 365 days, apply the coupon Free (for now, free) and press Add days (Days and Pay / Coupon start as the Defaults table says); they are added to your End Date while it runs, else from now, and open the DOB charts. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them; your login "
                   "email stays the same.",
 }
 
@@ -625,6 +625,8 @@ FLAT_SPEED_CHOICES = list(globechart.SPEEDS)                  # AstroClock-2D's:
 GLOBE_MAJOR = [str(a) for a in sorted(core.MAJOR)]
 GLOBE_MINOR = [str(a) for a in core.MINOR]
 START, END = "start", "end"                                   # the two date inputs (not buttons)
+TEXT = "text"                                                 # a box to type in (its Choices: what is typed in to start)
+TEXT_MOST = 30                                                # (at most this long, as the box takes)
 
 
 def default_inputs() -> dict[tuple[str, str], tuple]:
@@ -659,6 +661,8 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
         out |= {(page, "Start Date (UT)"): (START, False, "DOB"), (page, "End Date (UT)"): (END, False, end),
                 (page, "Planets"): (list(planets), True, ["Sa", "Ju"])}
     out[("Aspects", "Aspects")] = (["Major Aspects", "Minor Aspects"], True, ["Major Aspects", "Minor Aspects"])
+    out[("DOB Details", "Days")] = ([str(d) for d in access.DAY_PACKS], False, "7")   # Get more days of access
+    out[("DOB Details", "Pay / Coupon")] = (TEXT, False, None)
     out[("Aspects", "Major Aspects")] = (GLOBE_MAJOR, True, GLOBE_MAJOR)
     out[("Aspects", "Minor Aspects")] = (GLOBE_MINOR, True, GLOBE_MINOR)
     out[("Planets Cycles", "Major Aspects")] = ([str(a) for a in rangechart.EA_NAME], True, ["0", "180"])
@@ -676,6 +680,8 @@ def read_options(choices, multi: bool, text: str):
     (by name, SAbr, symbol or planet name, any case, comma-separated; for one on / off button On or Off). Start: DOB or Now.
     End: Now, or Start Date (UT) + a time such as 5 days, 2 years 6 months, 30 years (years, months, weeks, days)."""
     text = (text or "").strip()
+    if choices == TEXT:                                       # a box to type in: as written (blank: empty)
+        return (text or None), ([] if len(text) <= TEXT_MOST else [text])
     if choices == START:
         w = _word(text)
         return ("Now", []) if w == "now" else ("DOB", [] if w in ("dob", "") else [text])
@@ -753,6 +759,8 @@ def options_problems(rows: pd.DataFrame) -> list[str]:
                 hint = "DOB or Now"
             elif choices == END:
                 hint = "Now, or Start Date (UT) + a time such as 5 days or 2 years 6 months"
+            elif choices == TEXT:
+                hint = f"any text of at most {TEXT_MOST} characters"
             else:
                 hint = ("one of " if not multi else "any of ") + ", ".join(choices) + (" (or On / Off)" if len(choices) == 1 else "")
             one = "only one can be picked"
@@ -1635,8 +1643,13 @@ def more_days_box():
         # was added)
         with st.form("more_days_form", border=False, enter_to_submit=True):
             c1, c2, c3, _ = st.columns([1, 1.4, 1, 2.6], vertical_alignment="bottom")
-            days = c1.selectbox("Days", access.DAY_PACKS, index=1, key="more_days")
-            coupon = c2.text_input("Pay / Coupon", key="more_days_coupon", max_chars=30,   # (payment to come)
+            # (both start as the Defaults table says: DOB Details / Days and / Pay / Coupon)
+            start_days = default_choice("DOB Details", "Days")
+            packs = list(access.DAY_PACKS)
+            days = c1.selectbox("Days", packs, index=packs.index(int(start_days)) if str(start_days or "").isdigit()
+                                and int(start_days) in packs else 1, key="more_days")
+            coupon = c2.text_input("Pay / Coupon", value=default_choice("DOB Details", "Pay / Coupon") or "",
+                                   key="more_days_coupon", max_chars=TEXT_MOST,   # (payment to come)
                                   placeholder="Type the coupon")   # (not "Free": a grey hint read as already typed in)
             pressed = c3.form_submit_button("Add days", type="primary")
         if pressed:

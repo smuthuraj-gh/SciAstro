@@ -224,8 +224,10 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Planets Distance(%)", "Start Date (UT)", "DOB"),
     ("Planets Distance(%)", "End Date (UT)", "Start Date (UT) + 2 years"),
     ("Planets Distance(%)", "Planets", "Ju, Sa"),
+    ("DOB Details", "Days", "7"),                             # Get more days of access: the days picked to start
+    ("DOB Details", "Pay / Coupon", ""),                     # and the coupon filled in to start (blank: none; Free: free)
 ]
-DEFAULTS_VERSION = "5"                                        # 5: AstroClock-2D's aspects; 4: Aspects' angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
+DEFAULTS_VERSION = "6"                                        # 6: DOB Details' Days and Pay / Coupon; 5: AstroClock-2D's aspects; 4: Aspects' angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
@@ -403,6 +405,7 @@ def _rename_defaults_page(eng: sa.Engine):
 
 NEW_IN_4 = (("Aspects", "Major Aspects"), ("Aspects", "Minor Aspects"), ("Planets Cycles", "Minor Aspects"))
 NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects"))
+NEW_IN_6 = (("DOB Details", "Days"), ("DOB Details", "Pay / Coupon"))
 
 
 TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio model", "geo time"), ("geo/helio model", "helio time"))
@@ -479,7 +482,9 @@ def _seed_defaults(eng: sa.Engine):
         if done == DEFAULTS_VERSION:
             return
         have = {(p.lower(), t.lower()) for p, t in c.execute(sa.select(defaults.c.page, defaults.c.options)).all()}
-        added_since = {"2": lambda r: r[0] == "AstroClock-2D" or r[:2] in NEW_IN_4, "3": lambda r: r[:2] in NEW_IN_4 + NEW_IN_5, "4": lambda r: r[:2] in NEW_IN_5}
+        added_since = {"2": lambda r: r[0] == "AstroClock-2D" or r[:2] in NEW_IN_4 + NEW_IN_6,
+                       "3": lambda r: r[:2] in NEW_IN_4 + NEW_IN_5 + NEW_IN_6, "4": lambda r: r[:2] in NEW_IN_5 + NEW_IN_6,
+                       "5": lambda r: r[:2] in NEW_IN_6}
         wanted = [r for r in DEFAULT_ROWS if added_since[done](r)] if done in added_since else DEFAULT_ROWS   # (a row deleted before stays deleted)
         new = [dict(page=p, options=t, choices=o or None) for p, t, o in wanted if (p.lower(), t.lower()) not in have]
         if new:
