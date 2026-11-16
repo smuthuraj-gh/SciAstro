@@ -1571,6 +1571,23 @@ def orb_table() -> pd.DataFrame:
                         columns=["Aspect", "Angle"] + ORB_COLUMNS)
 
 
+def keep_previous(name: str, rows: pd.DataFrame) -> None:
+    """Keeps a table's rows as they were before a save (a note among the settings), for its Reset to Previous."""
+    import base64, pickle
+    text = base64.b64encode(pickle.dumps(rows.reset_index(drop=True))).decode("ascii")
+    with engine().begin() as c:
+        c.execute(sa.delete(settings).where(settings.c.key == f"previous:{name}"))
+        c.execute(settings.insert().values(key=f"previous:{name}", value=text))
+
+
+def previous_rows(name: str) -> pd.DataFrame | None:
+    """A table's rows as they were before its last save (keep_previous); None when none was kept."""
+    import base64, pickle
+    with engine().connect() as c:
+        text = c.execute(sa.select(settings.c.value).where(settings.c.key == f"previous:{name}")).scalar()
+    return pickle.loads(base64.b64decode(text)) if text else None   # (written by the app itself, above)
+
+
 PREVIOUS_ORBS = "orbs_previous"                               # (a note among the settings: the orbs before the last save)
 
 
@@ -1584,7 +1601,7 @@ def previous_orbs() -> pd.DataFrame | None:
 
 
 def save_orb_table(df: pd.DataFrame):
-    """Saves the orbs; the ones they replace are kept (previous_orbs), for Reset to previous."""
+    """Saves the orbs; the ones they replace are kept (previous_orbs), for Reset to Previous."""
     before = orb_table()[ORB_COLUMNS].head(1).to_json(orient="records")
     with engine().begin() as c:
         c.execute(sa.delete(settings).where(settings.c.key.in_(["orbs", PREVIOUS_ORBS])))   # (orbs: the old text, now out of date)

@@ -237,7 +237,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Aspect Rules": "The orbs: one row, for every aspect (Conjunction 0, Opposition 180, Square 90, Trine 120, Sextile 60, "
                        "Semi-sextile 30, Semi-square 45, Quintile 72, Sesquiquadrate 135, Bi-quintile 144, Quincunx 150): for each "
                        "planet, an RA orb and a Dec orb, how far from exact still counts as the aspect. A pair of planets uses the "
-                       "total of their two orbs (RA and Dec each). Type the changes and press Save; they apply to every chart.",
+                       "total of their two orbs (RA and Dec each). Type the changes and press Update; they apply to every chart. Ignore drops changes not updated; Reset to Previous puts back the orbs before the last Update.",
     "Customers": "One row per login: its Email, its Access, Start Date (UT) and End Date (UT; when DOB runs out), with "
                  "a Days box. Now: the Now charts only. DOB, the paid option: the DOB and Now charts of every DOB record "
                  "under their login, and people they add, or search for without saving, on DOB Details, until End Date. "
@@ -1152,13 +1152,16 @@ def _distance_cached(dist_on, jd_from, jd_to):
 # checks what has been typed; Delete takes the rows ticked in the first column); Ignore drops what has not been saved.
 def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: dict | None = None, width: str = "stretch",
                height: int | None = None, on_update=None) -> None:
-    """Insert, Update, Delete and Ignore, each saving at once (no Commit): Insert saves the edits made, then adds a blank
-    row at the bottom to fill in; Update saves the rows as they stand (the new row too, once filled in); Delete saves the
-    table without the rows ticked; Ignore drops every change not saved yet.
+    """Insert, Update, Delete, Ignore and Reset to Previous, each saving at once (no Commit): Insert saves the edits made,
+    then adds a blank row at the bottom to fill in; Update saves the rows as they stand (the new row too, once filled in);
+    Delete saves the table without the rows ticked; Ignore drops every change not saved yet; Reset to Previous puts the
+    table back as it was before its last save (kept in the database at each save; pressed again, it comes back).
     problems(rows) gives what is wrong with the rows as they stand; commit(rows) saves them and gives what to report;
     on_update(rows), when given, gives the rows as they are saved (e.g. worked-out columns filled in)."""
-    pressed = next((name for name in ("Insert", "Update", "Delete", "Ignore")
+    pressed = next((name for name in ("Insert", "Update", "Delete", "Ignore", "Reset to Previous")
                     if TITLE_SLOT.button(name, key=f"{key}_{name}", type="primary" if name == "Update" else "secondary")), None)
+    if pressed == "Reset to Previous":
+        st.session_state[f"{key}_reset_ask"] = True
     if pressed == "Ignore":                                    # every change not saved is dropped: the table as saved
         for name in (f"{key}_working", f"{key}_base", key):
             st.session_state.pop(name, None)
@@ -1199,10 +1202,33 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
             st.error(f"Not {verb}. The database refused it: {getattr(exc, 'orig', exc)}")
             return False
         st.cache_data.clear()                                  # charts kept with the old values
+        db.keep_previous(key, show)                            # the table as it was before, for Reset to Previous
         for name in (f"{key}_working", f"{key}_base", key):
             st.session_state.pop(name, None)
         st.session_state[f"{key}_said"] = report
         return True
+
+    if st.session_state.get(f"{key}_reset_ask"):              # Reset to Previous: the table as it was before its last save
+        previous = db.previous_rows(key)
+        if previous is None:
+            st.info("Nothing to go back to: the table has not been saved since this was added.")
+            st.session_state.pop(f"{key}_reset_ask", None)
+            return
+        st.warning("Put the table back as it was before its last save? (Pressed again, it comes back to this.)")
+        yes, no = st.columns(2, width=220)
+        if yes.button("Yes, reset", type="primary", key=f"{key}_reset_yes"):
+            st.session_state.pop(f"{key}_reset_ask", None)
+            back = previous.copy()
+            if "id" in back.columns and "id" in show.columns:  # a row deleted since comes back as a new one (a new ID)
+                gone = ~back["id"].isin(show["id"].dropna())
+                back["id"] = back["id"].astype("Float64").mask(gone)
+            st.session_state[f"{key}_base"] = show                 # (saved against the table as it is now)
+            if save(back, "reset"):
+                st.session_state[f"{key}_said"] = "Reset: the table is as it was before its last save. " + st.session_state[f"{key}_said"]
+                st.rerun()
+        if no.button("No", key=f"{key}_reset_no"):
+            st.session_state.pop(f"{key}_reset_ask", None)
+            st.rerun()
 
     if pressed == "Insert":
         # the edits made (other than ticks) are saved first, a row left blank not counting; then a blank row is added
@@ -1346,37 +1372,37 @@ def page_aspects():
     said = st.session_state.pop("orb_said", None)
     if said:
         st.success(said)
-    if st.button("Save", type="primary", key="orb_save"):
+    if TITLE_SLOT.button("Update", type="primary", key="orb_save"):   # (on the title line, beside the page's name)
         wrong = db.orb_problems(edited)
         if wrong:
-            st.error("Not saved. " + " ".join(wrong))
+            st.error("Not updated. " + " ".join(wrong))
         else:
             db.save_orb_table(edited)
             st.cache_data.clear()                             # charts kept with the old orbs
             st.session_state.pop("orb_editor", None)
-            st.session_state["orb_said"] = "Saved: these orbs now apply to every aspect."
+            st.session_state["orb_said"] = "Updated: these orbs now apply to every aspect."
             st.rerun()
-    if st.button("Ignore", key="orb_ignore"):                 # the changes not saved are dropped: the orbs as saved
+    if TITLE_SLOT.button("Ignore", key="orb_ignore"):                 # the changes not saved are dropped: the orbs as saved
         for name in ("orb_editor", "orb_reset_ask"):
             st.session_state.pop(name, None)
         st.session_state["orb_said"] = "Changes ignored: the orbs are as saved."
         st.rerun()
-    if st.button("Reset to previous"):                       # back to the orbs before the last Save (never the app's defaults)
+    if TITLE_SLOT.button("Reset to Previous", key="orb_reset"):   # back to the orbs before the last Update (never the app's defaults)
         st.session_state["orb_reset_ask"] = True
     if st.session_state.get("orb_reset_ask"):
         previous = db.previous_orbs()
         if previous is None:
-            st.info("Nothing to go back to: the orbs have not been saved since this was added.")
+            st.info("Nothing to go back to: the orbs have not been updated since this was added.")
             st.session_state.pop("orb_reset_ask", None)
             return
-        st.warning("Put the orbs back to their values before the last Save? (Pressed again, it goes back to these.)")
+        st.warning("Put the orbs back to their values before the last Update? (Pressed again, it goes back to these.)")
         yes, no = st.columns(2, width=220)
         if yes.button("Yes, reset", type="primary", key="orb_reset_yes"):
             db.save_orb_table(previous)                       # (the orbs it replaces are kept as the previous ones)
             for name in ("orb_reset_ask", "orb_editor"):
                 st.session_state.pop(name, None)
             st.cache_data.clear()
-            st.session_state["orb_said"] = "Reset: the orbs are as they were before the last Save."
+            st.session_state["orb_said"] = "Reset: the orbs are as they were before the last Update."
             st.rerun()
         if no.button("No", key="orb_reset_no"):
             st.session_state.pop("orb_reset_ask", None)
