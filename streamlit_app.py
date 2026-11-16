@@ -72,6 +72,7 @@ st.html("""<script>
   Object.defineProperty(CanvasRenderingContext2D.prototype, "font", {configurable: true, get() { return canvasFont.get.call(this); },
     set(v) { canvasFont.set.call(this, String(v).replace("10.5px", "10px")); }});
   const WIDTH = """ + str(mapchart.WIDTH - mapchart.INSET_L - mapchart.INSET_R) + """;   // the text column
+  const MIN_ZOOM = 10 / 12;
   function zoom() {
     if (window.__appZooming) return;                         // (the resize sent below comes back here)
     const root = document.documentElement, main = document.querySelector('[data-testid="stMain"]');
@@ -82,7 +83,9 @@ st.html("""<script>
     const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
     // the main area's width inside its scrollbar (beside any open sidebar), on screen, made WIDTH + padding wide;
     // with the sidebar open its width on screen changes with the zoom, so each check comes a step closer
-    const want = z * main.clientWidth / (WIDTH + pad);
+    // but never below MIN_ZOOM, so that 12 px text stays at least 10 px on screen: on a phone the column is then narrower
+    // than WIDTH, the page's rows wrap, and each chart is scaled down as a picture to the column (two fingers enlarge it)
+    const want = Math.max(MIN_ZOOM, z * main.clientWidth / (WIDTH + pad));
     if (Math.abs(want - z) > 0.001) {
       root.style.zoom = want;
       root.style.setProperty("--app-zoom", want);
