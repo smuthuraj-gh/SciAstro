@@ -52,7 +52,7 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 .stApp :is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, .st-key-sci_major, .st-key-sci_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button :is(p, span, div),
 .stApp :is(.st-key-helio_speed, .st-key-space_speed, .st-key-globe_speed) button:not(:first-child) :is(p, span, div), .stApp .st-key-sci_speed button :is(p, span, div)
   { font-size: 10px !important; }
-/* every action button (Insert, Commit, Delete, Yes, Sign out ..): the same small pill */
+/* every action button (Insert, Update, Delete, Ignore, Yes, Sign out ..): the same small pill */
 :is([data-testid="stBaseButton-primary"], [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-primaryFormSubmit"], [data-testid="stBaseButton-secondaryFormSubmit"])
   { padding: 0 7px !important; height: 24px !important; min-height: 24px !important; border-radius: 12px !important; }
 /* the button that opens the sidebar (pages, customer) is titled Menu, so it is clear what it opens */
@@ -229,11 +229,11 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                 "Choices. Buttons: the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0, 180; Manual), "
                 "blank for none; one on / off button (AU): On or Off. Start Date (UT): DOB or Now. End Date (UT): Now, or "
                 "Start Date (UT) + a time, e.g. 5 days, 2 years 6 months (years, months, weeks, days), which moves with the "
-                "Start. Commit checks each row against the page's input. An input with no row starts as the app's own default. "
+                "Start. Update checks each row against the page's input. An input with no row starts as the app's own default. "
                 "Rows are sorted by Page, Options, Choices; click a column name to sort by it. Changes apply when a page is next opened (a button already changed this visit keeps its choice). Seen by admins "
-                "only, who can Insert, Update, Delete and Commit rows.",
+                "only, who can Insert, Update and Delete rows (each saved at once).",
     "Symbols": "The Symbols table: the short name (SAbr), symbol (Symb), long name (SDesc) and colour (RGB, and its name, Color) of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
-               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. SAbr is unique, and stays once a row is in the table. Symb is what the pages show in place of its SAbr, the SAbr itself when blank. On AstroClock-2D, AstroClock-3D and Geo/Helio Model the conventional symbols are drawn, in the row's RGB colour; anything else is shown as typed, an emoji such as the baby in its own colours. RGB is rgb(r,g,b) or #rrggbb; Color is its name in words, for reference, and may be blank. Size_Clock-3D says how AstroClock-3D draws the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; Tiny, a dot with no symbol; Small, 9 pixels; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SAbr or SDesc (Bigger than Moon); blank, as usual (a planet by its angular size, Ea a dot, the nodes and places 9 pixels). Size_Clock-2D says the same for AstroClock-2D, its Dec and Distance(%) graphs (it starts as Size_Geo), Size_Geo for Geo/Helio Model's Geo, and Size_Helio for its Helio (it starts as Size_Geo, with the Moon Tiny). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on Geo/Helio Model's Geo; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
+               "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete: each is saved at once; Ignore drops changes not saved yet. Click a column name to sort. SAbr is unique, and stays once a row is in the table. Symb is what the pages show in place of its SAbr, the SAbr itself when blank. On AstroClock-2D, AstroClock-3D and Geo/Helio Model the conventional symbols are drawn, in the row's RGB colour; anything else is shown as typed, an emoji such as the baby in its own colours. RGB is rgb(r,g,b) or #rrggbb; Color is its name in words, for reference, and may be blank. Size_Clock-3D says how AstroClock-3D draws the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; Tiny, a dot with no symbol; Small, 9 pixels; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SAbr or SDesc (Bigger than Moon); blank, as usual (a planet by its angular size, Ea a dot, the nodes and places 9 pixels). Size_Clock-2D says the same for AstroClock-2D, its Dec and Distance(%) graphs (it starts as Size_Geo), Size_Geo for Geo/Helio Model's Geo, and Size_Helio for its Helio (it starts as Size_Geo, with the Moon Tiny). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on Geo/Helio Model's Geo; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
     "Aspect Rules": "The orbs: one row, for every aspect (Conjunction 0, Opposition 180, Square 90, Trine 120, Sextile 60, "
                        "Semi-sextile 30, Semi-square 45, Quintile 72, Sesquiquadrate 135, Bi-quintile 144, Quincunx 150): for each "
                        "planet, an RA orb and a Dec orb, how far from exact still counts as the aspect. A pair of planets uses the "
@@ -243,14 +243,14 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "under their login, and people they add, or search for without saving, on DOB Details, until End Date. "
                  "End Date is worked out by the app: pick Days (1, 7, 30, 90, 180 or 365 to add) and press Update: End Date is "
                  "extended by them, from End Date while it runs, else from now (Access becomes DOB); Days is not kept. "
-                 "Then Commit. Change Start Date to count from another day (it keeps the length); a new DOB with no Days "
+                 "Change Start Date to count from another day (it keeps the length); a new DOB with no Days "
                  "lasts 1 day. "
                  "Signing up with birth details gives DOB for 1 day. Admin: an admin. After End Date: the Now charts only. A row is made, with Now, when someone signs in for the first "
                  "time. A login's first DOB record (signing up, or saved on the DOB page) gives it DOB for 1 day. The DOB records refer to this table by "
                  "Email: changing an Email here changes it on them too, and a row whose Email DOB records still use cannot "
                  "be deleted. Insert, Update, Delete, "
-                 "Commit as on DOB.",
-    "DOB": "The customers' birth details. Insert for a new customer, type changes and press Update, tick Del and press Delete; nothing is saved until Commit. Click a column name to sort. ID is the record's number, and Created and Last_Updated (UT) when it was added and last changed, all set by the app. Required (*): Email (login), First Name, "
+                 "Ignore as on DOB.",
+    "DOB": "The customers' birth details. Insert for a new customer, type changes and press Update, tick Del and press Delete: each is saved at once; Ignore drops changes not saved yet. Click a column name to sort. ID is the record's number, and Created and Last_Updated (UT) when it was added and last changed, all set by the app. Required (*): Email (login), First Name, "
                  "Last Name, Country, State, City, the birth date and time (Date, Local-Time-24hr), and where they "
                  "live now (Country-N, State-N, City-N). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
@@ -1147,22 +1147,32 @@ def _distance_cached(dist_on, jd_from, jd_to):
 
 
 
-# DOB (the customers), Symbols and Aspect Rules: Insert, Update, Delete and Commit on the title line, as in a database. Editable tables
-# sort by their column headers only while they cannot add or delete rows themselves, so these buttons do that. Insert, Update
-# and Delete change only the working copy shown (Delete takes the rows ticked in the first column; Update checks what has
-# been typed); nothing reaches the database until Commit, which also takes what has been typed since.
+# Customers, DOB, Defaults, Help and Symbols: Insert, Update, Delete and Ignore on the title line. Editable tables sort by their
+# column headers only while they cannot add or delete rows themselves, so these buttons do that. Each saves at once (Update
+# checks what has been typed; Delete takes the rows ticked in the first column); Ignore drops what has not been saved.
 def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: dict | None = None, width: str = "stretch",
                height: int | None = None, on_update=None) -> None:
-    """Insert, Update, Delete, Commit and Ignore (drops every change not committed).
+    """Insert, Update, Delete and Ignore, each saving at once (no Commit): Insert saves the edits made, then adds a blank
+    row at the bottom to fill in; Update saves the rows as they stand (the new row too, once filled in); Delete saves the
+    table without the rows ticked; Ignore drops every change not saved yet.
     problems(rows) gives what is wrong with the rows as they stand; commit(rows) saves them and gives what to report;
-    on_update(rows), when given, gives the rows as Update stages them (e.g. worked-out columns filled in)."""
-    pressed = next((name for name in ("Insert", "Update", "Delete", "Commit", "Ignore")
-                    if TITLE_SLOT.button(name, key=f"{key}_{name}", type="primary" if name == "Commit" else "secondary")), None)
-    if pressed == "Ignore":                                    # every change not committed is dropped: the table as saved
+    on_update(rows), when given, gives the rows as they are saved (e.g. worked-out columns filled in)."""
+    pressed = next((name for name in ("Insert", "Update", "Delete", "Ignore")
+                    if TITLE_SLOT.button(name, key=f"{key}_{name}", type="primary" if name == "Update" else "secondary")), None)
+    if pressed == "Ignore":                                    # every change not saved is dropped: the table as saved
         for name in (f"{key}_working", f"{key}_base", key):
             st.session_state.pop(name, None)
         st.session_state[f"{key}_said"] = "Changes ignored: the table is as saved."
         st.rerun()
+    if st.session_state.pop(f"{key}_add_row", False):          # Insert: a blank row at the bottom, to fill in
+        if isinstance(height, int):                            # (the page sized the table before the row was added)
+            height += 30
+        start = st.session_state.get(f"{key}_working", show)
+        st.session_state.setdefault(f"{key}_base", show)       # what the rows started from (see page_customers)
+        st.session_state[f"{key}_working"] = start.reindex(range(len(start) + 1)).reset_index(drop=True)
+        st.session_state.pop(key, None)
+        st.session_state[f"{key}_said"] = ((st.session_state.get(f"{key}_said") or "") +
+                                           " A new row is at the bottom of the table: fill it in and press Update to save it.").strip()
     view = st.session_state.get(f"{key}_working", show).copy()
     view.insert(0, "Del", False)
     edited = st.data_editor(view, hide_index=True, width=width, num_rows="fixed", key=key, height=height or "auto",
@@ -1174,39 +1184,56 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
     if said:
         st.success(said)
     elif f"{key}_working" in st.session_state:
-        st.caption("Changes not committed yet: press Commit to save them.")
+        st.caption("Fill in the new row, then press Update to save it (Ignore drops it).")
 
-    def stage(new_rows: pd.DataFrame, note: str) -> None:
-        st.session_state.setdefault(f"{key}_base", show)       # what the working copy started from (see page_customers)
-        st.session_state[f"{key}_working"] = new_rows.reset_index(drop=True)
-        st.session_state.pop(key, None)
-        st.session_state[f"{key}_said"] = note
-        st.rerun()
+    def save(new_rows: pd.DataFrame, verb: str) -> bool:
+        """Saves the rows at once (as on_update gives them); False, with what is wrong shown, when they cannot be saved."""
+        new_rows = on_update(new_rows) if on_update else new_rows
+        wrong = problems(new_rows)
+        if wrong:
+            st.error(f"Not {verb}. " + "; ".join(wrong))
+            return False
+        try:
+            report = commit(new_rows)
+        except SQLAlchemyError as exc:                         # nothing is saved: the table stays as it is on the screen
+            st.error(f"Not {verb}. The database refused it: {getattr(exc, 'orig', exc)}")
+            return False
+        st.cache_data.clear()                                  # charts kept with the old values
+        for name in (f"{key}_working", f"{key}_base", key):
+            st.session_state.pop(name, None)
+        st.session_state[f"{key}_said"] = report
+        return True
 
     if pressed == "Insert":
-        stage(rows.reindex(range(len(rows) + 1)), "A new row is at the bottom of the table. Press Commit to save it.")
-    elif pressed == "Delete":
-        if ticked.any():
-            stage(rows[~ticked], f"{int(ticked.sum())} row(s) taken out. Press Commit to delete them from the database.")
-        st.warning("Tick the rows to delete in the Del column first.")
-    elif pressed in ("Update", "Commit"):
-        wrong = problems(rows)
-        if wrong:
-            st.error(f"Not {'updated' if pressed == 'Update' else 'committed'}. " + "; ".join(wrong))
-        elif pressed == "Update":
-            stage(on_update(rows) if on_update else rows, "Updated. Press Commit to save it to the database.")
-        else:
-            try:
-                report = commit(rows)
-            except SQLAlchemyError as exc:                     # nothing is saved: the working copy stays
-                st.error(f"Not committed. The database refused it: {getattr(exc, 'orig', exc)}")
+        # the edits made (other than ticks) are saved first, a row left blank not counting; then a blank row is added
+        # to the table as it stands, to fill in (on the next run, so that it follows a save)
+        typed = (st.session_state.get(key) or {}).get("edited_rows", {})
+        if any(set(cells) - {"Del"} for cells in typed.values()):
+            filled = rows[[any(_filled(v) for v in r) for r in rows.itertuples(index=False)]].reset_index(drop=True)
+            if not save(filled, "inserted"):
                 return
-            st.cache_data.clear()                              # charts kept with the old values
-            st.session_state.pop(f"{key}_working", None)
-            st.session_state.pop(f"{key}_base", None)
-            st.session_state.pop(key, None)
-            st.session_state[f"{key}_said"] = report
+        st.session_state[f"{key}_add_row"] = True
+        st.rerun()
+    elif pressed == "Delete":
+        if not ticked.any():
+            st.warning("Tick the rows to delete in the Del column first.")
+        elif save(rows[~ticked].reset_index(drop=True), "deleted"):
             st.rerun()
+    elif pressed == "Update":
+        if save(rows, "saved"):
+            st.rerun()
+
+
+def _filled(v) -> bool:
+    """A cell with something in it (not blank, None or NaN)."""
+    if v is None:
+        return False
+    try:
+        if pd.isna(v):
+            return False
+    except (TypeError, ValueError):
+        pass
+    return str(v).strip() != ""
 
 
 def page_logins():
@@ -1272,20 +1299,20 @@ def page_defaults():
         st.stop()
     table = db.defaults_table()
     crud_table("defaults_table", table, lambda rows: db.defaults_problems(rows) + options_problems(rows),
-               lambda rows: f"Committed: {db.save_defaults(rows)} row(s).",
+               lambda rows: f"Saved: {db.save_defaults(rows)} row(s).",
                height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
                column_config={"Page": st.column_config.TextColumn(width=170), "Options": st.column_config.TextColumn(width=170),
                               "Choices": st.column_config.TextColumn(width="large")})
 
 
 def page_help_table():
-    """The abbreviations the pages use: everyone can read them; admins change them (Insert, Update, Delete, Commit)."""
+    """The abbreviations the pages use: everyone can read them; admins change them (Insert, Update, Delete, each saved at once; Ignore)."""
     table = db.help_rows()
     if not user.is_admin:
         st.dataframe(table, hide_index=True, width="content", height=35 * (len(table) + 1) + 3,   # every row in view
                      column_config={"Abbreviation": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=760)})
         return
-    crud_table("help_table", table, db.help_problems, lambda rows: f"Committed: {db.save_help(rows)} row(s).", on_update=db.help_sorted,   # (Update: in Abbreviation order)
+    crud_table("help_table", table, db.help_problems, lambda rows: f"Saved: {db.save_help(rows)} row(s).", on_update=db.help_sorted,   # (Update: in Abbreviation order)
                height=30 * (len(st.session_state.get("help_table_working", table)) + 1) + 8,   # every row in view
                column_config={"Abbreviation": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=760)})
 
@@ -1298,7 +1325,7 @@ def page_naming():
     back = {v: k for k, v in shown_as.items()}
     table = db.all_planets().assign(_sn=lambda d: d["SN"]).rename(columns=shown_as)[["Symb", "SAbr", "SDesc", "RGB", "Color", "Size_Clock-2D", "Size_Clock-3D", "Size_Geo", "Size_Helio", "_sn"]]
     crud_table("planets_table", table, lambda rows: db.planet_problems(rows.rename(columns=back)),
-               lambda rows: "Committed: {} added, {} changed, {} deleted.".format(*db.save_planets(rows.rename(columns=back))),
+               lambda rows: "Saved: {} added, {} changed, {} deleted.".format(*db.save_planets(rows.rename(columns=back))),
                height=30 * (len(st.session_state.get("planets_table_working", table)) + 1) + 24,   # every row in view, above the scroll bar
                column_config={"_sn": None, "Symb": st.column_config.TextColumn(width="small"), "SDesc": st.column_config.TextColumn(width=135),
                               "RGB": st.column_config.TextColumn(width=118), "Size_Clock-3D": st.column_config.TextColumn(width=112), "Size_Geo": st.column_config.TextColumn(width=112), "Size_Helio": st.column_config.TextColumn(width=112), "Size_Clock-2D": st.column_config.TextColumn(width=112)}, width="content")
@@ -1334,16 +1361,22 @@ def page_aspects():
             st.session_state.pop(name, None)
         st.session_state["orb_said"] = "Changes ignored: the orbs are as saved."
         st.rerun()
-    if st.button("Reset to defaults"):
+    if st.button("Reset to previous"):                       # back to the orbs before the last Save (never the app's defaults)
         st.session_state["orb_reset_ask"] = True
     if st.session_state.get("orb_reset_ask"):
-        st.warning("Put every orb back to its default for good? This cannot be undone.")
+        previous = db.previous_orbs()
+        if previous is None:
+            st.info("Nothing to go back to: the orbs have not been saved since this was added.")
+            st.session_state.pop("orb_reset_ask", None)
+            return
+        st.warning("Put the orbs back to their values before the last Save? (Pressed again, it goes back to these.)")
         yes, no = st.columns(2, width=220)
         if yes.button("Yes, reset", type="primary", key="orb_reset_yes"):
-            db.save_orb_table(core.default_orb_table())
+            db.save_orb_table(previous)                       # (the orbs it replaces are kept as the previous ones)
             for name in ("orb_reset_ask", "orb_editor"):
                 st.session_state.pop(name, None)
             st.cache_data.clear()
+            st.session_state["orb_said"] = "Reset: the orbs are as they were before the last Save."
             st.rerun()
         if no.button("No", key="orb_reset_no"):
             st.session_state.pop("orb_reset_ask", None)
@@ -1363,7 +1396,7 @@ def page_accounts():
 
     def commit(rows: pd.DataFrame) -> str:
         base = st.session_state.get("acct_editor_base")
-        return "Committed: {} added, {} changed, {} deleted.".format(
+        return "Saved: {} added, {} changed, {} deleted.".format(
             *db.save_accounts(rows.rename(columns=back), df if base is None else base.rename(columns=back), by=user.email))
 
     crud_table("acct_editor", show, lambda rows: db.account_problems(rows.rename(columns=back)), commit, width="content",
@@ -1382,7 +1415,7 @@ def page_accounts():
                               "Days": st.column_config.SelectboxColumn("Days", options=list(access.DAY_PACKS), width="small",
                                                                     help="Pick how many days to add (1, 7, 30, 90, 180, 365), then press Update: End "
                                                                          "Date is extended by them (from End Date while it runs, else "
-                                                                         "from now; Access becomes DOB). Then Commit to save. Not kept "
+                                                                         "from now; Access becomes DOB), and saved. Not kept "
                                                                          "(blank again after). Not used for Admin."),
                               "End Date": st.column_config.DatetimeColumn("End Date", format="YYYY-MM-DD HH:mm", width=150, disabled=True,
                                                                           help="When DOB runs out (UT): after it, the Now "
@@ -1464,7 +1497,7 @@ def page_customers():
     def commit(rows: pd.DataFrame) -> str:
         # against what the working copy started from: a member who joined or changed their details since is left alone
         base = st.session_state.get("cust_editor_base")
-        return "Committed: {} added, {} changed, {} deleted.".format(
+        return "Saved: {} added, {} changed, {} deleted.".format(
             *db.save_customers(for_store(rows), df if base is None else for_store(base), by=user.email))
 
     crud_table("cust_editor", show, lambda rows: db.customer_problems(for_store(rows)), commit,

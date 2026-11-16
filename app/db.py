@@ -1571,9 +1571,24 @@ def orb_table() -> pd.DataFrame:
                         columns=["Aspect", "Angle"] + ORB_COLUMNS)
 
 
+PREVIOUS_ORBS = "orbs_previous"                               # (a note among the settings: the orbs before the last save)
+
+
+def previous_orbs() -> pd.DataFrame | None:
+    """The orbs as they were before the last save (one row, ORB_COLUMNS); None when none was kept."""
+    with engine().connect() as c:
+        text = c.execute(sa.select(settings.c.value).where(settings.c.key == PREVIOUS_ORBS)).scalar()
+    if not text:
+        return None
+    return pd.read_json(io.StringIO(text), orient="records")[ORB_COLUMNS]
+
+
 def save_orb_table(df: pd.DataFrame):
+    """Saves the orbs; the ones they replace are kept (previous_orbs), for Reset to previous."""
+    before = orb_table()[ORB_COLUMNS].head(1).to_json(orient="records")
     with engine().begin() as c:
-        c.execute(sa.delete(settings).where(settings.c.key == "orbs"))   # the old text, now out of date
+        c.execute(sa.delete(settings).where(settings.c.key.in_(["orbs", PREVIOUS_ORBS])))   # (orbs: the old text, now out of date)
+        c.execute(settings.insert().values(key=PREVIOUS_ORBS, value=before))
         c.execute(sa.delete(aspect_details))
         rows = _orb_rows(df)
         if rows:
