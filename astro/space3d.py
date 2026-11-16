@@ -349,13 +349,17 @@ __SYMBOL_JS__
   const DIST_X = D.width - 80, DIST_FIRST = 44, DIST_STEP = 32;
   const DIST_AU = 56, AU_NUM = 8;                  // and left of it an AU scale: its numbers AU_NUM from the bar, and the same planets again
                                                    // DIST_AU from it, left of the numbers
-  // the AU scale, left of the bar, as tall as it: logarithmic (the Moon at 0.0026 AU and Saturn near 10 on one bar), AU_RANGE
-  // at its bottom and top, numbered at AU_MARKS
-  const AU_RANGE = [0.002, 12], AU_MARKS = [0.002, 0.003, 0.004, 0.005, 0.2, 0.3, 0.4, 0.5, 1, 2, 5, 10];   // (none between 0.005 and 0.2: no planet comes there, the Moon below, Venus at 0.26 the nearest above)
+  // the AU scale, left of the bar, as tall as it, not to scale: its marks AU_MARKS evenly up the bar, the first at the bottom,
+  // and AU_TOP (not numbered) at the top, so Saturn (out to 11 AU) stays on it; between two marks a planet stands in
+  // proportion (on a logarithmic scale) to where its AU falls between them
+  const AU_MARKS = [0.002, 0.003, 0.004, 0.005, 0.2, 0.3, 0.4, 0.5, 1, 2, 5, 10], AU_TOP = 20;   // (none between 0.005 and 0.2: no planet comes there, the Moon below, Venus at 0.26 the nearest above)
   const auY = (au) => {
-    const lo = Math.log10(AU_RANGE[0]), hi = Math.log10(AU_RANGE[1]);
-    const f = Math.max(0, Math.min(1, (Math.log10(Math.max(au, 1e-9)) - lo) / (hi - lo)));
-    return distY(0) - f * (distY(0) - distY(100));
+    const steps = [...AU_MARKS, AU_TOP], n = steps.length - 1;
+    const v = Math.max(steps[0], Math.min(AU_TOP, au));
+    let i = 0;
+    while (i < n - 1 && v > steps[i + 1]) i++;
+    const f = (Math.log10(v) - Math.log10(steps[i])) / (Math.log10(steps[i + 1]) - Math.log10(steps[i]));
+    return distY(0) - (i + f) / n * (distY(0) - distY(100));
   };   // flat: the Distance(%) graph's line, right of the circle; how far right of it the Ave planets stand (beyond its numbers), and how far left DOB's (beyond Now's)
   const distY = (pct) => D.height / 2 + D.outer * D.fit * (2 * (100 - pct) / 100 - 1);
   const distMarks = (D.flat ? D.marks.filter((m) => D.dist_range[m.name]) : []).map((m) => {   // each planet on it: DOB and, nearer the line, Now to its left
@@ -469,7 +473,7 @@ __SYMBOL_JS__
         n.setAttribute("text-anchor", "end"); n.setAttribute("x", DIST_X - AU_NUM); n.setAttribute("y", (y + D.flat_font / 3).toFixed(1)); n.textContent = v;
       });
       const auScale = make("path", svg, {d: auTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
-      make("title", auScale).textContent = "Distance from earth in AU (a logarithmic scale): the planets at the time picked, to the left";
+      make("title", auScale).textContent = "Distance from earth in AU (not to scale: its marks evenly spaced): the planets at the time picked, to the left";
       const auName = words("rgb(90,90,90)");
       auName.setAttribute("x", DIST_X - DIST_AU / 2); auName.setAttribute("y", (cy + R + 39).toFixed(1)); auName.textContent = "AU";
     }
