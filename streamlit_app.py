@@ -1273,12 +1273,15 @@ def page_defaults():
 
 
 def page_help_table():
-    if not user.is_admin:                                     # admins only (not in a user's menu either)
-        st.stop()
+    """The abbreviations the pages use: everyone can read them; admins change them (Insert, Update, Delete, Commit)."""
     table = db.help_rows()
+    if not user.is_admin:
+        st.dataframe(table, hide_index=True, width="content", height=35 * (len(table) + 1) + 3,   # every row in view
+                     column_config={"Abbre": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=760)})
+        return
     crud_table("help_table", table, db.help_problems, lambda rows: f"Committed: {db.save_help(rows)} row(s).",
                height=30 * (len(st.session_state.get("help_table_working", table)) + 1) + 8,   # every row in view
-               column_config={"Abbre": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width="large")})
+               column_config={"Abbre": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=760)})
 
 
 def page_naming():
@@ -1576,6 +1579,7 @@ if user.is_admin:                                             # the Aspect Rules
               st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols")]
 else:
     pages.append(st.Page(page_my_details, title="DOB Details", icon=":material/person:", url_path="me"))
+    pages.append(st.Page(page_help_table, title="Help", icon=":material/help:", url_path="help"))   # (to read; admins change it)
 home = st.Page(lambda: None, title="Home", url_path="home", default=True, visibility="hidden")   # the root URL: sends to AstroClock-2D
 nav = st.navigation([home] + pages, expanded=True)            # every page shown (no "View more"): the Customer box right below
 PAGE_BY_PATH = {p.url_path: p for p in pages}                 # (to go to a page from another)
