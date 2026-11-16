@@ -26,7 +26,7 @@ SYMBOL_PX = 12 / 9.5                       # the symbol inside it: its font size
 SYMBOL_LEAST = 5                           # scales its symbols (9.5 px radius: 12 px); a mark of a smaller radius shows no symbol
 SYMBOL_FONT = (10, 12)                     # but kept within the pages' text sizes (10 to 12 px): still inside the smallest mark (14 px)
 # the body at the centre: its colour, its radius (in Fit units: each tenfold distance one unit; not to scale); the Fit scale's distance drawn at it and space taken out; AU rings on Fit and on True; the paths' spans
-CENTRE = {"Ea": dict(colour="rgb(70,130,200)", fit_r=1.4, log_from=space3d.LOG_FROM_AU, gap=space3d.GAP,   # (a big globe, as on
+CENTRE = {"Ea": dict(colour="rgb(220,232,245)", fit_r=1.4, log_from=space3d.LOG_FROM_AU, gap=space3d.GAP,   # (a big globe, as on
                                                                                                    # AstroClock-3D: distances count from its surface)
                      rings=(0.01, 1.0, 5.0, 10.0), spans=space3d.SPANS, name="Earth"),
           "Su": dict(colour="rgb(250,190,40)", fit_r=0.15, log_from=space3d.HELIO_LOG_FROM_AU, gap=space3d.NO_GAP,
@@ -143,9 +143,9 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
                 showlegend=False, name=f"{sym} {clock}",
                 textfont=dict(size=min(max(SYMBOL_PX * radius, SYMBOL_FONT[0]), SYMBOL_FONT[1]), color=colour if hollow else _ink(colour), family=SYMBOL_FONT_FAMILY),
                 marker=dict(size=MARK_SCALE * radius,   # (a diameter)
-                            color=SKY if hollow else colour,   # (DOB: hollow, its rim in its colour; Now: a white rim)
-                            line=dict(color=colour if hollow else "rgba(255,255,255,0.85)", width=2 if hollow else 1),
-                            symbol="circle-open" if hollow else "circle", opacity=1),
+                            color="white" if hollow else colour,   # as AstroClock-3D: DOB hollow (white, its rim in its colour)
+                            line=dict(color=colour, width=2),
+                            symbol="circle", opacity=1),
                 hovertemplate=f"{sym} {clock}<br>RA: {ra:.2f}<br>Dec/Lati: {dec:+.2f}<br>Distance from {c['name'].lower()}: "
                               f"{au:.4g} AU<extra></extra>"))
         for name in paths:                                    # Planet Path: one trip round from the moment
@@ -172,8 +172,9 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
                                            name=f"Co {core.symbol_of(name)} {clock}", opacity=0.75,
                                            line=dict(color=_light(core.colour(label)), width=2)))
             fig.add_trace(go.Scatter3d(x=[px], y=[py], z=[pz], mode="markers+text", text=[label], textposition="bottom center",
-                                       marker=dict(size=5, color=_light(core.colour(label))), showlegend=False, name=f"{label} on the Earth",
-                                       textfont=dict(size=11, color=_light(core.colour(label))), hovertemplate=f"{label} ({clock})<extra></extra>"))
+                                       marker=dict(size=6, color=core.colour(label), line=dict(color="white", width=1)),   # (on the pale
+                                       showlegend=False, name=f"{label} on the Earth",                # globe, as AstroClock-3D)
+                                       textfont=dict(size=11, color=core.colour(label)), hovertemplate=f"{label} ({clock})<extra></extra>"))
     span = max(outer, _reach(FAR_AU, c) if moving else 0) * 1.08
     for clock, name, ra, dec in spokes if show_spokes else ():   # Sp: from the centre through the body to the view's edge
         ex, ey, ez = _xyz(ra, dec, span)
@@ -294,7 +295,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
             dist: tb.dist[i] + (tb.dist[i + 1] - tb.dist[i]) * f};
   };
   // Geo: the Earth as a globe (land and sea, coastlines, a 30-degree grid, CB and CN), turned as at the globe's moment
-  const G = M.globe, STEP = 3, OCEAN = "rgb(25,70,150)", LAND = "rgb(85,150,80)";
+  const G = M.globe, STEP = 3, OCEAN = "rgb(220,232,245)", LAND = "rgb(236,236,230)";   // AstroClock-3D's land and sea
   let globe = null;
   const lonLatXYZ = (lon, lat, r, gst) => {        // a place on the Earth, in the sky's frame: RA = sidereal time + longitude
     const ra = (gst + lon) * RAD, la = lat * RAD;
@@ -354,16 +355,20 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     topo.objects.coastlines.geometries.forEach((g) => {
       (g.type === "LineString" ? [g.arcs] : g.type === "MultiLineString" ? g.arcs : []).forEach((ids) => coast.push(join(ids)));
     });
+    (topo.objects.countries ? topo.objects.countries.geometries : []).forEach((g) => {   // and the countries' borders, as AstroClock-3D
+      (g.type === "Polygon" ? [g.arcs] : g.type === "MultiPolygon" ? g.arcs : []).forEach((poly) => poly.forEach((ids) => coast.push(join(ids))));
+    });
     const grid = [];
     for (let la = -60; la <= 60; la += 30) { const ln = []; for (let lo = -180; lo <= 180; lo += 5) ln.push([lo, la]); grid.push(ln); }
     for (let lo = -180; lo < 180; lo += 30) { const ln = []; for (let la = -90; la <= 90; la += 5) ln.push([lo, la]); grid.push(ln); }
     const earth = gd.data.findIndex((d) => d.type === "surface");
     const n = gd.data.length;
-    Plotly.restyle(gd, {surfacecolor: [colour], cmin: 0, cmax: 1, opacity: 1,
+    // flat colours, unshaded, as AstroClock-3D's map of the Earth
+    Plotly.restyle(gd, {surfacecolor: [colour], cmin: 0, cmax: 1, opacity: 1, lighting: {ambient: 1, diffuse: 0, specular: 0, roughness: 1, fresnel: 0},
                         colorscale: [[[0, OCEAN], [0.5, OCEAN], [0.5, LAND], [1, LAND]]]}, [earth]);
     Plotly.addTraces(gd, [
-      {type: "scatter3d", mode: "lines", x: [], y: [], z: [], line: {color: "rgba(225,240,220,0.85)", width: 1.5}, hoverinfo: "skip", showlegend: false, name: "coastlines"},
-      {type: "scatter3d", mode: "lines", x: [], y: [], z: [], line: {color: "rgba(255,255,255,0.25)", width: 1}, hoverinfo: "skip", showlegend: false, name: "latitude and longitude"}]);
+      {type: "scatter3d", mode: "lines", x: [], y: [], z: [], line: {color: "rgb(150,150,150)", width: 1}, hoverinfo: "skip", showlegend: false, name: "coastlines"},
+      {type: "scatter3d", mode: "lines", x: [], y: [], z: [], line: {color: "rgba(120,120,120,0.6)", width: 1}, hoverinfo: "skip", showlegend: false, name: "latitude and longitude"}]);
     globe = {lats, lons, coast, grid, earth, coastAt: n, gridAt: n + 1};
     turnGlobe(G.gst0);
   };
