@@ -8,7 +8,7 @@ narrow window the button rows wrap and each chart is scaled down to the page's w
 
 The admin tables (Customers, DOB, Defaults, Help, Symbols) have Insert, Update, Delete and Ignore, each saving at once (no Commit): Insert saves the edits made and adds a blank row to fill in, Update saves the rows as they stand (the new row once filled in), Delete saves the table without the rows ticked, Ignore drops every change not saved yet, Reset to Previous (after asking) puts the table back as it was before its last save (kept in the database at each save; a row deleted since comes back with a new ID; pressed again, it comes back); Aspect Rules has Update, Ignore and Reset to Previous on its title line (back to the orbs before the last Update, never the app's defaults; pressed again, it goes back).
 
-A member whose DOB is not open (Access Now, or End Date passed) who picks DOB stays on Now, with the message "Your DOB page access expired. Get more days of access in the DOB details page." (End Date passed) or "Get more days of access in the DOB Details page." (never had DOB) on the page (and in the sidebar, when it ended).
+A member whose DOB is not open (Access Now, or End Date passed) who picks DOB is taken to DOB Details, with Get more days of access open, and the message "Your DOB page access expired. Get more days of access in the DOB details page." (End Date passed) or "Get more days of access in the DOB Details page." (never had DOB) on the page (and in the sidebar, when it ended).
 
 Time, on AstroClock-2D, AstroClock-3D and Geo/Helio Model: Now or DOB, one at a time (picking one turns the other off).
 

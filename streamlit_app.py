@@ -461,14 +461,18 @@ def orbs() -> core.Orbs:
 def dob_asked(picked: bool, *keys_reset) -> None:
     """A member with no birth details picked DOB: their Time is set back (keys_reset: (key, value) pairs, set before the
     buttons are drawn) and the form opens on DOB Details; once saved, they come back to this page. One whose Access does
-    not open the DOB charts is told so instead."""
+    not open the DOB charts is told so, and taken to DOB Details with Get more days of access open (an admin, who has no
+    DOB Details page, is told so where they are)."""
     if not picked:
         return
     for k, v in keys_reset:
         st.session_state[k] = v
     if _chosen[1] is not None and _chosen[1].locked:
-        st.session_state["_dob_locked"] = _chosen[1].message or access.PAID_NOTE
-        st.rerun()
+        st.session_state["_dob_locked"] = _chosen[1].message or access.PAID_NOTE   # (shown on the page it goes to)
+        if user.is_admin or "me" not in PAGE_BY_PATH:
+            st.rerun()
+        st.session_state["_open_more_days"] = True             # Get more days of access, open, on DOB Details
+        st.switch_page(PAGE_BY_PATH["me"])
     st.session_state["_back_to"] = nav.url_path
     st.switch_page(PAGE_BY_PATH["me"])
 
@@ -1636,7 +1640,8 @@ def more_days_box():
     said = st.session_state.pop("days_added", None)
     if said:
         st.success(said)
-    with st.expander("Get more days of access"):
+    # (open when they were sent here for it: they picked DOB, which is not open to them)
+    with st.expander("Get more days of access", expanded=st.session_state.pop("_open_more_days", False)):
         note = (GRANT.note or "DOB charts open.") if GRANT.dob else "Now charts only: add days here to open the DOB charts."
         st.caption(note + " Days are added to your End Date while it runs, else from now. For now, apply the coupon "
                    "Free to add them free.")
