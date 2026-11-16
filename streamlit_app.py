@@ -1153,10 +1153,16 @@ def _distance_cached(dist_on, jd_from, jd_to):
 # been typed); nothing reaches the database until Commit, which also takes what has been typed since.
 def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: dict | None = None, width: str = "stretch",
                height: int | None = None, on_update=None) -> None:
-    """problems(rows) gives what is wrong with the rows as they stand; commit(rows) saves them and gives what to report;
+    """Insert, Update, Delete, Commit and Ignore (drops every change not committed).
+    problems(rows) gives what is wrong with the rows as they stand; commit(rows) saves them and gives what to report;
     on_update(rows), when given, gives the rows as Update stages them (e.g. worked-out columns filled in)."""
-    pressed = next((name for name in ("Insert", "Update", "Delete", "Commit")
+    pressed = next((name for name in ("Insert", "Update", "Delete", "Commit", "Ignore")
                     if TITLE_SLOT.button(name, key=f"{key}_{name}", type="primary" if name == "Commit" else "secondary")), None)
+    if pressed == "Ignore":                                    # every change not committed is dropped: the table as saved
+        for name in (f"{key}_working", f"{key}_base", key):
+            st.session_state.pop(name, None)
+        st.session_state[f"{key}_said"] = "Changes ignored: the table is as saved."
+        st.rerun()
     view = st.session_state.get(f"{key}_working", show).copy()
     view.insert(0, "Del", False)
     edited = st.data_editor(view, hide_index=True, width=width, num_rows="fixed", key=key, height=height or "auto",
@@ -1323,6 +1329,11 @@ def page_aspects():
             st.session_state.pop("orb_editor", None)
             st.session_state["orb_said"] = "Saved: these orbs now apply to every aspect."
             st.rerun()
+    if st.button("Ignore", key="orb_ignore"):                 # the changes not saved are dropped: the orbs as saved
+        for name in ("orb_editor", "orb_reset_ask"):
+            st.session_state.pop(name, None)
+        st.session_state["orb_said"] = "Changes ignored: the orbs are as saved."
+        st.rerun()
     if st.button("Reset to defaults"):
         st.session_state["orb_reset_ask"] = True
     if st.session_state.get("orb_reset_ask"):

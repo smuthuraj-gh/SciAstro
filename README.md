@@ -6,6 +6,8 @@ zodiac), with the same rules. Orchestrated by Senthil Muthuraj; built by SI Agen
 The pages resize with the window as one picture, with all text kept between 10 and 12 px on screen: on a phone or a
 narrow window the button rows wrap and each chart is scaled down to the page's width (two fingers enlarge it).
 
+The admin tables (Customers, DOB, Defaults, Help, Symbols) have Insert, Update, Delete, Commit and Ignore: Ignore drops every change not committed yet and shows the table as saved; Aspect Rules has Save, Ignore and Reset to defaults.
+
 Time, on AstroClock-2D, AstroClock-3D and Geo/Helio Model: Now or DOB, one at a time (picking one turns the other off).
 
 | Page | Who | What |
