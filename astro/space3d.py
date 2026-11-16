@@ -347,7 +347,8 @@ __SYMBOL_JS__
   // flat: the Distance(%) graph's line, right of the circle, with all its planets to its right, beyond its numbers: the time
   // picked (DOB, Now) in the first column, then Ave; DIST_FIRST, DIST_STEP: the first column's distance from it, and between them
   const DIST_X = D.width - 80, DIST_FIRST = 44, DIST_STEP = 32;
-  const DIST_AU = 22;                              // and left of it, the same planets again, this far from it, on an AU scale marked on the bar
+  const DIST_AU = 56, AU_NUM = 8;                  // and left of it an AU scale: its numbers AU_NUM from the bar, and the same planets again
+                                                   // DIST_AU from it, left of the numbers
   // the AU scale, left of the bar, as tall as it: logarithmic (the Moon at 0.0026 AU and Saturn near 10 on one bar), AU_RANGE
   // at its bottom and top, numbered at AU_MARKS
   const AU_RANGE = [0.002, 12], AU_MARKS = [0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10];
@@ -465,12 +466,12 @@ __SYMBOL_JS__
         const y = auY(v);
         auTicks += "M" + DIST_X + " " + y.toFixed(1) + "L" + (DIST_X - 6) + " " + y.toFixed(1);
         const n = words("rgb(90,90,90)", D.flat_font);
-        n.setAttribute("text-anchor", "end"); n.setAttribute("x", DIST_X - DIST_AU - 16); n.setAttribute("y", (y + D.flat_font / 3).toFixed(1)); n.textContent = v;
+        n.setAttribute("text-anchor", "end"); n.setAttribute("x", DIST_X - AU_NUM); n.setAttribute("y", (y + D.flat_font / 3).toFixed(1)); n.textContent = v;
       });
       const auScale = make("path", svg, {d: auTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
       make("title", auScale).textContent = "Distance from earth in AU (a logarithmic scale): the planets at the time picked, to the left";
       const auName = words("rgb(90,90,90)");
-      auName.setAttribute("x", DIST_X - DIST_AU); auName.setAttribute("y", (cy + R + 39).toFixed(1)); auName.textContent = "AU";
+      auName.setAttribute("x", DIST_X - DIST_AU / 2); auName.setAttribute("y", (cy + R + 39).toFixed(1)); auName.textContent = "AU";
     }
     [...distClocks, "Ave"].filter((name) => name !== "Ave" || aveMarks.length).forEach((name) => {   // which column is which, above that tag
       const x = distCol(name);
