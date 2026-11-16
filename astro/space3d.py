@@ -352,7 +352,7 @@ __SYMBOL_JS__
   // the AU scale, left of the bar, as tall as it, not to scale: its marks AU_MARKS evenly up the bar, the first at the bottom,
   // and AU_TOP (not numbered) at the top, so Saturn (out to 11 AU) stays on it; between two marks a planet stands in
   // proportion (on a logarithmic scale) to where its AU falls between them
-  const AU_MARKS = [0.002, 0.003, 0.004, 0.005, 0.2, 0.3, 0.4, 0.5, 1, 2, 5, 10], AU_TOP = 20;   // (none between 0.005 and 0.2: no planet comes there, the Moon below, Venus at 0.26 the nearest above)
+  const AU_MARKS = [0.002, 0.003, 0.2, 0.3, 0.4, 0.5, 1, 2, 5, 10], AU_TOP = 20;   // (none between 0.003 and 0.2: no planet comes there, the Moon below, Venus at 0.26 the nearest above)
   const auY = (au) => {
     const steps = [...AU_MARKS, AU_TOP], n = steps.length - 1;
     const v = Math.max(steps[0], Math.min(AU_TOP, au));
