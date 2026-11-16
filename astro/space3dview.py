@@ -23,7 +23,8 @@ STARS = 450                                # fixed stars in the background (the 
 MARK_SCALE = 1.0                           # a mark's diameter: its Size radius (as on the flat drawing) times this; in 3D the
                                            # inner planets crowd the Earth, so smaller than the drawing's (twice the radius)
 # the body at the centre: its colour, its radius (in Fit units: each tenfold distance one unit; not to scale); the Fit scale's distance drawn at it and space taken out; AU rings on Fit and on True; the paths' spans
-CENTRE = {"Ea": dict(colour="rgb(70,130,200)", fit_r=0.18, log_from=space3d.LOG_FROM_AU, gap=space3d.GAP,
+CENTRE = {"Ea": dict(colour="rgb(70,130,200)", fit_r=1.4, log_from=space3d.LOG_FROM_AU, gap=space3d.GAP,   # (a big globe, as on
+                                                                                                   # AstroClock-3D: distances count from its surface)
                      rings=(0.01, 1.0, 5.0, 10.0), spans=space3d.SPANS, name="Earth"),
           "Su": dict(colour="rgb(250,190,40)", fit_r=0.15, log_from=space3d.HELIO_LOG_FROM_AU, gap=space3d.NO_GAP,
                      rings=(0.5, 1.0, 5.0, 10.0), spans=space3d.HELIO_SPANS, name="Sun")}
