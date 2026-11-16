@@ -41,7 +41,7 @@ FLAT_RADIUS = 360.0               # pixels from the Earth to that circle
 ONE_CIRCLE_AT = 0.72                # AstroClock-2D's Aspect: every body this far out, of the way to the 12 AU circle
 FLAT_DRAG_DAYS = 0.25             # the flat page with no speed picked: how many days a pixel of dragging moves time
 FLAT_FONT = 10                    # the RA numbers, in pixels
-FLAT_DEC = (31.0, -31.0)          # the Declination graph left of the circle, as tall as it: its top and bottom, in degrees
+FLAT_DEC = (30.0, -30.0)          # the Declination graph left of the circle, as tall as it: its top and bottom, in degrees
 
 # HelioCentric: the Sun at the centre, the planets and the Earth round it, and the Moon round the Earth (seen from the Sun it is
 # where the Earth is, so it is drawn round the Earth's mark, larger than to scale: in its real direction from the Earth, at
