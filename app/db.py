@@ -330,11 +330,11 @@ def _rename_dec_button(eng: sa.Engine):
             if any(p.lower() in COORD_BUTTONS_RENAMED for p in parts):
                 new = ", ".join(COORD_BUTTONS_RENAMED.get(p.lower(), p) for p in parts if p)
                 c.execute(defaults.update().where(defaults.c.id == rid).values(choices=new))
-        # AstroClock-2D's Aspect button is called 1circle: a Defaults row for it (and a choice of it) gets the new name
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "aspect")
-                  .values(options="1circle"))
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "1circle",
-                                          sa.func.lower(sa.func.trim(defaults.c.choices)) == "aspect").values(choices="1circle"))
+        # AstroClock-2D's Aspect button, then 1circle, is called 1C: a Defaults row for it (and a choice of it) gets the new name
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options).in_(["aspect", "1circle"]))
+                  .values(options="1C"))
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "1c",
+                                          sa.func.lower(sa.func.trim(defaults.c.choices)).in_(["aspect", "1circle"])).values(choices="1C"))
         # Geo/Helio Model's Co button is called SpC: its rows (Geo Co, Helio Co) and a choice of it get the new name
         for model in ("geo", "helio"):
             c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio model",
