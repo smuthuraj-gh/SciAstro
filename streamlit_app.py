@@ -257,7 +257,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "DOB Details": "Get more days: pick 1, 7, 30, 90, 180 or 365 days and press Add days; they are added to your End Date while it runs, else from now. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them; your login "
+    "DOB Details": "Get more days (every member, free for now): pick 1, 7, 30, 90, 180 or 365 days and press Add days; they are added to your End Date while it runs, else from now, and open the DOB charts. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them; your login "
                   "email stays the same.",
 }
 
@@ -1587,6 +1587,7 @@ def page_my_details():
     row, prep = pick_customer()
     if row is None:
         new_member_form()
+        more_days_box()                                       # (every member can add days, birth details or not)
         return
     if st.session_state.get("person_added"):
         st.success(st.session_state.pop("person_added"))
@@ -1603,18 +1604,21 @@ def page_my_details():
             st.success("Your details are saved.")
         with st.expander("Edit a DOB"):
             details_form(row)
-    if not user.is_admin:                                     # a customer adds DOB days themselves (no payment yet)
-        more_days_box()
+    more_days_box()                                           # every member adds DOB days themselves (free for now; later paid)
 
 
 def more_days_box():
-    """Get more days: the customer picks how many (access.DAY_PACKS) and they are added at once, from their End Date
-    while it runs, else from now."""
+    """Get more days, for every member (not admins: their access has no end): they pick how many (access.DAY_PACKS) and
+    they are added at once, from their End Date while it runs, else from now. Free for now; to become a paid option
+    (the payment goes here, before db.add_days)."""
+    if user.is_admin:
+        return
     said = st.session_state.pop("days_added", None)
     if said:
         st.success(said)
     with st.expander("Get more days"):
-        st.caption((GRANT.note or "DOB charts open.") + " Days are added to your End Date while it runs, else from now.")
+        note = (GRANT.note or "DOB charts open.") if GRANT.dob else "Now charts only: add days here to open the DOB charts."
+        st.caption(note + " Days are added to your End Date while it runs, else from now. Free for now.")
         c1, c2, _ = st.columns([1, 1, 4], vertical_alignment="bottom")
         days = c1.selectbox("Days", access.DAY_PACKS, index=1, key="more_days")
         if c2.button("Add days", key="more_days_add", type="primary"):
