@@ -347,18 +347,24 @@ __SYMBOL_JS__
   // flat: the Distance(%) graph's line, right of the circle, with all its planets to its right, beyond its numbers: the time
   // picked (DOB, Now) in the first column, then Ave; DIST_FIRST, DIST_STEP: the first column's distance from it, and between them
   const DIST_X = D.width - 80, DIST_FIRST = 44, DIST_STEP = 32;
-  const DIST_AU = 22;                              // and left of it, the same planets again, this far from it, with their distances in AU beside them   // flat: the Distance(%) graph's line, right of the circle; how far right of it the Ave planets stand (beyond its numbers), and how far left DOB's (beyond Now's)
+  const DIST_AU = 22;                              // and left of it, the same planets again, this far from it, on an AU scale marked on the bar
+  // the AU scale, left of the bar, as tall as it: logarithmic (the Moon at 0.0026 AU and Saturn near 10 on one bar), AU_RANGE
+  // at its bottom and top, numbered at AU_MARKS
+  const AU_RANGE = [0.002, 12], AU_MARKS = [0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10];
+  const auY = (au) => {
+    const lo = Math.log10(AU_RANGE[0]), hi = Math.log10(AU_RANGE[1]);
+    const f = Math.max(0, Math.min(1, (Math.log10(Math.max(au, 1e-9)) - lo) / (hi - lo)));
+    return distY(0) - f * (distY(0) - distY(100));
+  };   // flat: the Distance(%) graph's line, right of the circle; how far right of it the Ave planets stand (beyond its numbers), and how far left DOB's (beyond Now's)
   const distY = (pct) => D.height / 2 + D.outer * D.fit * (2 * (100 - pct) / 100 - 1);
   const distMarks = (D.flat ? D.marks.filter((m) => D.dist_range[m.name]) : []).map((m) => {   // each planet on it: DOB and, nearer the line, Now to its left
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
     if (m.hollow) lead.setAttribute("stroke-dasharray", "3 2");
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
-    // left of the bar: the planet again, with its distance from the Earth in AU written to its left (in the order of that distance)
+    // left of the bar: the planet again, at its distance from the Earth on the AU scale
     const auE = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
-    const au = words(m.colour, D.flat_font);
-    au.setAttribute("text-anchor", "end");
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow),
-            auE, auTip: make("title", auE), auLabel: symbolTag(svg, m.name, m.colour, m.hollow), au};
+            auE, auTip: make("title", auE), auLabel: symbolTag(svg, m.name, m.colour, m.hollow)};
   });
   // flat: each pair of the planets shown, at each moment: its line and tag when in aspect (under the planets, drawn after)
   const aspectLines = [];
@@ -453,7 +459,16 @@ __SYMBOL_JS__
     const distTag = words("rgb(90,90,90)");
     distTag.setAttribute("text-anchor", "end");     // (right of the bar, at the drawing's right edge)
     distTag.setAttribute("x", D.view[0] + D.view[2] - 4); distTag.setAttribute("y", (cy + R + 56).toFixed(1)); distTag.textContent = "Distance(%)";
-    if (distMarks.length) {                        // the AU column's name, left of the bar
+    if (distMarks.length) {                        // the AU scale, left of the bar: a tick at each mark, numbered left of the planets
+      let auTicks = "";
+      AU_MARKS.forEach((v) => {
+        const y = auY(v);
+        auTicks += "M" + DIST_X + " " + y.toFixed(1) + "L" + (DIST_X - 6) + " " + y.toFixed(1);
+        const n = words("rgb(90,90,90)", D.flat_font);
+        n.setAttribute("text-anchor", "end"); n.setAttribute("x", DIST_X - DIST_AU - 16); n.setAttribute("y", (y + D.flat_font / 3).toFixed(1)); n.textContent = v;
+      });
+      const auScale = make("path", svg, {d: auTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
+      make("title", auScale).textContent = "Distance from earth in AU (a logarithmic scale): the planets at the time picked, to the left";
       const auName = words("rgb(90,90,90)");
       auName.setAttribute("x", DIST_X - DIST_AU); auName.setAttribute("y", (cy + R + 39).toFixed(1)); auName.textContent = "AU";
     }
@@ -611,17 +626,9 @@ __SYMBOL_JS__
       fitSymbol(g.label, x, y, r);
       g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDistance(%) from earth: " + pct.toFixed(1) + "\nDistance from earth: " + s.dist.toPrecision(4) + " AU";
       g.auTip.textContent = g.tip.textContent;
-      g.au.textContent = s.dist.toFixed(s.dist < 0.1 ? 4 : 2);
-      Object.assign(g, {auDist: s.dist, auR: r});
-    });
-    // left of the bar: the planets in the order of their distance in AU, the nearest at the bottom, evenly up the bar's height
-    // (re-ordered as time runs), each with its AU to its left
-    const auX = DIST_X - DIST_AU, auBottom = distY(0), auStep = (distY(0) - distY(100)) / Math.max(distMarks.length, 1);
-    [...distMarks].sort((a, b) => a.auDist - b.auDist).forEach((g, i) => {
-      const y = auBottom - auStep * (i + 0.5);
-      g.auE.setAttribute("r", g.auR.toFixed(1)); g.auE.setAttribute("cx", auX.toFixed(1)); g.auE.setAttribute("cy", y.toFixed(1));
-      fitSymbol(g.auLabel, auX, y, g.auR);
-      g.au.setAttribute("x", (auX - 16).toFixed(1)); g.au.setAttribute("y", (y + D.flat_font / 3).toFixed(1));
+      const ax = DIST_X - DIST_AU, ay = auY(s.dist);   // left of the bar: at its AU on the scale, moving as time runs
+      g.auE.setAttribute("r", r.toFixed(1)); g.auE.setAttribute("cx", ax.toFixed(1)); g.auE.setAttribute("cy", ay.toFixed(1));
+      fitSymbol(g.auLabel, ax, ay, r);
     });
     aveMarks.forEach((g) => {
       const pct = avePct(g.m.name, t), r = aveRadius(g.m.rule, t), y = distY(pct), x = distCol("Ave");
