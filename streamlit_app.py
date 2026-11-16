@@ -8,6 +8,7 @@ from __future__ import annotations
 import html
 import re
 from datetime import date, datetime, time, timedelta, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -1331,6 +1332,14 @@ def page_defaults():
                               "Choices": st.column_config.TextColumn(width="large")})
 
 
+def page_readme():
+    """The app's README (README.md, beside this file), as written: admins only."""
+    if not user.is_admin:                                     # admins only (not in a user's menu either)
+        st.stop()
+    readme = Path(__file__).with_name("README.md")
+    st.markdown(readme.read_text(encoding="utf-8") if readme.exists() else "README.md is not there.")
+
+
 def page_help_table():
     """The abbreviations the pages use: everyone can read them; admins change them (Insert, Update, Delete, each saved at once; Ignore)."""
     table = db.help_rows()
@@ -1639,13 +1648,14 @@ pages = [st.Page(page_astroclock, title="AstroClock-2D", icon=":material/science
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
-if user.is_admin:                                             # the Aspect Rules, DOB, Symbols, Defaults, Help, Logins pages: admins only
+if user.is_admin:                                             # the Aspect Rules, DOB, Symbols, Defaults, Help, Logins, README pages: admins only
     pages += [st.Page(page_aspects, title="Aspect Rules", icon=":material/tune:", url_path="aspect-rules"),
               st.Page(page_accounts, title="Customers", icon=":material/badge:", url_path="customers"),
               st.Page(page_customers, title="DOB", icon=":material/group:", url_path="dob"),
               st.Page(page_defaults, title="Defaults", icon=":material/settings:", url_path="defaults"),
               st.Page(page_help_table, title="Help", icon=":material/help:", url_path="help"),
               st.Page(page_logins, title="Logins", icon=":material/history:", url_path="logins"),
+              st.Page(page_readme, title="README", icon=":material/description:", url_path="readme"),
               st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols")]
 else:
     pages.append(st.Page(page_my_details, title="DOB Details", icon=":material/person:", url_path="me"))
