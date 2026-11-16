@@ -342,6 +342,9 @@ def _rename_dec_button(eng: sa.Engine):
         c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio model",
                                           sa.func.lower(defaults.c.options).in_(["geo spc", "helio spc"]),
                                           sa.func.lower(sa.func.trim(defaults.c.choices)) == "co").values(choices="SpC"))
+        # Geo/Helio Model's 3D, Sp and SpC buttons have moved to AstroClock-3D (its Coordinates): their rows go
+        c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == "geo/helio model", sa.func.lower(defaults.c.options).in_(
+            [f"{m} {b}" for m in ("geo", "helio") for b in ("3d", "sp", "spc")])))
         # Geo/Helio Model's Fit and True buttons are gone (always Fit): its Coordinates rows go
         c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == "geo/helio model",
                                           sa.func.lower(defaults.c.options).in_(["geo coordinates", "helio coordinates"])))
