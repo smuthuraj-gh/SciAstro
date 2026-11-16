@@ -101,7 +101,7 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("AstroClock-2D", "Planets", "Su, Mo, Me, Ve, Ma, Ju, Sa, NN, SN"),
     ("AstroClock-2D", "Major Aspects", ""),
     ("AstroClock-2D", "Minor Aspects", ""),
-    ("AstroClock-2D", "House", "On"),
+    ("AstroClock-2D", "Ho", "On"),
     ("AstroClock-2D", "Rotate in 1s", ""),
     ("AstroClock-3D", "Time", "Now"),
     ("AstroClock-3D", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
@@ -330,6 +330,11 @@ def _rename_dec_button(eng: sa.Engine):
             if any(p.lower() in COORD_BUTTONS_RENAMED for p in parts):
                 new = ", ".join(COORD_BUTTONS_RENAMED.get(p.lower(), p) for p in parts if p)
                 c.execute(defaults.update().where(defaults.c.id == rid).values(choices=new))
+        # AstroClock-2D's House button (once Houses) is called Ho: a Defaults row for it (and a choice of it) gets the new name
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options).in_(["house", "houses"]))
+                  .values(options="Ho"))
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "ho",
+                                          sa.func.lower(sa.func.trim(defaults.c.choices)).in_(["house", "houses"])).values(choices="Ho"))
         # AstroClock-2D's Ave button, then DAv, is called DA: a Defaults row for it (and a choice of it) gets the new name
         c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options).in_(["ave", "dav"]))
                   .values(options="DA"))
