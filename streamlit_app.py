@@ -39,7 +39,7 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 [data-testid="stButtonGroup"] button { padding: 0 7px !important; height: 24px !important; min-height: 24px !important; border-radius: 12px !important; }
 /* AstroClock-3D's lists: two a line, the last alone not stretched across */
 .st-key-globe_bodies button, .st-key-globe_paths button, .st-key-globe_coords button, .st-key-globe_speed button,
-.st-key-globe_major button, .st-key-globe_minor button, .st-key-space_speed button
+.st-key-globe_major button, .st-key-globe_minor button, .st-key-space_speed button, .st-key-globe_time button
   { flex: 0 0 auto !important; width: auto !important; }
 /* the circles: every planet, every angle, every speed but Manual */
 :is(.st-key-sci_bodies, .st-key-globe_bodies, .st-key-globe_paths, .st-key-space_bodies, .st-key-space_paths, .st-key-helio_bodies, .st-key-helio_paths,
