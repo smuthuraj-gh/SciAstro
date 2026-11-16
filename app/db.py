@@ -117,7 +117,7 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Help", "Page: this table of the app's names and what they mean (admins change it)"),
     ("Aspect Rules", "Page (admins): the orbs, RA and Dec, a pair of planets must be within to be in aspect"),
     ("Customers", "Page (admins): a row per login: Email, Access, Start Date, Days, End Date"),
-    ("Page_Defaults", "Page (admins): what each page's buttons start as (Page, Options, Choices)"),
+    ("Defaults", "Page (admins): what each page's buttons start as (Page, Options, Choices)"),
     ("Logins", "Page (admins): who opened, added, changed or deleted what, when and from where"),
     ("Readme", "Page (admins): the app's README file"),
     ("Symbols", "Page (admins): each planet's symbol, short name, colour and size"),
@@ -510,12 +510,13 @@ def _rename_help_abbre(eng: sa.Engine):
 
 
 def _rename_help_rows(eng: sa.Engine):
-    """Help rows for pages since renamed get the new name (their Description kept): Defaults is Page_Defaults."""
+    """Help rows for pages since renamed get the new name (their Description kept): Page_Defaults, for a while the
+    Defaults page's name, is Defaults again."""
     if "help" not in sa.inspect(eng).get_table_names():
         return
     with eng.begin() as c:
-        if not c.execute(sa.select(help_table.c.id).where(sa.func.lower(help_table.c.abbreviation) == "page_defaults")).first():
-            c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == "defaults").values(abbreviation="Page_Defaults"))
+        if not c.execute(sa.select(help_table.c.id).where(sa.func.lower(help_table.c.abbreviation) == "defaults")).first():
+            c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == "page_defaults").values(abbreviation="Defaults"))
 
 
 def _add_help_index(eng: sa.Engine):

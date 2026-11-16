@@ -1,7 +1,7 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
 Pages: AstroClock-2D, AstroClock-3D, Geo/Helio Model, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only);
-Aspect Rules, Customers (each login's Access), DOB (the birth details), Symbols, Page_Defaults and Logins for admins; DOB Details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
+Aspect Rules, Customers (each login's Access), DOB (the birth details), Symbols, Defaults and Logins for admins; DOB Details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
 
@@ -258,7 +258,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
               "browser and system, and their browser's time zone. Access: theirs then. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
               "either asks first, and a deleted row cannot be brought back.",
-    "Page_Defaults": "The Page_Defaults table: what each page's inputs start as. A row per input: its Page, its Options and its "
+    "Defaults": "The Defaults table: what each page's inputs start as. A row per input: its Page, its Options and its "
                 "Choices. Buttons: the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0, 180; Manual), "
                 "blank for none; one on / off button (AU): On or Off. Start Date (UT): DOB or Now. End Date (UT): Now, or "
                 "Start Date (UT) + a time, e.g. 5 days, 2 years 6 months (years, months, weeks, days), which moves with the "
@@ -289,7 +289,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "DOB Details": "Get more days of access (every member): pick 1, 7, 30, 90, 180 or 365 days, apply the coupon Free (for now, free) and press Add days (Days and Pay / Coupon start as the Page_Defaults table says); they are added to your End Date while it runs, else from now, and open the DOB charts. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them; your login "
+    "DOB Details": "Get more days of access (every member): pick 1, 7, 30, 90, 180 or 365 days, apply the coupon Free (for now, free) and press Add days (Days and Pay / Coupon start as the Defaults table says); they are added to your End Date while it runs, else from now, and open the DOB charts. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them; your login "
                   "email stays the same.",
 }
 
@@ -1024,7 +1024,7 @@ def titled(head, title: str, title_key: str, options, key: str, default=None, **
 
 def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "Geo", flat: bool = False):
     """GeoCentric (centre Ea) or HelioCentric (centre Su): its buttons each keep their own choice (key), also while the other
-    model is shown; they start as the Page_Defaults table says (Geo Time .. Helio Rotate in 1s)."""
+    model is shown; they start as the Defaults table says (Geo Time .. Helio Rotate in 1s)."""
     def start(title: str):
         return default_choice("AstroClock-2D", title) if flat else default_choice("Geo/Helio Model", f"{model} {title}")
     if prep.now_only:                                         # no birth details: Now, and DOB opens the form for them
@@ -1395,7 +1395,7 @@ def page_logins():
 
 
 def allowed_values(page, options) -> str:
-    """What a Page_Defaults row's Choices may hold (its Allowed_Values column, not kept): the values its input takes."""
+    """What a Defaults row's Choices may hold (its Allowed_Values column, not kept): the values its input takes."""
     spec = {(p.lower(), o.lower()): s for (p, o), s in default_inputs().items()}.get(
         (str(page or "").strip().lower(), str(options or "").strip().lower()))
     if spec is None:
@@ -1412,17 +1412,50 @@ def allowed_values(page, options) -> str:
     return ("any of: " if multi else "one of: ") + ", ".join(map(str, choices))
 
 
+def value_in_use(page, options, choices) -> str:
+    """What a Defaults row makes its input start as (its Value column, not kept): its Choices as the page reads them,
+    or the app's own default, marked so, when the page cannot read them."""
+    spec = {(p.lower(), o.lower()): (p, o, s) for (p, o), s in default_inputs().items()}.get(
+        (str(page or "").strip().lower(), str(options or "").strip().lower()))
+    if spec is None:
+        return ""
+    kinds, multi, own = spec[2]
+    value, wrong = read_options(kinds, multi, db._cell(choices))
+    if wrong:
+        value, mark = own, " (app default)"
+    else:
+        mark = ""
+    if kinds == END and isinstance(value, tuple):
+        months, days = value
+        parts = ([f"{months // 12} year{'s' if months // 12 != 1 else ''}"] if months // 12 else []) +                 ([f"{months % 12} month{'s' if months % 12 != 1 else ''}"] if months % 12 else []) +                 ([f"{days} day{'s' if days != 1 else ''}"] if days else [])
+        shown = "Start Date (UT) + " + " ".join(parts) if parts else "Start Date (UT)"
+    elif isinstance(value, (list, tuple)):
+        shown = ", ".join(map(str, value)) if value else "(none)"
+    elif kinds != TEXT and len(kinds) == 1:
+        shown = "On" if value else "Off"
+    else:
+        shown = str(value) if value not in (None, "") else "(none)"
+    return shown + mark
+
+
 def page_defaults():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     table = db.defaults_table()
-    with_value = lambda rows: rows.assign(Allowed_Values=[allowed_values(p, o) for p, o in zip(rows["Page"], rows["Options"])])
-    table = with_value(table)                                 # Allowed_Values: what Choices may hold (worked out, not kept)
+    # Value: what the page starts with; Allowed_Values: what Choices may hold (both worked out by the app, not kept)
+    with_value = lambda rows: rows.assign(
+        Value=[value_in_use(p, o, ch) for p, o, ch in zip(rows["Page"], rows["Options"], rows["Choices"])],
+        Allowed_Values=[allowed_values(p, o) for p, o in zip(rows["Page"], rows["Options"])])
+    table = with_value(table)
     crud_table("defaults_table", table, lambda rows: db.defaults_problems(rows) + options_problems(rows),
                lambda rows: f"Saved: {db.save_defaults(rows)} row(s).", on_update=with_value,
                height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
                column_config={"Page": st.column_config.TextColumn(width=170), "Options": st.column_config.TextColumn(width=170),
                               "Choices": st.column_config.TextColumn(width=300),
+                              "Value": st.column_config.TextColumn("Value", width=260, disabled=True,
+                                                                  help="What the page starts with: Choices as the page reads "
+                                                                       "them, or the app's own default when it cannot (worked "
+                                                                       "out by the app; not kept)."),
                               "Allowed_Values": st.column_config.TextColumn("Allowed_Values", width="large", disabled=True,
                                                                    help="The values Choices may hold for this input (worked "
                                                                         "out by the app; not kept).")})
@@ -1718,7 +1751,7 @@ def more_days_box():
         # was added)
         with st.form("more_days_form", border=False, enter_to_submit=True):
             c1, c2, c3, _ = st.columns([1, 1.4, 1, 2.6], vertical_alignment="bottom")
-            # (both start as the Page_Defaults table says: DOB Details / Days and / Pay / Coupon)
+            # (both start as the Defaults table says: DOB Details / Days and / Pay / Coupon)
             start_days = default_choice("DOB Details", "Days")
             packs = list(access.DAY_PACKS)
             days = c1.selectbox("Days", packs, index=packs.index(int(start_days)) if str(start_days or "").isdigit()
@@ -1762,11 +1795,11 @@ pages = [st.Page(page_astroclock, title="AstroClock-2D", icon=":material/science
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
-if user.is_admin:                                             # the Aspect Rules, DOB, Symbols, Page_Defaults, Help, Logins, Readme pages: admins only
+if user.is_admin:                                             # the Aspect Rules, DOB, Symbols, Defaults, Help, Logins, Readme pages: admins only
     pages += [st.Page(page_aspects, title="Aspect Rules", icon=":material/tune:", url_path="aspect-rules"),
               st.Page(page_accounts, title="Customers", icon=":material/badge:", url_path="customers"),
               st.Page(page_customers, title="DOB", icon=":material/group:", url_path="dob"),
-              st.Page(page_defaults, title="Page_Defaults", icon=":material/settings:", url_path="defaults"),
+              st.Page(page_defaults, title="Defaults", icon=":material/settings:", url_path="defaults"),
               st.Page(page_help_table, title="Help", icon=":material/help:", url_path="help"),
               st.Page(page_logins, title="Logins", icon=":material/history:", url_path="logins"),
               st.Page(page_readme, title="Readme", icon=":material/description:", url_path="readme"),
