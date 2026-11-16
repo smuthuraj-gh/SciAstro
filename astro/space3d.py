@@ -351,7 +351,7 @@ __SYMBOL_JS__
                                                    // DIST_AU from it, left of the numbers
   // the AU scale, left of the bar, as tall as it: logarithmic (the Moon at 0.0026 AU and Saturn near 10 on one bar), AU_RANGE
   // at its bottom and top, numbered at AU_MARKS
-  const AU_RANGE = [0.002, 12], AU_MARKS = [0.002, 0.005, 0.2, 0.5, 1, 2, 5, 10];   // (none between 0.005 and 0.2: no planet comes there, the Moon below, Venus at 0.26 the nearest above)
+  const AU_RANGE = [0.002, 12], AU_MARKS = [0.002, 0.003, 0.004, 0.005, 0.2, 0.3, 0.4, 0.5, 1, 2, 5, 10];   // (none between 0.005 and 0.2: no planet comes there, the Moon below, Venus at 0.26 the nearest above)
   const auY = (au) => {
     const lo = Math.log10(AU_RANGE[0]), hi = Math.log10(AU_RANGE[1]);
     const f = Math.max(0, Math.min(1, (Math.log10(Math.max(au, 1e-9)) - lo) / (hi - lo)));
