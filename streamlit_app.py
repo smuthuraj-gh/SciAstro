@@ -129,6 +129,38 @@ st.html("""<script>
 })();
 </script>""", unsafe_allow_javascript=True)
 
+def _came_from() -> None:
+    """The site that brought this visitor (Came from in the Logins table), once per visit. Streamlit is not told it, so
+    the page's script reads it (document.referrer; on Streamlit Cloud, the page round the app's frame), keeps the site's
+    name only (no path or query, which can carry personal details), and not the app itself or Google's sign-in, and
+    hands it over once, as ?came_from= on a reload of the page; kept for the visit, the address made clean again."""
+    got = st.query_params.get("came_from")
+    if got:
+        st.session_state["came_from"] = re.sub(r"[^\w.\-]", "", got)[:200]
+        del st.query_params["came_from"]
+    if st.session_state.get("_came_from_asked"):
+        return
+    st.session_state["_came_from_asked"] = True
+    st.html(r"""<script>
+(() => {
+  try {
+    if (sessionStorage.getItem("came_from_sent")) return;    // (once per tab)
+    sessionStorage.setItem("came_from_sent", "1");
+    let ref = document.referrer;
+    try { if (window.top !== window && window.top.document.referrer) ref = window.top.document.referrer; } catch (e) {}
+    if (!ref) return;
+    const host = new URL(ref).hostname;
+    const own = [location.hostname, window.top === window ? "" : (() => { try { return window.top.location.hostname; } catch (e) { return ""; } })()];
+    if (!host || own.includes(host) || /(^|\.)accounts\.google\./.test(host) || host === "share.streamlit.io") return;
+    const target = window.top === window ? window : window.top;
+    const url = new URL(target.location.href);
+    url.searchParams.set("came_from", host);
+    target.location.replace(url.toString());
+  } catch (e) {}
+})();
+</script>""", unsafe_allow_javascript=True)
+
+
 user = auth.current_user()
 location.visitor_location()                                   # where they are: looked up once per visit, before any Logins row is written
 # what they may use, by their row of the Customers table (made, with Access Now, on their first sign-in; an admin: everything)
@@ -374,7 +406,7 @@ def _pick_customer_box() -> tuple[pd.Series | None, Prepared | None]:
     mark_accessed()
     viewed = st.session_state.setdefault("viewed_customers", set())   # a View in the Logins table: once per customer per visit
     if cid not in viewed:
-        db.log_view(user.email)
+        db.log_view(user.email, f"Customer #{cid}")
         viewed.add(cid)
     return row, prep
 
@@ -1307,7 +1339,7 @@ def page_logins():
     # (ticks are kept by row position: a new key when the rows move, so that a tick cannot land on another row)
     edited = st.data_editor(view, hide_index=True, width="content", num_rows="fixed",
                             key=f"logins_table_{len(table)}_{table['Id'].iloc[0] if len(table) else 0}_{int(all_on)}",
-                            height="auto" if len(table) <= 18 else 700, disabled=["Email", "Activity", "Date_Time", "Location", "Device", "Time zone", "Access"],
+                            height="auto" if len(table) <= 18 else 700, disabled=["Email", "Activity", "Date_Time", "Page", "Details", "Location", "Device", "Time zone", "Access", "Came from"],
                             column_config={"Del": st.column_config.CheckboxColumn("Del", width="small", help="Tick, then press Delete."),
                                            "Id": None, "Email": st.column_config.TextColumn(width=260),
                                            "Activity": st.column_config.TextColumn(width=100),
@@ -1320,6 +1352,13 @@ def page_logins():
                                                                                  "Chrome on Windows; blank when not known."),
                                            "Time zone": st.column_config.TextColumn(width=200, help="The time zone their browser "
                                                                                     "is set to; blank when not known."),
+                                           "Page": st.column_config.TextColumn(width=130, help="The page they were on."),
+                                           "Details": st.column_config.TextColumn(width=300, help="What was done: which customer "
+                                                                                  "was opened (by record number), which table was "
+                                                                                  "saved, days added with which coupon .."),
+                                           "Came from": st.column_config.TextColumn(width=160, help="The site that brought them "
+                                                                                    "to the app (its name only); blank when they "
+                                                                                    "came straight to it, or it is not known."),
                                            "Access": st.column_config.TextColumn(width=110, help="Their Access then (Now, DOB, Admin; "
                                                                                  "'DOB ended' after its End Date); blank "
                                                                                  "with none, or no customer record.")})
@@ -1670,7 +1709,7 @@ def more_days_box():
                 st.error("No days added: type the coupon Free in Pay / Coupon (payment is not open yet), then press Add days.")
                 return
             try:
-                end = db.add_days(user.email, int(days))
+                end = db.add_days(user.email, int(days), (coupon or "").strip() or None)
             except ValueError as exc:
                 st.error(str(exc))
             else:
@@ -1717,6 +1756,8 @@ nav = st.navigation([home] + pages, expanded=True)            # every page shown
 PAGE_BY_PATH = {p.url_path: p for p in pages}                 # (to go to a page from another)
 if nav is home:                                               # / opens /astroclock-2d, keeping any query
     st.switch_page(PAGE_BY_PATH["astroclock-2d"], query_params=st.query_params.to_dict())
+st.session_state["_page"] = nav.title                        # the page, for the Logins rows written on it
+_came_from()                                                  # and the site that brought them, once per visit
 _chosen = _pick_customer()                                    # the sidebar's customer, for every page
 top_line(nav.title, _chosen[0])
 nav.run()

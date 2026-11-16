@@ -82,6 +82,9 @@ logins = sa.Table(
     sa.Column("device", sa.String(60)),                      # their browser and system (Chrome on Windows ..)
     sa.Column("timezone", sa.String(64)),                    # the time zone their browser is set to (Asia/Kolkata (UTC+5:30))
     sa.Column("access", sa.String(20)),                      # their Access then (DOB .., "DOB ended"; blank: none, or no record)
+    sa.Column("page", sa.String(60)),                        # the page they were on (AstroClock-2D, DOB Details ..)
+    sa.Column("details", sa.String(300)),                    # what was done (Get more days of access: 7 days, coupon Free ..)
+    sa.Column("came_from", sa.String(200)),                  # the site that brought them to the app (its name only), blank: none known
     sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete', 'Login')", name="ck_logins_activity"),
 )
 sa.Index("ix_logins_date_time", logins.c.date_time)
@@ -346,11 +349,11 @@ def _allow_login_activity(eng: sa.Engine):
 
 
 def _add_logins_columns(eng: sa.Engine):
-    """A Logins table made before the Location, Device, Time zone and Access columns gets them (its rows kept, blank in
-    them)."""
+    """A Logins table made before the Location, Device, Time zone, Access, Page, Details and Came from columns gets them
+    (its rows kept, blank in them)."""
     have = {c["name"] for c in sa.inspect(eng).get_columns("logins")}
     with eng.begin() as c:
-        for col in ("location", "device", "timezone", "access"):
+        for col in ("location", "device", "timezone", "access", "page", "details", "came_from"):
             if col not in have:
                 c.execute(sa.text(f"ALTER TABLE logins ADD COLUMN {col} {logins.c[col].type.compile(dialect=eng.dialect)}"))
 
@@ -1252,13 +1255,13 @@ def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None =
                 c.execute(customers.update().where(customers.c.email == f"~{aid}").values(email=data["email"]))
         for data in new:
             c.execute(accounts.insert().values(**data)); added += 1
-        _log(c, by, "Create", added)
-        _log(c, by, "Update", changed)
-        _log(c, by, "Delete", deleted)
+        _log(c, by, "Create", added, details="Customers table")
+        _log(c, by, "Update", changed, details="Customers table")
+        _log(c, by, "Delete", deleted, details="Customers table")
     return added, changed, deleted
 
 
-def add_days(email: str, days: int) -> datetime:
+def add_days(email: str, days: int, coupon: str | None = None) -> datetime:
     """A customer adds days to their own DOB (DOB Details: Get more days of access; no payment yet): counted from their End Date
     while it runs, else from now (Start Date then now too). Access becomes DOB. Gives the new End Date. Raises
     ValueError for days not in access.DAY_PACKS, or for an admin."""
@@ -1282,7 +1285,8 @@ def add_days(email: str, days: int) -> datetime:
             c.execute(accounts.update().where(accounts.c.email == email.lower()).values(**data))
         else:
             c.execute(accounts.insert().values(email=email.lower(), **data))
-        _log(c, email, "Update")
+        _log(c, email, "Update", details=f"Get more days of access: {days} day{'s' if days != 1 else ''}"
+                                         + (f", coupon {coupon}" if coupon else "") + f"; DOB until {end:%Y-%m-%d %H:%M} UT")
     return end
 
 
@@ -1367,14 +1371,24 @@ def customer_problems(rows: pd.DataFrame) -> list[str]:
     return out
 
 
-def _log(c, email: str | None, activity: str, times: int = 1):
-    """Rows in the Logins table: this person did this, times times (one row per customer), now, from where they are, on
-    what device, in what time zone, with what Access."""
+def _visit(name: str) -> str | None:
+    """This visit's page (_page) or the site that brought them (came_from), as the app keeps them; None outside a visit."""
+    try:
+        return st.session_state.get(name) or None
+    except Exception:                                         # (no Streamlit session: a script, a test)
+        return None
+
+
+def _log(c, email: str | None, activity: str, times: int = 1, details: str | None = None):
+    """Rows in the Logins table: this person did this (details: what), times times (one row per customer), now, on which
+    page, from where they are, on what device, in what time zone, with what Access, brought by which site."""
     if email and times > 0:
         assert activity in ACTIVITIES
         now = _now()
         row = dict(email=email.lower(), activity=activity, date_time=now, location=visitor_location() or None,
-                   device=visitor_device() or None, timezone=visitor_timezone() or None, access=_access_now(c, email, now))
+                   device=visitor_device() or None, timezone=visitor_timezone() or None, access=_access_now(c, email, now),
+                   page=(_visit("_page") or "")[:60] or None, details=(details or "")[:300] or None,
+                   came_from=(_visit("came_from") or "")[:200] or None)
         c.execute(logins.insert(), [row] * times)
 
 
@@ -1398,27 +1412,28 @@ def _access_now(c, email: str, now) -> str | None:
     return a
 
 
-def log_view(email: str | None):
-    """A View row in the Logins table: this person opened a customer."""
+def log_view(email: str | None, details: str | None = None):
+    """A View row in the Logins table: this person opened a customer (details: which)."""
     with engine().begin() as c:
-        _log(c, email, "View")
+        _log(c, email, "View", details=details)
 
 
 def log_login(email: str | None):
     """A Login row in the Logins table: this person signed in with no birth details yet."""
     with engine().begin() as c:
-        _log(c, email, "Login")
+        _log(c, email, "Login", details="Signed in, no birth details yet")
 
 
 def logins_table(limit: int = 5000) -> pd.DataFrame:
-    """The Logins table, newest first (at most limit rows): Id, Email, Activity, Date_Time (UT), Location, Device,
-    Time zone, Access."""
-    cols = ["Id", "Email", "Activity", "Date_Time", "Location", "Device", "Time zone", "Access"]
+    """The Logins table, newest first (at most limit rows): Id, Email, Activity, Date_Time (UT), Page, Details, Location,
+    Device, Time zone, Access, Came from."""
+    cols = ["Id", "Email", "Activity", "Date_Time", "Page", "Details", "Location", "Device", "Time zone", "Access", "Came from"]
     with engine().connect() as c:
         rows = c.execute(sa.select(logins).order_by(logins.c.date_time.desc(), logins.c.id.desc()).limit(limit)).mappings().all()
     return pd.DataFrame([{"Id": r["id"], "Email": r["email"], "Activity": r["activity"], "Date_Time": r["date_time"],
                           "Location": r["location"] or "", "Device": r["device"] or "", "Time zone": r["timezone"] or "",
-                          "Access": r["access"] or ""} for r in rows], columns=cols)
+                          "Access": r["access"] or "", "Page": r["page"] or "", "Details": r["details"] or "",
+                          "Came from": r["came_from"] or ""} for r in rows], columns=cols)
 
 
 def delete_logins(ids: list[int] | None = None) -> int:
@@ -1494,9 +1509,9 @@ def save_customers(edited: pd.DataFrame, original: pd.DataFrame, by: str | None 
             c.execute(sa.insert(customers).values(**data, added_at=times.get("added_at") or now, updated_at=now))
             added += 1
         _ensure_accounts(c, edited["email"] if "email" in edited else [], first=set(edited.get("email", pd.Series(dtype=object)).dropna().str.strip().str.lower()) - had)   # (each Email refers to a Customers row; a first DOB entry: DOB for 1 day)
-        _log(c, by, "Create", added)
-        _log(c, by, "Update", changed)
-        _log(c, by, "Delete", deleted)
+        _log(c, by, "Create", added, details="DOB table")
+        _log(c, by, "Update", changed, details="DOB table")
+        _log(c, by, "Delete", deleted, details="DOB table")
     return added, changed, deleted
 
 
@@ -1514,7 +1529,7 @@ def add_own_customer(rec: dict, email: str) -> bool:
         now = _now()
         c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now, accessed_at=now))
         _set_access(c, email, "DOB")                      # DOB: 1 day, from now
-        _log(c, email, "Create")
+        _log(c, email, "Create", details="Their own birth details (signing up)")
     return True
 
 
@@ -1528,7 +1543,7 @@ def add_person(rec: dict, email: str) -> int:
     now = _now()
     with engine().begin() as c:
         cid = c.execute(sa.insert(customers).values(**data, added_at=now, updated_at=now)).inserted_primary_key[0]
-        _log(c, email, "Create")
+        _log(c, email, "Create", details="Add a DOB: a person under their login")
     return int(cid)
 
 
@@ -1553,7 +1568,7 @@ def update_own_customer(rec: dict, email: str, cid: int) -> bool:
         before["utc"] = old["utc"]
         if any(before.get(k) != v for k, v in new.items()):
             c.execute(sa.update(customers).where(where).values(**new, updated_at=_now()))
-            _log(c, email, "Update")
+            _log(c, email, "Update", details="Edit a DOB: their own birth details")
     return True
 
 
@@ -1591,7 +1606,7 @@ def import_workbook_csv(raw: bytes, by: str | None = None) -> int:
                 if data.get("email"):
                     used.add(data["email"])
         _ensure_accounts(c, list(used), first=used - had)  # (each Email refers to a Customers row; a first DOB entry: DOB for 1 day)
-        _log(c, by, "Create", n)
+        _log(c, by, "Create", n, details="DOB table: workbook import")
     return n
 
 
