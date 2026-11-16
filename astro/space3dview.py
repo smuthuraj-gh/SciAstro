@@ -255,7 +255,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
                                                  km=BODY_RADIUS_KM[rule["of"]])
     # the clock beside the customer's name, as the drawing's: each moment's date and time at its place's UTC offset
     clocks = [dict(clock=clock, jd=jd, offset=(offsets or {}).get(clock)) for clock, jd in moments]
-    data = dict(tables=tables, jd={clock: jd for clock, jd in moments}, day_seconds=day_seconds, days=space3d.RUN_DAYS, clocks=clocks,
+    data = dict(tables=tables, day_seconds=day_seconds, days=space3d.RUN_DAYS, clocks=clocks,
                 fit_r=c["fit_r"], log_from=c["log_from"], gap=list(c["gap"]), word=c["name"].lower(), globe=globe,
                 rules=rules, sizing=sizing, mark_scale=MARK_SCALE, au_km=core.AU_KM, arcsec=list(SIZE_RANGE_ARCSEC), radii=list(MARKER_RANGE))
     return ("const M = " + json.dumps(data, separators=(",", ":")).replace("<", "\\u003c") + ";\n" + """
