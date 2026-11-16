@@ -1293,14 +1293,20 @@ def _filled(v) -> bool:
 def page_logins():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
-    pressed = next((name for name in ("Delete", "Delete all")
-                    if TITLE_SLOT.button(name, key=f"logins_{name}")), None)
+    all_on = st.session_state.get("logins_all", False)        # Select all: every row ticked (pressed again: none)
+    pick = "Unselect all" if all_on else "Select all"
+    pressed = next((name for name in (pick, "Delete", "Delete all")
+                    if TITLE_SLOT.button(name, key="logins_select" if name == pick else f"logins_{name}")), None)
+    if pressed == pick:
+        st.session_state["logins_all"] = not all_on
+        st.session_state.pop("logins_ask", None)
+        st.rerun()
     table = db.logins_table()
     view = table.copy()
-    view.insert(0, "Del", False)
+    view.insert(0, "Del", all_on)
     # (ticks are kept by row position: a new key when the rows move, so that a tick cannot land on another row)
     edited = st.data_editor(view, hide_index=True, width="content", num_rows="fixed",
-                            key=f"logins_table_{len(table)}_{table['Id'].iloc[0] if len(table) else 0}",
+                            key=f"logins_table_{len(table)}_{table['Id'].iloc[0] if len(table) else 0}_{int(all_on)}",
                             height="auto" if len(table) <= 18 else 700, disabled=["Email", "Activity", "Date_Time", "Location", "Device", "Time zone", "Access"],
                             column_config={"Del": st.column_config.CheckboxColumn("Del", width="small", help="Tick, then press Delete."),
                                            "Id": None, "Email": st.column_config.TextColumn(width=260),
@@ -1341,6 +1347,7 @@ def page_logins():
         if yes.button("Yes, delete", type="primary", key="logins_yes"):
             n = db.delete_logins(None if ask == "all" else ask)
             st.session_state.pop("logins_ask", None)
+            st.session_state.pop("logins_all", None)          # (the rows left start unticked)
             st.session_state["logins_said"] = f"Deleted {n} row(s)."
             st.rerun()
         if no.button("No", key="logins_no"):
