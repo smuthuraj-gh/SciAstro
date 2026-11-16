@@ -349,13 +349,13 @@ __SYMBOL_JS__
   const DIST_X = D.width - 80, DIST_FIRST = 44, DIST_STEP = 32;
   const DIST_AU = 56, AU_NUM = 8;                  // and left of it an AU scale: its numbers AU_NUM from the bar, and the same planets again
                                                    // DIST_AU from it, left of the numbers
-  // the AU scale, left of the bar, as tall as it, not to scale: its marks AU_MARKS evenly up the bar, the first at the bottom,
-  // and AU_TOP (not numbered) at the top, so Saturn (out to 11 AU) stays on it; between two marks a planet stands in
-  // proportion (on a logarithmic scale) to where its AU falls between them
-  const AU_MARKS = [0.002, 0.003, 0.2, 0.3, 0.4, 0.5, 1, 2, 5, 10], AU_TOP = 20;   // (none between 0.003 and 0.2: no planet comes there, the Moon below, Venus at 0.26 the nearest above)
+  // the AU scale, left of the bar, as tall as it, not to scale: its marks AU_MARKS evenly up the bar, the first at the bottom
+  // and the last, 12 (past Saturn, out to 11 AU), at the top; between two marks a planet stands in proportion (on a
+  // logarithmic scale) to where its AU falls between them
+  const AU_MARKS = [0.002, 0.003, 0.2, 0.3, 0.4, 0.5, 1, 2, 5, 10, 12];   // (none between 0.003 and 0.2: no planet comes there, the Moon below, Venus at 0.26 the nearest above)
   const auY = (au) => {
-    const steps = [...AU_MARKS, AU_TOP], n = steps.length - 1;
-    const v = Math.max(steps[0], Math.min(AU_TOP, au));
+    const steps = AU_MARKS, n = steps.length - 1;
+    const v = Math.max(steps[0], Math.min(steps[n], au));
     let i = 0;
     while (i < n - 1 && v > steps[i + 1]) i++;
     const f = (Math.log10(v) - Math.log10(steps[i])) / (Math.log10(steps[i + 1]) - Math.log10(steps[i]));
