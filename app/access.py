@@ -25,8 +25,9 @@ RENAMED = {"Free": "Now", "FreeInd": "Now", "FreeGrp": "Now",
 TRIALS = ("DOBT", "Trial-Ind", "TrInd", "TrDOB", "Trial DOB", "DOBGT", "Trial-Grp", "TrGrp", "TrGroup", "Trial Group")
 SIGNUP_DAYS = 1                    # DOB with Days left blank lasts this many days (signing up gives it)
 LASTS = ("DOB",)                   # the Access that run out: DOB after Days days (see period_end)
-PAID_NOTE = "Use DOB Details page to get more days of access."   # (DOB not open, or run out: Get more days there)
-DAY_PACKS = (1, 7, 30, 90, 180, 365)  # the days a customer may add themselves (DOB Details: Get more days)
+PAID_NOTE = "Get more days of access in the DOB Details page."   # (DOB never open: Get more days of access there)
+EXPIRED_NOTE = "Your DOB page access expired. Get more days of access in the DOB details page."   # (DOB run out)
+DAY_PACKS = (1, 7, 30, 90, 180, 365)  # the days a customer may add themselves (DOB Details: Get more days of access)
 QUICK = -1                         # the sidebar's Quick birth (not saved), in place of a record's id
 
 
@@ -36,6 +37,7 @@ class Grant:
     dob: bool                      # may see the DOB charts (otherwise the Now charts only)
     many: bool = False             # of every record under their login and people they add (else their own only)
     note: str = ""                 # what to tell them (an end date, or why DOB is not open)
+    expired: bool = False          # their DOB ran out (else, when DOB is not open, they never had it)
 
 
 def canonical(value, choices: tuple[str, ...]) -> str | None:
@@ -95,7 +97,7 @@ def grant(value, since: datetime | None, now: datetime, until=None) -> Grant:
         end = ends_at(a, since, until, now)
         if end > now:
             return Grant(admin=False, dob=True, many=True, note=f"{a} until {end:%Y-%m-%d %H:%M} UT.")
-        return Grant(admin=False, dob=False, note=f"Your {a} ended on {end:%Y-%m-%d}. " + PAID_NOTE)
+        return Grant(admin=False, dob=False, note=f"Your {a} ended on {end:%Y-%m-%d}. " + PAID_NOTE, expired=True)
     return Grant(admin=False, dob=False, note="Now charts only. " + PAID_NOTE)
 
 

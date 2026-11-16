@@ -1254,7 +1254,7 @@ def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None =
 
 
 def add_days(email: str, days: int) -> datetime:
-    """A customer adds days to their own DOB (DOB Details: Get more days; no payment yet): counted from their End Date
+    """A customer adds days to their own DOB (DOB Details: Get more days of access; no payment yet): counted from their End Date
     while it runs, else from now (Start Date then now too). Access becomes DOB. Gives the new End Date. Raises
     ValueError for days not in access.DAY_PACKS, or for an admin."""
     if days not in access.DAY_PACKS:

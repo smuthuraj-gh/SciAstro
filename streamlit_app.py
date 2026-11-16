@@ -257,7 +257,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "DOB Details": "Get more days (every member): pick 1, 7, 30, 90, 180 or 365 days, apply the coupon Free (for now, free) and press Add days; they are added to your End Date while it runs, else from now, and open the DOB charts. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them; your login "
+    "DOB Details": "Get more days of access (every member): pick 1, 7, 30, 90, 180 or 365 days, apply the coupon Free (for now, free) and press Add days; they are added to your End Date while it runs, else from now, and open the DOB charts. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them; your login "
                   "email stays the same.",
 }
 
@@ -352,7 +352,8 @@ def _pick_customer_box() -> tuple[pd.Series | None, Prepared | None]:
     except places.LookupDown:
         prep = Prepared(False, PLACE_SEARCH_DOWN)
     if not GRANT.dob:                                         # none, or a paid period or trial run out: the Now charts only,
-        prep = Prepared(True, access.PAID_NOTE, now_only=True, locked=True,   # at the place they live now
+        prep = Prepared(True, access.EXPIRED_NOTE if GRANT.expired else access.PAID_NOTE,   # (shown when they pick DOB)
+                        now_only=True, locked=True,   # at the place they live now
                         cn=prep.cn if prep.ok else None, cn_tz=prep.cn_tz if prep.ok else None)
         st.sidebar.caption(GRANT.note)
     elif not prep.ok:                                         # birth details that cannot be worked out: the Now charts still
@@ -1602,22 +1603,23 @@ def page_my_details():
             add_person_form()
     if int(row["id"]) == access.QUICK:
         st.info("This search is not saved. Pick a saved person in the sidebar to see or change their details.")
+        more_days_box()
     else:
         if prep and prep.ok and not prep.now_only:           # (Now charts only: their birth is not worked out)
             st.write(f"Born on a {prep.weekday}; UTC offset {prep.utc:+.2f} ({prep.tz}); birth place "
                      f"{prep.birth_lat}, {prep.birth_lon}.")
         if st.session_state.pop("details_saved", False):
             st.success("Your details are saved.")
-        with st.expander("Edit a DOB"):
+        more_days_box()                                       # every member adds DOB days themselves (free for now; later
+        with st.expander("Edit a DOB"):                       # paid), above Edit a DOB
             details_form(row)
-    more_days_box()                                           # every member adds DOB days themselves (free for now; later paid)
 
 
 FREE_COUPONS = ("free",)                                       # coupons that add days free (any case); payment to come
 
 
 def more_days_box():
-    """Get more days, for every member (not admins: their access has no end): they pick how many (access.DAY_PACKS) and
+    """Get more days of access, for every member (not admins: their access has no end): they pick how many (access.DAY_PACKS) and
     they are added at once, from their End Date while it runs, else from now. Free for now; to become a paid option
     (the payment goes here, before db.add_days)."""
     if user.is_admin:
@@ -1625,7 +1627,7 @@ def more_days_box():
     said = st.session_state.pop("days_added", None)
     if said:
         st.success(said)
-    with st.expander("Get more days"):
+    with st.expander("Get more days of access"):
         note = (GRANT.note or "DOB charts open.") if GRANT.dob else "Now charts only: add days here to open the DOB charts."
         st.caption(note + " Days are added to your End Date while it runs, else from now. For now, apply the coupon "
                    "Free to add them free.")
