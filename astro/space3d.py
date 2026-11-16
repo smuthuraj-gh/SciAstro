@@ -119,7 +119,7 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
 def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
                centre: str = "Ea", flat: bool = False, places: dict | None = None, ave_jds: dict | None = None,
-               aspects: tuple = (), orbs: core.Orbs | None = None, one_circle: bool = False) -> dict:
+               aspects: tuple = (), orbs: core.Orbs | None = None, one_circle: bool = False, show_celes: bool = True) -> dict:
     """For each moment and body: its table to move it by, and (those in with_paths; all with None) its path, which the page draws
     as a trail behind it, where it has really been since the moment, kept for the whole run (72 years).
     moments: (Now or DOB, Julian day, UTC offset). centre: Ea (GeoCentric) or Su (HelioCentric). The drawing's size does not
@@ -194,7 +194,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                 houses=[dict(clock=c, place=places[c][0], ra=core.lst(jd, places[c][1])) for c, jd, _ in moments if c in (places or {})],
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
-                au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, log_from=at["log_from"], gap=at["gap"],
+                au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, show_celes=show_celes, log_from=at["log_from"], gap=at["gap"],
                 scp_ring=reach(SCP_BEYOND_AU), scp_past=SCP_PAST_PX, sides=SIDES, small_font=SMALL_FONT, pole_font=POLE_FONT, key=("flat" if flat else "") + centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
                 step_ms=max(40, min(1000, int((day_seconds or 60.0) * 2.5))), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=SYMBOL_FONT_FAMILY, one_circle=bool(flat and one_circle), one_circle_at=ONE_CIRCLE_AT, ra_marks=[] if flat else [dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
@@ -504,7 +504,7 @@ __SYMBOL_JS__
   const draw = () => {
     angles();
     rings.forEach((g) => g.draw(g.r.pts));
-    spokes.forEach((g) => g.draw([[0, 0, 0], g.m.at]));
+    spokes.forEach((g) => g.draw(D.show_celes ? [[0, 0, 0], g.m.at] : []));   // Ce: the RA spokes
     // the axis reaches, both ways, past where a 20 AU ring would be drawn on the page (round the centre, on the plane of the
     // equator), so that NCP and SCP are out beyond the planets; both halves as long on the page (the one leaning away from the
     // viewer would look shorter), found by halving for the way the drawing is turned now
@@ -533,7 +533,7 @@ __SYMBOL_JS__
       const length = Math.max(pageLength(1, 1), ringAcross(1) + D.scp_past, ringAcross(-1) + D.scp_past);
       poles[0].at = [0, 0, reachFor(1, length) * D.outer];
       poles[1].at = [0, 0, -reachFor(-1, length) * D.outer];
-      axis([poles[1].at, poles[0].at]);
+      axis(D.show_celes ? [poles[1].at, poles[0].at] : []);   // Ce: the axis
     }
     const t = clock.t;
     paths.forEach((g) => {
@@ -675,20 +675,18 @@ __SYMBOL_JS__
         taken.push(box);
       }
     });
-    if (!D.show_tags) {                            // AU off: no tags at all (the lines stay)
-      poles.concat(spokes).forEach((g) => { g.label.style.display = "none"; });
-      showClocks(t);
-      return;
+    if (!D.show_celes) poles.concat(spokes).forEach((g) => { g.label.style.display = "none"; });   // Ce off: no NCP, SCP, RA names
+    else {
+      poles.forEach((g) => {
+        const [x, y] = point(g.at);
+        put(g.label, around(x, y, 4, 12), taken);
+      });
+      spokes.forEach((g) => {
+        const [x, y] = point(g.m.at);
+        put(g.label, around(x, y, 2, 24), taken);
+      });
     }
-    poles.forEach((g) => {
-      const [x, y] = point(g.at);
-      put(g.label, around(x, y, 4, 12), taken);
-    });
-    spokes.forEach((g) => {
-      const [x, y] = point(g.m.at);
-      put(g.label, around(x, y, 2, 24), taken);
-    });
-    rings.forEach((g) => {                         // on the side of the ring nearest the viewer
+    if (D.show_tags) rings.forEach((g) => {        // AU: the rings' AU tags, on the side of the ring nearest the viewer
       if (D.flat) { g.label.style.display = "none"; return; }   // flat: the circle has no tag (its hover box says what it is)
       let best = null;
       g.r.pts.forEach((q) => { const p = point(q); if (!best || p[1] > best[1]) best = p; });
@@ -740,7 +738,9 @@ __SYMBOL_JS__
 def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
                centre: str = "Ea", flat: bool = False, places: dict | None = None, ave_jds: dict | None = None,
-               aspects: tuple = (), orbs: core.Orbs | None = None, one_circle: bool = False) -> str:
+               aspects: tuple = (), orbs: core.Orbs | None = None, one_circle: bool = False, show_celes: bool = True) -> str:
+    """show_au (AU): the rings of distance and their AU tags; show_celes (Ce): the celestial coordinates, the axis with NCP
+    and SCP and the RA spokes with their names."""
     uid = "space-" + uuid.uuid4().hex[:8]
-    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places, ave_jds, aspects, orbs, one_circle)).replace("<", chr(92) + "u003c")
+    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places, ave_jds, aspects, orbs, one_circle, show_celes)).replace("<", chr(92) + "u003c")
     return f'<div id="{uid}"></div><script>{_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data).replace("__ID__", uid)}</script>'
