@@ -94,16 +94,16 @@ defaults = sa.Table(
     sa.Column("options", sa.String(60), nullable=False),
     sa.Column("choices", sa.String(500)),
 )
-# The Help table: a row per abbreviation the pages use (Abbre) and what it means (Description); kept by admins (the Help
+# The Help table: a row per abbreviation the pages use (Abbreviation) and what it means (Description); kept by admins (the Help
 # page), filled once with the app's own (HELP_ROWS).
 help_table = sa.Table(
     "help", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
-    sa.Column("abbre", sa.String(20), nullable=False, unique=True),
+    sa.Column("abbreviation", sa.String(20), nullable=False, unique=True),
     sa.Column("description", sa.String(500)),
 )
-HELP_INDEX = "ux_help_abbre"                                   # one row per Abbre, whatever its case (Su and su are one)
-sa.Index(HELP_INDEX, sa.func.lower(help_table.c.abbre), unique=True)
+HELP_INDEX = "ux_help_abbre"                                   # one row per Abbreviation, whatever its case (Su and su are one)
+sa.Index(HELP_INDEX, sa.func.lower(help_table.c.abbreviation), unique=True)
 HELP_ROWS = [                                                 # the abbreviations the pages use, as the table starts
     ("Su", "Sun"), ("Mo", "Moon"), ("Me", "Mercury"), ("Ve", "Venus"), ("Ma", "Mars"), ("Ju", "Jupiter"), ("Sa", "Saturn"),
     ("Ea", "Earth"), ("NN", "The Moon's north node: where its path crosses the Sun's going north"),
@@ -264,6 +264,7 @@ def engine() -> sa.Engine:
     _seed_defaults(eng)
     _set_time_now(eng)
     _rename_dec_button(eng)
+    _rename_help_abbre(eng)
     _add_help_index(eng)
     _seed_help(eng)
     return eng
@@ -436,11 +437,21 @@ def _seed_defaults(eng: sa.Engine):
             c.execute(settings.update().where(settings.c.key == "defaults_seeded").values(value=DEFAULTS_VERSION))
 
 
+def _rename_help_abbre(eng: sa.Engine):
+    """A Help table made with the column abbre has it renamed abbreviation (its rows kept); its index goes, to be made again on it."""
+    if "help" not in sa.inspect(eng).get_table_names():
+        return
+    if "abbre" in {c["name"] for c in sa.inspect(eng).get_columns("help")}:
+        with eng.begin() as c:
+            c.execute(sa.text(f"DROP INDEX IF EXISTS {HELP_INDEX}"))
+            c.execute(sa.text("ALTER TABLE help RENAME COLUMN abbre TO abbreviation"))
+
+
 def _add_help_index(eng: sa.Engine):
-    """A Help table made before its index gets it: one row per Abbre, whatever its case."""
+    """A Help table made before its index gets it: one row per Abbreviation, whatever its case."""
     try:
         with eng.begin() as c:
-            c.execute(sa.text(f"CREATE UNIQUE INDEX IF NOT EXISTS {HELP_INDEX} ON help (lower(abbre))"))
+            c.execute(sa.text(f"CREATE UNIQUE INDEX IF NOT EXISTS {HELP_INDEX} ON help (lower(abbreviation))"))
     except sa.exc.SQLAlchemyError:                             # (two rows already differ only in case: the page's check still holds)
         pass
 
@@ -450,8 +461,8 @@ def _seed_help(eng: sa.Engine):
     with eng.begin() as c:
         if c.execute(sa.select(settings.c.value).where(settings.c.key == "help_seeded")).scalar():
             return
-        have = {a.lower() for (a,) in c.execute(sa.select(help_table.c.abbre)).all()}
-        new = [dict(abbre=a, description=d) for a, d in HELP_ROWS if a.lower() not in have]
+        have = {a.lower() for (a,) in c.execute(sa.select(help_table.c.abbreviation)).all()}
+        new = [dict(abbreviation=a, description=d) for a, d in HELP_ROWS if a.lower() not in have]
         if new:
             c.execute(help_table.insert(), new)
         c.execute(settings.insert().values(key="help_seeded", value="1"))
@@ -459,44 +470,44 @@ def _seed_help(eng: sa.Engine):
 
 # ---------------------------------------------------------------- the Help table
 def help_sorted(rows: pd.DataFrame) -> pd.DataFrame:
-    """The Help rows in the order of Abbre (case aside), as the page shows them; rows with no Abbre yet at the bottom."""
-    key = rows["Abbre"].map(lambda v: (_cell(v) == "", _cell(v).lower()))
+    """The Help rows in the order of Abbreviation (case aside), as the page shows them; rows with no Abbreviation yet at the bottom."""
+    key = rows["Abbreviation"].map(lambda v: (_cell(v) == "", _cell(v).lower()))
     return rows.iloc[sorted(range(len(rows)), key=lambda i: key.iloc[i])].reset_index(drop=True)
 
 
 def help_rows() -> pd.DataFrame:
-    """The Help table: Abbre, Description, in the order of Abbre (case aside)."""
+    """The Help table: Abbreviation, Description, in the order of Abbreviation (case aside)."""
     with engine().connect() as c:
-        rows = c.execute(sa.select(help_table).order_by(sa.func.lower(help_table.c.abbre))).mappings().all()
-    return pd.DataFrame([{"Abbre": r["abbre"], "Description": r["description"]} for r in rows], columns=["Abbre", "Description"])
+        rows = c.execute(sa.select(help_table).order_by(sa.func.lower(help_table.c.abbreviation))).mappings().all()
+    return pd.DataFrame([{"Abbreviation": r["abbreviation"], "Description": r["description"]} for r in rows], columns=["Abbreviation", "Description"])
 
 
 def help_problems(rows: pd.DataFrame) -> list[str]:
-    """What is wrong with the Help rows: each needs an Abbre (at most 20 characters, once in the table) and a Description of
+    """What is wrong with the Help rows: each needs an Abbreviation (at most 20 characters, once in the table) and a Description of
     at most 500 characters. A wholly empty row does not count."""
     out, seen = [], set()
     for _, r in rows.iterrows():
-        abbre, text = _cell(r["Abbre"]), _cell(r["Description"])
-        if not (abbre or text):
+        abbreviation, text = _cell(r["Abbreviation"]), _cell(r["Description"])
+        if not (abbreviation or text):
             continue
-        label = abbre or "New row"
-        if not abbre:
-            out.append(f"{label}: Abbre is empty")
-        if len(abbre) > 20:
-            out.append(f"{label}: Abbre can be at most 20 characters")
+        label = abbreviation or "New row"
+        if not abbreviation:
+            out.append(f"{label}: Abbreviation is empty")
+        if len(abbreviation) > 20:
+            out.append(f"{label}: Abbreviation can be at most 20 characters")
         if len(text) > 500:
             out.append(f"{label}: Description can be at most 500 characters")
-        if abbre:
-            if abbre.lower() in seen:
+        if abbreviation:
+            if abbreviation.lower() in seen:
                 out.append(f"{label}: is in the table twice")
-            seen.add(abbre.lower())
+            seen.add(abbreviation.lower())
     return out
 
 
 def save_help(rows: pd.DataFrame) -> int:
     """Makes the Help table these rows (wholly empty ones left out); gives how many it has."""
-    keep = [dict(abbre=_cell(r["Abbre"]), description=_cell(r["Description"]) or None)
-            for _, r in rows.iterrows() if _cell(r["Abbre"]) or _cell(r["Description"])]
+    keep = [dict(abbreviation=_cell(r["Abbreviation"]), description=_cell(r["Description"]) or None)
+            for _, r in rows.iterrows() if _cell(r["Abbreviation"]) or _cell(r["Description"])]
     with engine().begin() as c:
         c.execute(sa.delete(help_table))
         if keep:
