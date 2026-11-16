@@ -1279,7 +1279,7 @@ def page_help_table():
         st.dataframe(table, hide_index=True, width="content", height=35 * (len(table) + 1) + 3,   # every row in view
                      column_config={"Abbre": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=760)})
         return
-    crud_table("help_table", table, db.help_problems, lambda rows: f"Committed: {db.save_help(rows)} row(s).",
+    crud_table("help_table", table, db.help_problems, lambda rows: f"Committed: {db.save_help(rows)} row(s).", on_update=db.help_sorted,   # (Update: in Abbre order)
                height=30 * (len(st.session_state.get("help_table_working", table)) + 1) + 8,   # every row in view
                column_config={"Abbre": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=760)})
 

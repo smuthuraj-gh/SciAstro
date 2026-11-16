@@ -102,6 +102,8 @@ help_table = sa.Table(
     sa.Column("abbre", sa.String(20), nullable=False, unique=True),
     sa.Column("description", sa.String(500)),
 )
+HELP_INDEX = "ux_help_abbre"                                   # one row per Abbre, whatever its case (Su and su are one)
+sa.Index(HELP_INDEX, sa.func.lower(help_table.c.abbre), unique=True)
 HELP_ROWS = [                                                 # the abbreviations the pages use, as the table starts
     ("Su", "Sun"), ("Mo", "Moon"), ("Me", "Mercury"), ("Ve", "Venus"), ("Ma", "Mars"), ("Ju", "Jupiter"), ("Sa", "Saturn"),
     ("Ea", "Earth"), ("NN", "The Moon's north node: where its path crosses the Sun's going north"),
@@ -262,6 +264,7 @@ def engine() -> sa.Engine:
     _seed_defaults(eng)
     _set_time_now(eng)
     _rename_dec_button(eng)
+    _add_help_index(eng)
     _seed_help(eng)
     return eng
 
@@ -433,6 +436,15 @@ def _seed_defaults(eng: sa.Engine):
             c.execute(settings.update().where(settings.c.key == "defaults_seeded").values(value=DEFAULTS_VERSION))
 
 
+def _add_help_index(eng: sa.Engine):
+    """A Help table made before its index gets it: one row per Abbre, whatever its case."""
+    try:
+        with eng.begin() as c:
+            c.execute(sa.text(f"CREATE UNIQUE INDEX IF NOT EXISTS {HELP_INDEX} ON help (lower(abbre))"))
+    except sa.exc.SQLAlchemyError:                             # (two rows already differ only in case: the page's check still holds)
+        pass
+
+
 def _seed_help(eng: sa.Engine):
     """Once (a note among the settings says it is done, so a row deleted since stays deleted): the Help table gets HELP_ROWS."""
     with eng.begin() as c:
@@ -446,6 +458,12 @@ def _seed_help(eng: sa.Engine):
 
 
 # ---------------------------------------------------------------- the Help table
+def help_sorted(rows: pd.DataFrame) -> pd.DataFrame:
+    """The Help rows in the order of Abbre (case aside), as the page shows them; rows with no Abbre yet at the bottom."""
+    key = rows["Abbre"].map(lambda v: (_cell(v) == "", _cell(v).lower()))
+    return rows.iloc[sorted(range(len(rows)), key=lambda i: key.iloc[i])].reset_index(drop=True)
+
+
 def help_rows() -> pd.DataFrame:
     """The Help table: Abbre, Description, in the order of Abbre (case aside)."""
     with engine().connect() as c:
