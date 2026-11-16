@@ -316,11 +316,11 @@ NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects
 TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio model", "geo time"), ("geo/helio model", "helio time"))
 
 
-COORD_BUTTONS_RENAMED = {"dec": "De", "lati": "Lat", "long": "Lon", "house": "Ho", "celes": "Ce", "true": "Tru", "co": "SpC"}   # AstroClock-3D's Coordinates buttons' earlier names
+COORD_BUTTONS_RENAMED = {"dec": "De", "lati": "La", "long": "Lg", "lat": "La", "lon": "Lg", "house": "Ho", "celes": "Ce", "true": "Tru", "co": "SpC"}   # AstroClock-3D's Coordinates buttons' earlier names
 
 
 def _rename_dec_button(eng: sa.Engine):
-    """AstroClock-3D's Coordinates buttons Dec, Lati, Long, House, Celes, True and Co are called De, Lat, Lon, Ho, Ce, Tru and SpC: a
+    """AstroClock-3D's Coordinates buttons Dec, Lati, Long (then Lat, Lon), House, Celes, True and Co are called De, La, Lg, Ho, Ce, Tru and SpC: a
     Defaults row that names them gets the new names."""
     with eng.begin() as c:
         rows = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(

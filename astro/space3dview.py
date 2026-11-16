@@ -143,7 +143,9 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
                 showlegend=False, name=f"{sym} {clock}",
                 textfont=dict(size=min(max(SYMBOL_PX * radius, SYMBOL_FONT[0]), SYMBOL_FONT[1]), color=colour if hollow else _ink(colour), family=SYMBOL_FONT_FAMILY),
                 marker=dict(size=MARK_SCALE * radius,   # (a diameter)
-                            color="white" if hollow else colour,   # as AstroClock-3D: DOB hollow (white, its rim in its colour)
+                            # DOB: a light shade of its colour, its rim and symbol in its colour (a white mark lost its colour: the
+                            # 3D chart draws a mark's rim too thin to show it, so not white as AstroClock-3D's)
+                            color=_light(colour, 0.6) if hollow else colour,
                             line=dict(color=colour, width=2),
                             symbol="circle", opacity=1),
                 hovertemplate=f"{sym} {clock}<br>RA: {ra:.2f}<br>Dec/Lati: {dec:+.2f}<br>Distance from {c['name'].lower()}: "
