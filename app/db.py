@@ -330,6 +330,11 @@ def _rename_dec_button(eng: sa.Engine):
             if any(p.lower() in COORD_BUTTONS_RENAMED for p in parts):
                 new = ", ".join(COORD_BUTTONS_RENAMED.get(p.lower(), p) for p in parts if p)
                 c.execute(defaults.update().where(defaults.c.id == rid).values(choices=new))
+        # AstroClock-2D's Ave button, then DAv, is called DA: a Defaults row for it (and a choice of it) gets the new name
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options).in_(["ave", "dav"]))
+                  .values(options="DA"))
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "da",
+                                          sa.func.lower(sa.func.trim(defaults.c.choices)).in_(["ave", "dav"])).values(choices="DA"))
         # AstroClock-2D's Aspect button, then 1circle, is called 1C: a Defaults row for it (and a choice of it) gets the new name
         c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options).in_(["aspect", "1circle"]))
                   .values(options="1C"))
