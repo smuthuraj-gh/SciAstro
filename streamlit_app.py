@@ -897,7 +897,7 @@ def page_globe():
     coords_on = default_choice("AstroClock-3D", "Coordinates")
     coords = head.container(width="content", gap="xxsmall")   # Coordinates, with its options below it in fixed rows
     if coords.pills("Coordinates", ["Coordinates"], default="Coordinates", key="globe_coords_on", label_visibility="collapsed"):
-        for row_of in (["Ho", "Ce", "AU"], ["3D", "Sp", "SpC"], ["RA", "De", "La"], ["Lg"]):
+        for row_of in (["Ho", "Ce", "AU"], ["3D", "Sp", "SpC"], ["RA", "De", "La", "Lg"]):
             shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[n for n in row_of if n in coords_on],
                                   key=f"globe_coords_{row_of[0]}", label_visibility="collapsed")
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
