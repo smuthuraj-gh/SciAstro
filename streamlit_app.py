@@ -239,12 +239,12 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                        "Semi-sextile 30, Semi-square 45, Quintile 72, Sesquiquadrate 135, Bi-quintile 144, Quincunx 150): for each "
                        "planet, an RA orb and a Dec orb, how far from exact still counts as the aspect. A pair of planets uses the "
                        "total of their two orbs (RA and Dec each). Type the changes and press Update; they apply to every chart. Ignore drops changes not updated; Reset to Previous puts back the orbs before the last Update.",
-    "Customers": "One row per login: its Email, its Access, Start Date (UT) and End Date (UT; when DOB runs out), with "
-                 "a Days box. Now: the Now charts only. DOB, the paid option: the DOB and Now charts of every DOB record "
+    "Customers": "One row per login: its Email, its Access, Start Date (UT) and End Date (UT; when DOB runs out). "
+                 "Now: the Now charts only. DOB, the paid option: the DOB and Now charts of every DOB record "
                  "under their login, and people they add, or search for without saving, on DOB Details, until End Date. "
-                 "End Date is worked out by the app: pick Days (1, 7, 30, 90, 180 or 365 to add) and press Update: End Date is "
-                 "extended by them, from End Date while it runs, else from now (Access becomes DOB); Days is not kept. "
-                 "Change Start Date to count from another day (it keeps the length); a new DOB with no Days "
+                 "Type a new End Date and press Update to lengthen or shorten DOB (the row becomes DOB); members add days "
+                 "themselves on DOB Details. "
+                 "Change Start Date to count from another day (it keeps the length); a new DOB with no End Date typed "
                  "lasts 1 day. "
                  "Signing up with birth details gives DOB for 1 day. Admin: an admin. After End Date: the Now charts only. A row is made, with Now, when someone signs in for the first "
                  "time. A login's first DOB record (signing up, or saved on the DOB page) gives it DOB for 1 day. The DOB records refer to this table by "
@@ -1427,14 +1427,13 @@ def page_aspects():
 
 
 def page_accounts():
-    """The Customers table: a row per login, with its Access, Start Date and End Date (worked out, not typed), and a
-    Days box (typed to work out End Date; not kept)."""
+    """The Customers table: a row per login, with its Access, Start Date and End Date (End Date typed to lengthen or
+    shorten DOB)."""
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     df = db.accounts_table()
-    names = {"email": "Email", "access": "Access", "start_date": "Start Date", "days": "Days", "end_date": "End Date"}
-    show = df[["id", "email", "access", "start_date", "end_date"]].assign(days=pd.Series(dtype="Int64"))
-    show = show[["id", "email", "access", "start_date", "days", "end_date"]].rename(columns=names)   # (Days: blank, to type)
+    names = {"email": "Email", "access": "Access", "start_date": "Start Date", "end_date": "End Date"}
+    show = df[["id", "email", "access", "start_date", "end_date"]].rename(columns=names)
     back = {v: k for k, v in names.items()}
 
     def commit(rows: pd.DataFrame) -> str:
@@ -1443,7 +1442,6 @@ def page_accounts():
             *db.save_accounts(rows.rename(columns=back), df if base is None else base.rename(columns=back), by=user.email))
 
     crud_table("acct_editor", show, lambda rows: db.account_problems(rows.rename(columns=back)), commit, width="content",
-               on_update=lambda rows: db.apply_days(rows.rename(columns=back)).rename(columns=names),   # Days: End Date extended
                height="auto" if len(st.session_state.get("acct_editor_working", show)) <= 18 else 700,
                column_config={"id": None,
                               "Email": st.column_config.TextColumn("Email *", width=260, help="The Google account email they sign "
@@ -1454,16 +1452,11 @@ def page_accounts():
                               "Start Date": st.column_config.DatetimeColumn("Start Date", format="YYYY-MM-DD HH:mm", width=150,
                                                                             help="When DOB counts from (UT). Change it "
                                                                                  "to count from another day (the day paid, say); "
-                                                                                 "changing Access or typing Days alone sets it to now."),
-                              "Days": st.column_config.SelectboxColumn("Days", options=list(access.DAY_PACKS), width="small",
-                                                                    help="Pick how many days to add (1, 7, 30, 90, 180, 365), then press Update: End "
-                                                                         "Date is extended by them (from End Date while it runs, else "
-                                                                         "from now; Access becomes DOB), and saved. Not kept "
-                                                                         "(blank again after). Not used for Admin."),
-                              "End Date": st.column_config.DatetimeColumn("End Date", format="YYYY-MM-DD HH:mm", width=150, disabled=True,
+                                                                                 "changing Access alone sets it to now."),
+                              "End Date": st.column_config.DatetimeColumn("End Date", format="YYYY-MM-DD HH:mm", width=150,
                                                                           help="When DOB runs out (UT): after it, the Now "
-                                                                               "charts only. Worked out by the app: extended by the "
-                                                                               "Days typed (on Update).")})
+                                                                               "charts only. Type a new one and press Update to "
+                                                                               "lengthen or shorten DOB (the row becomes DOB).")})
 
 
 def birth_date(y, m, d) -> date | None:
