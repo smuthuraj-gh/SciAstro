@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import math
 import random
+import re
 
 import plotly.graph_objects as go
 
@@ -49,6 +50,19 @@ def marker_radius(rule: dict, jd: float) -> float:
     return max(1.0, MARKER_RANGE[0] + (MARKER_RANGE[1] - MARKER_RANGE[0]) * share + rule["add"])
 
 
+def _light(colour: str, share: float = 0.55) -> str:
+    """A colour made lighter (this share of the way to white), to show on the night sky; as it is when not rgb(..)."""
+    m = re.fullmatch(r"\s*rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+).*\)\s*", colour or "")
+    if not m:
+        m2 = re.fullmatch(r"\s*#([0-9a-fA-F]{6})\s*", colour or "")
+        if not m2:
+            return colour
+        rgb = [int(m2[1][i:i + 2], 16) for i in (0, 2, 4)]
+    else:
+        rgb = [int(v) for v in m.groups()]
+    return "rgb(" + ",".join(str(round(v + (255 - v) * share)) for v in rgb) + ")"
+
+
 def _reach(au: float, c: dict) -> float:
     """How far from the centre a distance is drawn: Fit as Geo/Helio Model's Fit scale (past the centre body), else in AU."""
     return c["fit_r"] + space3d._reach(au, space3d.FIT, c["log_from"], c["gap"])
@@ -85,13 +99,14 @@ FAR_AU = 11.0                      # running: the view reaches out to here (past
 
 
 def space_figure(centre: str, bodies, paths, moments, places: dict | None = None, moving: bool = False,
-                 show_au: bool = True) -> go.Figure:
+                 show_au: bool = True, show_links: bool = False, show_celes: bool = True) -> go.Figure:
     """The 3D view round centre (Ea or Su): bodies at each of moments ((clock, Julian day), DOB hollow), the Planet Paths of
     paths over one trip from that moment (DOB dashed), the celestial axis and equator with RA 0..270, rings of distance on
     the equator plane, and (Geo) CB and CN on the Earth (places: {clock: (label, lat, lon)}). On Geo/Helio Model's Fit
     scale. moving: time will run (space_js), so the view reaches far enough for all, with room for the clock.
-    show_au: the celestial coordinates, the plane of the equator with its rings of distance, the axis with NCP and SCP,
-    the equator and its RA names (the page's AU button)."""
+    show_au: the rings of distance on the plane of the equator (the page's AU button); show_celes: the celestial
+    coordinates, the plane of the equator, the axis with NCP and SCP, the equator and its RA names (its Ce button). show_links (Co, Geo): a line from CB (DOB) or CN (Now) on the Earth
+    to each body of its moment."""
     c = CENTRE[centre]
     ball_r = c["fit_r"]
     fig = go.Figure()
@@ -100,11 +115,12 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
     jd_globe = globe_moment(moments)
     for clock, jd in moments:
         hollow = clock == "DOB"
+        at = {}                                               # each body's place, for the Co lines
         for name in bodies:
             ra, dec, au = _place(centre, name, jd)
             r = _reach(au, c)
             outer = max(outer, r)
-            x, y, z = _xyz(ra, dec, r)
+            x, y, z = at[name] = _xyz(ra, dec, r)
             colour, sym = core.colour(name), core.symbol_of(name)
             fig.add_trace(go.Scatter3d(
                 x=[x], y=[y], z=[z], mode="markers+text", text=[sym], textposition="top center", showlegend=False,
@@ -133,9 +149,14 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
         if centre == "Ea" and got:                            # CB or CN at its place on the Earth (as the globe is turned)
             label, lat, lon = got
             px, py, pz = _xyz(core.lst(jd_globe, lon), lat, ball_r * 1.01)
+            for name in bodies if show_links else ():         # Co: from the place to each body (named for the page to move them)
+                bx, by, bz = at[name]
+                fig.add_trace(go.Scatter3d(x=[px, bx], y=[py, by], z=[pz, bz], mode="lines", hoverinfo="skip", showlegend=False,
+                                           name=f"Co {core.symbol_of(name)} {clock}", opacity=0.75,
+                                           line=dict(color=_light(core.colour(label)), width=2)))
             fig.add_trace(go.Scatter3d(x=[px], y=[py], z=[pz], mode="markers+text", text=[label], textposition="bottom center",
-                                       marker=dict(size=5, color=core.colour(label)), showlegend=False, name=f"{label} on the Earth",
-                                       textfont=dict(size=11, color=core.colour(label)), hovertemplate=f"{label} ({clock})<extra></extra>"))
+                                       marker=dict(size=5, color=_light(core.colour(label))), showlegend=False, name=f"{label} on the Earth",
+                                       textfont=dict(size=11, color=_light(core.colour(label))), hovertemplate=f"{label} ({clock})<extra></extra>"))
     span = max(outer, _reach(FAR_AU, c) if moving else 0) * 1.08
     stars = random.Random(7)                                  # fixed stars, far out (the same each time)
     sx, sy, sz = [], [], []
@@ -144,22 +165,13 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
         sx.append(r * math.sqrt(1 - u * u) * math.cos(v)); sy.append(r * math.sqrt(1 - u * u) * math.sin(v)); sz.append(r * u)
     fig.add_trace(go.Scatter3d(x=sx, y=sy, z=sz, mode="markers", hoverinfo="skip", showlegend=False, name="stars",
                                marker=dict(size=[stars.choice((1.2, 1.6, 2.2)) for _ in range(STARS)], color="white", opacity=0.6)))
-    if show_au:                                               # AU: the celestial coordinates (the plane and the rings, the axis
-                                                              # with NCP and SCP, the equator and its RA names); off: none
+    if show_celes:                                            # Ce: the celestial coordinates (the plane of the equator, the
+                                                              # axis with NCP and SCP, the equator and its RA names)
         n = 48                                                    # the plane of the equator: a faint disc, north above it
         rs, angs = [span * i / 4 for i in range(5)], [2 * math.pi * j / n for j in range(n + 1)]
         fig.add_trace(go.Surface(x=[[r * math.cos(a) for a in angs] for r in rs], y=[[r * math.sin(a) for a in angs] for r in rs],
                                  z=[[0.0] * (n + 1) for _ in rs], colorscale=[[0, PLANE_COLOUR], [1, PLANE_COLOUR]], showscale=False,
                                  opacity=0.07, hoverinfo="skip", name="the plane of the equator"))
-        for au in c["rings"]:                                  # distance rings on the equator plane (AU)
-            r = _reach(au, c)
-            if r > span:
-                continue
-            ring = [_xyz(360 * i / 96, 0, r) for i in range(97)]
-            fig.add_trace(go.Scatter3d(x=[q[0] for q in ring], y=[q[1] for q in ring], z=[0] * 97, mode="lines", hoverinfo="skip",
-                                       line=dict(color=RING_COLOUR, width=1.5, dash="dot"), showlegend=False))
-            fig.add_trace(go.Scatter3d(x=[r], y=[0], z=[0], mode="text", text=[f"{au:g} AU"], hoverinfo="skip", showlegend=False,
-                                       textfont=dict(size=10, color=TEXT_COLOUR)))
         pole = span * 0.62                                        # the celestial axis: just past the planets, not up into empty space
         fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, 0], z=[-pole, pole], mode="lines+text", text=["SCP", "NCP"],   # the celestial axis
                                    line=dict(color=LINE_COLOUR, width=2), textfont=dict(size=12, color=TEXT_COLOUR),
@@ -170,6 +182,16 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
         for ra in (0, 90, 180, 270):
             x, y, _ = _xyz(ra, 0, span * 1.06)
             fig.add_trace(go.Scatter3d(x=[x], y=[y], z=[0], mode="text", text=[f"RA {ra}"], hoverinfo="skip", showlegend=False,
+                                       textfont=dict(size=10, color=TEXT_COLOUR)))
+    if show_au:                                               # AU: the rings of distance, on the plane of the equator
+        for au in c["rings"]:                                  # distance rings on the equator plane (AU)
+            r = _reach(au, c)
+            if r > span:
+                continue
+            ring = [_xyz(360 * i / 96, 0, r) for i in range(97)]
+            fig.add_trace(go.Scatter3d(x=[q[0] for q in ring], y=[q[1] for q in ring], z=[0] * 97, mode="lines", hoverinfo="skip",
+                                       line=dict(color=RING_COLOUR, width=1.5, dash="dot"), showlegend=False))
+            fig.add_trace(go.Scatter3d(x=[r], y=[0], z=[0], mode="text", text=[f"{au:g} AU"], hoverinfo="skip", showlegend=False,
                                        textfont=dict(size=10, color=TEXT_COLOUR)))
     axis = dict(visible=False, range=[-span, span])
     fig.update_layout(width=WIDTH, height=HEIGHT, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor=SKY, autosize=False,
@@ -185,7 +207,7 @@ def globe_moment(moments) -> float | None:
 
 
 def space_js(centre: str, bodies, moments, day_seconds: float | None, places: dict | None = None,
-             offsets: dict | None = None) -> str:
+             offsets: dict | None = None, show_links: bool = False) -> str:
     """Rotate in 1s, for the 3D view: time runs from each moment, day_seconds a day of it (the speed picked), and each body's
     marker moves to where it really was then, its hover box with it; the clock of each moment at the top. The tables are
     the same as the other pages' (72 years of RA, Dec and distance), and the markers are found by their names. Geo: the
@@ -211,7 +233,11 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     if centre == "Ea" and moments:
         jd_globe = globe_moment(moments)
         globe = dict(gst0=core.lst(jd_globe, 0.0), r=c["fit_r"], spin=globechart.EARTH_DEGREES_A_DAY,
-                     places={f"{label} on the Earth": [lat, lon] for label, lat, lon in (places or {}).values()})
+                     places={f"{label} on the Earth": [lat, lon] for label, lat, lon in (places or {}).values()},
+                     # Co: each line's trace, its body's marker and its place (moved with them as time runs)
+                     links=[dict(line=f"Co {core.symbol_of(name)} {clock}", body=f"{core.symbol_of(name)} {clock}",
+                                 place=[places[clock][1], places[clock][2]])
+                            for clock, _ in moments if show_links and (places or {}).get(clock) for name in bodies])
     # the sizes, as the Symbols table's Size column says: each mark's rule, and the tables (as seen from the Earth) of the
     # planets whose angular size it goes by
     from .globechart import BODY_RADIUS_KM, MARKER_RANGE, SIZE_RANGE_ARCSEC
@@ -360,6 +386,16 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     });
     Plotly.restyle(gd, {x: xs, y: ys, z: zs, hovertemplate: tips, "marker.size": sizes}, idx);
     if (G) turnGlobe(G.gst0 + G.spin * t);         // the Earth turning with time
+    if (G && G.links.length) {                     // Co: from CB or CN, turning with the Earth, to the body as it moves
+      const gst = G.gst0 + G.spin * t, lx = [], ly = [], lz = [], li = [];
+      G.links.forEach((l) => {
+        const i = gd.data.findIndex((d) => d.name === l.line), k = keys.indexOf(l.body);
+        if (i < 0 || k < 0) return;
+        const p = lonLatXYZ(l.place[1], l.place[0], G.r * 1.01, gst);
+        lx.push([p[0], xs[k][0]]); ly.push([p[1], ys[k][0]]); lz.push([p[2], zs[k][0]]); li.push(i);
+      });
+      if (li.length) Plotly.restyle(gd, {x: lx, y: ly, z: lz}, li);
+    }
     showClocks(t);
     setTimeout(tick, 250);
   };

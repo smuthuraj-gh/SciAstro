@@ -192,7 +192,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "now, solid lines, with CN, a house, at the place now.",
     "Geo/Helio Model": "Centric Model: Geo, GeoCentric, the Earth at the centre, or Helio, HelioCentric, the Sun at the centre; each keeps its own choices on the other buttons. "
                   "GeoCentric: the paths of the Sun, Moon and planets around the Earth (Ea), each at its own distance from the Earth (on AstroClock-3D all are on one sphere). "
-                  "3D, beside AU: in place of the drawing, a true 3D view, to drag to turn and scroll to zoom: the Earth (Geo) or the Sun (Helio) in the middle, the planets picked at their real directions and distances (one moment each for Now and DOB, DOB hollow), each sized as the Symbols table's Size column says (Size_Geo, Size_Helio: as on the drawing, changing as they move), their Planet Paths over one trip from then, with AU on the celestial coordinates (the axis with NCP and SCP, the equator and its RA names, its plane with rings of distance in AU), the Earth (Geo) as a globe with land and sea, coastlines and lines of latitude and longitude every 30 degrees, turned as it was then (Now if shown, else DOB) and turning with time, with CB and CN at their places on it; on the Fit scale (the body in the middle not to scale); Rotate in 1s: time runs from each moment at the speed picked, the planets moving to where they really were, with the date and time beside the customer's name, as on the drawing (Manual or none: it stands still; drag to turn it either way); point at a planet for its RA, Dec and distance. "
+                  "3D, beside AU (with Ce and, on Geo, Co: a line from CB or CN on the Earth to each planet, moving with them; Ce and Co show in the 3D view): in place of the drawing, a true 3D view, to drag to turn and scroll to zoom: the Earth (Geo) or the Sun (Helio) in the middle, the planets picked at their real directions and distances (one moment each for Now and DOB, DOB hollow), each sized as the Symbols table's Size column says (Size_Geo, Size_Helio: as on the drawing, changing as they move), their Planet Paths over one trip from then, with Ce (under Coordinates, on to start) the celestial coordinates (the axis with NCP and SCP, the equator and its RA names, its plane), with AU the rings of distance in AU on that plane, the Earth (Geo) as a globe with land and sea, coastlines and lines of latitude and longitude every 30 degrees, turned as it was then (Now if shown, else DOB) and turning with time, with CB and CN at their places on it; on the Fit scale (the body in the middle not to scale); Rotate in 1s: time runs from each moment at the speed picked, the planets moving to where they really were, with the date and time beside the customer's name, as on the drawing (Manual or none: it stands still; drag to turn it either way); point at a planet for its RA, Dec and distance. "
                   "Point at a planet for its distance from the centre and, under Distance to the others, how far it is from each other body shown at that moment, in AU (straight across space). "
                   "Each point is placed by its RA, Dec and distance. North is up, the axis from NCP to SCP tilted 23.44 degrees on the page, with everything else leaning with it. AU: all the tags, NCP, SCP and the RA names, and rings on the plane of the Earth's equator, each with its distance from the Earth in AU, out to 20 AU (1 AU is about the Sun's distance); off, the drawing has no tags. "
                   "Rotate in 1s: Manual: time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second: 1s a second, 1m a minute, 1h an hour, 1d a day, 1w a week, 1mo a month, 1y a year: the clock beside the name gives the date and time, and the Sun, Moon and planets move as they really did, nearer and farther, the Moon's path going with it (time starts again after 72 years; refresh the page to go back to the start). With none picked it holds still. Each has its symbol inside its marker (☉ Su, ☽ Mo, ☿ Me, ♀ Ve, ♂ Ma, ♃ Ju, ♄ Sa, ⊕ Ea). Sizes follow the Size_Geo column of Symbols: usually a planet by how big it looks from the Earth at that moment (a logarithmic scale, as to true scale the planets would not show), so it grows as it comes nearer, and the Earth as its Size says (Tiny, a dot, when it says nothing readable; to true scale it would be far smaller still). Point at a planet for its Dec/Lati, RA, Angular Size and distance, or at a path for its span and distances. "
@@ -648,6 +648,8 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
                 ("Geo/Helio Model", f"{model} Planet Path"): (list(bodies), True, list(bodies)),
                 ("Geo/Helio Model", f"{model} AU"): (["AU"], False, "AU"),
                 ("Geo/Helio Model", f"{model} 3D"): (["3D"], False, None),
+                ("Geo/Helio Model", f"{model} Co"): (["Co"], False, None),
+                ("Geo/Helio Model", f"{model} Ce"): (["Ce"], False, "Ce"),
                 ("Geo/Helio Model", f"{model} Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL)}
     for page, end, planets in (("Aspects", (0, 5), core.BUTTON_ORDER + ["NN", "SN"]), ("Planets Cycles", (360, 0), core.BUTTON_ORDER),
                                ("Planets Distance(%)", (24, 0), core.BUTTON_ORDER)):
@@ -973,7 +975,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         major = core.in_order(titled(head, "Major Aspects", f"{key}_t_major", GLOBE_MAJOR, f"{key}_major", start("Major Aspects"), selection_mode="multi"), GLOBE_MAJOR)
         minor = core.in_order(titled(head, "Minor Aspects", f"{key}_t_minor", GLOBE_MINOR, f"{key}_minor", start("Minor Aspects"), selection_mode="multi"), GLOBE_MINOR)
         aspects = tuple(int(a) for a in major + minor)
-        with_paths, show_au, view_3d = [], True, False
+        with_paths, show_au, view_3d, show_links, show_celes = [], True, False, False, True
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with House and 1circle below it (the title off: neither)
         show_houses = one_circle = False
         if kept_pills(coords, "Coordinates", ["Coordinates"], f"{key}_t_coords", "Coordinates", label_visibility="collapsed"):
@@ -984,11 +986,16 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         with_paths = core.in_order(titled(head, "Planet Path", f"{key}_t_paths", core.shown_order(choices), f"{key}_paths", start("Planet Path"),
                                           selection_mode="multi", format_func=core.symbol_of), choices)
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with AU and 3D below it (always the Fit scale)
-        show_au, view_3d = False, False                      # (with the title off: no tags, not 3D)
+        show_au, view_3d, show_links, show_celes = False, False, False, True   # (with the title off: no tags, not 3D, no Co)
         if kept_pills(coords, "Coordinates", ["Coordinates"], f"{key}_t_scale", "Coordinates", label_visibility="collapsed"):
             below = coords.container(horizontal=True, width="content", gap="xxsmall")
             show_au = bool(kept_pills(below, "AU", ["AU"], f"{key}_au", start("AU"), label_visibility="collapsed"))
             view_3d = bool(kept_pills(below, "3D", ["3D"], f"{key}_3d", start("3D"), label_visibility="collapsed"))
+            # Ce and Co, always in the row (they show in the 3D view): the celestial coordinates (on to start); Geo, the lines
+            # from CB or CN on the Earth to the planets
+            show_celes = bool(kept_pills(below, "Ce", ["Ce"], f"{key}_ce", start("Ce") or "Ce", label_visibility="collapsed"))
+            if centre == "Ea":
+                show_links = bool(kept_pills(below, "Co", ["Co"], f"{key}_co", start("Co"), label_visibility="collapsed"))
     speed = titled(head, "Rotate in 1s", f"{key}_t_speed", FLAT_SPEED_CHOICES if flat else SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (not on the flat page: no Manual there)
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
@@ -1010,12 +1017,12 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         moving = bool(day_seconds) and not manual            # Rotate in 1s: time runs at the speed picked
         at = [(m[0], m[1]) for m in moments]
         fig = space3dview.space_figure(centre, bodies, tuple(with_paths), at, places, moving=moving,
-                                       show_au=show_au)          # (the AU rings with AU on only)
+                                       show_au=show_au, show_links=show_links, show_celes=show_celes)   # (AU: the rings; Co: the lines; Ce)
         # (the HTML is built only from the chart and the tables, never from what a user typed: safe to run) the script draws
         # the Earth as a globe, and with a speed picked moves the planets and turns the Earth
         st.html(mapchart.fit_html(fig, after_js=space3dview.space_js(centre, bodies, at,
                                                                      day_seconds if moving else None, places,
-                                                                     {m[0]: m[2] for m in moments})),   # (the clock: each moment's UTC offset)
+                                                                     {m[0]: m[2] for m in moments}, show_links)),   # (the clock: each moment's UTC offset)
                 unsafe_allow_javascript=True)
         return
     st.html(space3d.space_html(bodies, moments, space3d.FIT, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre, flat,
