@@ -94,6 +94,40 @@ defaults = sa.Table(
     sa.Column("options", sa.String(60), nullable=False),
     sa.Column("choices", sa.String(500)),
 )
+# The Help table: a row per abbreviation the pages use (Abbre) and what it means (Description); kept by admins (the Help
+# page), filled once with the app's own (HELP_ROWS).
+help_table = sa.Table(
+    "help", meta,
+    sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
+    sa.Column("abbre", sa.String(20), nullable=False, unique=True),
+    sa.Column("description", sa.String(500)),
+)
+HELP_ROWS = [                                                 # the abbreviations the pages use, as the table starts
+    ("Su", "Sun"), ("Mo", "Moon"), ("Me", "Mercury"), ("Ve", "Venus"), ("Ma", "Mars"), ("Ju", "Jupiter"), ("Sa", "Saturn"),
+    ("Ea", "Earth"), ("NN", "The Moon's north node: where its path crosses the Sun's going north"),
+    ("SN", "The Moon's south node: where its path crosses the Sun's going south"),
+    ("CB", "The place of birth, on the Earth"), ("CN", "The place now, on the Earth"),
+    ("DOB", "Date of birth: the planets at birth"), ("Now", "The planets now"),
+    ("Ave", "Average: each planet's Distance(%) halfway between DOB and Now"),
+    ("RA", "Right Ascension: a planet's position along the celestial equator, 0 to 360 degrees"),
+    ("Dec", "Declination: a planet's angle north (+) or south (-) of the celestial equator"),
+    ("AU", "Astronomical unit: the Earth's average distance from the Sun, about 150 million km"),
+    ("Distance(%)", "A planet's distance from the Earth between its nearest (0) and farthest (100)"),
+    ("Ho", "House lines: twelve, 30 degrees apart from the RA of CB and of CN"),
+    ("Ce", "Celestial coordinates: the axis with NCP and SCP, and the celestial equator"),
+    ("NCP", "North celestial pole"), ("SCP", "South celestial pole"),
+    ("WCE", "West end of the celestial equator, as drawn"), ("ECE", "East end of the celestial equator, as drawn"),
+    ("Sp", "Spokes: a line from the Earth's centre through each planet to the sphere (in 3D, to the edge of the view)"),
+    ("SpC", "Lines from CB (DOB) or CN (Now) on the Earth to each planet"),
+    ("De", "Each planet's Dec line on the sphere"), ("La", "The Earth's lines of latitude, every 30 degrees"),
+    ("Lg", "The Earth's lines of longitude, every 30 degrees"),
+    ("3D", "A true 3D view round the Earth, to turn and zoom with the mouse"),
+    ("1C", "One circle: every planet on one circle at its RA, whatever its distance, to see conjunctions"),
+    ("DA", "Shows or hides the Ave planets on the Distance(%) graph"),
+    ("Geo", "GeoCentric: the Earth at the centre"), ("Helio", "HelioCentric: the Sun at the centre"),
+    ("Manual", "Time stands still; drag the drawing to turn it"),
+    ("1s to 1y", "Rotate in 1s: 1s, 1m, 1h, 1d, 1w, 1mo, 1y: that much time passes each second (a second, minute, hour, day, week, month, year)"),
+]
 DEFAULTS_INDEX = "ux_defaults_page_options"                   # one row per Page and Options
 sa.Index(DEFAULTS_INDEX, defaults.c.page, defaults.c.options, unique=True)
 DEFAULT_ROWS = [                                              # the app's own defaults: the rows the table starts with
@@ -228,6 +262,7 @@ def engine() -> sa.Engine:
     _seed_defaults(eng)
     _set_time_now(eng)
     _rename_dec_button(eng)
+    _seed_help(eng)
     return eng
 
 
@@ -396,6 +431,59 @@ def _seed_defaults(eng: sa.Engine):
             c.execute(settings.insert().values(key="defaults_seeded", value=DEFAULTS_VERSION))
         else:
             c.execute(settings.update().where(settings.c.key == "defaults_seeded").values(value=DEFAULTS_VERSION))
+
+
+def _seed_help(eng: sa.Engine):
+    """Once (a note among the settings says it is done, so a row deleted since stays deleted): the Help table gets HELP_ROWS."""
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "help_seeded")).scalar():
+            return
+        have = {a.lower() for (a,) in c.execute(sa.select(help_table.c.abbre)).all()}
+        new = [dict(abbre=a, description=d) for a, d in HELP_ROWS if a.lower() not in have]
+        if new:
+            c.execute(help_table.insert(), new)
+        c.execute(settings.insert().values(key="help_seeded", value="1"))
+
+
+# ---------------------------------------------------------------- the Help table
+def help_rows() -> pd.DataFrame:
+    """The Help table: Abbre, Description, in the order of Abbre (case aside)."""
+    with engine().connect() as c:
+        rows = c.execute(sa.select(help_table).order_by(sa.func.lower(help_table.c.abbre))).mappings().all()
+    return pd.DataFrame([{"Abbre": r["abbre"], "Description": r["description"]} for r in rows], columns=["Abbre", "Description"])
+
+
+def help_problems(rows: pd.DataFrame) -> list[str]:
+    """What is wrong with the Help rows: each needs an Abbre (at most 20 characters, once in the table) and a Description of
+    at most 500 characters. A wholly empty row does not count."""
+    out, seen = [], set()
+    for _, r in rows.iterrows():
+        abbre, text = _cell(r["Abbre"]), _cell(r["Description"])
+        if not (abbre or text):
+            continue
+        label = abbre or "New row"
+        if not abbre:
+            out.append(f"{label}: Abbre is empty")
+        if len(abbre) > 20:
+            out.append(f"{label}: Abbre can be at most 20 characters")
+        if len(text) > 500:
+            out.append(f"{label}: Description can be at most 500 characters")
+        if abbre:
+            if abbre.lower() in seen:
+                out.append(f"{label}: is in the table twice")
+            seen.add(abbre.lower())
+    return out
+
+
+def save_help(rows: pd.DataFrame) -> int:
+    """Makes the Help table these rows (wholly empty ones left out); gives how many it has."""
+    keep = [dict(abbre=_cell(r["Abbre"]), description=_cell(r["Description"]) or None)
+            for _, r in rows.iterrows() if _cell(r["Abbre"]) or _cell(r["Description"])]
+    with engine().begin() as c:
+        c.execute(sa.delete(help_table))
+        if keep:
+            c.execute(help_table.insert(), keep)
+    return len(keep)
 
 
 # ---------------------------------------------------------------- the Defaults table

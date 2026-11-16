@@ -1272,6 +1272,15 @@ def page_defaults():
                               "Choices": st.column_config.TextColumn(width="large")})
 
 
+def page_help_table():
+    if not user.is_admin:                                     # admins only (not in a user's menu either)
+        st.stop()
+    table = db.help_rows()
+    crud_table("help_table", table, db.help_problems, lambda rows: f"Committed: {db.save_help(rows)} row(s).",
+               height=30 * (len(st.session_state.get("help_table_working", table)) + 1) + 8,   # every row in view
+               column_config={"Abbre": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width="large")})
+
+
 def page_naming():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
@@ -1557,11 +1566,12 @@ pages = [st.Page(page_astroclock, title="AstroClock-2D", icon=":material/science
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
-if user.is_admin:                                             # the Aspect Rules, DOB, Symbols, Defaults, Logins pages: admins only
+if user.is_admin:                                             # the Aspect Rules, DOB, Symbols, Defaults, Help, Logins pages: admins only
     pages += [st.Page(page_aspects, title="Aspect Rules", icon=":material/tune:", url_path="aspect-rules"),
               st.Page(page_accounts, title="Customers", icon=":material/badge:", url_path="customers"),
               st.Page(page_customers, title="DOB", icon=":material/group:", url_path="dob"),
               st.Page(page_defaults, title="Defaults", icon=":material/settings:", url_path="defaults"),
+              st.Page(page_help_table, title="Help", icon=":material/help:", url_path="help"),
               st.Page(page_logins, title="Logins", icon=":material/history:", url_path="logins"),
               st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols")]
 else:
