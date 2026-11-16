@@ -1171,42 +1171,13 @@ def account_problems(rows: pd.DataFrame) -> list[str]:
     wrong = sorted({str(v).strip() for v in rows.get("access", pd.Series(dtype=object)).dropna() if not_a_choice(v)})
     if wrong:
         out.append(f"Access must be one of {', '.join(access.ACCESS)} (not {', '.join(wrong)}).")
-    bad_days = sorted({str(v) for v in rows.get("days", pd.Series(dtype=object))
-                       if not (v is None or (not isinstance(v, str) and pd.isna(v)) or (isinstance(v, str) and not v.strip()))
-                       and access.whole_days(v) is None})
-    bad_days += sorted({str(v) for v in rows.get("days", pd.Series(dtype=object))
-                        if access.whole_days(v) is not None and access.whole_days(v) not in access.DAY_PACKS})
-    if bad_days:
-        out.append(f"Days must be one of {', '.join(map(str, access.DAY_PACKS))} (not {', '.join(bad_days)}).")
-    return out
-
-
-def apply_days(rows: pd.DataFrame) -> pd.DataFrame:
-    """The Customers table's Days box, applied (on Update, and again on Commit): each row with Days typed gets Access DOB
-    and its End Date extended by that many days, from its End Date while that runs, else from now (Start Date then
-    now). Days is then cleared (it is not kept). Admin rows are left alone."""
-    out = rows.copy()
-    if "days" not in out:
-        return out
-    now = _now()
-    for i, r in out.iterrows():
-        days = access.whole_days(r.get("days"))
-        try:
-            a = access.canonical(r.get("access"), access.ACCESS)
-        except ValueError:
-            a = None
-        if not days or a == "Admin":
-            continue
-        start, end = access.extend(r.get("start_date"), r.get("end_date"), now, days)
-        out.at[i, "access"], out.at[i, "start_date"], out.at[i, "end_date"] = "DOB", pd.Timestamp(start), pd.Timestamp(end)
-    out["days"] = pd.Series([pd.NA] * len(out), index=out.index, dtype="Int64")
     return out
 
 
 def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None = None) -> tuple[int, int, int]:
-    """Apply an edited copy of the Customers table: (added, changed, deleted). A blank Access is Now. End Date is not
-    typed in: Days typed extends it (apply_days: from End Date while it runs, else from now); a row newly DOB with no
-    Days gets 1 day from now; Now and Admin have none. Start Date as typed when changed (a DOB keeps its length);
+    """Apply an edited copy of the Customers table: (added, changed, deleted). A blank Access is Now. A typed End Date
+    lengthens or shortens DOB (the row becoming DOB); a row newly DOB with no End Date typed gets 1 day from now; Now
+    and Admin have none. Start Date as typed when changed (a DOB keeps its length);
     blank on a new row: now. The DOB records refer to it by Email: a changed Email is changed on
     them too, and a row whose Email DOB records still use cannot be deleted. Raises ValueError, saving nothing, on
     account_problems or such a delete."""
@@ -1221,7 +1192,6 @@ def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None =
                         + ". Delete those records on the DOB page, or give them another Email, first.")
     if problems:
         raise ValueError(" ".join(problems))
-    edited = apply_days(edited)                               # (Days typed and Commit pressed without Update: the same)
     added = changed = deleted = 0
     keep = set(edited["id"].dropna().astype(int)) if "id" in edited else set()
     now = _now()

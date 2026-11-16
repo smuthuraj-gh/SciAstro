@@ -33,7 +33,7 @@ try:
         """(RA, Dec, distance AU, and their daily speeds), or (None, error text)."""
         try:
             with _ONE_AT_A_TIME:
-                x, _flags = _swe.calc_ut(jd_ut, ipl, flags)
+                x, _ = _swe.calc_ut(jd_ut, ipl, flags)
             return tuple(x), ""
         except _swe.Error as exc:  # pragma: no cover - depends on the files
             return None, str(exc)

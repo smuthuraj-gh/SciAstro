@@ -1198,7 +1198,9 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
         st.caption("Fill in the new row, then press Update to save it (Ignore drops it).")
 
     def save(new_rows: pd.DataFrame, verb: str) -> bool:
-        """Saves the rows at once (as on_update gives them); False, with what is wrong shown, when they cannot be saved."""
+        """Saves the rows at once (as on_update gives them); False, with what is wrong shown, when they cannot be saved.
+        A row left wholly blank (Insert's, not filled in) is not saved, and is not a problem on any table."""
+        new_rows = new_rows[[any(_filled(v) for v in r) for r in new_rows.itertuples(index=False)]].reset_index(drop=True)
         new_rows = on_update(new_rows) if on_update else new_rows
         wrong = problems(new_rows)
         if wrong:
@@ -1219,6 +1221,11 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
 
     if st.session_state.get(f"{key}_reset_ask"):              # Reset to Previous: the table as it was before its last save
         previous = db.previous_rows(key)
+        if previous is not None and list(previous.columns) != list(show.columns):   # kept before the table's columns changed
+            st.info("Nothing to go back to: the copy kept was made before the table's columns changed. Save the table once "
+                    "to keep a new one.")
+            st.session_state.pop(f"{key}_reset_ask", None)
+            return
         if previous is None:
             st.info("Nothing to go back to: the table has not been saved since this was added.")
             st.session_state.pop(f"{key}_reset_ask", None)
@@ -1244,8 +1251,7 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
         # to the table as it stands, to fill in (on the next run, so that it follows a save)
         typed = (st.session_state.get(editor_key) or {}).get("edited_rows", {})
         if any(set(cells) - {"Del"} for cells in typed.values()):
-            filled = rows[[any(_filled(v) for v in r) for r in rows.itertuples(index=False)]].reset_index(drop=True)
-            if not save(filled, "inserted"):
+            if not save(rows, "inserted"):                       # (a row left blank is dropped by save)
                 return
         st.session_state[f"{key}_add_row"] = True
         st.rerun()
