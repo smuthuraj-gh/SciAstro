@@ -1394,15 +1394,38 @@ def page_logins():
             st.rerun()
 
 
+def allowed_values(page, options) -> str:
+    """What a Page_Defaults row's Choices may hold (its Value column, not kept): the values its input takes."""
+    spec = {(p.lower(), o.lower()): s for (p, o), s in default_inputs().items()}.get(
+        (str(page or "").strip().lower(), str(options or "").strip().lower()))
+    if spec is None:
+        return "" if not (page and options) else "(no page has that input)"
+    choices, multi, _ = spec
+    if choices == START:
+        return "one of: DOB, Now"
+    if choices == END:
+        return "Now, or Start Date (UT) + a time (e.g. 5 days, 2 years 6 months)"
+    if choices == TEXT:
+        return f"any text, at most {TEXT_MOST} characters (blank: empty)"
+    if len(choices) == 1:
+        return f"On or Off ({choices[0]})"
+    return ("any of: " if multi else "one of: ") + ", ".join(map(str, choices))
+
+
 def page_defaults():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     table = db.defaults_table()
+    with_value = lambda rows: rows.assign(Value=[allowed_values(p, o) for p, o in zip(rows["Page"], rows["Options"])])
+    table = with_value(table)                                 # Value: what Choices may hold (worked out, not kept)
     crud_table("defaults_table", table, lambda rows: db.defaults_problems(rows) + options_problems(rows),
-               lambda rows: f"Saved: {db.save_defaults(rows)} row(s).",
+               lambda rows: f"Saved: {db.save_defaults(rows)} row(s).", on_update=with_value,
                height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
                column_config={"Page": st.column_config.TextColumn(width=170), "Options": st.column_config.TextColumn(width=170),
-                              "Choices": st.column_config.TextColumn(width="large")})
+                              "Choices": st.column_config.TextColumn(width=300),
+                              "Value": st.column_config.TextColumn("Value", width="large", disabled=True,
+                                                                   help="The values Choices may hold for this input (worked "
+                                                                        "out by the app; not kept).")})
 
 
 def page_readme():
