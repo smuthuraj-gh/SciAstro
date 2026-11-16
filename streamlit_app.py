@@ -1160,12 +1160,18 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
     problems(rows) gives what is wrong with the rows as they stand; commit(rows) saves them and gives what to report;
     on_update(rows), when given, gives the rows as they are saved (e.g. worked-out columns filled in)."""
     pressed = next((name for name in ("Insert", "Update", "Delete", "Ignore", "Reset to Previous")
-                    if TITLE_SLOT.button(name, key=f"{key}_{name}", type="primary" if name == "Update" else "secondary")), None)
+                    if TITLE_SLOT.button(name, key=f"{key}_{name}")), None)   # (all alike: none marked as the main one)
     if pressed == "Reset to Previous":
         st.session_state[f"{key}_reset_ask"] = True
+    def fresh() -> None:
+        """The table on the screen starts again from the rows given it: the typing it still held is dropped (popping the
+        widget's state is not enough, as the browser sends its edits back; a new key starts it empty)."""
+        st.session_state[f"{key}_ver"] = st.session_state.get(f"{key}_ver", 0) + 1
+
     if pressed == "Ignore":                                    # every change not saved is dropped: the table as saved
-        for name in (f"{key}_working", f"{key}_base", key):
+        for name in (f"{key}_working", f"{key}_base"):
             st.session_state.pop(name, None)
+        fresh()
         st.session_state[f"{key}_said"] = "Changes ignored: the table is as saved."
         st.rerun()
     if st.session_state.pop(f"{key}_add_row", False):          # Insert: a blank row at the bottom, to fill in
@@ -1174,12 +1180,13 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
         start = st.session_state.get(f"{key}_working", show)
         st.session_state.setdefault(f"{key}_base", show)       # what the rows started from (see page_customers)
         st.session_state[f"{key}_working"] = start.reindex(range(len(start) + 1)).reset_index(drop=True)
-        st.session_state.pop(key, None)
+        fresh()
         st.session_state[f"{key}_said"] = ((st.session_state.get(f"{key}_said") or "") +
                                            " A new row is at the bottom of the table: fill it in and press Update to save it.").strip()
     view = st.session_state.get(f"{key}_working", show).copy()
     view.insert(0, "Del", False)
-    edited = st.data_editor(view, hide_index=True, width=width, num_rows="fixed", key=key, height=height or "auto",
+    editor_key = f"{key}_v{st.session_state.get(f'{key}_ver', 0)}"   # (a new one after each save: see fresh)
+    edited = st.data_editor(view, hide_index=True, width=width, num_rows="fixed", key=editor_key, height=height or "auto",
                             column_config={"Del": st.column_config.CheckboxColumn("Del", width="small",
                                                                                   help="Tick, then press Delete."),
                                            **(column_config or {})}).reset_index(drop=True)
@@ -1204,8 +1211,9 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
             return False
         st.cache_data.clear()                                  # charts kept with the old values
         db.keep_previous(key, show)                            # the table as it was before, for Reset to Previous
-        for name in (f"{key}_working", f"{key}_base", key):
+        for name in (f"{key}_working", f"{key}_base"):
             st.session_state.pop(name, None)
+        fresh()
         st.session_state[f"{key}_said"] = report
         return True
 
@@ -1234,7 +1242,7 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
     if pressed == "Insert":
         # the edits made (other than ticks) are saved first, a row left blank not counting; then a blank row is added
         # to the table as it stands, to fill in (on the next run, so that it follows a save)
-        typed = (st.session_state.get(key) or {}).get("edited_rows", {})
+        typed = (st.session_state.get(editor_key) or {}).get("edited_rows", {})
         if any(set(cells) - {"Del"} for cells in typed.values()):
             filled = rows[[any(_filled(v) for v in r) for r in rows.itertuples(index=False)]].reset_index(drop=True)
             if not save(filled, "inserted"):
@@ -1381,7 +1389,7 @@ def page_aspects():
     said = st.session_state.pop("orb_said", None)
     if said:
         st.success(said)
-    if TITLE_SLOT.button("Update", type="primary", key="orb_save"):   # (on the title line, beside the page's name)
+    if TITLE_SLOT.button("Update", key="orb_save"):   # (on the title line, beside the page's name)
         wrong = db.orb_problems(edited)
         if wrong:
             st.error("Not updated. " + " ".join(wrong))
