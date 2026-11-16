@@ -316,12 +316,12 @@ NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects
 TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio model", "geo time"), ("geo/helio model", "helio time"))
 
 
-COORD_BUTTONS_RENAMED = {"dec": "De", "lati": "Lat", "long": "Lon", "house": "Ho", "celes": "Ce", "true": "Tru"}   # AstroClock-3D's Coordinates buttons' earlier names
+COORD_BUTTONS_RENAMED = {"dec": "De", "lati": "Lat", "long": "Lon", "house": "Ho", "celes": "Ce", "true": "Tru", "co": "SpC"}   # AstroClock-3D's Coordinates buttons' earlier names
 
 
 def _rename_dec_button(eng: sa.Engine):
-    """AstroClock-3D's Coordinates buttons Dec, Lati, Long, House, Celes and True are called De, Lat, Lon, Ho, Ce and Tru: a Defaults row that
-    names them gets the new names."""
+    """AstroClock-3D's Coordinates buttons Dec, Lati, Long, House, Celes, True and Co are called De, Lat, Lon, Ho, Ce, Tru and SpC: a
+    Defaults row that names them gets the new names."""
     with eng.begin() as c:
         rows = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(
             sa.func.lower(defaults.c.page) == "astroclock-3d", sa.func.lower(defaults.c.options).in_(["coordinates", "scale"]))).all()
@@ -335,6 +335,13 @@ def _rename_dec_button(eng: sa.Engine):
                   .values(options="1circle"))
         c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "1circle",
                                           sa.func.lower(sa.func.trim(defaults.c.choices)) == "aspect").values(choices="1circle"))
+        # Geo/Helio Model's Co button is called SpC: its rows (Geo Co, Helio Co) and a choice of it get the new name
+        for model in ("geo", "helio"):
+            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio model",
+                                              sa.func.lower(defaults.c.options) == model + " co").values(options=model.title() + " SpC"))
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio model",
+                                          sa.func.lower(defaults.c.options).in_(["geo spc", "helio spc"]),
+                                          sa.func.lower(sa.func.trim(defaults.c.choices)) == "co").values(choices="SpC"))
         # Geo/Helio Model's Fit and True buttons are gone (always Fit): its Coordinates rows go
         c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == "geo/helio model",
                                           sa.func.lower(defaults.c.options).in_(["geo coordinates", "helio coordinates"])))

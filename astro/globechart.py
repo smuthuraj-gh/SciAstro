@@ -77,7 +77,7 @@ class GlobeInput:
     show_celes: bool = True           # the names NCP, SCP, WCE and ECE, the dots at the poles, the axis and the celestial equator
     show_houses: bool = False         # the twelve house lines from CB and CN, on the sphere, turning with the Earth
     show_distance: bool = False       # AU: each planet inside the sphere at a radius by its distance from the Earth
-    show_links: bool = False          # Co: a line from CB (DOB) or CN (Now) on the Earth to each planet
+    show_links: bool = False          # SpC: a line from CB (DOB) or CN (Now) on the Earth to each planet
     show_spokes: bool = False         # Sp (with AU): a dashed line from the Earth's centre, through the planet, out to its RA and Dec on the sphere
     bodies: tuple = BODY_CHOICES      # the bodies to show, with their RA and Dec lines
     paths: tuple = BODY_CHOICES       # the bodies whose paths to draw
@@ -465,7 +465,7 @@ __SYMBOL_JS__
     if (D.by_distance && D.show_spokes) body.spoke = make("line", spokeG,   // Sp
        {stroke: c, "stroke-width": 1, "stroke-dasharray": "2 3", style: "pointer-events:none"});
     body.place = D.places.find((pl) => D.sets[pl.set] === body.set);   // CB for DOB, CN for Now
-    if (D.show_links && body.place)                  // Co: a line from CB (DOB) or CN (Now) on the Earth to the planet
+    if (D.show_links && body.place)                  // SpC: a line from CB (DOB) or CN (Now) on the Earth to the planet
       body.link = make("line", spokeG, {stroke: body.place.colour, "stroke-width": 0.9, opacity: 0.55, style: "pointer-events:none"});
     body.mark = make("circle", markG, {fill: body.hollow ? "white" : c, stroke: c, "stroke-width": 2, style: "pointer-events:auto"});
     body.tip = make("title", body.mark);
@@ -533,7 +533,7 @@ __SYMBOL_JS__
       const place = D.places.find((pl) => D.sets[pl.set] === s);   // CB for DOB, CN for Now
       nodes.push({name, turn, sign, pole, s, mark, tip: make("title", mark),      // with its RA and Dec lines, as the planets'
                   raLine: D.show_ra ? line(colour, hollow) : null, decLine: D.show_dec ? line(colour, hollow) : null,
-                  place,                           // AU: at the Moon's distance; Sp and Co lines as the planets'
+                  place,                           // AU: at the Moon's distance; Sp and SpC lines as the planets'
                   spoke: D.by_distance && D.show_spokes ? make("line", spokeG, {stroke: colour, "stroke-width": 1, "stroke-dasharray": "2 3", style: "pointer-events:none"}) : null,
                   link: D.show_links && place ? make("line", spokeG, {stroke: place.colour, "stroke-width": 0.9, opacity: 0.55, style: "pointer-events:none"}) : null});
     });
@@ -662,7 +662,7 @@ __SYMBOL_JS__
         node.decLine(pts, tipName + " Dec/Lati: " + (at.dec >= 0 ? "+" : "") + at.dec.toFixed(2));
       }
       const hidden = z < 0 && Math.hypot(x - D.cx, y - D.cy) < D.earth, fade = z >= 0 ? 1 : 0.55;
-      if (node.link) {                             // Co: from CB or CN on the turning Earth (fainter from or to the far side)
+      if (node.link) {                             // SpC: from CB or CN on the turning Earth (fainter from or to the far side)
         const [px, py, pz] = placeOnEarth(node.place, t);
         [["x1", px], ["y1", py], ["x2", x], ["y2", y]].forEach(([a, v]) => node.link.setAttribute(a, v.toFixed(1)));
         node.link.setAttribute("opacity", hidden || pz < 0 ? 0.25 : 0.55);

@@ -105,7 +105,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
     the equator plane, and (Geo) CB and CN on the Earth (places: {clock: (label, lat, lon)}). On Geo/Helio Model's Fit
     scale. moving: time will run (space_js), so the view reaches far enough for all, with room for the clock.
     show_au: the rings of distance on the plane of the equator (the page's AU button); show_celes: the celestial
-    coordinates, the plane of the equator, the axis with NCP and SCP, the equator and its RA names (its Ce button). show_links (Co, Geo): a line from CB (DOB) or CN (Now) on the Earth
+    coordinates, the plane of the equator, the axis with NCP and SCP, the equator and its RA names (its Ce button). show_links (SpC, Geo): a line from CB (DOB) or CN (Now) on the Earth
     to each body of its moment. show_spokes (Sp): a dashed line from the centre through each body out to the edge of the
     view, at the body's RA and Dec."""
     c = CENTRE[centre]
@@ -117,7 +117,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
     spokes = []                                               # Sp: each body's direction, drawn once the view's reach is known
     for clock, jd in moments:
         hollow = clock == "DOB"
-        at = {}                                               # each body's place, for the Co lines
+        at = {}                                               # each body's place, for the SpC lines
         for name in bodies:
             ra, dec, au = _place(centre, name, jd)
             r = _reach(au, c)
@@ -152,7 +152,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
         if centre == "Ea" and got:                            # CB or CN at its place on the Earth (as the globe is turned)
             label, lat, lon = got
             px, py, pz = _xyz(core.lst(jd_globe, lon), lat, ball_r * 1.01)
-            for name in bodies if show_links else ():         # Co: from the place to each body (named for the page to move them)
+            for name in bodies if show_links else ():         # SpC: from the place to each body (named for the page to move them)
                 bx, by, bz = at[name]
                 fig.add_trace(go.Scatter3d(x=[px, bx], y=[py, by], z=[pz, bz], mode="lines", hoverinfo="skip", showlegend=False,
                                            name=f"Co {core.symbol_of(name)} {clock}", opacity=0.75,
@@ -242,7 +242,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
         jd_globe = globe_moment(moments)
         globe = dict(gst0=core.lst(jd_globe, 0.0), r=c["fit_r"], spin=globechart.EARTH_DEGREES_A_DAY,
                      places={f"{label} on the Earth": [lat, lon] for label, lat, lon in (places or {}).values()},
-                     # Co: each line's trace, its body's marker and its place (moved with them as time runs)
+                     # SpC: each line's trace, its body's marker and its place (moved with them as time runs)
                      links=[dict(line=f"Co {core.symbol_of(name)} {clock}", body=f"{core.symbol_of(name)} {clock}",
                                  place=[places[clock][1], places[clock][2]])
                             for clock, _ in moments if show_links and (places or {}).get(clock) for name in bodies])
@@ -405,7 +405,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
                           z: spokes.map((p) => [0, zs[p.k][0] * p.len / Math.hypot(xs[p.k][0], ys[p.k][0], zs[p.k][0])])},
                      spokes.map((p) => p.i));
     }
-    if (G && G.links.length) {                     // Co: from CB or CN, turning with the Earth, to the body as it moves
+    if (G && G.links.length) {                     // SpC: from CB or CN, turning with the Earth, to the body as it moves
       const gst = G.gst0 + G.spin * t, lx = [], ly = [], lz = [], li = [];
       G.links.forEach((l) => {
         const i = gd.data.findIndex((d) => d.name === l.line), k = keys.indexOf(l.body);
