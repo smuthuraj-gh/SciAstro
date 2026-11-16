@@ -90,7 +90,8 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
     paths over one trip from that moment (DOB dashed), the celestial axis and equator with RA 0..270, rings of distance on
     the equator plane, and (Geo) CB and CN on the Earth (places: {clock: (label, lat, lon)}). On Geo/Helio Model's Fit
     scale. moving: time will run (space_js), so the view reaches far enough for all, with room for the clock.
-    show_au: the rings of distance (the page's AU button)."""
+    show_au: the celestial coordinates, the plane of the equator with its rings of distance, the axis with NCP and SCP,
+    the equator and its RA names (the page's AU button)."""
     c = CENTRE[centre]
     ball_r = c["fit_r"]
     fig = go.Figure()
@@ -143,31 +144,33 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
         sx.append(r * math.sqrt(1 - u * u) * math.cos(v)); sy.append(r * math.sqrt(1 - u * u) * math.sin(v)); sz.append(r * u)
     fig.add_trace(go.Scatter3d(x=sx, y=sy, z=sz, mode="markers", hoverinfo="skip", showlegend=False, name="stars",
                                marker=dict(size=[stars.choice((1.2, 1.6, 2.2)) for _ in range(STARS)], color="white", opacity=0.6)))
-    n = 48                                                    # the plane of the equator: a faint disc, north above it
-    rs, angs = [span * i / 4 for i in range(5)], [2 * math.pi * j / n for j in range(n + 1)]
-    fig.add_trace(go.Surface(x=[[r * math.cos(a) for a in angs] for r in rs], y=[[r * math.sin(a) for a in angs] for r in rs],
-                             z=[[0.0] * (n + 1) for _ in rs], colorscale=[[0, PLANE_COLOUR], [1, PLANE_COLOUR]], showscale=False,
-                             opacity=0.07, hoverinfo="skip", name="the plane of the equator"))
-    for au in c["rings"] if show_au else ():                 # distance rings on the equator plane (AU)
-        r = _reach(au, c)
-        if r > span:
-            continue
-        ring = [_xyz(360 * i / 96, 0, r) for i in range(97)]
-        fig.add_trace(go.Scatter3d(x=[q[0] for q in ring], y=[q[1] for q in ring], z=[0] * 97, mode="lines", hoverinfo="skip",
-                                   line=dict(color=RING_COLOUR, width=1.5, dash="dot"), showlegend=False))
-        fig.add_trace(go.Scatter3d(x=[r], y=[0], z=[0], mode="text", text=[f"{au:g} AU"], hoverinfo="skip", showlegend=False,
-                                   textfont=dict(size=10, color=TEXT_COLOUR)))
-    pole = span * 0.62                                        # the celestial axis: just past the planets, not up into empty space
-    fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, 0], z=[-pole, pole], mode="lines+text", text=["SCP", "NCP"],   # the celestial axis
-                               line=dict(color=LINE_COLOUR, width=2), textfont=dict(size=12, color=TEXT_COLOUR),
-                               hoverinfo="skip", showlegend=False))
-    eq = [_xyz(360 * i / 96, 0, span) for i in range(97)]     # and the celestial equator
-    fig.add_trace(go.Scatter3d(x=[q[0] for q in eq], y=[q[1] for q in eq], z=[0] * 97, mode="lines", hoverinfo="skip",
-                               line=dict(color=LINE_COLOUR, width=1.5), showlegend=False))
-    for ra in (0, 90, 180, 270):
-        x, y, _ = _xyz(ra, 0, span * 1.06)
-        fig.add_trace(go.Scatter3d(x=[x], y=[y], z=[0], mode="text", text=[f"RA {ra}"], hoverinfo="skip", showlegend=False,
-                                   textfont=dict(size=10, color=TEXT_COLOUR)))
+    if show_au:                                               # AU: the celestial coordinates (the plane and the rings, the axis
+                                                              # with NCP and SCP, the equator and its RA names); off: none
+        n = 48                                                    # the plane of the equator: a faint disc, north above it
+        rs, angs = [span * i / 4 for i in range(5)], [2 * math.pi * j / n for j in range(n + 1)]
+        fig.add_trace(go.Surface(x=[[r * math.cos(a) for a in angs] for r in rs], y=[[r * math.sin(a) for a in angs] for r in rs],
+                                 z=[[0.0] * (n + 1) for _ in rs], colorscale=[[0, PLANE_COLOUR], [1, PLANE_COLOUR]], showscale=False,
+                                 opacity=0.07, hoverinfo="skip", name="the plane of the equator"))
+        for au in c["rings"]:                                  # distance rings on the equator plane (AU)
+            r = _reach(au, c)
+            if r > span:
+                continue
+            ring = [_xyz(360 * i / 96, 0, r) for i in range(97)]
+            fig.add_trace(go.Scatter3d(x=[q[0] for q in ring], y=[q[1] for q in ring], z=[0] * 97, mode="lines", hoverinfo="skip",
+                                       line=dict(color=RING_COLOUR, width=1.5, dash="dot"), showlegend=False))
+            fig.add_trace(go.Scatter3d(x=[r], y=[0], z=[0], mode="text", text=[f"{au:g} AU"], hoverinfo="skip", showlegend=False,
+                                       textfont=dict(size=10, color=TEXT_COLOUR)))
+        pole = span * 0.62                                        # the celestial axis: just past the planets, not up into empty space
+        fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, 0], z=[-pole, pole], mode="lines+text", text=["SCP", "NCP"],   # the celestial axis
+                                   line=dict(color=LINE_COLOUR, width=2), textfont=dict(size=12, color=TEXT_COLOUR),
+                                   hoverinfo="skip", showlegend=False))
+        eq = [_xyz(360 * i / 96, 0, span) for i in range(97)]     # and the celestial equator
+        fig.add_trace(go.Scatter3d(x=[q[0] for q in eq], y=[q[1] for q in eq], z=[0] * 97, mode="lines", hoverinfo="skip",
+                                   line=dict(color=LINE_COLOUR, width=1.5), showlegend=False))
+        for ra in (0, 90, 180, 270):
+            x, y, _ = _xyz(ra, 0, span * 1.06)
+            fig.add_trace(go.Scatter3d(x=[x], y=[y], z=[0], mode="text", text=[f"RA {ra}"], hoverinfo="skip", showlegend=False,
+                                       textfont=dict(size=10, color=TEXT_COLOUR)))
     axis = dict(visible=False, range=[-span, span])
     fig.update_layout(width=WIDTH, height=HEIGHT, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor=SKY, autosize=False,
                       scene=dict(xaxis=axis, yaxis=axis, zaxis=axis, aspectmode="cube", bgcolor=SKY, dragmode="turntable",
