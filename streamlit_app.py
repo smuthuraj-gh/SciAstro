@@ -652,6 +652,7 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
                 ("Geo/Helio Model", f"{model} AU"): (["AU"], False, "AU"),
                 ("Geo/Helio Model", f"{model} 3D"): (["3D"], False, None),
                 ("Geo/Helio Model", f"{model} Co"): (["Co"], False, None),
+                ("Geo/Helio Model", f"{model} Sp"): (["Sp"], False, None),
                 ("Geo/Helio Model", f"{model} Ce"): (["Ce"], False, "Ce"),
                 ("Geo/Helio Model", f"{model} Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL)}
     for page, end, planets in (("Aspects", (0, 5), core.BUTTON_ORDER + ["NN", "SN"]), ("Planets Cycles", (360, 0), core.BUTTON_ORDER),
@@ -978,7 +979,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         major = core.in_order(titled(head, "Major Aspects", f"{key}_t_major", GLOBE_MAJOR, f"{key}_major", start("Major Aspects"), selection_mode="multi"), GLOBE_MAJOR)
         minor = core.in_order(titled(head, "Minor Aspects", f"{key}_t_minor", GLOBE_MINOR, f"{key}_minor", start("Minor Aspects"), selection_mode="multi"), GLOBE_MINOR)
         aspects = tuple(int(a) for a in major + minor)
-        with_paths, show_au, view_3d, show_links, show_celes = [], True, False, False, True
+        with_paths, show_au, view_3d, show_links, show_celes, show_spokes = [], True, False, False, True, False
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with House and 1circle below it (the title off: neither)
         show_houses = one_circle = False
         if kept_pills(coords, "Coordinates", ["Coordinates"], f"{key}_t_coords", "Coordinates", label_visibility="collapsed"):
@@ -989,7 +990,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         with_paths = core.in_order(titled(head, "Planet Path", f"{key}_t_paths", core.shown_order(choices), f"{key}_paths", start("Planet Path"),
                                           selection_mode="multi", format_func=core.symbol_of), choices)
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with AU and 3D below it (always the Fit scale)
-        show_au, view_3d, show_links, show_celes = False, False, False, True   # (with the title off: no tags, not 3D, no Co)
+        show_au, view_3d, show_links, show_celes, show_spokes = False, False, False, True, False   # (title off: no tags, not 3D, no Co, Sp)
         if kept_pills(coords, "Coordinates", ["Coordinates"], f"{key}_t_scale", "Coordinates", label_visibility="collapsed"):
             below = coords.container(horizontal=True, width="content", gap="xxsmall")
             # Ce, first: the celestial coordinates (on to start), on the drawing and in the 3D view; then AU, 3D; and Co (Geo,
@@ -999,6 +1000,8 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
             view_3d = bool(kept_pills(below, "3D", ["3D"], f"{key}_3d", start("3D"), label_visibility="collapsed"))
             if view_3d and centre == "Ea":                    # Co: with 3D on only (it shows in the 3D view)
                 show_links = bool(kept_pills(below, "Co", ["Co"], f"{key}_co", start("Co"), label_visibility="collapsed"))
+            if view_3d:                                       # Sp: with 3D on only, Geo and Helio: lines from the centre through each planet
+                show_spokes = bool(kept_pills(below, "Sp", ["Sp"], f"{key}_sp", start("Sp"), label_visibility="collapsed"))
     speed = titled(head, "Rotate in 1s", f"{key}_t_speed", FLAT_SPEED_CHOICES if flat else SPEED_CHOICES, f"{key}_speed", start("Rotate in 1s"))
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (not on the flat page: no Manual there)
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still
@@ -1020,7 +1023,8 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         moving = bool(day_seconds) and not manual            # Rotate in 1s: time runs at the speed picked
         at = [(m[0], m[1]) for m in moments]
         fig = space3dview.space_figure(centre, bodies, tuple(with_paths), at, places, moving=moving,
-                                       show_au=show_au, show_links=show_links, show_celes=show_celes)   # (AU: the rings; Co: the lines; Ce)
+                                       show_au=show_au, show_links=show_links, show_celes=show_celes,
+                                       show_spokes=show_spokes)   # (AU: the rings; Co, Sp: the lines; Ce)
         # (the HTML is built only from the chart and the tables, never from what a user typed: safe to run) the script draws
         # the Earth as a globe, and with a speed picked moves the planets and turns the Earth
         st.html(mapchart.fit_html(fig, after_js=space3dview.space_js(centre, bodies, at,

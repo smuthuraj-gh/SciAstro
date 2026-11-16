@@ -99,20 +99,22 @@ FAR_AU = 11.0                      # running: the view reaches out to here (past
 
 
 def space_figure(centre: str, bodies, paths, moments, places: dict | None = None, moving: bool = False,
-                 show_au: bool = True, show_links: bool = False, show_celes: bool = True) -> go.Figure:
+                 show_au: bool = True, show_links: bool = False, show_celes: bool = True, show_spokes: bool = False) -> go.Figure:
     """The 3D view round centre (Ea or Su): bodies at each of moments ((clock, Julian day), DOB hollow), the Planet Paths of
     paths over one trip from that moment (DOB dashed), the celestial axis and equator with RA 0..270, rings of distance on
     the equator plane, and (Geo) CB and CN on the Earth (places: {clock: (label, lat, lon)}). On Geo/Helio Model's Fit
     scale. moving: time will run (space_js), so the view reaches far enough for all, with room for the clock.
     show_au: the rings of distance on the plane of the equator (the page's AU button); show_celes: the celestial
     coordinates, the plane of the equator, the axis with NCP and SCP, the equator and its RA names (its Ce button). show_links (Co, Geo): a line from CB (DOB) or CN (Now) on the Earth
-    to each body of its moment."""
+    to each body of its moment. show_spokes (Sp): a dashed line from the centre through each body out to the edge of the
+    view, at the body's RA and Dec."""
     c = CENTRE[centre]
     ball_r = c["fit_r"]
     fig = go.Figure()
     fig.add_trace(_ball(ball_r, c["colour"], c["name"]))       # (first: the page's script finds the Earth as the first surface)
     outer = ball_r
     jd_globe = globe_moment(moments)
+    spokes = []                                               # Sp: each body's direction, drawn once the view's reach is known
     for clock, jd in moments:
         hollow = clock == "DOB"
         at = {}                                               # each body's place, for the Co lines
@@ -121,6 +123,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
             r = _reach(au, c)
             outer = max(outer, r)
             x, y, z = at[name] = _xyz(ra, dec, r)
+            spokes.append((clock, name, ra, dec))
             colour, sym = core.colour(name), core.symbol_of(name)
             fig.add_trace(go.Scatter3d(
                 x=[x], y=[y], z=[z], mode="markers+text", text=[sym], textposition="top center", showlegend=False,
@@ -158,6 +161,11 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
                                        marker=dict(size=5, color=_light(core.colour(label))), showlegend=False, name=f"{label} on the Earth",
                                        textfont=dict(size=11, color=_light(core.colour(label))), hovertemplate=f"{label} ({clock})<extra></extra>"))
     span = max(outer, _reach(FAR_AU, c) if moving else 0) * 1.08
+    for clock, name, ra, dec in spokes if show_spokes else ():   # Sp: from the centre through the body to the view's edge
+        ex, ey, ez = _xyz(ra, dec, span)
+        fig.add_trace(go.Scatter3d(x=[0, ex], y=[0, ey], z=[0, ez], mode="lines", hoverinfo="skip", showlegend=False,
+                                   name=f"Sp {core.symbol_of(name)} {clock}", opacity=0.9,   # (named for the page to move it)
+                                   line=dict(color=_light(core.colour(name)), width=3, dash="dash")))
     stars = random.Random(7)                                  # fixed stars, far out (the same each time)
     sx, sy, sz = [], [], []
     for _ in range(STARS):
@@ -352,6 +360,11 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
   }
   const idx = [], keys = [];
   gd.data.forEach((d, i) => { if (M.tables[d.name]) { idx.push(i); keys.push(d.name); } });
+  const spokes = [];                               // Sp: each spoke's trace, its body and its length (to the view's edge)
+  gd.data.forEach((d, i) => {
+    const k = d.name && d.name.startsWith("Sp ") ? keys.indexOf(d.name.slice(3)) : -1;
+    if (k >= 0) spokes.push({i, k, len: Math.hypot(d.x[1], d.y[1], d.z[1])});
+  });
   const pad2 = (v) => (v >= 0 ? "+" : "-") + Math.abs(v).toFixed(2);
   const clockLine = (s, t) => {                    // as the drawing's: its date and time, at its place's UTC offset
     const known = s.offset !== null && s.offset !== undefined, off = known ? s.offset : 0;
@@ -386,6 +399,12 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     });
     Plotly.restyle(gd, {x: xs, y: ys, z: zs, hovertemplate: tips, "marker.size": sizes}, idx);
     if (G) turnGlobe(G.gst0 + G.spin * t);         // the Earth turning with time
+    if (spokes.length) {                           // Sp: from the centre through the body as it moves, to the view's edge
+      Plotly.restyle(gd, {x: spokes.map((p) => [0, xs[p.k][0] * p.len / Math.hypot(xs[p.k][0], ys[p.k][0], zs[p.k][0])]),
+                          y: spokes.map((p) => [0, ys[p.k][0] * p.len / Math.hypot(xs[p.k][0], ys[p.k][0], zs[p.k][0])]),
+                          z: spokes.map((p) => [0, zs[p.k][0] * p.len / Math.hypot(xs[p.k][0], ys[p.k][0], zs[p.k][0])])},
+                     spokes.map((p) => p.i));
+    }
     if (G && G.links.length) {                     // Co: from CB or CN, turning with the Earth, to the body as it moves
       const gst = G.gst0 + G.spin * t, lx = [], ly = [], lz = [], li = [];
       G.links.forEach((l) => {
