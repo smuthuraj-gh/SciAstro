@@ -11,7 +11,7 @@ import re
 import plotly.graph_objects as go
 
 from . import core, space3d
-from .mapchart import CHART_FONT_FAMILY
+from .mapchart import CHART_FONT_FAMILY, SYMBOL_FONT_FAMILY
 
 WIDTH, HEIGHT = 820, 720           # a fixed size, shown at the top left of the page (not stretched to its width)
 # the look: a night sky with fixed stars; soft lines and rings, so that the planets stand out; text 10 to 12 px
@@ -21,8 +21,10 @@ RING_COLOUR = "rgba(150,165,205,0.45)"     # the AU rings
 PLANE_COLOUR = "rgb(120,150,220)"          # the plane of the equator, faint
 TEXT_COLOUR = "rgb(220,226,240)"
 STARS = 450                                # fixed stars in the background (the same every time)
-MARK_SCALE = 1.0                           # a mark's diameter: its Size radius (as on the flat drawing) times this; in 3D the
-                                           # inner planets crowd the Earth, so smaller than the drawing's (twice the radius)
+MARK_SCALE = 2.0                           # a mark's diameter: its Size radius times this, as on AstroClock-3D (twice the radius)
+SYMBOL_PX = 12 / 9.5                       # the symbol inside it: its font size for each pixel of the mark's radius, as AstroClock-3D
+SYMBOL_LEAST = 5                           # scales its symbols (9.5 px radius: 12 px); a mark of a smaller radius shows no symbol
+SYMBOL_FONT = (10, 12)                     # but kept within the pages' text sizes (10 to 12 px): still inside the smallest mark (14 px)
 # the body at the centre: its colour, its radius (in Fit units: each tenfold distance one unit; not to scale); the Fit scale's distance drawn at it and space taken out; AU rings on Fit and on True; the paths' spans
 CENTRE = {"Ea": dict(colour="rgb(70,130,200)", fit_r=1.4, log_from=space3d.LOG_FROM_AU, gap=space3d.GAP,   # (a big globe, as on
                                                                                                    # AstroClock-3D: distances count from its surface)
@@ -61,6 +63,16 @@ def _light(colour: str, share: float = 0.55) -> str:
     else:
         rgb = [int(v) for v in m.groups()]
     return "rgb(" + ",".join(str(round(v + (255 - v) * share)) for v in rgb) + ")"
+
+
+def _ink(colour: str) -> str:
+    """The symbol's colour on a filled mark of this colour: black on a light one, white on a dark one (AstroClock-3D's inkOn)."""
+    m = re.fullmatch(r"\s*rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+).*\)\s*", colour or "")
+    m2 = None if m else re.fullmatch(r"\s*#([0-9a-fA-F]{6})\s*", colour or "")
+    if not (m or m2):
+        return "white"
+    r, g, b = [int(v) for v in m.groups()] if m else [int(m2[1][i:i + 2], 16) for i in (0, 2, 4)]
+    return "black" if 0.299 * r + 0.587 * g + 0.114 * b > 150 else "white"
 
 
 def _reach(au: float, c: dict) -> float:
@@ -125,10 +137,12 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
             x, y, z = at[name] = _xyz(ra, dec, r)
             spokes.append((clock, name, ra, dec))
             colour, sym = core.colour(name), core.symbol_of(name)
-            fig.add_trace(go.Scatter3d(
-                x=[x], y=[y], z=[z], mode="markers+text", text=[sym], textposition="top center", showlegend=False,
-                textfont=dict(size=12, color=colour, family=CHART_FONT_FAMILY), name=f"{sym} {clock}",
-                marker=dict(size=MARK_SCALE * marker_radius(core.size_rule(name, texts=size_texts(centre)), jd),   # (a diameter)
+            radius = marker_radius(core.size_rule(name, texts=size_texts(centre)), jd)
+            fig.add_trace(go.Scatter3d(     # its symbol inside it, as on AstroClock-3D: in its colour on a hollow DOB mark
+                x=[x], y=[y], z=[z], mode="markers+text", text=[sym if radius >= SYMBOL_LEAST else ""], textposition="middle center",
+                showlegend=False, name=f"{sym} {clock}",
+                textfont=dict(size=min(max(SYMBOL_PX * radius, SYMBOL_FONT[0]), SYMBOL_FONT[1]), color=colour if hollow else _ink(colour), family=SYMBOL_FONT_FAMILY),
+                marker=dict(size=MARK_SCALE * radius,   # (a diameter)
                             color=SKY if hollow else colour,   # (DOB: hollow, its rim in its colour; Now: a white rim)
                             line=dict(color=colour if hollow else "rgba(255,255,255,0.85)", width=2 if hollow else 1),
                             symbol="circle-open" if hollow else "circle", opacity=1),
@@ -265,7 +279,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     clocks = [dict(clock=clock, jd=jd, offset=(offsets or {}).get(clock)) for clock, jd in moments]
     data = dict(tables=tables, day_seconds=day_seconds, days=space3d.RUN_DAYS, clocks=clocks,
                 fit_r=c["fit_r"], log_from=c["log_from"], gap=list(c["gap"]), word=c["name"].lower(), globe=globe,
-                rules=rules, sizing=sizing, mark_scale=MARK_SCALE, au_km=core.AU_KM, arcsec=list(SIZE_RANGE_ARCSEC), radii=list(MARKER_RANGE))
+                rules=rules, sizing=sizing, mark_scale=MARK_SCALE, symbol_px=SYMBOL_PX, symbol_least=SYMBOL_LEAST, symbol_font=list(SYMBOL_FONT), au_km=core.AU_KM, arcsec=list(SIZE_RANGE_ARCSEC), radii=list(MARKER_RANGE))
     return ("const M = " + json.dumps(data, separators=(",", ":")).replace("<", "\\u003c") + ";\n" + """
   const RAD = Math.PI / 180;
   const reach = (au) => {                          // as space3dview._reach
@@ -387,17 +401,20 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
       tips.push(k + "\\u003cbr>RA: " + s.ra.toFixed(2) + "\\u003cbr>Dec/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2) +
                 "\\u003cbr>Distance from " + M.word + ": " + s.dist.toPrecision(4) + " AU\\u003cextra>\\u003c/extra>");
     });
-    const sizes = keys.map((k) => {                // by the Symbols table's Size, as on the flat drawing (a diameter)
+    const radii = keys.map((k) => {                // by the Symbols table's Size, as on the flat drawing
       const rule = M.rules[k];
-      if (!rule) return M.mark_scale * 7;
-      if (rule.px !== undefined) return M.mark_scale * rule.px;
+      if (!rule) return 7;
+      if (rule.px !== undefined) return rule.px;
       const b = M.sizing[rule.clock][rule.of], u = (t + b.shift) / b.step, i = Math.max(0, Math.min(Math.floor(u), b.dist.length - 2));
       const au = b.dist[i] + (b.dist[i + 1] - b.dist[i]) * (u - i), arcsec = 2 * Math.atan(b.km / (au * M.au_km)) / RAD * 3600;
       const lo = Math.log(M.arcsec[0]), hi = Math.log(M.arcsec[1]);
       const share = Math.max(0, Math.min(1, (Math.log(arcsec) - lo) / (hi - lo)));
-      return M.mark_scale * Math.max(1, M.radii[0] + (M.radii[1] - M.radii[0]) * share + rule.add);
+      return Math.max(1, M.radii[0] + (M.radii[1] - M.radii[0]) * share + rule.add);
     });
-    Plotly.restyle(gd, {x: xs, y: ys, z: zs, hovertemplate: tips, "marker.size": sizes}, idx);
+    // each mark (a diameter) and its symbol inside it, sized with it (none on a mark too small to read)
+    Plotly.restyle(gd, {x: xs, y: ys, z: zs, hovertemplate: tips, "marker.size": radii.map((r) => M.mark_scale * r),
+                        "textfont.size": radii.map((r) => Math.min(Math.max(M.symbol_px * r, M.symbol_font[0]), M.symbol_font[1])),
+                        text: keys.map((k, n) => [radii[n] >= M.symbol_least ? gd.data[idx[n]].name.split(" ")[0] : ""])}, idx);
     if (G) turnGlobe(G.gst0 + G.spin * t);         // the Earth turning with time
     if (spokes.length) {                           // Sp: from the centre through the body as it moves, to the view's edge
       Plotly.restyle(gd, {x: spokes.map((p) => [0, xs[p.k][0] * p.len / Math.hypot(xs[p.k][0], ys[p.k][0], zs[p.k][0])]),
