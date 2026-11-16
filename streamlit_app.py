@@ -313,9 +313,9 @@ def _pick_customer_box() -> tuple[pd.Series | None, Prepared | None]:
     saved_note = st.session_state.pop("_quick_saved", None)   # a quick birth just saved
     if saved_note:
         st.toast(saved_note)
-    locked_note = st.session_state.pop("_dob_locked", None)   # they picked DOB, which is not open to them: why
-    if locked_note:
-        st.toast(locked_note if isinstance(locked_note, str) else access.PAID_NOTE)
+    locked_note = st.session_state.pop("_dob_locked", None)   # they picked DOB, which is not open to them (none, or run out):
+    if locked_note:                                           # where to get more days, on the page (not a toast, which fades)
+        st.warning(locked_note if isinstance(locked_note, str) else access.PAID_NOTE)
     if df.empty:
         if user.is_admin:                                     # (anyone signed in sees the Now charts)
             st.sidebar.info("No customers yet.")

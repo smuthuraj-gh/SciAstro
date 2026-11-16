@@ -25,7 +25,7 @@ RENAMED = {"Free": "Now", "FreeInd": "Now", "FreeGrp": "Now",
 TRIALS = ("DOBT", "Trial-Ind", "TrInd", "TrDOB", "Trial DOB", "DOBGT", "Trial-Grp", "TrGrp", "TrGroup", "Trial Group")
 SIGNUP_DAYS = 1                    # DOB with Days left blank lasts this many days (signing up gives it)
 LASTS = ("DOB",)                   # the Access that run out: DOB after Days days (see period_end)
-PAID_NOTE = "DOB charts are a paid option (DOB): ask the admin."
+PAID_NOTE = "Use DOB Details page to get more days of access."   # (DOB not open, or run out: Get more days there)
 DAY_PACKS = (1, 7, 30, 90, 180, 365)  # the days a customer may add themselves (DOB Details: Get more days)
 QUICK = -1                         # the sidebar's Quick birth (not saved), in place of a record's id
 
