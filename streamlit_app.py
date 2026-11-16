@@ -1517,19 +1517,22 @@ def page_defaults():
     def shown(rows: pd.DataFrame) -> pd.DataFrame:
         """The rows as the page shows them: Value worked out from Choices, Allowed_Values all the input's values when none
         are kept."""
+        values = [value_in_use(p, o, ch) for p, o, ch in zip(rows["Page"], rows["Options"], rows["Choices"])]
         return rows.assign(
-            Value=[value_in_use(p, o, ch) for p, o, ch in zip(rows["Page"], rows["Options"], rows["Choices"])],
-            Allowed_Values=[allowed_values(p, o, a) for p, o, a in zip(rows["Page"], rows["Options"], rows["Allowed_Values"])]
-        )[["Page", "Options", "Choices", "Value", "Allowed_Values"]]
+            Value=values,
+            Allowed_Values=[allowed_values(p, o, a) for p, o, a in zip(rows["Page"], rows["Options"], rows["Allowed_Values"])],
+            Shown_Value=values,                               # (hidden: the Value as shown, to tell a Value typed in from one
+        )[["Page", "Options", "Choices", "Value", "Allowed_Values", "Shown_Value"]]   # left as it was)
 
     def typed_in(rows: pd.DataFrame) -> pd.DataFrame:
-        """What was typed, put where it is kept (on Update, Insert, Delete): a Value changed from what Choices gives
-        becomes the Choices; Allowed_Values as the app keeps it (blank: all)."""
+        """What was typed, put where it is kept (on Update, Insert, Delete): a Value typed in (changed from the one shown)
+        becomes the Choices, else the Choices stay as typed; Allowed_Values as the app keeps it (blank: all)."""
         out = rows.copy()
         for i, r in out.iterrows():
-            was = value_in_use(r["Page"], r["Options"], r["Choices"])
+            shown_before = db._cell(r.get("Shown_Value"))
             now = db._cell(r.get("Value"))
-            if now and now != was:                            # a Value typed in: the Choices it means
+            if now and now != shown_before:                   # a Value typed in: the Choices it means (a Choices typed in,
+                                                              # its Value left as shown, is kept as typed)
                 now = re.sub(r"\s*\(app default\)\s*$", "", now)
                 out.at[i, "Choices"] = "" if now == "(none)" else now
             kept, _ = allowed_to_keep(r["Page"], r["Options"], r.get("Allowed_Values"))
@@ -1565,6 +1568,7 @@ def page_defaults():
     crud_table("defaults_table", table, problems, commit, on_update=typed_in,
                height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
                column_config={"Page": st.column_config.TextColumn(width=170), "Options": st.column_config.TextColumn(width=170),
+                              "Shown_Value": None,
                               "Choices": st.column_config.TextColumn(width=300),
                               "Value": st.column_config.TextColumn("Value", width=260,
                                                                   help="What the page starts with (Choices as the page reads "
