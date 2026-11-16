@@ -1,7 +1,7 @@
 # Equatorial charts (web)
 
 The web version of the Excel workbook `Sen_Test_v2.xlsm`: Swiss Ephemeris RA / Dec only (no tropical or sidereal
-zodiac), with the same rules. Orchestrated by Senthil Muthuraj (shown at the foot of every page's sidebar).
+zodiac), with the same rules. Orchestrated by Senthil Muthuraj; built by SI Agent 007 (both shown at the foot of every page's sidebar).
 
 | Page | Who | What |
 |---|---|---|
