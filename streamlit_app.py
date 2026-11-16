@@ -1625,7 +1625,7 @@ def more_days_box():
                    "Free to add them free.")
         c1, c2, c3, _ = st.columns([1, 1.4, 1, 2.6], vertical_alignment="bottom")
         days = c1.selectbox("Days", access.DAY_PACKS, index=1, key="more_days")
-        coupon = c2.text_input("Coupon", key="more_days_coupon", max_chars=30, placeholder="Free")
+        coupon = c2.text_input("Pay / Coupon", key="more_days_coupon", max_chars=30, placeholder="Free")   # (payment to come)
         if c3.button("Add days", key="more_days_add", type="primary"):
             if (coupon or "").strip().lower() not in FREE_COUPONS:   # (the payment goes here, in place of a coupon)
                 st.error("Payment is not open yet: apply the coupon Free to add the days free.")
