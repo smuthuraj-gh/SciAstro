@@ -1618,9 +1618,10 @@ def page_my_details():
                      f"{prep.birth_lat}, {prep.birth_lon}.")
         if st.session_state.pop("details_saved", False):
             st.success("Your details are saved.")
-        more_days_box()                                       # every member adds DOB days themselves (free for now; later
-        with st.expander("Edit a DOB"):                       # paid), above Edit a DOB
+        with st.expander("Edit a DOB"):
             details_form(row)
+        more_days_box()                                       # every member adds DOB days themselves (free for now; later
+                                                              # paid), below Edit a DOB
 
 
 FREE_COUPONS = ("free",)                                       # coupons that add days free (any case); payment to come
