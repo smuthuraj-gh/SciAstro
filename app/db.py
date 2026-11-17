@@ -222,16 +222,11 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("AstroClock-3D", "Coordinates", "Ce"),
     ("AstroClock-3D", "Rotate in 1s", "Manual"),
     ("Geo/Helio Model", "Centric Model", "Geo"),
-    ("Geo/Helio Model", "Geo Time", "Now"),
-    ("Geo/Helio Model", "Geo Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio Model", "Geo Planet Path", "Mo, Su, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio Model", "Geo AU", "On"),
-    ("Geo/Helio Model", "Geo Rotate in 1s", "Manual"),
-    ("Geo/Helio Model", "Helio Time", "Now"),
-    ("Geo/Helio Model", "Helio Planets", "Mo, Ea, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio Model", "Helio Planet Path", "Mo, Ea, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio Model", "Helio AU", "On"),
-    ("Geo/Helio Model", "Helio Rotate in 1s", "Manual"),
+    ("Geo/Helio Model", "Time", "Now"),                       # (one row each for both models: Geo takes Su, Helio Ea)
+    ("Geo/Helio Model", "Planets", "Mo, Su, Ea, Me, Ve, Ma, Ju, Sa"),
+    ("Geo/Helio Model", "Planet Path", "Mo, Su, Ea, Me, Ve, Ma, Ju, Sa"),
+    ("Geo/Helio Model", "AU", "On"),
+    ("Geo/Helio Model", "Rotate in 1s", "Manual"),
     ("Aspects", "Start Date (UT)", "DOB"),
     ("Aspects", "End Date (UT)", "Start Date (UT) + 5 days"),
     ("Aspects", "Planets", "Ju, Sa"),
@@ -250,10 +245,9 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("DOB Details", "Pay / Coupon", ""),                     # and the coupon filled in to start (blank: none; Free: free)
     ("AstroClock-2D", "1C", "Off"),                           # the on / off buttons below Coordinates: one circle for aspects
     ("AstroClock-2D", "DA", "On"),                            # and the Ave planets on the Distance(%) graph
-    ("Geo/Helio Model", "Geo Ce", "On"),                      # the celestial coordinates, below Coordinates
-    ("Geo/Helio Model", "Helio Ce", "On"),
+    ("Geo/Helio Model", "Ce", "On"),                          # the celestial coordinates, below Coordinates
 ]
-DEFAULTS_VERSION = "7"                                        # 7: AstroClock-2D's 1C and DA, Geo/Helio Model's Ce; 6: DOB Details' Days and Pay / Coupon; 5: AstroClock-2D's aspects; 4: Aspects' angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
+DEFAULTS_VERSION = "7"                                        # 7: AstroClock-2D's 1C and DA, Geo/Helio Model's Ce (its rows one per input since); 6: DOB Details' Days and Pay / Coupon; 5: AstroClock-2D's aspects; 4: Aspects' angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
@@ -344,6 +338,7 @@ def engine() -> sa.Engine:
     _add_defaults_index(eng)
     _add_defaults_allowed(eng)
     _add_defaults_section(eng)
+    _merge_geo_helio(eng)
     _seed_defaults(eng)
     _set_time_now(eng)
     _rename_dec_button(eng)
@@ -458,10 +453,49 @@ def _rename_defaults_page(eng: sa.Engine):
 NEW_IN_4 = (("Aspects", "Major Aspects"), ("Aspects", "Minor Aspects"), ("Planets Cycles", "Minor Aspects"))
 NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects"))
 NEW_IN_6 = (("DOB Details", "Days"), ("DOB Details", "Pay / Coupon"))
-NEW_IN_7 = (("AstroClock-2D", "1C"), ("AstroClock-2D", "DA"), ("Geo/Helio Model", "Geo Ce"), ("Geo/Helio Model", "Helio Ce"))
+NEW_IN_7 = (("AstroClock-2D", "1C"), ("AstroClock-2D", "DA"), ("Geo/Helio Model", "Ce"))
 
 
-TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio model", "geo time"), ("geo/helio model", "helio time"))
+TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio model", "geo time"), ("geo/helio model", "helio time"),
+             ("geo/helio model", "time"))
+GEO_HELIO_INPUTS = ("Time", "Planets", "Planet Path", "AU", "Ce", "Rotate in 1s")   # Geo/Helio Model's, one row each for both models
+
+
+def _merge_geo_helio(eng: sa.Engine):
+    """Geo/Helio Model's rows, once one per model (Geo Time, Helio Time ..), become one per input (Time ..) for both: its
+    Choice Values both models' (the planets of both; else Geo's), its Allowed Values both models' (blank, all, when either is),
+    its Box Title Geo's. A row for the input already there stays, and the per-model rows go."""
+    with eng.begin() as c:
+        for title in GEO_HELIO_INPUTS:
+            names = [f"geo {title.lower()}", f"helio {title.lower()}"]
+            rows = {r.options.lower(): r for r in c.execute(sa.select(defaults.c.id, defaults.c.options, defaults.c.choices,
+                                                                        defaults.c.allowed_values).where(
+                sa.func.lower(defaults.c.page) == "geo/helio model", sa.func.lower(defaults.c.options).in_(names))).all()}
+            if not rows:
+                continue
+            geo, helio = rows.get(names[0]), rows.get(names[1])
+            there = c.execute(sa.select(defaults.c.id).where(sa.func.lower(defaults.c.page) == "geo/helio model",
+                                                             sa.func.lower(defaults.c.options) == title.lower())).first()
+            keep = None if there else (geo or helio)
+            for r in rows.values():
+                if keep is None or r.id != keep.id:
+                    c.execute(defaults.delete().where(defaults.c.id == r.id))
+            if keep is None:
+                continue
+
+            def both(field: str, merge: bool) -> str | None:
+                texts = [(getattr(r, field) or "").strip() for r in (geo, helio) if r is not None]
+                if not merge:
+                    return texts[0] or None
+                if field == "allowed_values" and not all(texts):
+                    return None                               # (either blank: all)
+                parts = [p.strip() for text in texts for p in text.split(",") if p.strip()]
+                return ", ".join(dict.fromkeys(parts)) or None
+
+            lists = title in ("Planets", "Planet Path")
+            c.execute(defaults.update().where(defaults.c.id == keep.id).values(
+                options=title, choices=both("choices", lists), allowed_values=both("allowed_values", lists)))
+
 
 
 COORD_BUTTONS_RENAMED = {"dec": "De", "lati": "La", "long": "Lg", "lat": "La", "lon": "Lg", "house": "Ho", "celes": "Ce", "true": "Tru", "co": "SpC"}   # AstroClock-3D's Coordinates buttons' earlier names

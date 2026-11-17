@@ -687,13 +687,15 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
            ("AstroClock-3D", "Coordinates"): (["Ho", "Ce", "AU", "3D", "Sp", "SpC", "RA", "De", "La", "Lg"], True, ["Ce"]),
            ("AstroClock-3D", "Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL),
            ("Geo/Helio Model", "Centric Model"): (["Geo", "Helio"], False, "Geo")}
-    for model, bodies in (("Geo", globechart.BODY_CHOICES), ("Helio", space3d.HELIO_BODIES)):
-        out |= {("Geo/Helio Model", f"{model} Time"): (["Now", "DOB"], False, "Now"),
-                ("Geo/Helio Model", f"{model} Planets"): (list(bodies), True, list(bodies)),
-                ("Geo/Helio Model", f"{model} Planet Path"): (list(bodies), True, list(bodies)),
-                ("Geo/Helio Model", f"{model} AU"): (["AU"], False, "AU"),
-                ("Geo/Helio Model", f"{model} Ce"): (["Ce"], False, "Ce"),
-                ("Geo/Helio Model", f"{model} Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL)}
+    # Geo/Helio Model: one row per input for both models; its planets are both models' (each takes those it has: Su for
+    # Geo, Ea for Helio)
+    bodies = list(globechart.BODY_CHOICES) + [b for b in space3d.HELIO_BODIES if b not in globechart.BODY_CHOICES]
+    out |= {("Geo/Helio Model", "Time"): (["Now", "DOB"], False, "Now"),
+            ("Geo/Helio Model", "Planets"): (bodies, True, bodies),
+            ("Geo/Helio Model", "Planet Path"): (bodies, True, bodies),
+            ("Geo/Helio Model", "AU"): (["AU"], False, "AU"),
+            ("Geo/Helio Model", "Ce"): (["Ce"], False, "Ce"),
+            ("Geo/Helio Model", "Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL)}
     for page, end, planets in (("Aspects", (0, 5), core.BUTTON_ORDER + ["NN", "SN"]), ("Planets Cycles", (360, 0), core.BUTTON_ORDER),
                                ("Planets Distance(%)", (24, 0), core.BUTTON_ORDER)):
         out |= {(page, "Start Date (UT)"): (START, False, "DOB"), (page, "End Date (UT)"): (END, False, end),
@@ -1076,13 +1078,16 @@ def titled(head, title: str, title_key: str, options, key: str, default=None, **
 
 def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "Geo", flat: bool = False):
     """GeoCentric (centre Ea) or HelioCentric (centre Su): its buttons each keep their own choice (key), also while the other
-    model is shown; they start as the Defaults table says (Geo Time .. Helio Rotate in 1s)."""
+    model is shown; they start as the Defaults table says (Geo/Helio Model's rows, Time .. Rotate in 1s, for both models)."""
     def start(title: str):
-        return default_choice("AstroClock-2D", title) if flat else default_choice("Geo/Helio Model", f"{model} {title}")
+        if flat:
+            return default_choice("AstroClock-2D", title)
+        value = default_choice("Geo/Helio Model", title)      # (the planets: those this model has)
+        return [v for v in value if v in choices] if isinstance(value, list) else value
 
     def may(title: str, options: list) -> list:
         """What this input offers (its Defaults row's Allowed Values)."""
-        return offered("AstroClock-2D", title, options) if flat else offered("Geo/Helio Model", f"{model} {title}", options)
+        return offered("AstroClock-2D", title, options) if flat else offered("Geo/Helio Model", title, options)
     if prep.now_only:                                         # no birth details: Now, and DOB opens the form for them
         dob_asked(st.session_state.get(f"{key}_when") == "DOB", (f"{key}_when", "Now"), (f"_kept_{key}_when", "Now"))
         when = titled(head, "Time", f"{key}_t_time", list(TIMES), f"{key}_when", "Now")
