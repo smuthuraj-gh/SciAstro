@@ -258,7 +258,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
               "browser and system, and their browser's time zone. Access: theirs then. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
               "either asks first, and a deleted row cannot be brought back.",
-    "Defaults": "The Defaults table: what each page's inputs start as. A row per input, each column its own: Page (e.g. DOB Details), Options (the box the input is in, e.g. Get more days of access), Choices (the input, e.g. Days), Value (what it starts as, e.g. 1) and Allowed_Values (the values Value may be set to, e.g. 1, 7, 30, 90, 180, 365: all the input's values, or those typed there, comma-separated; only for this table, the page still offers all its buttons; clear it for all again; dates, text boxes and single on / off buttons cannot be narrowed). "
+    "Defaults": "The Defaults table: what each page's inputs start as. A row per input, each column its own: Page (e.g. DOB Details), Options (the box the input is in, e.g. Get more days of access), Choices (the input, e.g. Days), Value (what it starts as, e.g. 1) and Allowed_Values (the values Value may be set to, e.g. 1, 7, 30, 90, 180, 365: all the input's values, or those typed there, comma-separated; only for this table, the page still offers all its buttons; clear it for all again; a text box, the words allowed, e.g. Pay, Free, blank for any text; dates and single on / off buttons cannot be narrowed). "
                 "Value: buttons, the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0, 180; Manual), "
                 "blank for none; one on / off button (AU): On or Off. Start Date (UT): DOB or Now. End Date (UT): Now, or "
                 "Start Date (UT) + a time, e.g. 5 days, 2 years 6 months (years, months, weeks, days), which moves with the "
@@ -1405,8 +1405,13 @@ def input_spec(page, options):
 
 
 def is_list_input(spec) -> bool:
-    """An input of buttons to pick from (not a date, a text box or one on / off button): its Allowed_Values can limit its Value."""
+    """An input of buttons to pick from (not a date, a text box or one on / off button)."""
     return spec is not None and isinstance(spec[0], list) and len(spec[0]) > 1
+
+
+def can_limit(spec) -> bool:
+    """An input whose Allowed_Values can limit its Value: buttons to pick from, or a text box (to the words typed there)."""
+    return is_list_input(spec) or (spec is not None and spec[0] == TEXT)
 
 
 def allowed_values(page, options, stored=None) -> str:
@@ -1421,7 +1426,7 @@ def allowed_values(page, options, stored=None) -> str:
     if choices == END:
         return "Now, or Start Date (UT) + a time (e.g. 5 days, 2 years 6 months)"
     if choices == TEXT:
-        return f"any text, at most {TEXT_MOST} characters (blank: empty)"
+        return db._cell(stored) or f"any text, at most {TEXT_MOST} characters (blank: empty)"
     if len(choices) == 1:
         return f"On or Off ({choices[0]})"
     kept = db._cell(stored)
@@ -1432,6 +1437,13 @@ def allowed_to_keep(page, options, text) -> tuple[str | None, list[str]]:
     """Allowed_Values as typed, as it is kept: (the values named, in the app's order, or None for all of them / an input
     that cannot be narrowed; what was not understood)."""
     spec = input_spec(page, options)
+    if spec is not None and spec[0] == TEXT:                  # a text box: the words typed, comma-separated (blank, or its
+        text = db._cell(text)                                 # description: any text)
+        if not text or text == allowed_values(page, options):
+            return None, []
+        words = list(dict.fromkeys(w.strip() for w in text.split(",") if w.strip()))
+        long = [w for w in words if len(w) > TEXT_MOST]
+        return ", ".join(words) or None, [f"{w} (more than {TEXT_MOST} characters)" for w in long]
     if not is_list_input(spec):
         return None, []
     text = re.sub(r"(?i)^\s*(one|any)\s+of\s*:\s*", "", db._cell(text))
@@ -1454,11 +1466,11 @@ def page_defaults():
 
     def shown(rows: pd.DataFrame) -> pd.DataFrame:
         """The rows as the page shows (and keeps) them: Allowed_Values as kept, all the input's values when blank; one
-        typed for a date, a text box or one on / off button is left as typed (refused by problems)."""
+        typed for a date or one on / off button is left as typed (refused by problems)."""
         out = rows.copy()
         for i, r in out.iterrows():
             spec, typed = input_spec(r["Page"], r["Choices"]), db._cell(r.get("Allowed_Values"))
-            if spec is not None and not is_list_input(spec) and typed and typed != allowed_values(r["Page"], r["Choices"]):
+            if spec is not None and not can_limit(spec) and typed and typed != allowed_values(r["Page"], r["Choices"]):
                 continue
             kept, wrong = allowed_to_keep(r["Page"], r["Choices"], typed)
             if not wrong:
@@ -1473,7 +1485,7 @@ def page_defaults():
             if not (page and title) or spec is None:
                 continue
             typed = db._cell(r.get("Allowed_Values"))
-            if not is_list_input(spec):
+            if not can_limit(spec):
                 if typed and typed != allowed_values(page, title):
                     out.append(f"{page} / {title}: Allowed_Values cannot be changed for this input "
                                f"({allowed_values(page, title)}); change Value instead")
@@ -1481,6 +1493,11 @@ def page_defaults():
             kept, wrong = allowed_to_keep(page, title, typed)
             if wrong:
                 out.append(f"{page} / {title}: Allowed_Values '{', '.join(wrong)}' not understood")
+            elif kept and spec[0] == TEXT:                    # a text box's Value: one of its words (or blank: empty)
+                value = db._cell(r["Value"])
+                if value and value.lower() not in [w.lower() for w in kept.split(", ")]:
+                    out.append(f"{page} / {title}: Value {value} not in its Allowed_Values ({kept}); "
+                               "add it to Allowed_Values too, or clear Allowed_Values for any text")
             elif kept:                                        # Value must be among its Allowed_Values
                 value, bad = read_options(spec[0], spec[1], db._cell(r["Value"]))
                 start = value if isinstance(value, list) else ([value] if value else [])
@@ -1509,8 +1526,9 @@ def page_defaults():
                                                                    help="The values Value may be set to: all the input's "
                                                                         "values, or those typed here (comma-separated). Only for "
                                                                         "this table: the page still offers all its buttons. Clear "
-                                                                        "it for all of them again. Dates, text boxes and single "
-                                                                        "on / off buttons cannot be narrowed.")})
+                                                                        "it for all of them again. A text box takes words typed "
+                                                                        "here (e.g. Pay, Free); clear it for any text. Dates "
+                                                                        "and single on / off buttons cannot be narrowed.")})
 
 
 def page_readme():
