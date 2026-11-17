@@ -102,10 +102,11 @@ defaults = sa.Table(
 )
 # The Help table: a row per abbreviation the pages use (Abbreviation) and what it means (Description); kept by admins (the Help
 # page), filled once with the app's own (HELP_ROWS).
+HELP_ABBR_MOST = 60                                           # an Abbreviation's most characters (20 once: see _widen_help_abbreviation)
 help_table = sa.Table(
     "help", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
-    sa.Column("abbreviation", sa.String(20), nullable=False, unique=True),
+    sa.Column("abbreviation", sa.String(HELP_ABBR_MOST), nullable=False, unique=True),
     sa.Column("description", sa.String(500)),
 )
 HELP_ROWS_3 = [                                               # added later still: the Defaults table's columns, DOB Details' and Logins' names
@@ -351,6 +352,7 @@ def engine() -> sa.Engine:
     _rename_help_abbre(eng)
     _add_help_index(eng)
     _rename_help_rows(eng)
+    _widen_help_abbreviation(eng)
     _seed_help(eng)
     return eng
 
@@ -656,6 +658,17 @@ def _add_help_index(eng: sa.Engine):
         pass
 
 
+def _widen_help_abbreviation(eng: sa.Engine):
+    """A Help table made when an Abbreviation was at most 20 characters takes HELP_ABBR_MOST (Postgres holds to the
+    length; SQLite does not, so there is nothing to change)."""
+    if eng.dialect.name != "postgresql" or "help" not in sa.inspect(eng).get_table_names():
+        return
+    size = next((c["type"].length for c in sa.inspect(eng).get_columns("help") if c["name"] == "abbreviation"), None)
+    if size is not None and size < HELP_ABBR_MOST:
+        with eng.begin() as c:
+            c.execute(sa.text(f"ALTER TABLE help ALTER COLUMN abbreviation TYPE VARCHAR({HELP_ABBR_MOST})"))
+
+
 def _seed_help(eng: sa.Engine):
     """Once per set (a note among the settings says which, so a row deleted since stays deleted): the Help table gets the
     rows of HELP_ROWS, then of HELP_ROWS_2, then of HELP_ROWS_3, it lacks (rows already there, the admins' own, are left as
@@ -690,7 +703,7 @@ def help_rows() -> pd.DataFrame:
 
 
 def help_problems(rows: pd.DataFrame) -> list[str]:
-    """What is wrong with the Help rows: each needs an Abbreviation (at most 20 characters, once in the table) and a Description of
+    """What is wrong with the Help rows: each needs an Abbreviation (at most HELP_ABBR_MOST characters, once in the table) and a Description of
     at most 500 characters. A wholly empty row does not count."""
     out, seen = [], set()
     for _, r in rows.iterrows():
@@ -700,8 +713,8 @@ def help_problems(rows: pd.DataFrame) -> list[str]:
         label = abbreviation or "New row"
         if not abbreviation:
             out.append(f"{label}: Abbreviation is empty")
-        if len(abbreviation) > 20:
-            out.append(f"{label}: Abbreviation can be at most 20 characters")
+        if len(abbreviation) > HELP_ABBR_MOST:
+            out.append(f"{label}: Abbreviation can be at most {HELP_ABBR_MOST} characters")
         if len(text) > 500:
             out.append(f"{label}: Description can be at most 500 characters")
         if abbreviation:
