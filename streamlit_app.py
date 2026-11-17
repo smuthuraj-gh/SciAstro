@@ -788,7 +788,8 @@ def options_problems(rows: pd.DataFrame) -> list[str]:
             continue                                          # (said by db.defaults_problems)
         known = inputs.get((page.lower(), title.lower()))
         if known is None:
-            out.append(f"{page} / {title}: no page has that input")
+            out.append(f"{page} / {title}: no page has that input (Page and Options name an input of the app, so "
+                       "they cannot be renamed; put them back as they were)")
             continue
         choices, multi, _ = known[2]
         _, wrong = read_options(choices, multi, db._cell(r["Choices"]))
@@ -1481,16 +1482,17 @@ def page_defaults():
         """The rows as the page shows them: Value worked out from Choices, Allowed_Values all the input's values when none
         are kept."""
         values = [value_in_use(p, o, ch) for p, o, ch in zip(rows["Page"], rows["Options"], rows["Choices"])]
+        allowed = [allowed_values(p, o, a) for p, o, a in zip(rows["Page"], rows["Options"], rows["Allowed_Values"])]
         return rows.assign(
-            Value=values,
-            Allowed_Values=[allowed_values(p, o, a) for p, o, a in zip(rows["Page"], rows["Options"], rows["Allowed_Values"])],
-            Shown_Value=values,                               # (hidden: the Value as shown, to tell a Value typed in from one
-        )[["Page", "Options", "Choices", "Value", "Allowed_Values", "Shown_Value"]]   # left as it was)
+            Value=values, Allowed_Values=allowed,
+            Shown_Value=values,                               # (hidden: the Value and Allowed_Values as shown, to tell what
+            Shown_Allowed=allowed,                            # was typed in from what was left as it was)
+        )[["Page", "Options", "Choices", "Value", "Allowed_Values", "Shown_Value", "Shown_Allowed"]]
 
     def typed_in(rows: pd.DataFrame) -> pd.DataFrame:
         """What was typed, put where it is kept (on Update, Insert, Delete): a Value typed in (changed from the one shown)
         becomes the Choices, else the Choices stay as typed; Allowed_Values as the app keeps it (blank: all)."""
-        out = rows.copy()
+        out, refused = rows.copy(), {}
         for i, r in out.iterrows():
             shown_before = db._cell(r.get("Shown_Value"))
             now = db._cell(r.get("Value"))
@@ -1498,16 +1500,39 @@ def page_defaults():
                                                               # Choices typed in, its Value left as shown, is kept as typed)
                 now = re.sub(r"\s*\(app default\)\s*$", "", now)
                 out.at[i, "Choices"] = "" if now in ("", "(none)") else now
-            kept, _ = allowed_to_keep(r["Page"], r["Options"], r.get("Allowed_Values"))
-            if not _:
-                out.at[i, "Allowed_Values"] = kept or allowed_values(r["Page"], r["Options"])
-        return shown(out)
+            typed = db._cell(r.get("Allowed_Values"))
+            spec = input_spec(r["Page"], r["Options"])
+            if spec is not None and not is_list_input(spec) and typed != db._cell(r.get("Shown_Allowed"))                     and typed != allowed_values(r["Page"], r["Options"]):
+                refused[i] = typed                            # (a date's, text box's or on / off's: left as typed, refused)
+                continue
+            kept, _ = allowed_to_keep(r["Page"], r["Options"], typed)
+            if _:
+                continue
+            out.at[i, "Allowed_Values"] = kept or allowed_values(r["Page"], r["Options"])
+            if kept and now == shown_before and typed != db._cell(r.get("Shown_Allowed")):
+                # Allowed_Values typed in, Value left as it was: a Value outside them moves inside (multi: those inside
+                # are kept; one pick: the first allowed)
+                value, bad = read_options(spec[0], spec[1], db._cell(out.at[i, "Choices"]))
+                names = kept.split(", ")
+                if not bad and spec[1]:
+                    out.at[i, "Choices"] = ", ".join(str(v) for v in (value or []) if str(v) in names)
+                elif not bad and value is not None and str(value) not in names:
+                    out.at[i, "Choices"] = names[0]
+        out = shown(out)
+        for i, typed in refused.items():
+            out.at[i, "Allowed_Values"] = typed
+        return out
 
     def problems(rows: pd.DataFrame) -> list[str]:
         out = db.defaults_problems(rows) + options_problems(rows)
         for _, r in rows.iterrows():
             page, title = db._cell(r["Page"]), db._cell(r["Options"])
             if not (page and title):
+                continue
+            spec = input_spec(page, title)
+            if spec is not None and not is_list_input(spec) and db._cell(r.get("Allowed_Values")) != allowed_values(page, title):
+                out.append(f"{page} / {title}: Allowed_Values cannot be changed for this input "
+                           f"({allowed_values(page, title)}); change Choices or Value instead")
                 continue
             kept, wrong = allowed_to_keep(page, title, r.get("Allowed_Values"))
             if wrong:
@@ -1519,7 +1544,8 @@ def page_defaults():
                 start = value if isinstance(value, list) else ([value] if value else [])
                 outside = [str(v) for v in start if str(v) not in kept.split(", ")]
                 if not bad and outside:
-                    out.append(f"{page} / {title}: Value {', '.join(outside)} not in its Allowed_Values ({kept})")
+                    out.append(f"{page} / {title}: Value {', '.join(outside)} not in its Allowed_Values ({kept}); "
+                               "add it to Allowed_Values too, or clear Allowed_Values for all")
         return out
 
     def commit(rows: pd.DataFrame) -> str:
@@ -1531,7 +1557,7 @@ def page_defaults():
     crud_table("defaults_table", table, problems, commit, on_update=typed_in,
                height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
                column_config={"Page": st.column_config.TextColumn(width=170), "Options": st.column_config.TextColumn(width=170),
-                              "Shown_Value": None,
+                              "Shown_Value": None, "Shown_Allowed": None,
                               "Choices": st.column_config.TextColumn(width=300),
                               "Value": st.column_config.TextColumn("Value", width=260,
                                                                   help="What the page starts with (Choices as the page reads "
