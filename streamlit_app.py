@@ -983,15 +983,15 @@ def page_globe():
     else:
         shown = one_time(default_choice("AstroClock-3D", "Time"))
     all_bodies = list(globechart.BODY_CHOICES)
-    with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # shown three a line: Mo Su Me, Ve Ma Ju, Sa NN SN
-    bodies = options_under("Planets", "bodies", offered("AstroClock-3D", "Planets", with_nodes), default_choice("AstroClock-3D", "Planets"), width=112)
+    with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # shown in two rows: Mo Su Me Ve Ma, Ju Sa NN SN
+    bodies = options_under("Planets", "bodies", offered("AstroClock-3D", "Planets", with_nodes), default_choice("AstroClock-3D", "Planets"), width=140)
     major = options_under("Major Aspects", "major", offered("AstroClock-3D", "Major Aspects", GLOBE_MAJOR), default_choice("AstroClock-3D", "Major Aspects"), width=90)
     minor = options_under("Minor Aspects", "minor", offered("AstroClock-3D", "Minor Aspects", GLOBE_MINOR), default_choice("AstroClock-3D", "Minor Aspects"), width=90)
     coords_on = default_choice("AstroClock-3D", "Coordinates")
     coords = head.container(width="content", gap="xxsmall")   # Coordinates, with its options below it in fixed rows
     if coords.pills("Coordinates", ["Coordinates"], default="Coordinates", key="globe_coords_on", label_visibility="collapsed"):
         coords_ok = set(offered("AstroClock-3D", "Coordinates", ["Ho", "Ce", "AU", "3D", "Sp", "SpC", "PP", "RA", "De", "La", "Lg"]))
-        for row_of in ([n for n in r if n in coords_ok] for r in (["Ho", "Ce", "AU"], ["3D", "Sp", "SpC", "PP"], ["RA", "De", "La", "Lg"])):
+        for row_of in ([n for n in r if n in coords_ok] for r in (["Ho", "Ce", "AU", "3D", "Sp", "SpC", "PP"], ["RA", "De", "La", "Lg"])):   # (two rows)
             if not row_of:
                 continue
             shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[n for n in row_of if n in coords_on],
@@ -1001,7 +1001,7 @@ def page_globe():
     day_seconds = None
     if spin.pills("Rotate in 1s", ["Rotate in 1s"], default="Rotate in 1s", key="globe_rotate", label_visibility="collapsed"):
         speed = spin.pills("Rotate speed", offered("AstroClock-3D", "Rotate in 1s", SPEED_CHOICES), default=default_choice("AstroClock-3D", "Rotate in 1s"), key="globe_speed",
-                           label_visibility="collapsed", width=96)   # (1s, 1m, 1h on a line; 1d, 1w, 1mo on the next; then 1y)
+                           label_visibility="collapsed", width=124)   # (two rows: 1s, 1m, 1h, 1d; then 1w, 1mo, 1y)
         day_seconds = globechart.SPEEDS.get(speed)
     manual = day_seconds is None                              # no speed: time stands still, and the Earth is dragged round by hand
     jd_now = core.now_jd()
