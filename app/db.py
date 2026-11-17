@@ -96,7 +96,7 @@ defaults = sa.Table(
     sa.Column("page", sa.String(60), nullable=False),
     sa.Column("options", sa.String(60), nullable=False),
     sa.Column("choices", sa.String(500)),
-    sa.Column("allowed_values", sa.String(500)),             # what the input may offer (blank: all the app has); its buttons only those
+    sa.Column("allowed_values", sa.String(500)),             # the values its Value may be set to (blank: all the app has)
 )
 # The Help table: a row per abbreviation the pages use (Abbreviation) and what it means (Description); kept by admins (the Help
 # page), filled once with the app's own (HELP_ROWS).
@@ -611,13 +611,6 @@ def defaults_table() -> pd.DataFrame:
     return pd.DataFrame([{"Page": r["page"], "Options": r["options"], "Choices": r["choices"],
                           "Allowed_Values": r["allowed_values"]} for r in rows],
                         columns=["Page", "Options", "Choices", "Allowed_Values"])
-
-
-def defaults_allowed_map() -> dict[tuple[str, str], str]:
-    """The Defaults table's Allowed_Values by its Page and Options, both in lower case (only those set)."""
-    with engine().connect() as c:
-        rows = c.execute(sa.select(defaults.c.page, defaults.c.options, defaults.c.allowed_values)).all()
-    return {(p.strip().lower(), t.strip().lower()): a for p, t, a in rows if a and a.strip()}
 
 
 def defaults_map() -> dict[tuple[str, str], str]:
