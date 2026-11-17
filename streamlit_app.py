@@ -258,12 +258,12 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
               "browser and system, and their browser's time zone. Access: theirs then. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
               "either asks first, and a deleted row cannot be brought back.",
-    "Defaults": "The Defaults table: what each page's inputs start as. A row per input, each column its own: Page (e.g. DOB Details), Box Title (the box the input is in, e.g. Get more days of access: DOB Details shows it as that box's title), Choice (the input, e.g. Days), Values (what it starts as, e.g. 1) and Allowed_Values (the values Values may be set to, e.g. 1, 7, 30, 90, 180, 365: all the input's values, or those typed there, comma-separated; the page offers only those; clear it for all again; a text box, the words allowed, e.g. Pay, Free, blank for any text; dates and single on / off buttons cannot be narrowed). "
-                "Values: buttons, the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0, 180; Manual), "
+    "Defaults": "The Defaults table: what each page's inputs start as. A row per input, each column its own: Page (e.g. DOB Details), Box Title (the box the input is in, e.g. Get more days of access: DOB Details shows it as that box's title), Choice (the input, e.g. Days), Choice Values (what it starts as, e.g. 1) and Allowed_Values (the values Choice Values may be set to, e.g. 1, 7, 30, 90, 180, 365: all the input's values, or those typed there, comma-separated; the page offers only those; clear it for all again; a text box, the words allowed, e.g. Pay, Free, blank for any text; dates and single on / off buttons cannot be narrowed). "
+                "Choice Values: buttons, the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0, 180; Manual), "
                 "blank for none; one on / off button (AU): On or Off. Start Date (UT): DOB or Now. End Date (UT): Now, or "
                 "Start Date (UT) + a time, e.g. 5 days, 2 years 6 months (years, months, weeks, days), which moves with the "
                 "Start. Update checks each row against the page's input. An input with no row starts as the app's own default. "
-                "Rows are sorted by Page, Box Title, Choice; Values blank: the app's own default; click a column name to sort by it. Changes apply when a page is next opened (a button already changed this visit keeps its choice). Seen by admins "
+                "Rows are sorted by Page, Box Title, Choice; Choice Values blank: the app's own default; click a column name to sort by it. Changes apply when a page is next opened (a button already changed this visit keeps its choice). Seen by admins "
                 "only, who can Insert, Update and Delete rows (each saved at once).",
     "Symbols": "The Symbols table: the short name (SAbr), symbol (Symb), long name (SDesc) and colour (RGB, and its name, Color) of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
                "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete: each is saved at once; Ignore drops changes not saved yet. Click a column name to sort. SAbr is unique, and stays once a row is in the table. Symb is what the pages show in place of its SAbr, the SAbr itself when blank. On AstroClock-2D, AstroClock-3D and Geo/Helio Model the conventional symbols are drawn, in the row's RGB colour; anything else is shown as typed, an emoji such as the baby in its own colours. RGB is rgb(r,g,b) or #rrggbb; Color is its name in words, for reference, and may be blank. Size_Clock-3D says how AstroClock-3D draws the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; Tiny, a dot with no symbol; Small, 9 pixels; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SAbr or SDesc (Bigger than Moon); blank, as usual (a planet by its angular size, Ea a dot, the nodes and places 9 pixels). Size_Clock-2D says the same for AstroClock-2D, its Dec and Distance(%) graphs (it starts as Size_Geo), Size_Geo for Geo/Helio Model's Geo, and Size_Helio for its Helio (it starts as Size_Geo, with the Moon Tiny). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on Geo/Helio Model's Geo; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
@@ -663,7 +663,7 @@ FLAT_SPEED_CHOICES = list(globechart.SPEEDS)                  # AstroClock-2D's:
 GLOBE_MAJOR = [str(a) for a in sorted(core.MAJOR)]
 GLOBE_MINOR = [str(a) for a in core.MINOR]
 START, END = "start", "end"                                   # the two date inputs (not buttons)
-TEXT = "text"                                                 # a box to type in (its Values: what is typed in to start)
+TEXT = "text"                                                 # a box to type in (its Choice Values: what is typed in to start)
 TEXT_MOST = 30                                                # (at most this long, as the box takes)
 
 
@@ -714,7 +714,7 @@ def _word(text: str) -> str:
 
 
 def read_options(choices, multi: bool, text: str):
-    """The Defaults table's Values text as the input's start: (value, what was not understood). Buttons: the choices named
+    """The Defaults table's Choice Values text as the input's start: (value, what was not understood). Buttons: the choices named
     (by name, SAbr, symbol or planet name, any case, comma-separated; for one on / off button On or Off). Start: DOB or Now.
     End: Now, or Start Date (UT) + a time such as 5 days, 2 years 6 months, 30 years (years, months, weeks, days)."""
     text = (text or "").strip()
@@ -768,7 +768,7 @@ def read_options(choices, multi: bool, text: str):
 
 
 def default_choice(page: str, title: str):
-    """What this input starts as: the Defaults table's Values for it, read as read_options says; with no row, or Values it
+    """What this input starts as: the Defaults table's Choice Values for it, read as read_options says; with no row, or Choice Values it
     cannot read, the app's own default."""
     choices, multi, own = default_inputs()[(page, title)]
     text = DEFAULT_TEXTS.get((page.lower(), title.lower()))
@@ -811,7 +811,7 @@ def menu_title(page: str, title: str, own: str) -> str:
 
 
 def options_problems(rows: pd.DataFrame) -> list[str]:
-    """The Defaults rows whose Page and Choice are no input of the app, or whose Values it cannot read."""
+    """The Defaults rows whose Page and Choice are no input of the app, or whose Choice Values it cannot read."""
     inputs = {(p.lower(), t.lower()): (p, t, spec) for (p, t), spec in default_inputs().items()}
     out = []
     for _, r in rows.iterrows():
@@ -825,7 +825,7 @@ def options_problems(rows: pd.DataFrame) -> list[str]:
                        + (f": {names})" if names else "; no page has that name)"))
             continue
         choices, multi, _ = known[2]
-        _, wrong = read_options(choices, multi, db._cell(r["Values"]))
+        _, wrong = read_options(choices, multi, db._cell(r["Choice Values"]))
         if wrong:
             if choices == START:
                 hint = "DOB or Now"
@@ -837,7 +837,7 @@ def options_problems(rows: pd.DataFrame) -> list[str]:
                 hint = ("one of " if not multi else "any of ") + ", ".join(choices) + (" (or On / Off)" if len(choices) == 1 else "")
             one = "only one can be picked"
             said = ", ".join(w for w in wrong if w != one)
-            out.append(f"{page} / {title}: " + (f"Values '{said}' not understood: {hint}" if said else f"pick {hint}"))
+            out.append(f"{page} / {title}: " + (f"Choice Values '{said}' not understood: {hint}" if said else f"pick {hint}"))
     return out
 
 
@@ -1458,13 +1458,13 @@ def is_list_input(spec) -> bool:
 
 
 def can_limit(spec) -> bool:
-    """An input whose Allowed_Values can limit its Values: buttons to pick from, or a text box (to the words typed there)."""
+    """An input whose Allowed_Values can limit its Choice Values: buttons to pick from, or a text box (to the words typed there)."""
     return is_list_input(spec) or (spec is not None and spec[0] == TEXT)
 
 
 def allowed_values(page, options, stored=None) -> str:
     """A Defaults row's Allowed_Values as shown: those kept (stored), else every value its input takes; for a date, a text
-    box or one on / off button, what Values may hold (those cannot be narrowed)."""
+    box or one on / off button, what Choice Values may hold (those cannot be narrowed)."""
     spec = input_spec(page, options)
     if spec is None:
         return "" if not (page and options) else "(no page has that input)"
@@ -1507,8 +1507,8 @@ def allowed_to_keep(page, options, text) -> tuple[str | None, list[str]]:
 
 
 def page_defaults():
-    """The Defaults table, each column its own: Page, Box Title (the box the input is in), Choice (the input), Values (what it
-    starts as) and Allowed_Values (the values Values may be set to, and all the page offers); Box Title is the title of
+    """The Defaults table, each column its own: Page, Box Title (the box the input is in), Choice (the input), Choice Values (what it
+    starts as) and Allowed_Values (the values Choice Values may be set to, and all the page offers); Box Title is the title of
     the box the input is in, where the page has one (DOB Details' Get more days of access)."""
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
@@ -1537,22 +1537,22 @@ def page_defaults():
             if not can_limit(spec):
                 if typed and typed != allowed_values(page, title):
                     out.append(f"{page} / {title}: Allowed_Values cannot be changed for this input "
-                               f"({allowed_values(page, title)}); change Values instead")
+                               f"({allowed_values(page, title)}); change Choice Values instead")
                 continue
             kept, wrong = allowed_to_keep(page, title, typed)
             if wrong:
                 out.append(f"{page} / {title}: Allowed_Values '{', '.join(wrong)}' not understood")
-            elif kept and spec[0] == TEXT:                    # a text box's Values: one of its words (or blank: empty)
-                value = db._cell(r["Values"])
+            elif kept and spec[0] == TEXT:                    # a text box's Choice Values: one of its words (or blank: empty)
+                value = db._cell(r["Choice Values"])
                 if value and value.lower() not in [w.lower() for w in kept.split(", ")]:
-                    out.append(f"{page} / {title}: Values {value} not in its Allowed_Values ({kept}); "
+                    out.append(f"{page} / {title}: Choice Values {value} not in its Allowed_Values ({kept}); "
                                "add it to Allowed_Values too, or clear Allowed_Values for any text")
-            elif kept:                                        # Values must be among its Allowed_Values
-                value, bad = read_options(spec[0], spec[1], db._cell(r["Values"]))
+            elif kept:                                        # Choice Values must be among its Allowed_Values
+                value, bad = read_options(spec[0], spec[1], db._cell(r["Choice Values"]))
                 start = value if isinstance(value, list) else ([value] if value else [])
                 outside = [str(v) for v in start if str(v) not in kept.split(", ")]
                 if not bad and outside:
-                    out.append(f"{page} / {title}: Values {', '.join(outside)} not in its Allowed_Values ({kept}); "
+                    out.append(f"{page} / {title}: Choice Values {', '.join(outside)} not in its Allowed_Values ({kept}); "
                                "add it to Allowed_Values too, or clear Allowed_Values for all")
         return out
 
@@ -1569,10 +1569,10 @@ def page_defaults():
                                                                      "(e.g. Get more days of access: DOB Details shows it as that box's title)."),
                               "Choice": st.column_config.TextColumn(width=150, help="The input: its name on the page "
                                                                      "(e.g. Days). Each Page has one row per input."),
-                              "Values": st.column_config.TextColumn(width=300, help="What the input starts as (e.g. 7). "
+                              "Choice Values": st.column_config.TextColumn(width=300, help="What the input starts as (e.g. 7). "
                                                                    "Blank: the app's own default (none, for buttons)."),
                               "Allowed_Values": st.column_config.TextColumn("Allowed_Values", width="large",
-                                                                   help="The values Values may be set to: all the input's "
+                                                                   help="The values Choice Values may be set to: all the input's "
                                                                         "values, or those typed here (comma-separated). The page "
                                                                         "then offers only those (buttons, Days, coupons). Clear "
                                                                         "it for all of them again. A text box takes words typed "
