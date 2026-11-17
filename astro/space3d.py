@@ -449,7 +449,7 @@ __SYMBOL_JS__
     const decScale = make("path", svg, {d: "M" + DEC_X + " " + decY(D.flat_dec[0]).toFixed(1) + "V" + decY(D.flat_dec[1]).toFixed(1) + decTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
     make("title", decScale).textContent = "Declination, " + D.flat_dec[1] + " to +" + D.flat_dec[0] + " degrees";
     const decTag = words("rgb(90,90,90)");
-    decTag.setAttribute("x", DEC_X); decTag.setAttribute("y", (cy + R + 56).toFixed(1)); decTag.textContent = "Dec";
+    decTag.setAttribute("x", DEC_X); decTag.setAttribute("y", (cy + R + 56).toFixed(1)); decTag.textContent = "Declination";
     // the Distance(%) graph, as tall as the circle: 100 (farthest) at the top, a tick every 1, longer every 5, numbered every 5
     let distTicks = "";
     for (let v = 0; v !== 101; v++) {
