@@ -258,12 +258,12 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
               "browser and system, and their browser's time zone. Access: theirs then. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
               "either asks first, and a deleted row cannot be brought back.",
-    "Defaults": "The Defaults table: what each page's inputs start as. A row per input, each column its own: Page (e.g. DOB Details), Options (the box the input is in, e.g. Get more days of access), Choices (the input, e.g. Days), Value (what it starts as, e.g. 1) and Allowed_Values (the values Value may be set to, e.g. 1, 7, 30, 90, 180, 365: all the input's values, or those typed there, comma-separated; only for this table, the page still offers all its buttons; clear it for all again; a text box, the words allowed, e.g. Pay, Free, blank for any text; dates and single on / off buttons cannot be narrowed). "
+    "Defaults": "The Defaults table: what each page's inputs start as. A row per input, each column its own: Page (e.g. DOB Details), Menu (the box the input is in, e.g. Get more days of access), Choices (the input, e.g. Days), Value (what it starts as, e.g. 1) and Allowed_Values (the values Value may be set to, e.g. 1, 7, 30, 90, 180, 365: all the input's values, or those typed there, comma-separated; only for this table, the page still offers all its buttons; clear it for all again; a text box, the words allowed, e.g. Pay, Free, blank for any text; dates and single on / off buttons cannot be narrowed). "
                 "Value: buttons, the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0, 180; Manual), "
                 "blank for none; one on / off button (AU): On or Off. Start Date (UT): DOB or Now. End Date (UT): Now, or "
                 "Start Date (UT) + a time, e.g. 5 days, 2 years 6 months (years, months, weeks, days), which moves with the "
                 "Start. Update checks each row against the page's input. An input with no row starts as the app's own default. "
-                "Rows are sorted by Page, Options, Choices; Value blank: the app's own default; click a column name to sort by it. Changes apply when a page is next opened (a button already changed this visit keeps its choice). Seen by admins "
+                "Rows are sorted by Page, Menu, Choices; Value blank: the app's own default; click a column name to sort by it. Changes apply when a page is next opened (a button already changed this visit keeps its choice). Seen by admins "
                 "only, who can Insert, Update and Delete rows (each saved at once).",
     "Symbols": "The Symbols table: the short name (SAbr), symbol (Symb), long name (SDesc) and colour (RGB, and its name, Color) of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
                "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete: each is saved at once; Ignore drops changes not saved yet. Click a column name to sort. SAbr is unique, and stays once a row is in the table. Symb is what the pages show in place of its SAbr, the SAbr itself when blank. On AstroClock-2D, AstroClock-3D and Geo/Helio Model the conventional symbols are drawn, in the row's RGB colour; anything else is shown as typed, an emoji such as the baby in its own colours. RGB is rgb(r,g,b) or #rrggbb; Color is its name in words, for reference, and may be blank. Size_Clock-3D says how AstroClock-3D draws the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; Tiny, a dot with no symbol; Small, 9 pixels; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SAbr or SDesc (Bigger than Moon); blank, as usual (a planet by its angular size, Ea a dot, the nodes and places 9 pixels). Size_Clock-2D says the same for AstroClock-2D, its Dec and Distance(%) graphs (it starts as Size_Geo), Size_Geo for Geo/Helio Model's Geo, and Size_Helio for its Helio (it starts as Size_Geo, with the Moon Tiny). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on Geo/Helio Model's Geo; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
@@ -1459,7 +1459,7 @@ def allowed_to_keep(page, options, text) -> tuple[str | None, list[str]]:
 
 
 def page_defaults():
-    """The Defaults table, each column its own: Page, Options (the box the input is in), Choices (the input), Value (what it
+    """The Defaults table, each column its own: Page, Menu (the box the input is in), Choices (the input), Value (what it
     starts as) and Allowed_Values (the values Value may be set to; the page itself still offers all)."""
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
@@ -1516,7 +1516,7 @@ def page_defaults():
     crud_table("defaults_table", table, problems, commit, on_update=shown,
                height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
                column_config={"Page": st.column_config.TextColumn(width=150),
-                              "Options": st.column_config.TextColumn(width=190, help="The box the input is in on its page "
+                              "Menu": st.column_config.TextColumn(width=190, help="The box the input is in on its page "
                                                                      "(e.g. Get more days of access); for reference."),
                               "Choices": st.column_config.TextColumn(width=150, help="The input: its name on the page "
                                                                      "(e.g. Days). Each Page has one row per input."),
