@@ -461,8 +461,10 @@ __SYMBOL_JS__
     const distScale = make("path", svg, {d: "M" + DIST_X + " " + distY(100).toFixed(1) + "V" + distY(0).toFixed(1) + distTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
     make("title", distScale).textContent = "Distance(%) from earth, 0 nearest to 100 farthest: the planets at the time picked, then Ave, to the right";
     const distTag = words("rgb(90,90,90)");
-    distTag.setAttribute("text-anchor", "end");     // (right of the bar, at the drawing's right edge)
-    distTag.setAttribute("x", D.view[0] + D.view[2] - 4); distTag.setAttribute("y", (cy + R + 39).toFixed(1)); distTag.textContent = "Distance(%)";   // (above its columns' names)
+    distTag.setAttribute("text-anchor", "middle");  // (above its columns' names: centred on DOB's or Now's, kept inside the drawing)
+    distTag.setAttribute("y", (cy + R + 39).toFixed(1)); distTag.textContent = "Distance(%)";
+    const tagW = distTag.getBBox ? distTag.getBBox().width : 60, right = D.view[0] + D.view[2] - 2;
+    distTag.setAttribute("x", Math.min(distCol(distClocks[0] || "Now"), right - tagW / 2).toFixed(1));
     if (distMarks.length) {                        // the AU scale, left of the bar: a tick at each mark, numbered left of the planets
       let auTicks = "";
       AU_MARKS.forEach((v) => {
