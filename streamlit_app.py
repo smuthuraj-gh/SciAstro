@@ -260,7 +260,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
               "either asks first, and a deleted row cannot be brought back.",
     "Defaults": "The Defaults table: what each page's inputs start as. A row per input, each column its own: Page (e.g. DOB Details), Box Title (the box the input is in, e.g. Get more days of access: DOB Details shows it as that box's title), Choice (the input, e.g. Days), Choice Values (what it starts as, e.g. 1) and Allowed Values (the values Choice Values may be set to, e.g. 1, 7, 30, 90, 180, 365: all the input's values, or those typed there, comma-separated; the page offers only those; clear it for all again; a text box, the words allowed, e.g. Pay, Free, blank for any text; dates and single on / off buttons cannot be narrowed). "
                 "Choice Values: buttons, the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0, 180; Manual), "
-                "blank for none; one on / off button (AU): On or Off. Start Date (UT): DOB or Now. End Date (UT): Now, or "
+                "blank for none; Coordinates: the buttons below it that start on (e.g. Ho, DA; Ce, AU). Start Date (UT): DOB or Now. End Date (UT): Now, or "
                 "Start Date (UT) + a time, e.g. 5 days, 2 years 6 months (years, months, weeks, days), which moves with the "
                 "Start. Update checks each row against the page's input. An input with no row starts as the app's own default. "
                 "Rows are sorted by Page, Box Title, Choice; Choice Values blank: the app's own default; click a column name to sort by it. Changes apply when a page is next opened (a button already changed this visit keeps its choice). Seen by admins "
@@ -675,9 +675,7 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
            ("AstroClock-2D", "Planets"): (globe, True, globe),
            ("AstroClock-2D", "Major Aspects"): (GLOBE_MAJOR, True, []),
            ("AstroClock-2D", "Minor Aspects"): (GLOBE_MINOR, True, []),
-           ("AstroClock-2D", "Ho"): (["Ho"], False, "Ho"),
-           ("AstroClock-2D", "1C"): (["1C"], False, None),
-           ("AstroClock-2D", "DA"): (["DA"], False, "DA"),
+           ("AstroClock-2D", "Coordinates"): (["Ho", "1C", "DA"], True, ["Ho", "DA"]),   # (the buttons below it that start on)
            ("AstroClock-2D", "Rotate in 1s"): (FLAT_SPEED_CHOICES, False, None),
            ("AstroClock-3D", "Time"): (["Now", "DOB"], False, "Now"),
            ("AstroClock-3D", "Planets"): (globe, True, globe),
@@ -693,8 +691,7 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
     out |= {("Geo/Helio Model", "Time"): (["Now", "DOB"], False, "Now"),
             ("Geo/Helio Model", "Planets"): (bodies, True, bodies),
             ("Geo/Helio Model", "Planet Path"): (bodies, True, bodies),
-            ("Geo/Helio Model", "AU"): (["AU"], False, "AU"),
-            ("Geo/Helio Model", "Ce"): (["Ce"], False, "Ce"),
+            ("Geo/Helio Model", "Coordinates"): (["Ce", "AU"], True, ["Ce", "AU"]),
             ("Geo/Helio Model", "Rotate in 1s"): (SPEED_CHOICES, False, globechart.MANUAL)}
     for page, end, planets in (("Aspects", (0, 5), core.BUTTON_ORDER + ["NN", "SN"]), ("Planets Cycles", (360, 0), core.BUTTON_ORDER),
                                ("Planets Distance(%)", (24, 0), core.BUTTON_ORDER)):
@@ -1076,6 +1073,15 @@ def titled(head, title: str, title_key: str, options, key: str, default=None, **
     return kept_pills(box, f"Which {title}", options, key, default, label_visibility="collapsed", **kw)
 
 
+def coords_below(coords, keys: dict, names: list, on: list, title_key: str) -> list:
+    """The Coordinates title button and, below it, an on / off button for each of names (keys: each one's key): those on
+    (none while the title is off). Each starts on when on (the Defaults row Coordinates) names it."""
+    if not kept_pills(coords, "Coordinates", ["Coordinates"], title_key, "Coordinates", label_visibility="collapsed"):
+        return []
+    below = coords.container(horizontal=True, width="content", gap="xxsmall")
+    return [n for n in names if kept_pills(below, n, [n], keys[n], n if n in (on or []) else None, label_visibility="collapsed")]
+
+
 def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "Geo", flat: bool = False):
     """GeoCentric (centre Ea) or HelioCentric (centre Su): its buttons each keep their own choice (key), also while the other
     model is shown; they start as the Defaults table says (Geo/Helio Model's rows, Time .. Rotate in 1s, for both models)."""
@@ -1083,7 +1089,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         if flat:
             return default_choice("AstroClock-2D", title)
         value = default_choice("Geo/Helio Model", title)      # (the planets: those this model has)
-        return [v for v in value if v in choices] if isinstance(value, list) else value
+        return [v for v in value if v in choices] if title in ("Planets", "Planet Path") else value
 
     def may(title: str, options: list) -> list:
         """What this input offers (its Defaults row's Allowed Values)."""
@@ -1105,24 +1111,19 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         aspects = tuple(int(a) for a in major + minor)
         with_paths, show_au, show_celes = [], True, True
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ho, 1C and DA below it (the title off: none)
-        show_houses = one_circle = show_ave = False
-        if kept_pills(coords, "Coordinates", ["Coordinates"], f"{key}_t_coords", "Coordinates", label_visibility="collapsed"):
-            below = coords.container(horizontal=True, width="content", gap="xxsmall")
-            show_houses = bool(kept_pills(below, "Ho", ["Ho"], f"{key}_houses", start("Ho"), label_visibility="collapsed"))
-            one_circle = bool(kept_pills(below, "1C", ["1C"], f"{key}_one_circle", start("1C"), label_visibility="collapsed"))
-            # DA: the Ave planets on the Distance(%) graph (on to start)
-            show_ave = bool(kept_pills(below, "DA", ["DA"], f"{key}_dav", start("DA"), label_visibility="collapsed"))
+        # (DA: the Ave planets on the Distance(%) graph; which start on, and which are there: the Defaults row Coordinates)
+        on = coords_below(coords, {"Ho": f"{key}_houses", "1C": f"{key}_one_circle", "DA": f"{key}_dav"},
+                          may("Coordinates", ["Ho", "1C", "DA"]), start("Coordinates"), f"{key}_t_coords")
+        show_houses, one_circle, show_ave = "Ho" in on, "1C" in on, "DA" in on
     else:
         path_names = tuple(may("Planet Path", list(choices)))
         with_paths = core.in_order(titled(head, "Planet Path", f"{key}_t_paths", core.shown_order(path_names), f"{key}_paths", start("Planet Path"),
                                           selection_mode="multi", format_func=core.symbol_of), path_names)
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ce and AU below it (always the Fit scale)
-        show_au, show_celes = False, True                     # (the title off: no tags)
-        if kept_pills(coords, "Coordinates", ["Coordinates"], f"{key}_t_scale", "Coordinates", label_visibility="collapsed"):
-            below = coords.container(horizontal=True, width="content", gap="xxsmall")
-            # Ce, first: the celestial coordinates (on to start); then AU
-            show_celes = bool(kept_pills(below, "Ce", ["Ce"], f"{key}_ce", start("Ce") or "Ce", label_visibility="collapsed"))
-            show_au = bool(kept_pills(below, "AU", ["AU"], f"{key}_au", start("AU"), label_visibility="collapsed"))
+        # (Ce, first: the celestial coordinates; then AU; the title off: no tags)
+        on = coords_below(coords, {"Ce": f"{key}_ce", "AU": f"{key}_au"}, may("Coordinates", ["Ce", "AU"]),
+                          start("Coordinates"), f"{key}_t_scale")
+        show_celes, show_au = "Ce" in on, "AU" in on
     speed = titled(head, "Rotate in 1s", f"{key}_t_speed", may("Rotate in 1s", FLAT_SPEED_CHOICES if flat else SPEED_CHOICES), f"{key}_speed", start("Rotate in 1s"))
     manual = speed == globechart.MANUAL                       # time stands still, and the drawing is dragged round (not on the flat page: no Manual there)
     day_seconds = globechart.SPEEDS.get(speed)                # nothing picked: it holds still

@@ -212,7 +212,7 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("AstroClock-2D", "Planets", "Su, Mo, Me, Ve, Ma, Ju, Sa, NN, SN"),
     ("AstroClock-2D", "Major Aspects", ""),
     ("AstroClock-2D", "Minor Aspects", ""),
-    ("AstroClock-2D", "Ho", "On"),
+    ("AstroClock-2D", "Coordinates", "Ho, DA"),              # the buttons below Coordinates that start on (Ho, 1C, DA)
     ("AstroClock-2D", "Rotate in 1s", ""),
     ("AstroClock-3D", "Time", "Now"),
     ("AstroClock-3D", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
@@ -225,7 +225,7 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Geo/Helio Model", "Time", "Now"),                       # (one row each for both models: Geo takes Su, Helio Ea)
     ("Geo/Helio Model", "Planets", "Mo, Su, Ea, Me, Ve, Ma, Ju, Sa"),
     ("Geo/Helio Model", "Planet Path", "Mo, Su, Ea, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio Model", "AU", "On"),
+    ("Geo/Helio Model", "Coordinates", "Ce, AU"),            # and here (Ce, AU)
     ("Geo/Helio Model", "Rotate in 1s", "Manual"),
     ("Aspects", "Start Date (UT)", "DOB"),
     ("Aspects", "End Date (UT)", "Start Date (UT) + 5 days"),
@@ -243,11 +243,8 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Planets Distance(%)", "Planets", "Ju, Sa"),
     ("DOB Details", "Days", "7"),                             # Get more days of access: the days picked to start
     ("DOB Details", "Pay / Coupon", ""),                     # and the coupon filled in to start (blank: none; Free: free)
-    ("AstroClock-2D", "1C", "Off"),                           # the on / off buttons below Coordinates: one circle for aspects
-    ("AstroClock-2D", "DA", "On"),                            # and the Ave planets on the Distance(%) graph
-    ("Geo/Helio Model", "Ce", "On"),                          # the celestial coordinates, below Coordinates
 ]
-DEFAULTS_VERSION = "7"                                        # 7: AstroClock-2D's 1C and DA, Geo/Helio Model's Ce (its rows one per input since); 6: DOB Details' Days and Pay / Coupon; 5: AstroClock-2D's aspects; 4: Aspects' angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
+DEFAULTS_VERSION = "7"                                        # 7: AstroClock-2D's and Geo/Helio Model's Coordinates (one row for the buttons below it; Geo/Helio Model's rows one per input since); 6: DOB Details' Days and Pay / Coupon; 5: AstroClock-2D's aspects; 4: Aspects' angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
@@ -339,9 +336,11 @@ def engine() -> sa.Engine:
     _add_defaults_allowed(eng)
     _add_defaults_section(eng)
     _merge_geo_helio(eng)
+    _merge_coordinates(eng)
     _seed_defaults(eng)
     _set_time_now(eng)
     _rename_dec_button(eng)
+    _merge_coordinates(eng)                                   # (again: a button row an earlier name has just given back)
     _rename_help_abbre(eng)
     _add_help_index(eng)
     _rename_help_rows(eng)
@@ -453,11 +452,40 @@ def _rename_defaults_page(eng: sa.Engine):
 NEW_IN_4 = (("Aspects", "Major Aspects"), ("Aspects", "Minor Aspects"), ("Planets Cycles", "Minor Aspects"))
 NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects"))
 NEW_IN_6 = (("DOB Details", "Days"), ("DOB Details", "Pay / Coupon"))
-NEW_IN_7 = (("AstroClock-2D", "1C"), ("AstroClock-2D", "DA"), ("Geo/Helio Model", "Ce"))
+NEW_IN_7 = (("AstroClock-2D", "Coordinates"), ("Geo/Helio Model", "Coordinates"))
 
 
 TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio model", "geo time"), ("geo/helio model", "helio time"),
              ("geo/helio model", "time"))
+COORD_ROWS = {"AstroClock-2D": (("Ho", True), ("1C", False), ("DA", True)), "Geo/Helio Model": (("Ce", True), ("AU", True))}   # the buttons
+# below Coordinates, once a row each, and whether each starts on with no row
+
+
+def _merge_coordinates(eng: sa.Engine):
+    """AstroClock-2D's Ho, 1C and DA rows and Geo/Helio Model's Ce and AU rows, once one per button (On or Off), become one
+    row Coordinates: its Choice Values the buttons that start on (a button with no row: as the app starts it), its Box Title
+    the first row's. A Coordinates row already there stays, and the button rows go."""
+    with eng.begin() as c:
+        for page, buttons in COORD_ROWS.items():
+            names = [b.lower() for b, _ in buttons]
+            rows = {r.options.lower(): r for r in c.execute(sa.select(defaults.c.id, defaults.c.options, defaults.c.choices).where(
+                sa.func.lower(defaults.c.page) == page.lower(), sa.func.lower(defaults.c.options).in_(names))).all()}
+            if not rows:
+                continue
+            there = c.execute(sa.select(defaults.c.id).where(sa.func.lower(defaults.c.page) == page.lower(),
+                                                             sa.func.lower(defaults.c.options) == "coordinates")).first()
+            keep = None if there else next(rows[n] for n in names if n in rows)
+            for r in rows.values():
+                if keep is None or r.id != keep.id:
+                    c.execute(defaults.delete().where(defaults.c.id == r.id))
+            if keep is None:
+                continue
+            on = [b for b, own in buttons if (((rows[b.lower()].choices or "").strip().lower() in ("on", b.lower()))
+                                              if b.lower() in rows else own)]
+            c.execute(defaults.update().where(defaults.c.id == keep.id).values(options="Coordinates", choices=", ".join(on) or None,
+                                                                                allowed_values=None))
+
+
 GEO_HELIO_INPUTS = ("Time", "Planets", "Planet Path", "AU", "Ce", "Rotate in 1s")   # Geo/Helio Model's, one row each for both models
 
 
