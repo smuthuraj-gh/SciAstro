@@ -123,6 +123,13 @@ HELP_ROWS_3 = [                                               # added later stil
     ("Select all", "Logins button: ticks every row (pressed again, Unselect all: none)"),
     ("Came from", "Logins column: the site that brought the visitor (its name only); blank: none known"),
 ]
+HELP_OUT_OF_DATE = {                                          # the Help rows' Descriptions the app once wrote, out of date since
+    "Defaults": ("Page (admins): what each page's buttons start as (Page, Options, Choices)",
+                 "Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed_Values)"),
+    "Customers": ("Page (admins): a row per login: Email, Access, Start Date, Days, End Date",),                    # (its Days column is gone)
+    "Access": ("Customers column: Now (the Now charts), DOB (the DOB charts, for Days days) or Admin",),
+    "Days": ("Customers column: days of DOB access to add (1, 7, 30, 90, 180, 365); End Date is extended by them",),                         # (now DOB Details')
+}
 HELP_VERSION = "3"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
@@ -135,7 +142,7 @@ HELP_ROWS_2 = [                                               # added later: the
     ("DOB Details", "Page (members): their birth details, and people added under their login"),
     ("Help", "Page: this table of the app's names and what they mean (admins change it)"),
     ("Aspect Rules", "Page (admins): the orbs, RA and Dec, a pair of planets must be within to be in aspect"),
-    ("Customers", "Page (admins): a row per login: Email, Access, Start Date, Days, End Date"),
+    ("Customers", "Page (admins): a row per login: Email, Access, Start Date, End Date"),
     ("Defaults", "Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed Values)"),
     ("Logins", "Page (admins): who opened, added, changed or deleted what, when and from where"),
     ("Readme", "Page (admins): the app's README file"),
@@ -169,8 +176,8 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Ignore", "Table button: drops the changes not saved yet"),
     ("Reset to Previous", "Table button: puts the table back as it was before its last save"),
     ("Del", "Table column: tick a row, then press Delete"),
-    ("Access", "Customers column: Now (the Now charts), DOB (the DOB charts, for Days days) or Admin"),
-    ("Days", "Customers column: days of DOB access to add (1, 7, 30, 90, 180, 365); End Date is extended by them"),
+    ("Access", "Customers column: Now (the Now charts), DOB (the DOB charts, until End Date) or Admin"),
+    ("Days", "DOB Details (Get more days of access): days of DOB access to add (1, 7, 30, 90, 180, 365); End Date is extended by them"),
     ("SAbr", "Symbols column: a planet's short name (Su, Mo ..)"), ("Symb", "Symbols column: a planet's symbol"),
     ("SDesc", "Symbols column: a planet's name"), ("RGB", "Symbols column: a planet's colour, rgb(r,g,b)"),
     ("Size_Clock-2D", "Symbols column: a planet's mark size on AstroClock-2D"),
@@ -627,19 +634,17 @@ def _rename_help_abbre(eng: sa.Engine):
 
 def _rename_help_rows(eng: sa.Engine):
     """Help rows for pages since renamed get the new name (their Description kept): Page_Defaults, for a while the
-    Defaults page's name, is Defaults again; the Defaults row's first Description is brought up to date."""
+    Defaults page's name, is Defaults again; rows the app wrote that are out of date since (HELP_OUT_OF_DATE) are brought up to date."""
     if "help" not in sa.inspect(eng).get_table_names():
         return
     with eng.begin() as c:
         if not c.execute(sa.select(help_table.c.id).where(sa.func.lower(help_table.c.abbreviation) == "defaults")).first():
             c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == "page_defaults").values(abbreviation="Defaults"))
-        # (its Description as first written named the table's columns as they were: it gets the one HELP_ROWS has now)
-        now = dict(HELP_ROWS + HELP_ROWS_2)["Defaults"]
-        c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == "defaults",
-                                            help_table.c.description.in_([
-                                                "Page (admins): what each page's buttons start as (Page, Options, Choices)",
-                                                "Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed_Values)"]))
-                  .values(description=now))
+        # (a row still as the app first wrote it, since out of date, gets the one the app has now; one an admin has changed stays)
+        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3)
+        for abbreviation, olds in HELP_OUT_OF_DATE.items():
+            c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(),
+                                                help_table.c.description.in_(olds)).values(description=now[abbreviation]))
 
 
 def _add_help_index(eng: sa.Engine):
