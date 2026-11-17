@@ -365,10 +365,11 @@ __SYMBOL_JS__
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
     if (m.hollow) lead.setAttribute("stroke-dasharray", "3 2");
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
-    // left of the bar: the planet again, at its distance from the Earth on the AU scale
+    // left of the bar: the planet again, at its distance from the Earth on the AU scale, joined to the bar by a solid line
+    const auLead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
     const auE = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
     return {m, lead, e, tip: make("title", e), label: symbolTag(svg, m.name, m.colour, m.hollow),
-            auE, auTip: make("title", auE), auLabel: symbolTag(svg, m.name, m.colour, m.hollow)};
+            auLead, auE, auTip: make("title", auE), auLabel: symbolTag(svg, m.name, m.colour, m.hollow)};
   });
   // flat: each pair of the planets shown, at each moment: its line and tag when in aspect (under the planets, drawn after)
   const aspectLines = [];
@@ -642,6 +643,7 @@ __SYMBOL_JS__
       g.auTip.textContent = g.tip.textContent;
       const ax = DIST_X - DIST_AU, ay = auY(s.dist);   // left of the bar: at its AU on the scale, moving as time runs
       g.auE.setAttribute("r", r.toFixed(1)); g.auE.setAttribute("cx", ax.toFixed(1)); g.auE.setAttribute("cy", ay.toFixed(1));
+      g.auLead.setAttribute("d", "M" + ax.toFixed(1) + " " + ay.toFixed(1) + "H" + DIST_X);
       fitSymbol(g.auLabel, ax, ay, r);
     });
     aveMarks.forEach((g) => {
