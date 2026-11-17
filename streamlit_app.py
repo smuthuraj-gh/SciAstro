@@ -930,7 +930,7 @@ def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, p
                 return []
             start = [a for a in (default_choice(page, title) or []) if a in names]
             return core.in_order(box.pills(f"Which {title}", names, selection_mode="multi", default=start,
-                                           key=f"{keys}{key}", label_visibility="collapsed", width=len(names) * 33), names)   # all on one line
+                                           key=f"{keys}{key}", label_visibility="collapsed", width=len(names) * 27), names)   # all on one line, no room after (the next group close by)
 
         ea = group("Major Aspects", "major", [a for a in GLOBE_MAJOR if int(a) in ruled])
         minor = [int(a) for a in group("Minor Aspects", "minor", [str(a) for a in sorted(ruled) if a not in core.MAJOR])]
