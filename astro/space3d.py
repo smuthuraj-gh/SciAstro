@@ -347,7 +347,7 @@ __SYMBOL_JS__
   });
   // flat: the Distance(%) graph's line, right of the circle, with all its planets to its right, beyond its numbers: the time
   // picked (DOB, Now) in the first column, then Ave; DIST_FIRST, DIST_STEP: the first column's distance from it, and between them
-  const DIST_X = D.width - 90, DIST_FIRST = 44, DIST_STEP = 58;   // (Ave that far from DOB / Now: Distance(%) spans the two names)
+  const DIST_X = D.width - 106, DIST_FIRST = 44, DIST_STEP = 58;   // (Average that far from DOB / Now: Distance(%) spans the two names)
   const DIST_AU = 56, AU_NUM = 8;                  // and left of it an AU scale: its numbers AU_NUM from the bar, and the same planets again
                                                    // DIST_AU from it, left of the numbers
   // the AU scale, left of the bar, as tall as it, not to scale: its marks AU_MARKS evenly up the bar, the first at the bottom
@@ -461,7 +461,7 @@ __SYMBOL_JS__
       }
     }
     const distScale = make("path", svg, {d: "M" + DIST_X + " " + distY(100).toFixed(1) + "V" + distY(0).toFixed(1) + distTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
-    make("title", distScale).textContent = "Distance(%) from earth, 0 nearest to 100 farthest: the planets at the time picked, then Ave, to the right";
+    make("title", distScale).textContent = "Distance(%) from earth, 0 nearest to 100 farthest: the planets at the time picked, then Average, to the right";
     const distTag = words("rgb(90,90,90)");
     distTag.setAttribute("text-anchor", "start");   // (above its columns' names: from DOB's or Now's front to Ave's back)
     distTag.setAttribute("y", (cy + R + 39).toFixed(1)); distTag.textContent = "Distance(%)";
@@ -482,7 +482,7 @@ __SYMBOL_JS__
     const sides = [...distClocks, "Ave"].filter((name) => name !== "Ave" || aveMarks.length).map((name) => {   // which column is which, below that tag
       const x = distCol(name);
       const side = words("rgb(90,90,90)");
-      side.setAttribute("x", x); side.setAttribute("y", (cy + R + 56).toFixed(1)); side.textContent = name;   // (on the line of Dec and RA)
+      side.setAttribute("x", x); side.setAttribute("y", (cy + R + 56).toFixed(1)); side.textContent = name === "Ave" ? "Average" : name;   // (on the line of Dec and RA)
       return side;
     });
     if (sides.length && sides[0].getBBox) {         // Distance(%): its front over DOB's or Now's front, its back over Ave's back
@@ -653,7 +653,7 @@ __SYMBOL_JS__
       g.lead.setAttribute("d", "M" + x.toFixed(1) + " " + y.toFixed(1) + "H" + DIST_X);
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
       fitSymbol(g.label, x, y, r);
-      g.tip.textContent = symbolOf(g.m.name) + " Ave\nDistance(%) from earth: " + pct.toFixed(1);
+      g.tip.textContent = symbolOf(g.m.name) + " Average\nDistance(%) from earth: " + pct.toFixed(1);
     });
     [decMarks, distMarks, aveMarks].forEach((list) => {   // on each graph too, the smallest on top (only when that changes, as below)
       const order = [...list].sort((a, b) => b.e.getAttribute("r") - a.e.getAttribute("r"));
