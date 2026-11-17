@@ -146,7 +146,8 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                 outer = max(outer, reach(max(whole["dist"])))
             rule = core.size_rule(p, texts=sizes)
             marks.append(dict(name=p, colour=core.colour(p), hollow=clock == "DOB", clock=clock, rule=rule))
-            if with_paths is None or p in with_paths:         # the page draws it as time runs, from the body's own table
+            if (with_paths is None or p in with_paths) and p in at["spans"]:   # the page draws it as time runs, from the
+                                                                              # body's own table (NN and SN: no path)
                 days, steps, name = at["spans"][p]
                 paths.append(dict(colour=core.colour(p), dash=clock == "DOB", name=name, body=p, clock=clock, days=days, steps=steps, pts=[]))
     # what the sizes are measured from: each body as seen from the Earth (Bigger than Moon needs the Moon's table, shown or not)

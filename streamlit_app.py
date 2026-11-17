@@ -249,7 +249,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Planets Cycles": "Each chosen planet's Declination (-M lines) over the period, with dots and tags where two of "
                       "them are in a chosen major or minor aspect. A tag with no room is left off: point at "
                       "its dot to see it. Dates and times are UT.",
-    "AstroClock-2D": "Coordinates: Ho (the house lines of CB and CN), 1C (every planet on one circle at its RA, whatever its distance, so that planets in conjunction sit together) and DA (the Ave planets on the Distance(%) graph, on to start). Left of the clock, Dec: each planet's Declination on a scale from +30 to -30 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at DOB and at Now to the left of its line, and at Ave (the average of the two, moving as time runs) to the right. Major Aspects and Minor Aspects: the angles to draw; two planets at the same time in one of them, by the orbs in Aspect Rules, are joined by a line tagged as 0-Ma-Ju. Rotate in 1s: pick a speed for time to run; with none picked it stands still, and dragging the drawing moves it by hand: right is later, left is back, as far as where it started, 6 hours a pixel.",
+    "AstroClock-2D": "Coordinates: Ho (the house lines of CB and CN), 1C (every planet on one circle at its RA, whatever its distance, so that planets in conjunction sit together) DA (the Ave planets on the Distance(%) graph, on to start) and PP (the Planet Path of each planet shown: a trail behind it while time runs). Left of the clock, Dec: each planet's Declination on a scale from +30 to -30 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at DOB and at Now to the left of its line, and at Ave (the average of the two, moving as time runs) to the right. Major Aspects and Minor Aspects: the angles to draw; two planets at the same time in one of them, by the orbs in Aspect Rules, are joined by a line tagged as 0-Ma-Ju. Rotate in 1s: pick a speed for time to run; with none picked it stands still, and dragging the drawing moves it by hand: right is later, left is back, as far as where it started, 6 hours a pixel.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
@@ -675,7 +675,7 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
            ("AstroClock-2D", "Planets"): (globe, True, globe),
            ("AstroClock-2D", "Major Aspects"): (GLOBE_MAJOR, True, []),
            ("AstroClock-2D", "Minor Aspects"): (GLOBE_MINOR, True, []),
-           ("AstroClock-2D", "Coordinates"): (["Ho", "1C", "DA"], True, ["Ho", "DA"]),   # (the buttons below it that start on)
+           ("AstroClock-2D", "Coordinates"): (["Ho", "1C", "DA", "PP"], True, ["Ho", "DA"]),   # (the buttons below it that start on)
            ("AstroClock-2D", "Rotate in 1s"): (SPEED_CHOICES, False, None),
            ("AstroClock-3D", "Time"): (["Now", "DOB"], False, "Now"),
            ("AstroClock-3D", "Planets"): (globe, True, globe),
@@ -1102,18 +1102,19 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
                                   format_func=core.symbol_of), choices)
     aspects, one_circle = (), False
-    with_paths = []                                           # (AstroClock-2D: no paths)
+    with_paths = []                                           # (PP, under Coordinates: the paths of the planets shown)
     if flat:      # always Fit
         major_names, minor_names = may("Major Aspects", GLOBE_MAJOR), may("Minor Aspects", GLOBE_MINOR)
         major = core.in_order(titled(head, "Major Aspects", f"{key}_t_major", major_names, f"{key}_major", start("Major Aspects"), selection_mode="multi"), major_names)
         minor = core.in_order(titled(head, "Minor Aspects", f"{key}_t_minor", minor_names, f"{key}_minor", start("Minor Aspects"), selection_mode="multi"), minor_names)
         aspects = tuple(int(a) for a in major + minor)
         show_au, show_celes = True, True
-        coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ho, 1C and DA below it (the title off: none)
+        coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ho, 1C, DA and PP below it (the title off: none)
         # (DA: the Ave planets on the Distance(%) graph; which start on, and which are there: the Defaults row Coordinates)
-        on = coords_below(coords, {"Ho": f"{key}_houses", "1C": f"{key}_one_circle", "DA": f"{key}_dav"},
-                          may("Coordinates", ["Ho", "1C", "DA"]), start("Coordinates"), f"{key}_t_coords")
+        on = coords_below(coords, {"Ho": f"{key}_houses", "1C": f"{key}_one_circle", "DA": f"{key}_dav", "PP": f"{key}_pp"},
+                          may("Coordinates", ["Ho", "1C", "DA", "PP"]), start("Coordinates"), f"{key}_t_coords")
         show_houses, one_circle, show_ave = "Ho" in on, "1C" in on, "DA" in on
+        with_paths = list(bodies) if "PP" in on else []
     else:
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ce, AU and PP below it (always the Fit scale)
         # (Ce, first: the celestial coordinates; then AU; then PP, the Planet Path of each planet shown; the title off: none)

@@ -135,7 +135,7 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
 }
 HELP_GONE = {"Manual": "Time stands still; drag the drawing to turn it", "Planet Path": "Title button: the path of each planet picked"}   # the Help rows for buttons since gone, as the app wrote them
 HELP_ROWS_4 = [                                               # added later again
-    ("PP", "Planet Path: a button under Coordinates (AstroClock-3D, Geo/Helio Model): the path of each planet shown"),
+    ("PP", "Planet Path: a button under Coordinates (AstroClock-2D, AstroClock-3D, Geo/Helio Model): the path of each planet shown"),
 ]
 HELP_VERSION = "4"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
