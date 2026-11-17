@@ -133,9 +133,9 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
     "Rotate in 1s": ("Title button: how much time passes each second (Manual, 1s to 1y)",),                   # (Manual is gone)
     "Days": ("Customers column: days of DOB access to add (1, 7, 30, 90, 180, 365); End Date is extended by them",),                         # (now DOB Details')
 }
-HELP_GONE = {"Manual": "Time stands still; drag the drawing to turn it"}   # the Help rows for buttons since gone, as the app wrote them
+HELP_GONE = {"Manual": "Time stands still; drag the drawing to turn it", "Planet Path": "Title button: the path of each planet picked"}   # the Help rows for buttons since gone, as the app wrote them
 HELP_ROWS_4 = [                                               # added later again
-    ("PP", "Planet Path: AstroClock-3D's button under Coordinates: the path of each planet shown"),
+    ("PP", "Planet Path: a button under Coordinates (AstroClock-3D, Geo/Helio Model): the path of each planet shown"),
 ]
 HELP_VERSION = "4"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
@@ -157,7 +157,6 @@ HELP_ROWS_2 = [                                               # added later: the
     # the title buttons
     ("Time", "Title button: which moment the charts show, Now or DOB (one at a time)"),
     ("Planets", "Title button: which planets (and NN, SN) to show"),
-    ("Planet Path", "Title button: the path of each planet picked"),
     ("Major Aspects", "Title button: the major aspect angles to draw: 0, 60, 90, 120, 180"),
     ("Minor Aspects", "Title button: the minor aspect angles to draw: 30, 45, 72, 135, 144, 150"),
     ("Coordinates", "Title button: which lines and tags to show (Ho, Ce, AU, 3D, Sp, SpC, PP, RA, De, La, Lg, 1C, DA)"),
@@ -236,7 +235,6 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Geo/Helio Model", "Centric Model", "Geo"),
     ("Geo/Helio Model", "Time", "Now"),                       # (one row each for both models: Geo takes Su, Helio Ea)
     ("Geo/Helio Model", "Planets", "Mo, Su, Ea, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio Model", "Planet Path", "Mo, Su, Ea, Me, Ve, Ma, Ju, Sa"),
     ("Geo/Helio Model", "Coordinates", "Ce, AU"),            # and here (Ce, AU)
     ("Geo/Helio Model", "Rotate in 1s", ""),
     ("Aspects", "Start Date (UT)", "DOB"),
@@ -354,7 +352,7 @@ def engine() -> sa.Engine:
     _rename_dec_button(eng)
     _merge_coordinates(eng)                                   # (again: a button row an earlier name has just given back)
     _drop_manual(eng)
-    _drop_globe_path(eng)
+    _drop_planet_path(eng)
     _rename_help_abbre(eng)
     _add_help_index(eng)
     _rename_help_rows(eng)
@@ -476,15 +474,20 @@ COORD_ROWS = {"AstroClock-2D": (("Ho", True), ("1C", False), ("DA", True)), "Geo
 # below Coordinates, once a row each, and whether each starts on with no row
 
 
-def _drop_globe_path(eng: sa.Engine):
-    """AstroClock-3D's Planet Path is the PP button under Coordinates now: its Defaults row goes, PP joining the Coordinates
-    row's Choice Values when it started with any paths."""
+def _drop_planet_path(eng: sa.Engine):
+    """AstroClock-3D's and Geo/Helio Model's Planet Path is the PP button under Coordinates now: each page's Defaults row for
+    it goes, PP joining the page's Coordinates row's Choice Values when it started with any paths."""
+    for page in ("astroclock-3d", "geo/helio model"):
+        _path_to_pp(eng, page)
+
+
+def _path_to_pp(eng: sa.Engine, page: str):
     with eng.begin() as c:
-        row = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(sa.func.lower(defaults.c.page) == "astroclock-3d",
+        row = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(sa.func.lower(defaults.c.page) == page,
                                                                             sa.func.lower(defaults.c.options) == "planet path")).first()
         if row is None:
             return
-        coords = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(sa.func.lower(defaults.c.page) == "astroclock-3d",
+        coords = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(sa.func.lower(defaults.c.page) == page,
                                                                                sa.func.lower(defaults.c.options) == "coordinates")).first()
         on = [p.strip() for p in ((coords.choices if coords else "") or "").split(",") if p.strip()]
         if (row.choices or "").strip() and coords is not None and "pp" not in [p.lower() for p in on]:

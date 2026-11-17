@@ -43,7 +43,7 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 .st-key-globe_major button, .st-key-globe_minor button, .st-key-space_speed button, .st-key-globe_time button
   { flex: 0 0 auto !important; width: auto !important; }
 /* the circles: every planet, every angle, every speed */
-:is(.st-key-sci_bodies, .st-key-globe_bodies, .st-key-space_bodies, .st-key-space_paths, .st-key-helio_bodies, .st-key-helio_paths,
+:is(.st-key-sci_bodies, .st-key-globe_bodies, .st-key-space_bodies, .st-key-helio_bodies,
     [class*="dec_on_v2"], .st-key-dist_on_v2) button,
 :is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, .st-key-sci_major, .st-key-sci_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button,
 :is(.st-key-helio_speed, .st-key-space_speed, .st-key-globe_speed) button, .st-key-sci_speed button
@@ -232,15 +232,15 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "Point at a planet for its distance from the centre and, under Distance to the others, how far it is from each other body shown at that moment, in AU (straight across space). "
                   "Each point is placed by its RA, Dec and distance. North is up, the axis from NCP to SCP tilted 23.44 degrees on the page, with everything else leaning with it. Buttons under Coordinates: Ce, the celestial coordinates: the axis with NCP and SCP and the RA lines with their names (on to start); AU, the rings on the plane of the Earth's equator with their distances in AU, out to 20 AU (1 AU is about the Sun's distance); "
                   "Rotate in 1s: with no speed picked (as to start), time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second: 1s a second, 1m a minute, 1h an hour, 1d a day, 1w a week, 1mo a month, 1y a year: the clock beside the name gives the date and time, and the Sun, Moon and planets move as they really did, nearer and farther, the Moon's path going with it (time starts again after 72 years; refresh the page to go back to the start). With none picked it holds still. Each has its symbol inside its marker (☉ Su, ☽ Mo, ☿ Me, ♀ Ve, ♂ Ma, ♃ Ju, ♄ Sa, ⊕ Ea). Sizes follow the Size_Geo column of Symbols: usually a planet by how big it looks from the Earth at that moment (a logarithmic scale, as to true scale the planets would not show), so it grows as it comes nearer, and the Earth as its Size says (Tiny, a dot, when it says nothing readable; to true scale it would be far smaller still). Point at a planet for its Dec/Lati, RA, Angular Size and distance, or at a path for its span and distances. "
-                  "Planet Path: which of the planets shown have their paths drawn. Time: DOB is hollow with dashed paths, Now solid; each path is a trail behind its planet, drawn only while time runs: where it has really been since time started running, kept for up to 72 years, when time starts again (a trail over many years is drawn with fewer points). With time standing still there are no trails, and each start begins new ones. "
-                  "Coordinates: Ce and AU below it. Distances are on the Fit scale: each tenfold distance takes the same room, so the Moon's path and Saturn's can be seen together, and the empty space between the Moon's path and the planets' is taken out (it alone is not to scale). A label with no room is left off: point at its mark. "
+                  "Time: DOB is hollow with dashed paths, Now solid. PP, under Coordinates: the Planet Path of each planet shown, a trail behind it, drawn only while time runs: where it has really been since time started running, kept for up to 72 years, when time starts again (a trail over many years is drawn with fewer points). With time standing still there are no trails, and each start begins new ones. "
+                  "Coordinates: Ce, AU and PP below it. Distances are on the Fit scale: each tenfold distance takes the same room, so the Moon's path and Saturn's can be seen together, and the empty space between the Moon's path and the planets' is taken out (it alone is not to scale). A label with no room is left off: point at its mark. "
                     "HelioCentric: as GeoCentric, with the Sun (Su) at the centre: the paths of the planets and the Earth (Ea) around the Sun, each at its own distance from the Sun, "
                     "placed by its RA, Dec and distance as seen from the Sun, on the same frame as from the Earth (the plane of the Earth's equator, north up). The Moon (Mo) goes round the Earth: seen from the Sun it is where the Earth is, so it is drawn close round the Earth's mark (a dot when its Size_Helio is Tiny, as it starts), farther out than to scale, in its real direction from the Earth and nearer and farther with its real distance (its path loops round the Earth's). "
                     "AU: all the tags, NCP, SCP and the RA names, and rings on the plane of the Earth's equator, each with its distance from the Sun in AU (1 AU is about the Earth's distance; on Fit 0.5, 1, 2.5, 5, 10 and 20 AU, on True 1, 2.5, 5, 10 and 20 AU, nearer ones being inside the Sun's mark there); off, the drawing has no tags. "
                     "Rotate in 1s: with no speed picked (as to start), time stands still, and dragging the drawing turns it, what is behind being fainter. Or pick a speed, how much time passes each second (1s, 1m, 1h, 1d, 1w, 1mo, 1y): the clock beside the name gives the date and time, and the planets and the Earth move round the Sun as they really did (time starts again after 72 years; refresh the page to go back to the start). With none picked it holds still. "
                     "Each has its symbol inside its marker (☿ Me, ♀ Ve, ⊕ Ea, ☽ Mo, ♂ Ma, ♃ Ju, ♄ Sa, ☉ Su). Sizes follow the Size_Helio column of Symbols: usually a planet by how big it looks from the Earth at that moment (a logarithmic scale), the Sun and the Earth as their Sizes say. Point at a planet for its Dec/Lati, RA, Angular Size and distance from the Sun, or at a path for its span and distances. "
-                    "Planet Path: which of the planets shown have their paths drawn. Time: DOB is hollow with dashed paths, Now solid; each path is a trail behind its planet, drawn only while time runs, kept for up to 72 years (with time standing still there are no trails, and each start begins new ones). "
-                    "Coordinates: Ce and AU below it. Distances are on the Fit scale: each tenfold distance takes the same room, so Mercury's path and Saturn's can be seen together. A label with no room is left off: point at its mark.",
+                    "Time: DOB is hollow with dashed paths, Now solid. PP, under Coordinates: the Planet Path of each planet shown, a trail behind it, drawn only while time runs, kept for up to 72 years (with time standing still there are no trails, and each start begins new ones). "
+                    "Coordinates: Ce, AU and PP below it. Distances are on the Fit scale: each tenfold distance takes the same room, so Mercury's path and Saturn's can be seen together. A label with no room is left off: point at its mark.",
     "Aspects": "The aspects between the chosen planets, and the Moon's nodes (NN, SN; by their own orbs in Aspect Rules, ☊ and ☋, the total of the pair's as for two planets; never with each other), over the period, as tables, newest first: one table per "
                "angle, headed with its name in Aspect Rules, a row each time two planets came into it (RA within the RA orb of the "
                "angle, and the two Declinations within the Dec orb of equal or mirrored). The angles to pick from, and their orbs, "
@@ -689,8 +689,7 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
     bodies = list(globechart.BODY_CHOICES) + [b for b in space3d.HELIO_BODIES if b not in globechart.BODY_CHOICES]
     out |= {("Geo/Helio Model", "Time"): (["Now", "DOB"], False, "Now"),
             ("Geo/Helio Model", "Planets"): (bodies, True, bodies),
-            ("Geo/Helio Model", "Planet Path"): (bodies, True, bodies),
-            ("Geo/Helio Model", "Coordinates"): (["Ce", "AU"], True, ["Ce", "AU"]),
+            ("Geo/Helio Model", "Coordinates"): (["Ce", "AU", "PP"], True, ["Ce", "AU"]),
             ("Geo/Helio Model", "Rotate in 1s"): (SPEED_CHOICES, False, None)}
     for page, end, planets in (("Aspects", (0, 5), core.BUTTON_ORDER + ["NN", "SN"]), ("Planets Cycles", (360, 0), core.BUTTON_ORDER),
                                ("Planets Distance(%)", (24, 0), core.BUTTON_ORDER)):
@@ -1088,7 +1087,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         if flat:
             return default_choice("AstroClock-2D", title)
         value = default_choice("Geo/Helio Model", title)      # (the planets: those this model has)
-        return [v for v in value if v in choices] if title in ("Planets", "Planet Path") else value
+        return [v for v in value if v in choices] if title == "Planets" else value
 
     def may(title: str, options: list) -> list:
         """What this input offers (its Defaults row's Allowed Values)."""
@@ -1103,26 +1102,25 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
                                   format_func=core.symbol_of), choices)
     aspects, one_circle = (), False
-    if flat:      # no Planet Path, Coordinates or AU buttons: no paths, always Fit
+    with_paths = []                                           # (AstroClock-2D: no paths)
+    if flat:      # always Fit
         major_names, minor_names = may("Major Aspects", GLOBE_MAJOR), may("Minor Aspects", GLOBE_MINOR)
         major = core.in_order(titled(head, "Major Aspects", f"{key}_t_major", major_names, f"{key}_major", start("Major Aspects"), selection_mode="multi"), major_names)
         minor = core.in_order(titled(head, "Minor Aspects", f"{key}_t_minor", minor_names, f"{key}_minor", start("Minor Aspects"), selection_mode="multi"), minor_names)
         aspects = tuple(int(a) for a in major + minor)
-        with_paths, show_au, show_celes = [], True, True
+        show_au, show_celes = True, True
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ho, 1C and DA below it (the title off: none)
         # (DA: the Ave planets on the Distance(%) graph; which start on, and which are there: the Defaults row Coordinates)
         on = coords_below(coords, {"Ho": f"{key}_houses", "1C": f"{key}_one_circle", "DA": f"{key}_dav"},
                           may("Coordinates", ["Ho", "1C", "DA"]), start("Coordinates"), f"{key}_t_coords")
         show_houses, one_circle, show_ave = "Ho" in on, "1C" in on, "DA" in on
     else:
-        path_names = tuple(may("Planet Path", list(choices)))
-        with_paths = core.in_order(titled(head, "Planet Path", f"{key}_t_paths", core.shown_order(path_names), f"{key}_paths", start("Planet Path"),
-                                          selection_mode="multi", format_func=core.symbol_of), path_names)
-        coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ce and AU below it (always the Fit scale)
-        # (Ce, first: the celestial coordinates; then AU; the title off: no tags)
-        on = coords_below(coords, {"Ce": f"{key}_ce", "AU": f"{key}_au"}, may("Coordinates", ["Ce", "AU"]),
+        coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ce, AU and PP below it (always the Fit scale)
+        # (Ce, first: the celestial coordinates; then AU; then PP, the Planet Path of each planet shown; the title off: none)
+        on = coords_below(coords, {"Ce": f"{key}_ce", "AU": f"{key}_au", "PP": f"{key}_pp"}, may("Coordinates", ["Ce", "AU", "PP"]),
                           start("Coordinates"), f"{key}_t_scale")
         show_celes, show_au = "Ce" in on, "AU" in on
+        with_paths = list(bodies) if "PP" in on else []
     speed = titled(head, "Rotate in 1s", f"{key}_t_speed", may("Rotate in 1s", SPEED_CHOICES), f"{key}_speed", start("Rotate in 1s"))
     day_seconds = globechart.SPEEDS.get(speed)
     manual = day_seconds is None and not flat                 # no speed: time stands still, and the drawing is dragged round (the flat
