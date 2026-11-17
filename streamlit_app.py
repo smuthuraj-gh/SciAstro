@@ -349,7 +349,7 @@ def _pick_customer_box() -> tuple[pd.Series | None, Prepared | None]:
     # fades); on DOB Details, below its boxes (page_notes)
     locked_note = st.session_state.pop("_dob_locked", None) if nav.url_path != "me" else None
     if locked_note:
-        st.warning(locked_note if isinstance(locked_note, str) else access.PAID_NOTE)
+        st.warning(days_note(locked_note if isinstance(locked_note, str) else access.PAID_NOTE))
     if df.empty:
         if user.is_admin:                                     # (anyone signed in sees the Now charts)
             st.sidebar.info("No customers yet.")
@@ -389,7 +389,7 @@ def _pick_customer_box() -> tuple[pd.Series | None, Prepared | None]:
         prep = Prepared(True, access.EXPIRED_NOTE if GRANT.expired else access.PAID_NOTE,   # (shown when they pick DOB)
                         now_only=True, locked=True,   # at the place they live now
                         cn=prep.cn if prep.ok else None, cn_tz=prep.cn_tz if prep.ok else None)
-        st.sidebar.caption(GRANT.note)
+        st.sidebar.caption(days_note(GRANT.note))
     elif not prep.ok:                                         # birth details that cannot be worked out: the Now charts still
         st.sidebar.error(prep.message)
         prep = Prepared(True, prep.message + (" Fix it on the DOB page." if user.is_admin else " Fix it in DOB Details."),
@@ -404,7 +404,7 @@ def _pick_customer_box() -> tuple[pd.Series | None, Prepared | None]:
                            f"{at}, UTC {prep.utc:+.2f}  \n"
                            + ", ".join(str(row[f]) for f in ("city", "state", "country") if pd.notna(row[f]))
                            + f" ({prep.birth_lat}, {prep.birth_lon})"
-                           + (f"  \n{GRANT.note}" if GRANT.note else ""))
+                           + (f"  \n{days_note(GRANT.note)}" if GRANT.note else ""))
     mark_accessed()
     viewed = st.session_state.setdefault("viewed_customers", set())   # a View in the Logins table: once per customer per visit
     if cid not in viewed:
@@ -652,7 +652,7 @@ def need_chart(prep: Prepared | None) -> bool:
             new_member_form()
         return False
     if not prep.ok:
-        st.warning(prep.message)
+        st.warning(days_note(prep.message))
         return False
     return True
 
@@ -808,6 +808,14 @@ def allowed_words(page: str, title: str) -> list[str]:
 def menu_title(page: str, title: str, own: str) -> str:
     """The title of the box an input is in: its Defaults row's Box Title, else the app's own."""
     return DEFAULT_MORE.get((page.lower(), title.lower()), ("", ""))[0] or own
+
+
+MORE_DAYS = "Get more days of access"                         # DOB Details' box for more days, as the app names it
+
+
+def days_note(text):
+    """A message naming DOB Details' box for more days, by its title now (the Defaults table's Box Title)."""
+    return text.replace(MORE_DAYS, menu_title("DOB Details", "Days", MORE_DAYS)) if isinstance(text, str) else text
 
 
 def options_problems(rows: pd.DataFrame) -> list[str]:
@@ -1853,7 +1861,7 @@ def page_notes():
     saved."""
     locked = st.session_state.pop("_dob_locked", None)
     if locked:
-        st.warning(locked if isinstance(locked, str) else access.PAID_NOTE)
+        st.warning(days_note(locked if isinstance(locked, str) else access.PAID_NOTE))
     said = st.session_state.pop("days_added", None)
     if said:
         st.success(said)
@@ -1871,9 +1879,9 @@ def more_days_box():
     if user.is_admin:
         return
     # (open when they were sent here for it: they picked DOB, which is not open to them)
-    with st.expander(menu_title("DOB Details", "Days", "Get more days of access"),   # (its title: the Defaults table's Box Title)
+    with st.expander(menu_title("DOB Details", "Days", MORE_DAYS),   # (its title: the Defaults table's Box Title)
                      expanded=st.session_state.pop("_open_more_days", False)):
-        note = (GRANT.note or "DOB charts open.") if GRANT.dob else "Now charts only: add days here to open the DOB charts."
+        note = days_note(GRANT.note or "DOB charts open.") if GRANT.dob else "Now charts only: add days here to open the DOB charts."
         st.caption(note + " Days are added to your End Date while it runs, else from now. For now, apply the coupon "
                    "Free to add them free.")
         # (a form: Enter in Pay / Coupon adds the days as Add days does; before, Enter only changed the box, and nothing

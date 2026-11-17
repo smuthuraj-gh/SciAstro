@@ -540,12 +540,17 @@ def _rename_help_abbre(eng: sa.Engine):
 
 def _rename_help_rows(eng: sa.Engine):
     """Help rows for pages since renamed get the new name (their Description kept): Page_Defaults, for a while the
-    Defaults page's name, is Defaults again."""
+    Defaults page's name, is Defaults again; the Defaults row's first Description is brought up to date."""
     if "help" not in sa.inspect(eng).get_table_names():
         return
     with eng.begin() as c:
         if not c.execute(sa.select(help_table.c.id).where(sa.func.lower(help_table.c.abbreviation) == "defaults")).first():
             c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == "page_defaults").values(abbreviation="Defaults"))
+        # (its Description as first written named the table's columns as they were: it gets the one HELP_ROWS has now)
+        now = dict(HELP_ROWS + HELP_ROWS_2)["Defaults"]
+        c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == "defaults",
+                                            help_table.c.description == "Page (admins): what each page's buttons start as (Page, Options, Choices)")
+                  .values(description=now))
 
 
 def _add_help_index(eng: sa.Engine):
