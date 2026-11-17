@@ -129,11 +129,15 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
                  "Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed_Values)"),
     "Customers": ("Page (admins): a row per login: Email, Access, Start Date, Days, End Date",),                    # (its Days column is gone)
     "Access": ("Customers column: Now (the Now charts), DOB (the DOB charts, for Days days) or Admin",),
+    "Coordinates": ("Title button: which lines and tags to show (Ho, Ce, AU, 3D, Sp, SpC, RA, De, La, Lg, 1C, DA)",),                # (PP added)
     "Rotate in 1s": ("Title button: how much time passes each second (Manual, 1s to 1y)",),                   # (Manual is gone)
     "Days": ("Customers column: days of DOB access to add (1, 7, 30, 90, 180, 365); End Date is extended by them",),                         # (now DOB Details')
 }
 HELP_GONE = {"Manual": "Time stands still; drag the drawing to turn it"}   # the Help rows for buttons since gone, as the app wrote them
-HELP_VERSION = "3"                                            # the sets of rows the Help table has been given
+HELP_ROWS_4 = [                                               # added later again
+    ("PP", "Planet Path: AstroClock-3D's button under Coordinates: the path of each planet shown"),
+]
+HELP_VERSION = "4"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
     ("AstroClock-2D", "Page: the Geo drawing seen from above the north celestial pole, each planet at its RA and distance, with the Dec and Distance(%) graphs"),
@@ -156,7 +160,7 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Planet Path", "Title button: the path of each planet picked"),
     ("Major Aspects", "Title button: the major aspect angles to draw: 0, 60, 90, 120, 180"),
     ("Minor Aspects", "Title button: the minor aspect angles to draw: 30, 45, 72, 135, 144, 150"),
-    ("Coordinates", "Title button: which lines and tags to show (Ho, Ce, AU, 3D, Sp, SpC, RA, De, La, Lg, 1C, DA)"),
+    ("Coordinates", "Title button: which lines and tags to show (Ho, Ce, AU, 3D, Sp, SpC, PP, RA, De, La, Lg, 1C, DA)"),
     ("Rotate in 1s", "Title button: how much time passes each second (1s to 1y); none picked: time stands still, and dragging the drawing turns it"),
     ("Centric Model", "Title button: Geo (the Earth at the centre) or Helio (the Sun at the centre)"),
     ("Start Date (UT)", "When a chart over time starts: DOB or Now"),
@@ -225,7 +229,6 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("AstroClock-2D", "Rotate in 1s", ""),
     ("AstroClock-3D", "Time", "Now"),
     ("AstroClock-3D", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
-    ("AstroClock-3D", "Planet Path", "Su"),
     ("AstroClock-3D", "Major Aspects", ""),
     ("AstroClock-3D", "Minor Aspects", ""),
     ("AstroClock-3D", "Coordinates", "Ce"),
@@ -351,6 +354,7 @@ def engine() -> sa.Engine:
     _rename_dec_button(eng)
     _merge_coordinates(eng)                                   # (again: a button row an earlier name has just given back)
     _drop_manual(eng)
+    _drop_globe_path(eng)
     _rename_help_abbre(eng)
     _add_help_index(eng)
     _rename_help_rows(eng)
@@ -470,6 +474,22 @@ TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio m
              ("geo/helio model", "time"))
 COORD_ROWS = {"AstroClock-2D": (("Ho", True), ("1C", False), ("DA", True)), "Geo/Helio Model": (("Ce", True), ("AU", True))}   # the buttons
 # below Coordinates, once a row each, and whether each starts on with no row
+
+
+def _drop_globe_path(eng: sa.Engine):
+    """AstroClock-3D's Planet Path is the PP button under Coordinates now: its Defaults row goes, PP joining the Coordinates
+    row's Choice Values when it started with any paths."""
+    with eng.begin() as c:
+        row = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(sa.func.lower(defaults.c.page) == "astroclock-3d",
+                                                                            sa.func.lower(defaults.c.options) == "planet path")).first()
+        if row is None:
+            return
+        coords = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(sa.func.lower(defaults.c.page) == "astroclock-3d",
+                                                                               sa.func.lower(defaults.c.options) == "coordinates")).first()
+        on = [p.strip() for p in ((coords.choices if coords else "") or "").split(",") if p.strip()]
+        if (row.choices or "").strip() and coords is not None and "pp" not in [p.lower() for p in on]:
+            c.execute(defaults.update().where(defaults.c.id == coords.id).values(choices=", ".join(on + ["PP"])))
+        c.execute(defaults.delete().where(defaults.c.id == row.id))
 
 
 def _drop_manual(eng: sa.Engine):
@@ -657,7 +677,7 @@ def _rename_help_rows(eng: sa.Engine):
         if not c.execute(sa.select(help_table.c.id).where(sa.func.lower(help_table.c.abbreviation) == "defaults")).first():
             c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == "page_defaults").values(abbreviation="Defaults"))
         # (a row still as the app first wrote it, since out of date, gets the one the app has now; one an admin has changed stays)
-        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3)
+        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4)
         for abbreviation, olds in HELP_OUT_OF_DATE.items():
             c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(),
                                                 help_table.c.description.in_(olds)).values(description=now[abbreviation]))
@@ -695,7 +715,8 @@ def _seed_help(eng: sa.Engine):
         done = c.execute(sa.select(settings.c.value).where(settings.c.key == "help_seeded")).scalar()
         if done == HELP_VERSION:
             return
-        wanted = {"1": HELP_ROWS_2 + HELP_ROWS_3, "2": HELP_ROWS_3}.get(done, HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3)
+        wanted = {"1": HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4, "2": HELP_ROWS_3 + HELP_ROWS_4, "3": HELP_ROWS_4}.get(
+            done, HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4)
         have = {a.lower() for (a,) in c.execute(sa.select(help_table.c.abbreviation)).all()}
         new = [dict(abbreviation=a, description=d) for a, d in wanted if a.lower() not in have]
         if new:
