@@ -346,7 +346,7 @@ __SYMBOL_JS__
   });
   // flat: the Distance(%) graph's line, right of the circle, with all its planets to its right, beyond its numbers: the time
   // picked (DOB, Now) in the first column, then Ave; DIST_FIRST, DIST_STEP: the first column's distance from it, and between them
-  const DIST_X = D.width - 80, DIST_FIRST = 44, DIST_STEP = 32;
+  const DIST_X = D.width - 90, DIST_FIRST = 44, DIST_STEP = 58;   // (Ave that far from DOB / Now: Distance(%) spans the two names)
   const DIST_AU = 56, AU_NUM = 8;                  // and left of it an AU scale: its numbers AU_NUM from the bar, and the same planets again
                                                    // DIST_AU from it, left of the numbers
   // the AU scale, left of the bar, as tall as it, not to scale: its marks AU_MARKS evenly up the bar, the first at the bottom
@@ -461,10 +461,9 @@ __SYMBOL_JS__
     const distScale = make("path", svg, {d: "M" + DIST_X + " " + distY(100).toFixed(1) + "V" + distY(0).toFixed(1) + distTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
     make("title", distScale).textContent = "Distance(%) from earth, 0 nearest to 100 farthest: the planets at the time picked, then Ave, to the right";
     const distTag = words("rgb(90,90,90)");
-    distTag.setAttribute("text-anchor", "middle");  // (above its columns' names: centred on DOB's or Now's, kept inside the drawing)
+    distTag.setAttribute("text-anchor", "start");   // (above its columns' names: from DOB's or Now's front to Ave's back)
     distTag.setAttribute("y", (cy + R + 39).toFixed(1)); distTag.textContent = "Distance(%)";
-    const tagW = distTag.getBBox ? distTag.getBBox().width : 60, right = D.view[0] + D.view[2] - 2;
-    distTag.setAttribute("x", Math.min(distCol(distClocks[0] || "Now"), right - tagW / 2).toFixed(1));
+    distTag.setAttribute("x", DIST_X + DIST_FIRST - 15);
     if (distMarks.length) {                        // the AU scale, left of the bar: a tick at each mark, numbered left of the planets
       let auTicks = "";
       AU_MARKS.forEach((v) => {
@@ -478,11 +477,20 @@ __SYMBOL_JS__
       const auName = words("rgb(90,90,90)");
       auName.setAttribute("x", DIST_X - DIST_AU / 2); auName.setAttribute("y", (cy + R + 56).toFixed(1)); auName.textContent = "AU";   // (on the line of Dec and RA)
     }
-    [...distClocks, "Ave"].filter((name) => name !== "Ave" || aveMarks.length).forEach((name) => {   // which column is which, above that tag
+    const sides = [...distClocks, "Ave"].filter((name) => name !== "Ave" || aveMarks.length).map((name) => {   // which column is which, below that tag
       const x = distCol(name);
       const side = words("rgb(90,90,90)");
       side.setAttribute("x", x); side.setAttribute("y", (cy + R + 56).toFixed(1)); side.textContent = name;   // (on the line of Dec and RA)
+      return side;
     });
+    if (sides.length && sides[0].getBBox) {         // Distance(%): its front over DOB's or Now's front, its back over Ave's back
+      const front = sides[0].getBBox(), back = sides[sides.length - 1].getBBox();
+      distTag.setAttribute("x", front.x.toFixed(1));
+      if (sides.length > 1) {
+        distTag.setAttribute("textLength", (back.x + back.width - front.x).toFixed(1));
+        distTag.setAttribute("lengthAdjust", "spacing");
+      }
+    }
   }
   const clear = (a, taken) => taken.every((b) => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
   const inside = (a) => a[0] > D.view[0] && a[1] > D.view[1] && a[2] < D.view[0] + D.view[2] && a[3] < D.view[1] + D.view[3];
