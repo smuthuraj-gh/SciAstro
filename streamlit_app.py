@@ -991,7 +991,7 @@ def page_globe():
     coords = head.container(width="content", gap="xxsmall")   # Coordinates, with its options below it in fixed rows
     if coords.pills("Coordinates", ["Coordinates"], default="Coordinates", key="globe_coords_on", label_visibility="collapsed"):
         coords_ok = set(offered("AstroClock-3D", "Coordinates", ["Ho", "Ce", "AU", "Sp", "SpC", "PP", "3D", "RA", "De", "La", "Lg"]))
-        for row_of in ([n for n in r if n in coords_ok] for r in (["Ho", "Ce", "AU", "Sp", "SpC", "PP"], ["3D", "RA", "De", "La", "Lg"])):   # (two rows)
+        for row_of in ([n for n in r if n in coords_ok] for r in (["Ho", "Ce", "AU", "Sp", "SpC"], ["PP", "3D", "RA", "De", "La", "Lg"])):   # (two rows)
             if not row_of:
                 continue
             shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[n for n in row_of if n in coords_on],
