@@ -258,12 +258,12 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
               "browser and system, and their browser's time zone. Access: theirs then. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
               "either asks first, and a deleted row cannot be brought back.",
-    "Defaults": "The Defaults table: what each page's inputs start as, and what they offer. Value: what the page starts with (type a new one and press Update: it becomes the Choices). Allowed_Values: the values Value (and Choices) may be set to, all the input's values or those typed there, comma-separated (only for this table: the page still offers all its buttons; clear it for all again; dates, text boxes and single on / off buttons cannot be narrowed). A row per input: its Page, its Options and its "
-                "Choices. Buttons: the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0, 180; Manual), "
+    "Defaults": "The Defaults table: what each page's inputs start as. A row per input, each column its own: Page (e.g. DOB Details), Options (the box the input is in, e.g. Get more days of access), Choices (the input, e.g. Days), Value (what it starts as, e.g. 1) and Allowed_Values (the values Value may be set to, e.g. 1, 7, 30, 90, 180, 365: all the input's values, or those typed there, comma-separated; only for this table, the page still offers all its buttons; clear it for all again; dates, text boxes and single on / off buttons cannot be narrowed). "
+                "Value: buttons, the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0, 180; Manual), "
                 "blank for none; one on / off button (AU): On or Off. Start Date (UT): DOB or Now. End Date (UT): Now, or "
                 "Start Date (UT) + a time, e.g. 5 days, 2 years 6 months (years, months, weeks, days), which moves with the "
                 "Start. Update checks each row against the page's input. An input with no row starts as the app's own default. "
-                "Rows are sorted by Page, Options, Choices; click a column name to sort by it. Changes apply when a page is next opened (a button already changed this visit keeps its choice). Seen by admins "
+                "Rows are sorted by Page, Options, Choices; Value blank: the app's own default; click a column name to sort by it. Changes apply when a page is next opened (a button already changed this visit keeps its choice). Seen by admins "
                 "only, who can Insert, Update and Delete rows (each saved at once).",
     "Symbols": "The Symbols table: the short name (SAbr), symbol (Symb), long name (SDesc) and colour (RGB, and its name, Color) of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
                "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete: each is saved at once; Ignore drops changes not saved yet. Click a column name to sort. SAbr is unique, and stays once a row is in the table. Symb is what the pages show in place of its SAbr, the SAbr itself when blank. On AstroClock-2D, AstroClock-3D and Geo/Helio Model the conventional symbols are drawn, in the row's RGB colour; anything else is shown as typed, an emoji such as the baby in its own colours. RGB is rgb(r,g,b) or #rrggbb; Color is its name in words, for reference, and may be blank. Size_Clock-3D says how AstroClock-3D draws the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; Tiny, a dot with no symbol; Small, 9 pixels; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SAbr or SDesc (Bigger than Moon); blank, as usual (a planet by its angular size, Ea a dot, the nodes and places 9 pixels). Size_Clock-2D says the same for AstroClock-2D, its Dec and Distance(%) graphs (it starts as Size_Geo), Size_Geo for Geo/Helio Model's Geo, and Size_Helio for its Helio (it starts as Size_Geo, with the Moon Tiny). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on Geo/Helio Model's Geo; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
@@ -779,20 +779,21 @@ def default_choice(page: str, title: str):
 
 
 def options_problems(rows: pd.DataFrame) -> list[str]:
-    """The Defaults rows whose Page and Options are no input of the app, or whose Choices it cannot read."""
+    """The Defaults rows whose Page and Choices are no input of the app, or whose Value it cannot read."""
     inputs = {(p.lower(), t.lower()): (p, t, spec) for (p, t), spec in default_inputs().items()}
     out = []
     for _, r in rows.iterrows():
-        page, title = db._cell(r["Page"]), db._cell(r["Options"])
+        page, title = db._cell(r["Page"]), db._cell(r["Choices"])
         if not (page and title):
             continue                                          # (said by db.defaults_problems)
         known = inputs.get((page.lower(), title.lower()))
         if known is None:
-            out.append(f"{page} / {title}: no page has that input (Page and Options name an input of the app, so "
-                       "they cannot be renamed; put them back as they were)")
+            names = ", ".join(t for p, t in default_inputs() if p.lower() == page.lower())
+            out.append(f"{page} / {title}: no input of that name on the page (Choices names one of its inputs"
+                       + (f": {names})" if names else "; no page has that name)"))
             continue
         choices, multi, _ = known[2]
-        _, wrong = read_options(choices, multi, db._cell(r["Choices"]))
+        _, wrong = read_options(choices, multi, db._cell(r["Value"]))
         if wrong:
             if choices == START:
                 hint = "DOB or Now"
@@ -804,7 +805,7 @@ def options_problems(rows: pd.DataFrame) -> list[str]:
                 hint = ("one of " if not multi else "any of ") + ", ".join(choices) + (" (or On / Off)" if len(choices) == 1 else "")
             one = "only one can be picked"
             said = ", ".join(w for w in wrong if w != one)
-            out.append(f"{page} / {title}: " + (f"Choices '{said}' not understood: {hint}" if said else f"pick {hint}"))
+            out.append(f"{page} / {title}: " + (f"Value '{said}' not understood: {hint}" if said else f"pick {hint}"))
     return out
 
 
@@ -1445,102 +1446,43 @@ def allowed_to_keep(page, options, text) -> tuple[str | None, list[str]]:
     return (None if len(names) == len(spec[0]) else ", ".join(names)), []
 
 
-def value_in_use(page, options, choices) -> str:
-    """What a Defaults row makes its input start as (its Value column, not kept): its Choices as the page reads them,
-    or the app's own default, marked so, when the page cannot read them."""
-    spec = {(p.lower(), o.lower()): (p, o, s) for (p, o), s in default_inputs().items()}.get(
-        (str(page or "").strip().lower(), str(options or "").strip().lower()))
-    if spec is None:
-        return ""
-    kinds, multi, own = spec[2]
-    value, wrong = read_options(kinds, multi, db._cell(choices))
-    if wrong:
-        value, mark = own, " (app default)"
-    else:
-        mark = ""
-    if kinds == END and isinstance(value, tuple):
-        months, days = value
-        parts = ([f"{months // 12} year{'s' if months // 12 != 1 else ''}"] if months // 12 else []) +                 ([f"{months % 12} month{'s' if months % 12 != 1 else ''}"] if months % 12 else []) +                 ([f"{days} day{'s' if days != 1 else ''}"] if days else [])
-        shown = "Start Date (UT) + " + " ".join(parts) if parts else "Start Date (UT)"
-    elif isinstance(value, (list, tuple)):
-        shown = ", ".join(map(str, value)) if value else "(none)"
-    elif kinds != TEXT and len(kinds) == 1:
-        shown = "On" if value else "Off"
-    else:
-        shown = str(value) if value not in (None, "") else "(none)"
-    return shown + mark
-
-
 def page_defaults():
-    """The Defaults table: Page, Options, Choices (what the input starts as), Value (that, as the page reads it; typed in,
-    it becomes the Choices) and Allowed_Values (the values Value may be set to; the page itself still offers all)."""
+    """The Defaults table, each column its own: Page, Options (the box the input is in), Choices (the input), Value (what it
+    starts as) and Allowed_Values (the values Value may be set to; the page itself still offers all)."""
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
-    table = db.defaults_table()
 
     def shown(rows: pd.DataFrame) -> pd.DataFrame:
-        """The rows as the page shows them: Value worked out from Choices, Allowed_Values all the input's values when none
-        are kept."""
-        values = [value_in_use(p, o, ch) for p, o, ch in zip(rows["Page"], rows["Options"], rows["Choices"])]
-        allowed = [allowed_values(p, o, a) for p, o, a in zip(rows["Page"], rows["Options"], rows["Allowed_Values"])]
-        return rows.assign(
-            Value=values, Allowed_Values=allowed,
-            Shown_Value=values,                               # (hidden: the Value and Allowed_Values as shown, to tell what
-            Shown_Allowed=allowed,                            # was typed in from what was left as it was)
-        )[["Page", "Options", "Choices", "Value", "Allowed_Values", "Shown_Value", "Shown_Allowed"]]
-
-    def typed_in(rows: pd.DataFrame) -> pd.DataFrame:
-        """What was typed, put where it is kept (on Update, Insert, Delete): a Value typed in (changed from the one shown)
-        becomes the Choices, else the Choices stay as typed; Allowed_Values as the app keeps it (blank: all)."""
-        out, refused = rows.copy(), {}
+        """The rows as the page shows (and keeps) them: Allowed_Values as kept, all the input's values when blank; one
+        typed for a date, a text box or one on / off button is left as typed (refused by problems)."""
+        out = rows.copy()
         for i, r in out.iterrows():
-            shown_before = db._cell(r.get("Shown_Value"))
-            now = db._cell(r.get("Value"))
-            if now != shown_before:                           # a Value typed in, or cleared: the Choices it means (a
-                                                              # Choices typed in, its Value left as shown, is kept as typed)
-                now = re.sub(r"\s*\(app default\)\s*$", "", now)
-                out.at[i, "Choices"] = "" if now in ("", "(none)") else now
-            typed = db._cell(r.get("Allowed_Values"))
-            spec = input_spec(r["Page"], r["Options"])
-            if spec is not None and not is_list_input(spec) and typed != db._cell(r.get("Shown_Allowed"))                     and typed != allowed_values(r["Page"], r["Options"]):
-                refused[i] = typed                            # (a date's, text box's or on / off's: left as typed, refused)
+            spec, typed = input_spec(r["Page"], r["Choices"]), db._cell(r.get("Allowed_Values"))
+            if spec is not None and not is_list_input(spec) and typed and typed != allowed_values(r["Page"], r["Choices"]):
                 continue
-            kept, _ = allowed_to_keep(r["Page"], r["Options"], typed)
-            if _:
-                continue
-            out.at[i, "Allowed_Values"] = kept or allowed_values(r["Page"], r["Options"])
-            if kept and now == shown_before and typed != db._cell(r.get("Shown_Allowed")):
-                # Allowed_Values typed in, Value left as it was: a Value outside them moves inside (multi: those inside
-                # are kept; one pick: the first allowed)
-                value, bad = read_options(spec[0], spec[1], db._cell(out.at[i, "Choices"]))
-                names = kept.split(", ")
-                if not bad and spec[1]:
-                    out.at[i, "Choices"] = ", ".join(str(v) for v in (value or []) if str(v) in names)
-                elif not bad and value is not None and str(value) not in names:
-                    out.at[i, "Choices"] = names[0]
-        out = shown(out)
-        for i, typed in refused.items():
-            out.at[i, "Allowed_Values"] = typed
-        return out
+            kept, wrong = allowed_to_keep(r["Page"], r["Choices"], typed)
+            if not wrong:
+                out.at[i, "Allowed_Values"] = allowed_values(r["Page"], r["Choices"], kept)
+        return out[db.DEFAULTS_COLUMNS]
 
     def problems(rows: pd.DataFrame) -> list[str]:
         out = db.defaults_problems(rows) + options_problems(rows)
         for _, r in rows.iterrows():
-            page, title = db._cell(r["Page"]), db._cell(r["Options"])
-            if not (page and title):
-                continue
+            page, title = db._cell(r["Page"]), db._cell(r["Choices"])
             spec = input_spec(page, title)
-            if spec is not None and not is_list_input(spec) and db._cell(r.get("Allowed_Values")) != allowed_values(page, title):
-                out.append(f"{page} / {title}: Allowed_Values cannot be changed for this input "
-                           f"({allowed_values(page, title)}); change Choices or Value instead")
+            if not (page and title) or spec is None:
                 continue
-            kept, wrong = allowed_to_keep(page, title, r.get("Allowed_Values"))
+            typed = db._cell(r.get("Allowed_Values"))
+            if not is_list_input(spec):
+                if typed and typed != allowed_values(page, title):
+                    out.append(f"{page} / {title}: Allowed_Values cannot be changed for this input "
+                               f"({allowed_values(page, title)}); change Value instead")
+                continue
+            kept, wrong = allowed_to_keep(page, title, typed)
             if wrong:
                 out.append(f"{page} / {title}: Allowed_Values '{', '.join(wrong)}' not understood")
-                continue
-            spec = input_spec(page, title)
-            if kept and is_list_input(spec):                  # what it starts with must be among its Allowed_Values
-                value, bad = read_options(spec[0], spec[1], db._cell(r["Choices"]))
+            elif kept:                                        # Value must be among its Allowed_Values
+                value, bad = read_options(spec[0], spec[1], db._cell(r["Value"]))
                 start = value if isinstance(value, list) else ([value] if value else [])
                 outside = [str(v) for v in start if str(v) not in kept.split(", ")]
                 if not bad and outside:
@@ -1550,19 +1492,19 @@ def page_defaults():
 
     def commit(rows: pd.DataFrame) -> str:
         keep = rows.copy()
-        keep["Allowed_Values"] = [allowed_to_keep(p, o, a)[0] for p, o, a in zip(rows["Page"], rows["Options"], rows["Allowed_Values"])]
+        keep["Allowed_Values"] = [allowed_to_keep(p, o, a)[0] for p, o, a in zip(rows["Page"], rows["Choices"], rows["Allowed_Values"])]
         return f"Saved: {db.save_defaults(keep)} row(s)."
 
-    table = shown(table)
-    crud_table("defaults_table", table, problems, commit, on_update=typed_in,
+    table = shown(db.defaults_table())
+    crud_table("defaults_table", table, problems, commit, on_update=shown,
                height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
-               column_config={"Page": st.column_config.TextColumn(width=170), "Options": st.column_config.TextColumn(width=170),
-                              "Shown_Value": None, "Shown_Allowed": None,
-                              "Choices": st.column_config.TextColumn(width=300),
-                              "Value": st.column_config.TextColumn("Value", width=260,
-                                                                  help="What the page starts with (Choices as the page reads "
-                                                                       "them, or the app's own default when it cannot). Type "
-                                                                       "a new one and press Update: it becomes the Choices."),
+               column_config={"Page": st.column_config.TextColumn(width=150),
+                              "Options": st.column_config.TextColumn(width=190, help="The box the input is in on its page "
+                                                                     "(e.g. Get more days of access); for reference."),
+                              "Choices": st.column_config.TextColumn(width=150, help="The input: its name on the page "
+                                                                     "(e.g. Days). Each Page has one row per input."),
+                              "Value": st.column_config.TextColumn(width=300, help="What the input starts as (e.g. 7). "
+                                                                   "Blank: the app's own default (none, for buttons)."),
                               "Allowed_Values": st.column_config.TextColumn("Allowed_Values", width="large",
                                                                    help="The values Value may be set to: all the input's "
                                                                         "values, or those typed here (comma-separated). Only for "

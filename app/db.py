@@ -88,8 +88,9 @@ logins = sa.Table(
     sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete', 'Login')", name="ck_logins_activity"),
 )
 sa.Index("ix_logins_date_time", logins.c.date_time)
-# The Defaults table: a row per page input (Page, Options) and what it starts as (Choices); seen by admins only (the
-# Defaults page). Each page reads it as it is drawn; an input with no row starts as the app's own default.
+# The Defaults table: a row per page input and what it starts as; seen by admins only (the Defaults page), where its columns
+# are shown as Page, Options (section: the box the input is in), Choices (options: the input's name) and Value (choices: what
+# it starts as), with Allowed_Values. Each page reads it as it is drawn; an input with no row starts as the app's own default.
 defaults = sa.Table(
     "defaults", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
@@ -97,6 +98,7 @@ defaults = sa.Table(
     sa.Column("options", sa.String(60), nullable=False),
     sa.Column("choices", sa.String(500)),
     sa.Column("allowed_values", sa.String(500)),             # the values its Value may be set to (blank: all the app has)
+    sa.Column("section", sa.String(60)),                      # the box the input is in (the Defaults page's Options column)
 )
 # The Help table: a row per abbreviation the pages use (Abbreviation) and what it means (Description); kept by admins (the Help
 # page), filled once with the app's own (HELP_ROWS).
@@ -118,7 +120,7 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Help", "Page: this table of the app's names and what they mean (admins change it)"),
     ("Aspect Rules", "Page (admins): the orbs, RA and Dec, a pair of planets must be within to be in aspect"),
     ("Customers", "Page (admins): a row per login: Email, Access, Start Date, Days, End Date"),
-    ("Defaults", "Page (admins): what each page's buttons start as (Page, Options, Choices)"),
+    ("Defaults", "Page (admins): what each page's inputs start as (Page, Options, Choices, Value, Allowed_Values)"),
     ("Logins", "Page (admins): who opened, added, changed or deleted what, when and from where"),
     ("Readme", "Page (admins): the app's README file"),
     ("Symbols", "Page (admins): each planet's symbol, short name, colour and size"),
@@ -321,6 +323,7 @@ def engine() -> sa.Engine:
     _rename_defaults_page(eng)
     _add_defaults_index(eng)
     _add_defaults_allowed(eng)
+    _add_defaults_section(eng)
     _seed_defaults(eng)
     _set_time_now(eng)
     _rename_dec_button(eng)
@@ -388,6 +391,22 @@ def _add_defaults_allowed(eng: sa.Engine):
     if "allowed_values" not in {c["name"] for c in sa.inspect(eng).get_columns("defaults")}:
         with eng.begin() as c:
             c.execute(sa.text(f"ALTER TABLE defaults ADD COLUMN allowed_values {defaults.c.allowed_values.type.compile(dialect=eng.dialect)}"))
+
+
+def default_section(page) -> str:
+    """The box a page's inputs are in, as the Defaults table starts it: DOB Details' Get more days of access, else the
+    page's options at its top."""
+    return "Get more days of access" if str(page or "").strip().lower() == "dob details" else "Options"
+
+
+def _add_defaults_section(eng: sa.Engine):
+    """A Defaults table made before its section column (shown as Options) gets it, each row's filled in (default_section)."""
+    if "section" not in {c["name"] for c in sa.inspect(eng).get_columns("defaults")}:
+        with eng.begin() as c:
+            c.execute(sa.text(f"ALTER TABLE defaults ADD COLUMN section {defaults.c.section.type.compile(dialect=eng.dialect)}"))
+    with eng.begin() as c:
+        for rid, page in c.execute(sa.select(defaults.c.id, defaults.c.page).where(defaults.c.section.is_(None))).all():
+            c.execute(defaults.update().where(defaults.c.id == rid).values(section=default_section(page)))
 
 
 def _add_defaults_index(eng: sa.Engine):
@@ -499,7 +518,8 @@ def _seed_defaults(eng: sa.Engine):
                        "3": lambda r: r[:2] in NEW_IN_4 + NEW_IN_5 + NEW_IN_6, "4": lambda r: r[:2] in NEW_IN_5 + NEW_IN_6,
                        "5": lambda r: r[:2] in NEW_IN_6}
         wanted = [r for r in DEFAULT_ROWS if added_since[done](r)] if done in added_since else DEFAULT_ROWS   # (a row deleted before stays deleted)
-        new = [dict(page=p, options=t, choices=o or None) for p, t, o in wanted if (p.lower(), t.lower()) not in have]
+        new = [dict(page=p, options=t, choices=o or None, section=default_section(p)) for p, t, o in wanted
+               if (p.lower(), t.lower()) not in have]
         if new:
             c.execute(defaults.insert(), new)
         if done is None:
@@ -603,14 +623,18 @@ def save_help(rows: pd.DataFrame) -> int:
 
 
 # ---------------------------------------------------------------- the Defaults table
+DEFAULTS_COLUMNS = ["Page", "Options", "Choices", "Value", "Allowed_Values"]
+
+
 def defaults_table() -> pd.DataFrame:
-    """The Defaults table: Page, Options, Choices, sorted by Page, then Options, then Choices (case aside)."""
+    """The Defaults table as its page shows it: Page, Options (the box), Choices (the input), Value (what it starts as) and
+    Allowed_Values, sorted by Page, then Options, then Choices (case aside)."""
     with engine().connect() as c:
-        rows = c.execute(sa.select(defaults).order_by(sa.func.lower(defaults.c.page), sa.func.lower(defaults.c.options),
-                                                      sa.func.lower(sa.func.coalesce(defaults.c.choices, "")))).mappings().all()
-    return pd.DataFrame([{"Page": r["page"], "Options": r["options"], "Choices": r["choices"],
-                          "Allowed_Values": r["allowed_values"]} for r in rows],
-                        columns=["Page", "Options", "Choices", "Allowed_Values"])
+        rows = c.execute(sa.select(defaults).order_by(sa.func.lower(defaults.c.page),
+                                                      sa.func.lower(sa.func.coalesce(defaults.c.section, "")),
+                                                      sa.func.lower(defaults.c.options))).mappings().all()
+    return pd.DataFrame([{"Page": r["page"], "Options": r["section"], "Choices": r["options"], "Value": r["choices"],
+                          "Allowed_Values": r["allowed_values"]} for r in rows], columns=DEFAULTS_COLUMNS)
 
 
 def defaults_map() -> dict[tuple[str, str], str]:
@@ -621,22 +645,22 @@ def defaults_map() -> dict[tuple[str, str], str]:
 
 
 def defaults_problems(rows: pd.DataFrame) -> list[str]:
-    """What is wrong with the Defaults rows: each needs a Page and Options (at most 60 characters), one row per Page and
-    Options, and Choices of at most 500 characters. A wholly empty row does not count."""
+    """What is wrong with the Defaults rows: each needs a Page and Choices (the input; Page, Options and Choices at most 60
+    characters), one row per Page and Choices, and a Value of at most 500 characters. A wholly empty row does not count."""
     out, seen = [], set()
     for _, r in rows.iterrows():
-        page, title, options = _cell(r["Page"]), _cell(r["Options"]), _cell(r["Choices"])
-        if not (page or title or options):
+        page, box, title, value = _cell(r["Page"]), _cell(r["Options"]), _cell(r["Choices"]), _cell(r["Value"])
+        if not (page or box or title or value):
             continue
         label = f"{page or 'New row'} / {title}" if title else (page or "New row")
         if not page:
             out.append(f"{label}: Page is empty")
         if not title:
-            out.append(f"{label}: Options is empty")
-        if len(page) > 60 or len(title) > 60:
-            out.append(f"{label}: Page and Options can be at most 60 characters")
-        if len(options) > 500:
-            out.append(f"{label}: Choices can be at most 500 characters")
+            out.append(f"{label}: Choices is empty")
+        if len(page) > 60 or len(box) > 60 or len(title) > 60:
+            out.append(f"{label}: Page, Options and Choices can be at most 60 characters")
+        if len(value) > 500:
+            out.append(f"{label}: Value can be at most 500 characters")
         if page and title:
             if (page.lower(), title.lower()) in seen:
                 out.append(f"{label}: is in the table twice")
@@ -645,10 +669,10 @@ def defaults_problems(rows: pd.DataFrame) -> list[str]:
 
 
 def save_defaults(rows: pd.DataFrame) -> int:
-    """Makes the Defaults table these rows (wholly empty ones left out); gives how many it has."""
-    keep = [dict(page=_cell(r["Page"]), options=_cell(r["Options"]), choices=_cell(r["Choices"]) or None,
-                 allowed_values=_cell(r.get("Allowed_Values")) or None)
-            for _, r in rows.iterrows() if _cell(r["Page"]) or _cell(r["Options"]) or _cell(r["Choices"])]
+    """Makes the Defaults table these rows, as its page shows them (wholly empty ones left out); gives how many it has."""
+    keep = [dict(page=_cell(r["Page"]), section=_cell(r["Options"]) or default_section(r["Page"]), options=_cell(r["Choices"]),
+                 choices=_cell(r["Value"]) or None, allowed_values=_cell(r.get("Allowed_Values")) or None)
+            for _, r in rows.iterrows() if _cell(r["Page"]) or _cell(r["Options"]) or _cell(r["Choices"]) or _cell(r["Value"])]
     with engine().begin() as c:
         c.execute(sa.delete(defaults))
         if keep:
