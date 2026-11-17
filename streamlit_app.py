@@ -258,7 +258,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
               "browser and system, and their browser's time zone. Access: theirs then. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
               "either asks first, and a deleted row cannot be brought back.",
-    "Defaults": "The Defaults table: what each page's inputs start as. A row per input, each column its own: Page (e.g. DOB Details), Box Title (the box the input is in, e.g. Get more days of access: DOB Details shows it as that box's title), Choice (the input, e.g. Days), Choice Values (what it starts as, e.g. 1) and Allowed_Values (the values Choice Values may be set to, e.g. 1, 7, 30, 90, 180, 365: all the input's values, or those typed there, comma-separated; the page offers only those; clear it for all again; a text box, the words allowed, e.g. Pay, Free, blank for any text; dates and single on / off buttons cannot be narrowed). "
+    "Defaults": "The Defaults table: what each page's inputs start as. A row per input, each column its own: Page (e.g. DOB Details), Box Title (the box the input is in, e.g. Get more days of access: DOB Details shows it as that box's title), Choice (the input, e.g. Days), Choice Values (what it starts as, e.g. 1) and Allowed Values (the values Choice Values may be set to, e.g. 1, 7, 30, 90, 180, 365: all the input's values, or those typed there, comma-separated; the page offers only those; clear it for all again; a text box, the words allowed, e.g. Pay, Free, blank for any text; dates and single on / off buttons cannot be narrowed). "
                 "Choice Values: buttons, the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0, 180; Manual), "
                 "blank for none; one on / off button (AU): On or Off. Start Date (UT): DOB or Now. End Date (UT): Now, or "
                 "Start Date (UT) + a time, e.g. 5 days, 2 years 6 months (years, months, weeks, days), which moves with the "
@@ -777,7 +777,7 @@ def default_choice(page: str, title: str):
     else:
         value, wrong = read_options(choices, multi, text)
         value = own if wrong else value
-    if isinstance(choices, list) and len(choices) > 1:        # (kept within what the input offers: Allowed_Values)
+    if isinstance(choices, list) and len(choices) > 1:        # (kept within what the input offers: Allowed Values)
         allowed = [str(o) for o in offered(page, title, choices)]
         if multi:
             value = [v for v in (value or []) if str(v) in allowed]
@@ -787,8 +787,8 @@ def default_choice(page: str, title: str):
 
 
 def offered(page: str, title: str, options: list) -> list:
-    """The options an input offers: those its Defaults row's Allowed_Values names (in the app's order), else all of them
-    (and all of them too when Allowed_Values names none of them: an input is never left with nothing)."""
+    """The options an input offers: those its Defaults row's Allowed Values names (in the app's order), else all of them
+    (and all of them too when Allowed Values names none of them: an input is never left with nothing)."""
     text = DEFAULT_MORE.get((page.lower(), title.lower()), ("", ""))[1]
     if not text:
         return list(options)
@@ -800,7 +800,7 @@ def offered(page: str, title: str, options: list) -> list:
 
 
 def allowed_words(page: str, title: str) -> list[str]:
-    """A text box's Allowed_Values: the words it takes (none: any text)."""
+    """A text box's Allowed Values: the words it takes (none: any text)."""
     text = DEFAULT_MORE.get((page.lower(), title.lower()), ("", ""))[1]
     return [w.strip() for w in text.split(",") if w.strip()]
 
@@ -1081,7 +1081,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         return default_choice("AstroClock-2D", title) if flat else default_choice("Geo/Helio Model", f"{model} {title}")
 
     def may(title: str, options: list) -> list:
-        """What this input offers (its Defaults row's Allowed_Values)."""
+        """What this input offers (its Defaults row's Allowed Values)."""
         return offered("AstroClock-2D", title, options) if flat else offered("Geo/Helio Model", f"{model} {title}", options)
     if prep.now_only:                                         # no birth details: Now, and DOB opens the form for them
         dob_asked(st.session_state.get(f"{key}_when") == "DOB", (f"{key}_when", "Now"), (f"_kept_{key}_when", "Now"))
@@ -1466,12 +1466,12 @@ def is_list_input(spec) -> bool:
 
 
 def can_limit(spec) -> bool:
-    """An input whose Allowed_Values can limit its Choice Values: buttons to pick from, or a text box (to the words typed there)."""
+    """An input whose Allowed Values can limit its Choice Values: buttons to pick from, or a text box (to the words typed there)."""
     return is_list_input(spec) or (spec is not None and spec[0] == TEXT)
 
 
 def allowed_values(page, options, stored=None) -> str:
-    """A Defaults row's Allowed_Values as shown: those kept (stored), else every value its input takes; for a date, a text
+    """A Defaults row's Allowed Values as shown: those kept (stored), else every value its input takes; for a date, a text
     box or one on / off button, what Choice Values may hold (those cannot be narrowed)."""
     spec = input_spec(page, options)
     if spec is None:
@@ -1490,7 +1490,7 @@ def allowed_values(page, options, stored=None) -> str:
 
 
 def allowed_to_keep(page, options, text) -> tuple[str | None, list[str]]:
-    """Allowed_Values as typed, as it is kept: (the values named, in the app's order, or None for all of them / an input
+    """Allowed Values as typed, as it is kept: (the values named, in the app's order, or None for all of them / an input
     that cannot be narrowed; what was not understood)."""
     spec = input_spec(page, options)
     if spec is not None and spec[0] == TEXT:                  # a text box: the words typed, comma-separated (blank, or its
@@ -1516,22 +1516,22 @@ def allowed_to_keep(page, options, text) -> tuple[str | None, list[str]]:
 
 def page_defaults():
     """The Defaults table, each column its own: Page, Box Title (the box the input is in), Choice (the input), Choice Values (what it
-    starts as) and Allowed_Values (the values Choice Values may be set to, and all the page offers); Box Title is the title of
+    starts as) and Allowed Values (the values Choice Values may be set to, and all the page offers); Box Title is the title of
     the box the input is in, where the page has one (DOB Details' Get more days of access)."""
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
 
     def shown(rows: pd.DataFrame) -> pd.DataFrame:
-        """The rows as the page shows (and keeps) them: Allowed_Values as kept, all the input's values when blank; one
+        """The rows as the page shows (and keeps) them: Allowed Values as kept, all the input's values when blank; one
         typed for a date or one on / off button is left as typed (refused by problems)."""
         out = rows.copy()
         for i, r in out.iterrows():
-            spec, typed = input_spec(r["Page"], r["Choice"]), db._cell(r.get("Allowed_Values"))
+            spec, typed = input_spec(r["Page"], r["Choice"]), db._cell(r.get("Allowed Values"))
             if spec is not None and not can_limit(spec) and typed and typed != allowed_values(r["Page"], r["Choice"]):
                 continue
             kept, wrong = allowed_to_keep(r["Page"], r["Choice"], typed)
             if not wrong:
-                out.at[i, "Allowed_Values"] = allowed_values(r["Page"], r["Choice"], kept)
+                out.at[i, "Allowed Values"] = allowed_values(r["Page"], r["Choice"], kept)
         return out[db.DEFAULTS_COLUMNS]
 
     def problems(rows: pd.DataFrame) -> list[str]:
@@ -1541,32 +1541,32 @@ def page_defaults():
             spec = input_spec(page, title)
             if not (page and title) or spec is None:
                 continue
-            typed = db._cell(r.get("Allowed_Values"))
+            typed = db._cell(r.get("Allowed Values"))
             if not can_limit(spec):
                 if typed and typed != allowed_values(page, title):
-                    out.append(f"{page} / {title}: Allowed_Values cannot be changed for this input "
+                    out.append(f"{page} / {title}: Allowed Values cannot be changed for this input "
                                f"({allowed_values(page, title)}); change Choice Values instead")
                 continue
             kept, wrong = allowed_to_keep(page, title, typed)
             if wrong:
-                out.append(f"{page} / {title}: Allowed_Values '{', '.join(wrong)}' not understood")
+                out.append(f"{page} / {title}: Allowed Values '{', '.join(wrong)}' not understood")
             elif kept and spec[0] == TEXT:                    # a text box's Choice Values: one of its words (or blank: empty)
                 value = db._cell(r["Choice Values"])
                 if value and value.lower() not in [w.lower() for w in kept.split(", ")]:
-                    out.append(f"{page} / {title}: Choice Values {value} not in its Allowed_Values ({kept}); "
-                               "add it to Allowed_Values too, or clear Allowed_Values for any text")
-            elif kept:                                        # Choice Values must be among its Allowed_Values
+                    out.append(f"{page} / {title}: Choice Values {value} not in its Allowed Values ({kept}); "
+                               "add it to Allowed Values too, or clear Allowed Values for any text")
+            elif kept:                                        # Choice Values must be among its Allowed Values
                 value, bad = read_options(spec[0], spec[1], db._cell(r["Choice Values"]))
                 start = value if isinstance(value, list) else ([value] if value else [])
                 outside = [str(v) for v in start if str(v) not in kept.split(", ")]
                 if not bad and outside:
-                    out.append(f"{page} / {title}: Choice Values {', '.join(outside)} not in its Allowed_Values ({kept}); "
-                               "add it to Allowed_Values too, or clear Allowed_Values for all")
+                    out.append(f"{page} / {title}: Choice Values {', '.join(outside)} not in its Allowed Values ({kept}); "
+                               "add it to Allowed Values too, or clear Allowed Values for all")
         return out
 
     def commit(rows: pd.DataFrame) -> str:
         keep = rows.copy()
-        keep["Allowed_Values"] = [allowed_to_keep(p, o, a)[0] for p, o, a in zip(rows["Page"], rows["Choice"], rows["Allowed_Values"])]
+        keep["Allowed Values"] = [allowed_to_keep(p, o, a)[0] for p, o, a in zip(rows["Page"], rows["Choice"], rows["Allowed Values"])]
         return f"Saved: {db.save_defaults(keep)} row(s)."
 
     table = shown(db.defaults_table())
@@ -1579,7 +1579,7 @@ def page_defaults():
                                                                      "(e.g. Days). Each Page has one row per input."),
                               "Choice Values": st.column_config.TextColumn(width=300, help="What the input starts as (e.g. 7). "
                                                                    "Blank: the app's own default (none, for buttons)."),
-                              "Allowed_Values": st.column_config.TextColumn("Allowed_Values", width="large",
+                              "Allowed Values": st.column_config.TextColumn("Allowed Values", width="large",
                                                                    help="The values Choice Values may be set to: all the input's "
                                                                         "values, or those typed here (comma-separated). The page "
                                                                         "then offers only those (buttons, Days, coupons). Clear "
@@ -1890,7 +1890,7 @@ def more_days_box():
             c1, c2, c3, _ = st.columns([1, 1.4, 1, 2.6], vertical_alignment="bottom")
             # (both start as the Defaults table says: DOB Details / Days and / Pay / Coupon)
             start_days = default_choice("DOB Details", "Days")
-            packs = [int(d) for d in offered("DOB Details", "Days", [str(d) for d in access.DAY_PACKS])]   # (Allowed_Values)
+            packs = [int(d) for d in offered("DOB Details", "Days", [str(d) for d in access.DAY_PACKS])]   # (Allowed Values)
             days = c1.selectbox("Days", packs, index=packs.index(int(start_days)) if str(start_days or "").isdigit()
                                 and int(start_days) in packs else 0, key="more_days")
             coupon = c2.text_input("Pay / Coupon", value=default_choice("DOB Details", "Pay / Coupon") or "",
@@ -1898,7 +1898,7 @@ def more_days_box():
                                   placeholder="Type the coupon")   # (not "Free": a grey hint read as already typed in)
             pressed = c3.form_submit_button("Add days", type="primary")
         if pressed:
-            words = allowed_words("DOB Details", "Pay / Coupon")   # (only these, when its Allowed_Values names them)
+            words = allowed_words("DOB Details", "Pay / Coupon")   # (only these, when its Allowed Values names them)
             if words and (coupon or "").strip().lower() not in [w.lower() for w in words]:
                 st.error(f"No days added: Pay / Coupon takes {', '.join(words)}.")
                 return
@@ -1917,7 +1917,7 @@ def more_days_box():
 core.SIZE_TEXTS, core.SIZE_WORDS, core.SIZE_TEXTS_HELIO, core.SIZE_TEXTS_GLOBE, core.SIZE_TEXTS_CLOCK = db.planet_sizes()   # and their sizes
 core.SYMBOL_TEXTS = db.planet_symbols()                       # and their symbols, shown in place of the SNs
 DEFAULT_TEXTS = db.defaults_map()                             # what each page's inputs start as (the Defaults table)
-DEFAULT_MORE = db.defaults_more_map()                         # and each one's Box Title (its box's title) and Allowed_Values
+DEFAULT_MORE = db.defaults_more_map()                         # and each one's Box Title (its box's title) and Allowed Values
 core.COLOURS.update(core.DEFAULT_COLOURS | db.planet_colours())   # every chart's colours are the Symbols table's (a deleted row's, the usual one)
 def add_person_form():
     """A person to add under their login (DOB members, on DOB Details): its form, with Search Only and Save and Search."""
