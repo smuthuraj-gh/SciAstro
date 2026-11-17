@@ -89,7 +89,7 @@ logins = sa.Table(
 )
 sa.Index("ix_logins_date_time", logins.c.date_time)
 # The Defaults table: a row per page input and what it starts as; seen by admins only (the Defaults page), where its columns
-# are shown as Page, Menu (section: the box the input is in), Choices (options: the input's name) and Values (choices: what
+# are shown as Page, Box Title (section: the box the input is in), Choice (options: the input's name) and Values (choices: what
 # it starts as), with Allowed_Values. Each page reads it as it is drawn; an input with no row starts as the app's own default.
 defaults = sa.Table(
     "defaults", meta,
@@ -98,7 +98,7 @@ defaults = sa.Table(
     sa.Column("options", sa.String(60), nullable=False),
     sa.Column("choices", sa.String(500)),
     sa.Column("allowed_values", sa.String(500)),             # the values its Values may be set to (blank: all the app has)
-    sa.Column("section", sa.String(60)),                      # the box the input is in (the Defaults page's Menu column)
+    sa.Column("section", sa.String(60)),                      # the box the input is in (the Defaults page's Box Title column)
 )
 # The Help table: a row per abbreviation the pages use (Abbreviation) and what it means (Description); kept by admins (the Help
 # page), filled once with the app's own (HELP_ROWS).
@@ -120,7 +120,7 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Help", "Page: this table of the app's names and what they mean (admins change it)"),
     ("Aspect Rules", "Page (admins): the orbs, RA and Dec, a pair of planets must be within to be in aspect"),
     ("Customers", "Page (admins): a row per login: Email, Access, Start Date, Days, End Date"),
-    ("Defaults", "Page (admins): what each page's inputs start as (Page, Menu, Choices, Values, Allowed_Values)"),
+    ("Defaults", "Page (admins): what each page's inputs start as (Page, Box Title, Choice, Values, Allowed_Values)"),
     ("Logins", "Page (admins): who opened, added, changed or deleted what, when and from where"),
     ("Readme", "Page (admins): the app's README file"),
     ("Symbols", "Page (admins): each planet's symbol, short name, colour and size"),
@@ -400,7 +400,7 @@ def default_section(page) -> str:
 
 
 def _add_defaults_section(eng: sa.Engine):
-    """A Defaults table made before its section column (shown as Menu) gets it, each row's filled in (default_section)."""
+    """A Defaults table made before its section column (shown as Box Title) gets it, each row's filled in (default_section)."""
     if "section" not in {c["name"] for c in sa.inspect(eng).get_columns("defaults")}:
         with eng.begin() as c:
             c.execute(sa.text(f"ALTER TABLE defaults ADD COLUMN section {defaults.c.section.type.compile(dialect=eng.dialect)}"))
@@ -623,49 +623,49 @@ def save_help(rows: pd.DataFrame) -> int:
 
 
 # ---------------------------------------------------------------- the Defaults table
-DEFAULTS_COLUMNS = ["Page", "Menu", "Choices", "Values", "Allowed_Values"]
+DEFAULTS_COLUMNS = ["Page", "Box Title", "Choice", "Values", "Allowed_Values"]
 
 
 def defaults_table() -> pd.DataFrame:
-    """The Defaults table as its page shows it: Page, Menu (the box), Choices (the input), Values (what it starts as) and
-    Allowed_Values, sorted by Page, then Options, then Choices (case aside)."""
+    """The Defaults table as its page shows it: Page, Box Title (the box), Choice (the input), Values (what it starts as) and
+    Allowed_Values, sorted by Page, then Options, then Choice (case aside)."""
     with engine().connect() as c:
         rows = c.execute(sa.select(defaults).order_by(sa.func.lower(defaults.c.page),
                                                       sa.func.lower(sa.func.coalesce(defaults.c.section, "")),
                                                       sa.func.lower(defaults.c.options))).mappings().all()
-    return pd.DataFrame([{"Page": r["page"], "Menu": r["section"], "Choices": r["options"], "Values": r["choices"],
+    return pd.DataFrame([{"Page": r["page"], "Box Title": r["section"], "Choice": r["options"], "Values": r["choices"],
                           "Allowed_Values": r["allowed_values"]} for r in rows], columns=DEFAULTS_COLUMNS)
 
 
 def defaults_more_map() -> dict[tuple[str, str], tuple[str, str]]:
-    """The Defaults table's Menu and Allowed_Values ("" when blank) by its Page and Choices, both in lower case."""
+    """The Defaults table's Box Title and Allowed_Values ("" when blank) by its Page and Choice, both in lower case."""
     with engine().connect() as c:
         rows = c.execute(sa.select(defaults.c.page, defaults.c.options, defaults.c.section, defaults.c.allowed_values)).all()
     return {(p.strip().lower(), t.strip().lower()): ((s or "").strip(), (a or "").strip()) for p, t, s, a in rows}
 
 
 def defaults_map() -> dict[tuple[str, str], str]:
-    """The Defaults table's Choices by its Page and Options, both in lower case."""
+    """The Defaults table's Choice by its Page and Options, both in lower case."""
     with engine().connect() as c:
         rows = c.execute(sa.select(defaults.c.page, defaults.c.options, defaults.c.choices)).all()
     return {(p.strip().lower(), t.strip().lower()): o or "" for p, t, o in rows}
 
 
 def defaults_problems(rows: pd.DataFrame) -> list[str]:
-    """What is wrong with the Defaults rows: each needs a Page and Choices (the input; Page, Menu and Choices at most 60
-    characters), one row per Page and Choices, and Values of at most 500 characters. A wholly empty row does not count."""
+    """What is wrong with the Defaults rows: each needs a Page and Choice (the input; Page, Box Title and Choice at most 60
+    characters), one row per Page and Choice, and Values of at most 500 characters. A wholly empty row does not count."""
     out, seen = [], set()
     for _, r in rows.iterrows():
-        page, box, title, value = _cell(r["Page"]), _cell(r["Menu"]), _cell(r["Choices"]), _cell(r["Values"])
+        page, box, title, value = _cell(r["Page"]), _cell(r["Box Title"]), _cell(r["Choice"]), _cell(r["Values"])
         if not (page or box or title or value):
             continue
         label = f"{page or 'New row'} / {title}" if title else (page or "New row")
         if not page:
             out.append(f"{label}: Page is empty")
         if not title:
-            out.append(f"{label}: Choices is empty")
+            out.append(f"{label}: Choice is empty")
         if len(page) > 60 or len(box) > 60 or len(title) > 60:
-            out.append(f"{label}: Page, Menu and Choices can be at most 60 characters")
+            out.append(f"{label}: Page, Box Title and Choice can be at most 60 characters")
         if len(value) > 500:
             out.append(f"{label}: Values can be at most 500 characters")
         if page and title:
@@ -677,9 +677,9 @@ def defaults_problems(rows: pd.DataFrame) -> list[str]:
 
 def save_defaults(rows: pd.DataFrame) -> int:
     """Makes the Defaults table these rows, as its page shows them (wholly empty ones left out); gives how many it has."""
-    keep = [dict(page=_cell(r["Page"]), section=_cell(r["Menu"]) or default_section(r["Page"]), options=_cell(r["Choices"]),
+    keep = [dict(page=_cell(r["Page"]), section=_cell(r["Box Title"]) or default_section(r["Page"]), options=_cell(r["Choice"]),
                  choices=_cell(r["Values"]) or None, allowed_values=_cell(r.get("Allowed_Values")) or None)
-            for _, r in rows.iterrows() if _cell(r["Page"]) or _cell(r["Menu"]) or _cell(r["Choices"]) or _cell(r["Values"])]
+            for _, r in rows.iterrows() if _cell(r["Page"]) or _cell(r["Box Title"]) or _cell(r["Choice"]) or _cell(r["Values"])]
     with engine().begin() as c:
         c.execute(sa.delete(defaults))
         if keep:
