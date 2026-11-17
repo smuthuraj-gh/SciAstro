@@ -637,6 +637,13 @@ def defaults_table() -> pd.DataFrame:
                           "Allowed_Values": r["allowed_values"]} for r in rows], columns=DEFAULTS_COLUMNS)
 
 
+def defaults_more_map() -> dict[tuple[str, str], tuple[str, str]]:
+    """The Defaults table's Menu and Allowed_Values ("" when blank) by its Page and Choices, both in lower case."""
+    with engine().connect() as c:
+        rows = c.execute(sa.select(defaults.c.page, defaults.c.options, defaults.c.section, defaults.c.allowed_values)).all()
+    return {(p.strip().lower(), t.strip().lower()): ((s or "").strip(), (a or "").strip()) for p, t, s, a in rows}
+
+
 def defaults_map() -> dict[tuple[str, str], str]:
     """The Defaults table's Choices by its Page and Options, both in lower case."""
     with engine().connect() as c:
