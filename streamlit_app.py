@@ -1607,11 +1607,11 @@ def page_help_table():
     table = db.help_rows()
     if not user.is_admin:
         st.dataframe(table, hide_index=True, width="content", height=35 * (len(table) + 1) + 3,   # every row in view
-                     column_config={"Abbreviation": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=760)})
+                     column_config={"Abbreviation": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=1200)})
         return
     crud_table("help_table", table, db.help_problems, lambda rows: f"Saved: {db.save_help(rows)} row(s).", on_update=db.help_sorted,   # (Update: in Abbreviation order)
                height=30 * (len(st.session_state.get("help_table_working", table)) + 1) + 8,   # every row in view
-               column_config={"Abbreviation": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=760)})
+               column_config={"Abbreviation": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=1200)})
 
 
 def page_naming():
