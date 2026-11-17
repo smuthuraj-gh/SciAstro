@@ -129,8 +129,10 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
                  "Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed_Values)"),
     "Customers": ("Page (admins): a row per login: Email, Access, Start Date, Days, End Date",),                    # (its Days column is gone)
     "Access": ("Customers column: Now (the Now charts), DOB (the DOB charts, for Days days) or Admin",),
+    "Rotate in 1s": ("Title button: how much time passes each second (Manual, 1s to 1y)",),                   # (Manual is gone)
     "Days": ("Customers column: days of DOB access to add (1, 7, 30, 90, 180, 365); End Date is extended by them",),                         # (now DOB Details')
 }
+HELP_GONE = {"Manual": "Time stands still; drag the drawing to turn it"}   # the Help rows for buttons since gone, as the app wrote them
 HELP_VERSION = "3"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
@@ -155,7 +157,7 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Major Aspects", "Title button: the major aspect angles to draw: 0, 60, 90, 120, 180"),
     ("Minor Aspects", "Title button: the minor aspect angles to draw: 30, 45, 72, 135, 144, 150"),
     ("Coordinates", "Title button: which lines and tags to show (Ho, Ce, AU, 3D, Sp, SpC, RA, De, La, Lg, 1C, DA)"),
-    ("Rotate in 1s", "Title button: how much time passes each second (Manual, 1s to 1y)"),
+    ("Rotate in 1s", "Title button: how much time passes each second (1s to 1y); none picked: time stands still, and dragging the drawing turns it"),
     ("Centric Model", "Title button: Geo (the Earth at the centre) or Helio (the Sun at the centre)"),
     ("Start Date (UT)", "When a chart over time starts: DOB or Now"),
     ("End Date (UT)", "When a chart over time ends: Now, or the start plus a time (e.g. 5 days, 2 years)"),
@@ -210,7 +212,6 @@ HELP_ROWS = [                                                 # the abbreviation
     ("1C", "One circle: every planet on one circle at its RA, whatever its distance, to see conjunctions"),
     ("DA", "Shows or hides the Ave planets on the Distance(%) graph"),
     ("Geo", "GeoCentric: the Earth at the centre"), ("Helio", "HelioCentric: the Sun at the centre"),
-    ("Manual", "Time stands still; drag the drawing to turn it"),
     ("1s to 1y", "Rotate in 1s: 1s, 1m, 1h, 1d, 1w, 1mo, 1y: that much time passes each second (a second, minute, hour, day, week, month, year)"),
 ]
 DEFAULTS_INDEX = "ux_defaults_page_options"                   # one row per Page and Options
@@ -228,13 +229,13 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("AstroClock-3D", "Major Aspects", ""),
     ("AstroClock-3D", "Minor Aspects", ""),
     ("AstroClock-3D", "Coordinates", "Ce"),
-    ("AstroClock-3D", "Rotate in 1s", "Manual"),
+    ("AstroClock-3D", "Rotate in 1s", ""),                    # (no speed: time stands still, the drawing dragged round)
     ("Geo/Helio Model", "Centric Model", "Geo"),
     ("Geo/Helio Model", "Time", "Now"),                       # (one row each for both models: Geo takes Su, Helio Ea)
     ("Geo/Helio Model", "Planets", "Mo, Su, Ea, Me, Ve, Ma, Ju, Sa"),
     ("Geo/Helio Model", "Planet Path", "Mo, Su, Ea, Me, Ve, Ma, Ju, Sa"),
     ("Geo/Helio Model", "Coordinates", "Ce, AU"),            # and here (Ce, AU)
-    ("Geo/Helio Model", "Rotate in 1s", "Manual"),
+    ("Geo/Helio Model", "Rotate in 1s", ""),
     ("Aspects", "Start Date (UT)", "DOB"),
     ("Aspects", "End Date (UT)", "Start Date (UT) + 5 days"),
     ("Aspects", "Planets", "Ju, Sa"),
@@ -349,6 +350,7 @@ def engine() -> sa.Engine:
     _set_time_now(eng)
     _rename_dec_button(eng)
     _merge_coordinates(eng)                                   # (again: a button row an earlier name has just given back)
+    _drop_manual(eng)
     _rename_help_abbre(eng)
     _add_help_index(eng)
     _rename_help_rows(eng)
@@ -468,6 +470,18 @@ TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio m
              ("geo/helio model", "time"))
 COORD_ROWS = {"AstroClock-2D": (("Ho", True), ("1C", False), ("DA", True)), "Geo/Helio Model": (("Ce", True), ("AU", True))}   # the buttons
 # below Coordinates, once a row each, and whether each starts on with no row
+
+
+def _drop_manual(eng: sa.Engine):
+    """Rotate in 1s has no Manual button now (with no speed picked, time stands still and the drawing is dragged round): a
+    Defaults row that starts it as Manual starts with no speed, and Manual leaves its Allowed Values (blank then: all)."""
+    with eng.begin() as c:
+        for rid, choices, allowed in c.execute(sa.select(defaults.c.id, defaults.c.choices, defaults.c.allowed_values).where(
+                sa.func.lower(defaults.c.options) == "rotate in 1s")).all():
+            keep = [p.strip() for p in (allowed or "").split(",") if p.strip() and p.strip().lower() != "manual"]
+            new = dict(choices=None if (choices or "").strip().lower() == "manual" else choices, allowed_values=", ".join(keep) or None)
+            if new != dict(choices=choices, allowed_values=allowed):
+                c.execute(defaults.update().where(defaults.c.id == rid).values(**new))
 
 
 def _merge_coordinates(eng: sa.Engine):
@@ -647,6 +661,10 @@ def _rename_help_rows(eng: sa.Engine):
         for abbreviation, olds in HELP_OUT_OF_DATE.items():
             c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(),
                                                 help_table.c.description.in_(olds)).values(description=now[abbreviation]))
+        # (a row for a button since gone, still as the app wrote it, goes)
+        for abbreviation, old in HELP_GONE.items():
+            c.execute(help_table.delete().where(sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(),
+                                                help_table.c.description == old))
 
 
 def _add_help_index(eng: sa.Engine):

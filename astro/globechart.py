@@ -39,7 +39,6 @@ BODY_CHOICES = ("Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa")
 TRAIL_SPAN = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN, "NN": (6793.5, 400, "NN Path"), "SN": (6793.5, 400, "SN Path")}
 NODE_CHOICES = ("NN", "SN")       # the Moon's north and south nodes, picked with the planets
 ASPECT_NAMES = core.shown_order(core.BUTTON_ORDER + list(NODE_CHOICES))   # in aspect with each other (not NN with SN), named in this order
-MANUAL = "Manual"                 # Rotate's option to drag the Earth round by hand
 HOUSE_COLOUR = "rgb(0,0,0)"
 ASPECT_COLOURS = {False: "rgb(0,0,0)", True: "rgb(110,110,110)"}     # major, minor
 HOUSE_VALUE_DEC = (-32.0, -44.0)  # the Dec of each house line's RA value, first and second place shown: low on the line
@@ -399,7 +398,7 @@ _MOTION_JS = r"""
     "font-family": D.family, stroke: "white", "stroke-width": 3, "paint-order": "stroke"}, attrs));
 __SYMBOL_JS__
   const cp = Math.cos(D.tilt), sp = Math.sin(D.tilt), cr = Math.cos(D.roll), sr = Math.sin(D.roll);
-  let raFacing = D.ra_facing;                      // the RA facing the viewer: the view can be turned by hand (Manual)
+  let raFacing = D.ra_facing;                      // the RA facing the viewer: the view can be turned by hand (no speed picked)
   const point = (ra, dec) => {                     // on the chart: x, y, and z above 0 on the side toward the viewer
     const d = (ra - raFacing) * RAD, e = dec * RAD, ce = Math.cos(e);
     const x = ce * Math.sin(d), y = Math.sin(e), z = ce * Math.cos(d);
