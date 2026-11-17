@@ -675,7 +675,7 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
            ("AstroClock-2D", "Planets"): (globe, True, globe),
            ("AstroClock-2D", "Major Aspects"): (GLOBE_MAJOR, True, []),
            ("AstroClock-2D", "Minor Aspects"): (GLOBE_MINOR, True, []),
-           ("AstroClock-2D", "Coordinates"): (["Ho", "1C", "DA", "PP"], True, ["Ho", "DA"]),   # (the buttons below it that start on)
+           ("AstroClock-2D", "Coordinates"): (["Ho", "PP", "1C", "DA"], True, ["Ho", "DA"]),   # (the buttons below it that start on)
            ("AstroClock-2D", "Rotate in 1s"): (SPEED_CHOICES, False, None),
            ("AstroClock-3D", "Time"): (["Now", "DOB"], False, "Now"),
            ("AstroClock-3D", "Planets"): (globe, True, globe),
@@ -1109,10 +1109,10 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         minor = core.in_order(titled(head, "Minor Aspects", f"{key}_t_minor", minor_names, f"{key}_minor", start("Minor Aspects"), selection_mode="multi"), minor_names)
         aspects = tuple(int(a) for a in major + minor)
         show_au, show_celes = True, True
-        coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ho, 1C, DA and PP below it (the title off: none)
+        coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ho, PP, 1C and DA below it (the title off: none)
         # (DA: the Ave planets on the Distance(%) graph; which start on, and which are there: the Defaults row Coordinates)
-        on = coords_below(coords, {"Ho": f"{key}_houses", "1C": f"{key}_one_circle", "DA": f"{key}_dav", "PP": f"{key}_pp"},
-                          may("Coordinates", ["Ho", "1C", "DA", "PP"]), start("Coordinates"), f"{key}_t_coords")
+        on = coords_below(coords, {"Ho": f"{key}_houses", "PP": f"{key}_pp", "1C": f"{key}_one_circle", "DA": f"{key}_dav"},
+                          may("Coordinates", ["Ho", "PP", "1C", "DA"]), start("Coordinates"), f"{key}_t_coords")
         show_houses, one_circle, show_ave = "Ho" in on, "1C" in on, "DA" in on
         with_paths = list(bodies) if "PP" in on else []
     else:
