@@ -108,6 +108,22 @@ help_table = sa.Table(
     sa.Column("abbreviation", sa.String(20), nullable=False, unique=True),
     sa.Column("description", sa.String(500)),
 )
+HELP_ROWS_3 = [                                               # added later still: the Defaults table's columns, DOB Details' and Logins' names
+    ("Box Title", "Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box"),
+    ("Choice", "Defaults column: the input, by its name on the page (e.g. Days); one row per Page and Choice"),
+    ("Choice Values", "Defaults column: what the input starts as (e.g. 7; Ju, Sa; On); blank: the app's own default"),
+    ("Allowed Values", "Defaults column: the values Choice Values may be set to, and all the page offers (e.g. 1, 7, 30; for a text box, words such as Pay, Free); blank: all"),
+    ("Get more days of access", "DOB Details box (its title as the Defaults table's Box Title says): add days of DOB access with Days and Pay / Coupon"),
+    ("Pay / Coupon", "DOB Details: the coupon (Free, for now) or, later, the payment for the days added"),
+    ("Add days", "DOB Details button: adds the Days picked to your End Date (from now when it has passed)"),
+    ("Add a DOB", "DOB Details box: a person to add under your login, with Search Only or Save and Search"),
+    ("Edit a DOB", "DOB Details box: change your own birth details"),
+    ("Search Only", "Add a DOB button: that person's DOB charts, not saved (a Search choice in the sidebar)"),
+    ("Save and Search", "Add a DOB button: the person saved under your login, then their DOB charts"),
+    ("Select all", "Logins button: ticks every row (pressed again, Unselect all: none)"),
+    ("Came from", "Logins column: the site that brought the visitor (its name only); blank: none known"),
+]
+HELP_VERSION = "3"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
     ("AstroClock-2D", "Page: the Geo drawing seen from above the north celestial pole, each planet at its RA and distance, with the Dec and Distance(%) graphs"),
@@ -232,8 +248,12 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Planets Distance(%)", "Planets", "Ju, Sa"),
     ("DOB Details", "Days", "7"),                             # Get more days of access: the days picked to start
     ("DOB Details", "Pay / Coupon", ""),                     # and the coupon filled in to start (blank: none; Free: free)
+    ("AstroClock-2D", "1C", "Off"),                           # the on / off buttons below Coordinates: one circle for aspects
+    ("AstroClock-2D", "DA", "On"),                            # and the Ave planets on the Distance(%) graph
+    ("Geo/Helio Model", "Geo Ce", "On"),                      # the celestial coordinates, below Coordinates
+    ("Geo/Helio Model", "Helio Ce", "On"),
 ]
-DEFAULTS_VERSION = "6"                                        # 6: DOB Details' Days and Pay / Coupon; 5: AstroClock-2D's aspects; 4: Aspects' angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
+DEFAULTS_VERSION = "7"                                        # 7: AstroClock-2D's 1C and DA, Geo/Helio Model's Ce; 6: DOB Details' Days and Pay / Coupon; 5: AstroClock-2D's aspects; 4: Aspects' angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
@@ -438,6 +458,7 @@ def _rename_defaults_page(eng: sa.Engine):
 NEW_IN_4 = (("Aspects", "Major Aspects"), ("Aspects", "Minor Aspects"), ("Planets Cycles", "Minor Aspects"))
 NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects"))
 NEW_IN_6 = (("DOB Details", "Days"), ("DOB Details", "Pay / Coupon"))
+NEW_IN_7 = (("AstroClock-2D", "1C"), ("AstroClock-2D", "DA"), ("Geo/Helio Model", "Geo Ce"), ("Geo/Helio Model", "Helio Ce"))
 
 
 TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio model", "geo time"), ("geo/helio model", "helio time"))
@@ -514,11 +535,15 @@ def _seed_defaults(eng: sa.Engine):
         if done == DEFAULTS_VERSION:
             return
         have = {(p.lower(), t.lower()) for p, t in c.execute(sa.select(defaults.c.page, defaults.c.options)).all()}
-        added_since = {"2": lambda r: r[0] == "AstroClock-2D" or r[:2] in NEW_IN_4 + NEW_IN_6,
-                       "3": lambda r: r[:2] in NEW_IN_4 + NEW_IN_5 + NEW_IN_6, "4": lambda r: r[:2] in NEW_IN_5 + NEW_IN_6,
-                       "5": lambda r: r[:2] in NEW_IN_6}
+        added_since = {"2": lambda r: r[0] == "AstroClock-2D" or r[:2] in NEW_IN_4 + NEW_IN_6 + NEW_IN_7,
+                       "3": lambda r: r[:2] in NEW_IN_4 + NEW_IN_5 + NEW_IN_6 + NEW_IN_7,
+                       "4": lambda r: r[:2] in NEW_IN_5 + NEW_IN_6 + NEW_IN_7, "5": lambda r: r[:2] in NEW_IN_6 + NEW_IN_7,
+                       "6": lambda r: r[:2] in NEW_IN_7}
         wanted = [r for r in DEFAULT_ROWS if added_since[done](r)] if done in added_since else DEFAULT_ROWS   # (a row deleted before stays deleted)
-        new = [dict(page=p, options=t, choices=o or None, section=default_section(p)) for p, t, o in wanted
+        boxes = {}
+        for page, box in c.execute(sa.select(defaults.c.page, defaults.c.section)).all():
+            boxes.setdefault(page.lower(), box)
+        new = [dict(page=p, options=t, choices=o or None, section=boxes.get(p.lower()) or default_section(p)) for p, t, o in wanted
                if (p.lower(), t.lower()) not in have]
         if new:
             c.execute(defaults.insert(), new)
@@ -566,20 +591,21 @@ def _add_help_index(eng: sa.Engine):
 
 def _seed_help(eng: sa.Engine):
     """Once per set (a note among the settings says which, so a row deleted since stays deleted): the Help table gets the
-    rows of HELP_ROWS, then of HELP_ROWS_2, it lacks (rows already there, the admins' own, are left as they are)."""
+    rows of HELP_ROWS, then of HELP_ROWS_2, then of HELP_ROWS_3, it lacks (rows already there, the admins' own, are left as
+    they are)."""
     with eng.begin() as c:
         done = c.execute(sa.select(settings.c.value).where(settings.c.key == "help_seeded")).scalar()
-        if done == "2":
+        if done == HELP_VERSION:
             return
-        wanted = HELP_ROWS_2 if done == "1" else HELP_ROWS + HELP_ROWS_2
+        wanted = {"1": HELP_ROWS_2 + HELP_ROWS_3, "2": HELP_ROWS_3}.get(done, HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3)
         have = {a.lower() for (a,) in c.execute(sa.select(help_table.c.abbreviation)).all()}
         new = [dict(abbreviation=a, description=d) for a, d in wanted if a.lower() not in have]
         if new:
             c.execute(help_table.insert(), new)
         if done is None:
-            c.execute(settings.insert().values(key="help_seeded", value="2"))
+            c.execute(settings.insert().values(key="help_seeded", value=HELP_VERSION))
         else:
-            c.execute(settings.update().where(settings.c.key == "help_seeded").values(value="2"))
+            c.execute(settings.update().where(settings.c.key == "help_seeded").values(value=HELP_VERSION))
 
 
 # ---------------------------------------------------------------- the Help table
