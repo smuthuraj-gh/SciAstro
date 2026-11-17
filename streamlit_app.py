@@ -681,7 +681,7 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
            ("AstroClock-3D", "Planets"): (globe, True, globe),
            ("AstroClock-3D", "Major Aspects"): (GLOBE_MAJOR, True, []),
            ("AstroClock-3D", "Minor Aspects"): (GLOBE_MINOR, True, []),
-           ("AstroClock-3D", "Coordinates"): (["Ho", "Ce", "AU", "3D", "Sp", "SpC", "PP", "RA", "De", "La", "Lg"], True, ["Ce"]),
+           ("AstroClock-3D", "Coordinates"): (["Ho", "Ce", "AU", "Sp", "SpC", "PP", "3D", "RA", "De", "La", "Lg"], True, ["Ce"]),
            ("AstroClock-3D", "Rotate in 1s"): (SPEED_CHOICES, False, None),
            ("Geo/Helio Model", "Centric Model"): (["Geo", "Helio"], False, "Geo")}
     # Geo/Helio Model: one row per input for both models; its planets are both models' (each takes those it has: Su for
@@ -990,8 +990,8 @@ def page_globe():
     coords_on = default_choice("AstroClock-3D", "Coordinates")
     coords = head.container(width="content", gap="xxsmall")   # Coordinates, with its options below it in fixed rows
     if coords.pills("Coordinates", ["Coordinates"], default="Coordinates", key="globe_coords_on", label_visibility="collapsed"):
-        coords_ok = set(offered("AstroClock-3D", "Coordinates", ["Ho", "Ce", "AU", "3D", "Sp", "SpC", "PP", "RA", "De", "La", "Lg"]))
-        for row_of in ([n for n in r if n in coords_ok] for r in (["Ho", "Ce", "AU", "3D", "Sp", "SpC", "PP"], ["RA", "De", "La", "Lg"])):   # (two rows)
+        coords_ok = set(offered("AstroClock-3D", "Coordinates", ["Ho", "Ce", "AU", "Sp", "SpC", "PP", "3D", "RA", "De", "La", "Lg"]))
+        for row_of in ([n for n in r if n in coords_ok] for r in (["Ho", "Ce", "AU", "Sp", "SpC", "PP"], ["3D", "RA", "De", "La", "Lg"])):   # (two rows)
             if not row_of:
                 continue
             shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[n for n in row_of if n in coords_on],
