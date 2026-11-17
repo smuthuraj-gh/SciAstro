@@ -1494,10 +1494,10 @@ def page_defaults():
         for i, r in out.iterrows():
             shown_before = db._cell(r.get("Shown_Value"))
             now = db._cell(r.get("Value"))
-            if now and now != shown_before:                   # a Value typed in: the Choices it means (a Choices typed in,
-                                                              # its Value left as shown, is kept as typed)
+            if now != shown_before:                           # a Value typed in, or cleared: the Choices it means (a
+                                                              # Choices typed in, its Value left as shown, is kept as typed)
                 now = re.sub(r"\s*\(app default\)\s*$", "", now)
-                out.at[i, "Choices"] = "" if now == "(none)" else now
+                out.at[i, "Choices"] = "" if now in ("", "(none)") else now
             kept, _ = allowed_to_keep(r["Page"], r["Options"], r.get("Allowed_Values"))
             if not _:
                 out.at[i, "Allowed_Values"] = kept or allowed_values(r["Page"], r["Options"])
