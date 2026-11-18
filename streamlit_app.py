@@ -1825,7 +1825,7 @@ def page_aspects():
                "equal or mirrored, at every angle. One row of orbs for every aspect; a pair uses the total of its two "
                "planets' orbs (RA and Dec each); CB and CN take the planet's.")
     show = table[db.ORB_COLUMNS].head(1)
-    edited = st.data_editor(show, hide_index=True, num_rows="fixed", key="orb_editor", width="content",
+    edited = edit_table(show, hide_index=True, num_rows="fixed", key="orb_editor", width="content",
                             column_config={c: st.column_config.NumberColumn(core.with_symbols(c[:-3]) + (" RA" if c.endswith("-RA") else " Dec"),
                                                                             min_value=0.0, format="%g")
                                            for c in db.ORB_COLUMNS})   # ☽︎ RA, ☉︎ RA .. ☽︎ Dec ..
