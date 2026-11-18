@@ -219,8 +219,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "AstroClock-2D": "Coordinates: Ho (the house lines of CB and CN), 1C (every planet on one circle at its RA, whatever its distance, so that planets in conjunction sit together) DA (the Ave planets on the Distance(%) graph, on to start) and PP (the Planet Path of each planet shown: a trail behind it while time runs). Left of the clock, Dec: each planet's Declination on a scale from +30 to -30 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at DOB and at Now to the left of its line, and at Ave (the average of the two, moving as time runs) to the right. Major Aspects and Minor Aspects: the angles to draw; two planets at the same time in one of them, by the orbs in Aspect Rules, are joined by a line tagged as 0-Ma-Ju. Rotate in 1s: pick a speed for time to run; with none picked it stands still, and dragging the drawing moves it by hand: right is later, left is back, as far as where it started, 6 hours a pixel.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
-    "Conditions": "The Conditions table: a row per Condition and its Values. Condition is required and unique (Abc and abc "
-                  "are the same), at most 60 characters; Values at most 500. Rows are in Condition order. Seen by admins only, "
+    "Conditions": "The Conditions table: a row per Condition, its Table Name and its Values. Condition is required and unique (Abc and abc "
+                  "are the same), at most 60 characters; Table Name at most 60; Values at most 500. Rows are in Condition order. Seen by admins only, "
                   "who can Insert, Update and Delete rows (each saved at once), Ignore changes not saved yet, and Reset to "
                   "Previous; click a column name to sort.",
     "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
@@ -1581,7 +1581,7 @@ def page_help_table():
 
 
 def page_conditions():
-    """The Conditions table: Condition (unique, whatever its case) and its Values; admins only (Insert, Update, Delete, each
+    """The Conditions table: Condition (unique, whatever its case), its Table Name and its Values; admins only (Insert, Update, Delete, each
     saved at once; Ignore; Reset to Previous)."""
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
@@ -1591,6 +1591,8 @@ def page_conditions():
                height=30 * (len(st.session_state.get("conditions_table_working", table)) + 1) + 8,   # every row in view
                column_config={"Condition": st.column_config.TextColumn("Condition *", width=220, help="Required, unique "
                                                                        "(whatever its case), at most 60 characters."),
+                              "Table Name": st.column_config.TextColumn(width=200, help="The table it is for, at most 60 "
+                                                                        "characters."),
                               "Values": st.column_config.TextColumn(width=900, help="Its values, at most 500 characters.")})
 
 

@@ -129,6 +129,7 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
     "Access": ("Customers column: Now (the Now charts), DOB (the DOB charts, for Days days) or Admin",),
     "Coordinates": ("Title button: which lines and tags to show (Ho, Ce, AU, 3D, Sp, SpC, RA, De, La, Lg, 1C, DA)",),                # (PP added)
     "Rotate in 1s": ("Title button: how much time passes each second (Manual, 1s to 1y)",),                   # (Manual is gone)
+    "Conditions": ("Page (admins): the Conditions table: a row per Condition (unique) and its Values",),   # (Table Name added)
     "Days": ("Customers column: days of DOB access to add (1, 7, 30, 90, 180, 365); End Date is extended by them",),                         # (now DOB Details')
 }
 HELP_GONE = {"Came from": "Logins column: the site that brought the visitor (its name only); blank: none known",
@@ -137,7 +138,7 @@ HELP_ROWS_4 = [                                               # added later agai
     ("PP", "Planet Path: a button under Coordinates (AstroClock-2D, AstroClock-3D, Geo/Helio Model): the path of each planet shown"),
 ]
 HELP_ROWS_5 = [                                               # and again
-    ("Conditions", "Page (admins): the Conditions table: a row per Condition (unique) and its Values"),
+    ("Conditions", "Page (admins): the Conditions table: a row per Condition (unique), its Table Name and its Values"),
 ]
 HELP_VERSION = "5"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
@@ -192,13 +193,15 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Size_Clock-3D", "Symbols column: a planet's mark size on AstroClock-3D"),
     ("Size_Geo", "Symbols column: a planet's mark size on Geo"), ("Size_Helio", "Symbols column: a planet's mark size on Helio"),
 ]
-# The Conditions table: a row per Condition (unique, whatever its case) and its Values; kept by admins (the Conditions page)
+# The Conditions table: a row per Condition (unique, whatever its case), its Table Name and its Values; kept by admins (the
+# Conditions page)
 COND_NAME_MOST, COND_VALUES_MOST = 60, 500                    # a Condition's and its Values' most characters
 conditions = sa.Table(
     "conditions", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
     sa.Column("name", sa.String(COND_NAME_MOST), nullable=False, unique=True),   # Condition
     sa.Column("value_list", sa.String(COND_VALUES_MOST)),     # Values
+    sa.Column("table_name", sa.String(COND_NAME_MOST)),       # Table Name
 )
 sa.Index("ux_conditions_name", sa.func.lower(conditions.c.name), unique=True)   # (Abc and abc are one)
 HELP_INDEX = "ux_help_abbre"                                   # one row per Abbreviation, whatever its case (Su and su are one)
@@ -368,6 +371,7 @@ def engine() -> sa.Engine:
     _add_help_index(eng)
     _rename_help_rows(eng)
     _widen_help_abbreviation(eng)
+    _add_conditions_table_name(eng)
     _seed_help(eng)
     return eng
 
@@ -789,6 +793,16 @@ def save_help(rows: pd.DataFrame) -> int:
 
 
 # ---------------------------------------------------------------- the Conditions table
+CONDITIONS_COLUMNS = ["Condition", "Table Name", "Values"]
+
+
+def _add_conditions_table_name(eng: sa.Engine):
+    """A Conditions table made before its Table Name column gets it (its rows kept, blank in it)."""
+    if "table_name" not in {c["name"] for c in sa.inspect(eng).get_columns("conditions")}:
+        with eng.begin() as c:
+            c.execute(sa.text(f"ALTER TABLE conditions ADD COLUMN table_name {conditions.c.table_name.type.compile(dialect=eng.dialect)}"))
+
+
 def conditions_sorted(rows: pd.DataFrame) -> pd.DataFrame:
     """The Conditions rows in the order of Condition (case aside), as the page shows them; rows with none yet at the bottom."""
     key = rows["Condition"].map(lambda v: (_cell(v) == "", _cell(v).lower()))
@@ -796,25 +810,29 @@ def conditions_sorted(rows: pd.DataFrame) -> pd.DataFrame:
 
 
 def conditions_rows() -> pd.DataFrame:
-    """The Conditions table: Condition, Values, in the order of Condition (case aside)."""
+    """The Conditions table: Condition, Table Name, Values, in the order of Condition (case aside)."""
     with engine().connect() as c:
         rows = c.execute(sa.select(conditions).order_by(sa.func.lower(conditions.c.name))).mappings().all()
-    return pd.DataFrame([{"Condition": r["name"], "Values": r["value_list"]} for r in rows], columns=["Condition", "Values"])
+    return pd.DataFrame([{"Condition": r["name"], "Table Name": r["table_name"], "Values": r["value_list"]} for r in rows],
+                        columns=CONDITIONS_COLUMNS)
 
 
 def conditions_problems(rows: pd.DataFrame) -> list[str]:
     """What is wrong with the Conditions rows: each needs a Condition (at most COND_NAME_MOST characters, once in the table,
-    whatever its case) and Values of at most COND_VALUES_MOST. A wholly empty row does not count."""
+    whatever its case), a Table Name of at most COND_NAME_MOST and Values of at most COND_VALUES_MOST. A wholly empty row
+    does not count."""
     out, seen = [], set()
     for _, r in rows.iterrows():
-        name, values = _cell(r["Condition"]), _cell(r["Values"])
-        if not (name or values):
+        name, table, values = _cell(r["Condition"]), _cell(r.get("Table Name")), _cell(r["Values"])
+        if not (name or table or values):
             continue
         label = name or "New row"
         if not name:
             out.append(f"{label}: Condition is empty")
         if len(name) > COND_NAME_MOST:
             out.append(f"{label}: Condition can be at most {COND_NAME_MOST} characters")
+        if len(table) > COND_NAME_MOST:
+            out.append(f"{label}: Table Name can be at most {COND_NAME_MOST} characters")
         if len(values) > COND_VALUES_MOST:
             out.append(f"{label}: Values can be at most {COND_VALUES_MOST} characters")
         if name:
@@ -826,8 +844,8 @@ def conditions_problems(rows: pd.DataFrame) -> list[str]:
 
 def save_conditions(rows: pd.DataFrame) -> int:
     """Makes the Conditions table these rows (wholly empty ones left out); gives how many it has."""
-    keep = [dict(name=_cell(r["Condition"]), value_list=_cell(r["Values"]) or None)
-            for _, r in rows.iterrows() if _cell(r["Condition"]) or _cell(r["Values"])]
+    keep = [dict(name=_cell(r["Condition"]), table_name=_cell(r.get("Table Name")) or None, value_list=_cell(r["Values"]) or None)
+            for _, r in rows.iterrows() if _cell(r["Condition"]) or _cell(r.get("Table Name")) or _cell(r["Values"])]
     with engine().begin() as c:
         c.execute(sa.delete(conditions))
         if keep:
