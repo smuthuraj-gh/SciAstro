@@ -223,7 +223,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Predictions": "The Prediction Rules table's readings for the birth chart of the customer picked, in two tables. Birth chart: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, as on Aspects), closest first: Planet, With, Aspect, Off (degrees from the angle), Orb and the Prediction. "
-                   "Transits: its Transit rows, when the planets now come to those angles with the birth chart, between the Start and End dates, soonest first. "
+                   "Transits: its Transit rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Planets (Transits only): the moving planets to look at (and the Moon's nodes, NN and SN). Each row: Exact (when it is closest to the angle), Moving, Birth (the point of the birth chart; CB: house 10 at birth), "
                    "Aspect (RA and its angle, or Dec parallel / contra-parallel), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, as on Aspects; before Start / after End: within it already, or still), "
                    "Off (degrees from the angle at Exact) and the Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details.",
@@ -897,10 +897,11 @@ def add_months(when: datetime, months: int) -> datetime:
     return when.replace(year=year, month=month, day=min(when.day, last))
 
 
-def period(prep: Prepared, row=None, page: str = "") -> tuple[float, float] | None:
+def period(prep: Prepared, row=None, page: str = "", times: bool = True) -> tuple[float, float] | None:
     """The Start / End inputs (UT) as Julian days, or None (with a warning) if unusable. They start as the Defaults table
     says for this page (Start: DOB or Now; End: Now, or Start Date (UT) + a time, which moves with the Start).
-    With row (a horizontal container) they go into it, each just wide enough; otherwise in four columns."""
+    With row (a horizontal container) they go into it, each just wide enough; otherwise in four columns. times False:
+    the dates only, no Time (UT) boxes: from the start of the Start Date to the end of the End Date."""
     now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
     birth_dt = core.jd_to_datetime(prep.jd_birth) if prep.jd_birth is not None else now_dt   # (Now charts only: from now)
     c = [row] * 4 if row is not None else st.columns(4)
@@ -909,20 +910,21 @@ def period(prep: Prepared, row=None, page: str = "") -> tuple[float, float] | No
     start0 = min(max(start0, datetime(1800, 1, 1)), datetime(2399, 12, 31))   # (the dates allowed)
     d0 = c[0].date_input("Start Date (UT)", value=start0.date(), min_value=datetime(1800, 1, 1),
                          max_value=datetime(2399, 12, 31), width=dw, key=f"start_date_{page}_{prep.jd_birth}_{start0.date()}")
-    t0 = c[1].time_input("Time (UT)", key=f"start_time_{page}_{prep.jd_birth}_{start0 is now_dt}",
-                         value=time(start0.hour, start0.minute), width=tw)
+    t0 = (c[1].time_input("Time (UT)", key=f"start_time_{page}_{prep.jd_birth}_{start0 is now_dt}",
+                          value=time(start0.hour, start0.minute), width=tw) if times else time(0, 0))
     after = default_choice(page, "End Date (UT)")             # (months, days) after the Start, or "Now"
     if after != "Now":                                        # the End follows the Start: a changed Start sets it again
         end_dt = add_months(datetime.combine(d0, t0), after[0]) + timedelta(days=after[1])
         end_dt = min(end_dt, datetime(2399, 12, 31, 23, 59))   # (the last date allowed)
         d1 = c[2].date_input("End Date (UT)", value=end_dt.date(), min_value=datetime(1800, 1, 1),
                              max_value=datetime(2399, 12, 31), width=dw, key=f"end_date_{page}_{d0}_{t0}_{after}")
-        t1 = c[3].time_input("Time (UT)", key=f"end_time_{page}_{d0}_{t0}_{after}", value=end_dt.time(), width=tw)
+        t1 = c[3].time_input("Time (UT)", key=f"end_time_{page}_{d0}_{t0}_{after}", value=end_dt.time(), width=tw) if times else None
     else:
         d1 = c[2].date_input("End Date (UT)", value=now_dt.date(), min_value=datetime(1800, 1, 1),
                              max_value=datetime(2399, 12, 31), width=dw)
-        t1 = c[3].time_input("Time (UT)", key=f"end_time_{now_dt.date()}", value=time(now_dt.hour, now_dt.minute), width=tw)
-    start, end = datetime.combine(d0, t0), datetime.combine(d1, t1)
+        t1 = c[3].time_input("Time (UT)", key=f"end_time_{now_dt.date()}", value=time(now_dt.hour, now_dt.minute), width=tw) if times else None
+    start = datetime.combine(d0, t0)
+    end = datetime.combine(d1, t1) if t1 is not None else datetime.combine(d1, time(0, 0)) + timedelta(days=1)   # (no time: to the End Date's end)
     if end <= start:
         st.warning("The end must be after the start.")
         return None
@@ -1675,7 +1677,7 @@ def page_predictions():
     if prep.now_only or prep.jd_birth is None or not prep.birth:   # (no birth details, or DOB not open to them)
         st.info(prep.message or "Predictions need birth details: add them in DOB Details.")
         return
-    jds = period(prep, head, "Predictions")
+    jds = period(prep, head, "Predictions", times=False)      # (dates only: no Time (UT) boxes)
     choices = offered("Predictions", "Planets", db.PRED_MOVING)
     moving = core.in_order(titled(head, "Planets", "pred_t_planets", core.shown_order(choices), "pred_planets",
                                   default_choice("Predictions", "Planets"), selection_mode="multi", format_func=core.symbol_of), choices)
