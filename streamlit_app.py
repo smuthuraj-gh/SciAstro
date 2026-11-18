@@ -1975,5 +1975,5 @@ _chosen = _pick_customer()                                    # the sidebar's cu
 top_line(nav.title, _chosen[0])
 nav.run()
 st.sidebar.caption(f"Swiss Ephemeris via {se.BACKEND}. Equatorial (RA / Dec) only.")
-st.sidebar.caption("Orchestrated by Senthil Muthuraj  \nBuilt by SI Agent 007")   # at the foot of every page's sidebar: one
+st.sidebar.caption("Orchestrated by Senthil Muthuraj  \nBuilt by AI/SI Agents")   # at the foot of every page's sidebar: one
                                                                                   # caption, two lines (no gap between them)
