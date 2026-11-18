@@ -226,7 +226,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                    "Transits: its Transit rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Moving, Birth (the point of the birth chart; CB: house 10 at birth), "
                    "Aspect (RA and its angle, or Dec parallel / contra-parallel), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, as on Aspects; before Start / after End: within it already, or still), "
-                   "Off (degrees from the angle at Exact), Event and Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details.",
+                   "Off (degrees from the angle at Exact), Event and Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details: a member without them is taken to DOB Details, told so, and comes back here once their details are saved.",
     "Prediction Rules": "The Predictions table: a row per Chart (Birth: the two points at the angle in the birth chart, Moving the first, Birth the second; Transit: the planet now coming to the angle with the birth point), Moving planet (Transit: Mo .. Sa, NN, SN; Birth: CB too), Birth point (the same, and CB), Kind (RA: the RA between the two is the Angle; Dec: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
                         "unique together (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair), with its Event (required, at most 500 characters: its reading, shown in the Predictions page's Event column) and, last, its Prediction (optional, at most 500 characters; filled once, where empty, with a draft reading from the planets' and angles' usual meanings: a Transit row a period, a Birth row a lasting trait). It starts with every combination: Transit, each planet now (Mo .. Sa, NN, SN) with each birth point (and CB); Birth, each two birth points once (not NN with SN); each at RA 0, 60, 90, 120, 180 and Dec 0, 180, with a plain Prediction naming it to replace with your reading (938 rows; a row deleted stays deleted). "
                         "Insert, Update, Delete, each saved at once; Ignore; Reset to Previous.",
@@ -1709,16 +1709,29 @@ def page_conditions():
                               "Values": st.column_config.TextColumn(help="Its values, at most 500 characters.")})
 
 
+PREDICTIONS_NEED_BIRTH = ("Predictions need your birth details: enter them here, and once they are saved you go back to "
+                          "Predictions.")
+
+
 def page_predictions():
     """Predictions, from the Prediction Rules table, for the birth chart of the customer picked (DOB charts only): Birth
     chart, its points at the rules' angles at birth; Transits, when the planets now come to the rules' angles with it,
     between a start and an end date; each with its Prediction."""
     _, prep = pick_customer()
+    no_birth = prep is None or prep.now_only or prep.jd_birth is None or not prep.birth   # (no birth details, or DOB not open)
+    if no_birth and not user.is_admin and "me" in PAGE_BY_PATH:   # a member: told so, on DOB Details, to add them there
+        locked = prep is not None and prep.locked
+        st.session_state["_dob_locked"] = ((prep.message or access.PAID_NOTE) if locked else
+                                           PREDICTIONS_NEED_BIRTH)   # (shown on DOB Details)
+        if locked:
+            st.session_state["_open_more_days"] = True         # Get more days of access, open
+        st.session_state["_back_to"] = nav.url_path           # (once their details are saved: back to Predictions)
+        st.switch_page(PAGE_BY_PATH["me"])
     head = st.container(horizontal=True, vertical_alignment="top", gap="xsmall")
     if not need_chart(prep):
         return
-    if prep.now_only or prep.jd_birth is None or not prep.birth:   # (no birth details, or DOB not open to them)
-        st.info(prep.message or "Predictions need birth details: add them in DOB Details.")
+    if no_birth:                                              # (an admin: no customer, or one without birth details)
+        st.info(prep.message or "Predictions need birth details: add them on the DOB page.")
         return
     jds = period(prep, head, "Predictions")                  # (every planet: no Planets buttons)
     if jds is None:
