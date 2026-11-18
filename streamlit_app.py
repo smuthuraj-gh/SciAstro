@@ -329,8 +329,8 @@ def birth_label(row: pd.Series | None, prep: Prepared | None) -> str:
 
 
 def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
-    """Every page's top line: its title (with its help), then the chosen customer's First and Last Name, and their DOB when
-    there is one."""
+    """Every page's top line: its title (with its help), then the chosen customer's First and Last Name, their DOB when
+    there is one, and the Now clock (UT, to the second)."""
     # one row drawn here (not Streamlit's row, which can wrap the name onto a line of its own): both on one baseline
     name = ""
     if row is not None:                                       # First Name and Last Name (blank parts left out)
@@ -353,11 +353,26 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
         f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}'
         + (f'<span style="font-weight:400; margin-left:12px">{html.escape(dob)}</span>' if (dob := birth_label(row, prep)) else "") +
+        '<span class="now-clock" style="font-weight:400; margin-left:12px"></span>'   # (NOW_CLOCK_JS writes it)
         '</span>'
         + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("AstroClock-2D", "AstroClock-3D", "Geo/Helio Model") else "") +   # its script writes it
-        f'</div>')
+        f'</div>' + NOW_CLOCK_JS, unsafe_allow_javascript=True)
     # the slot fills the rest of the line
     TITLE_SLOT = line.container(width="stretch", horizontal=True, gap="small")
+
+
+# the Now clock beside the name on every page's top line: the time now, UT, to the second (one timer for the page, kept
+# across reruns; built from no user input, so safe to run)
+NOW_CLOCK_JS = """<script>
+(() => {
+  const tick = () => {
+    const text = "Now " + new Date().toISOString().slice(0, 19).replace("T", " ") + " UT";
+    document.querySelectorAll(".now-clock").forEach((e) => { if (e.textContent !== text) e.textContent = text; });
+  };
+  tick();
+  if (!window._nowClockTimer) window._nowClockTimer = setInterval(tick, 1000);
+})();
+</script>"""
 
 
 TITLE_SLOT = None                                             # set by top_line for the page being shown
