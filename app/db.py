@@ -789,6 +789,22 @@ def save_help(rows: pd.DataFrame) -> int:
 
 # ---------------------------------------------------------------- the Conditions table
 CONDITIONS_COLUMNS = ["Object", "Values", "Condition"]
+# The conditions the app follows while their row is in the table (an admin deletes the row and the app stops following it):
+# Table, Login, "Do not track login details for Admin access": no Logins rows for an admin's activity
+NO_ADMIN_LOGINS = ("Table", "Do not track login details for Admin access")   # (its Object and Condition; Values: Login)
+
+
+def _condition_values(c, obj: str, condition: str) -> list[str] | None:
+    """The Values of the Conditions row for this Object and Condition (case aside), comma-separated, as a list; None when
+    there is no such row (the app then does not follow it)."""
+    if "conditions" not in sa.inspect(c).get_table_names():
+        return None
+    rows = c.execute(sa.select(conditions.c.table_name, conditions.c.value_list).where(
+        sa.func.lower(conditions.c.name) == condition.strip().lower())).all()
+    for o, v in rows:
+        if (o or "").strip().lower() == obj.strip().lower():
+            return [w.strip() for w in (v or "").split(",") if w.strip()]
+    return None
 
 
 def _add_conditions_table_name(eng: sa.Engine):
@@ -1659,11 +1675,15 @@ def _visit(name: str) -> str | None:
 
 def _log(c, email: str | None, activity: str, times: int = 1, details: str | None = None):
     """Rows in the Logins table: this person did this (details: what), times times (one row per customer), now, on which
-    page, on what device, in what time zone, with what Access."""
+    page, on what device, in what time zone, with what Access. None for an admin while the App Conditions table has the
+    row Table, Login, Do not track login details for Admin access."""
     if email and times > 0:
         assert activity in ACTIVITIES
         now = _now()
-        row = dict(email=email.lower(), activity=activity, date_time=now, device=visitor_device() or None, timezone=visitor_timezone() or None, access=_access_now(c, email, now),
+        access_then = _access_now(c, email, now)
+        if access_then == "Admin" and any(v.lower() in ("login", "logins") for v in (_condition_values(c, *NO_ADMIN_LOGINS) or [])):
+            return
+        row = dict(email=email.lower(), activity=activity, date_time=now, device=visitor_device() or None, timezone=visitor_timezone() or None, access=access_then,
                    page=(_visit("_page") or "")[:60] or None, details=(details or "")[:300] or None)
         c.execute(logins.insert(), [row] * times)
 
