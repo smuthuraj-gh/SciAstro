@@ -314,8 +314,23 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
 }
 
 
-def top_line(title: str, row: pd.Series | None):
-    """Every page's top line: its title (with its help), then the chosen customer's First and Last Name."""
+def birth_label(row: pd.Series | None, prep: Prepared | None) -> str:
+    """The chosen customer's birth as DOB yyyy-mm-dd hh:mm (no time when it is not known); blank when there is none, or
+    the DOB charts are not open to them (as the sidebar)."""
+    if row is None or prep is None or not prep.ok or prep.now_only:
+        return ""
+    def num(f):
+        v = row.get(f)
+        return None if v is None or (isinstance(v, float) and pd.isna(v)) else int(v)
+    y, m, d, hr, mn = (num(f) for f in ("year", "mon", "day", "hr", "mn"))
+    if None in (y, m, d):
+        return ""
+    return f"DOB {y}-{m:02d}-{d:02d}" + (f" {hr:02d}:{mn or 0:02d}" if hr is not None else "")
+
+
+def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
+    """Every page's top line: its title (with its help), then the chosen customer's First and Last Name, and their DOB when
+    there is one."""
     # one row drawn here (not Streamlit's row, which can wrap the name onto a line of its own): both on one baseline
     name = ""
     if row is not None:                                       # First Name and Last Name (blank parts left out)
@@ -336,7 +351,9 @@ def top_line(title: str, row: pd.Series | None):
         f'<div style="display:flex; align-items:baseline; justify-content:flex-start; gap:24px; '
         f'flex-wrap:nowrap; font-weight:600">'
         f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
-        f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}</span>'
+        f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}'
+        + (f'<span style="font-weight:400; margin-left:12px">{html.escape(dob)}</span>' if (dob := birth_label(row, prep)) else "") +
+        '</span>'
         + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("AstroClock-2D", "AstroClock-3D", "Geo/Helio Model") else "") +   # its script writes it
         f'</div>')
     # the slot fills the rest of the line
@@ -2092,7 +2109,7 @@ if nav is home:                                               # / opens /astrocl
     st.switch_page(PAGE_BY_PATH["astroclock-2d"], query_params=st.query_params.to_dict())
 st.session_state["_page"] = nav.title                        # the page, for the Logins rows written on it
 _chosen = _pick_customer()                                    # the sidebar's customer, for every page
-top_line(nav.title, _chosen[0])
+top_line(nav.title, *_chosen)
 nav.run()
 st.sidebar.caption(f"Swiss Ephemeris via {se.BACKEND}. Equatorial (RA / Dec) only.")
 st.sidebar.caption("Orchestrated by Senthil Muthuraj  \nBuilt by AI/SI Agents")   # at the foot of every page's sidebar: one
