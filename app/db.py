@@ -1630,9 +1630,9 @@ def log_login(email: str | None):
 
 
 def logins_table(limit: int = 5000) -> pd.DataFrame:
-    """The Logins table, newest first (at most limit rows): Id, Email, Activity, Date_Time (UT), Page, Details, Device,
-    Time zone, Access."""
-    cols = ["Id", "Email", "Activity", "Date_Time", "Page", "Details", "Device", "Time zone", "Access"]
+    """The Logins table, newest first (at most limit rows): Id, Email, Activity, Access, Date_Time (UT), Page, Details,
+    Device, Time zone."""
+    cols = ["Id", "Email", "Activity", "Access", "Date_Time", "Page", "Details", "Device", "Time zone"]
     with engine().connect() as c:
         rows = c.execute(sa.select(logins).order_by(logins.c.date_time.desc(), logins.c.id.desc()).limit(limit)).mappings().all()
     return pd.DataFrame([{"Id": r["id"], "Email": r["email"], "Activity": r["activity"], "Date_Time": r["date_time"],
