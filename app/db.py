@@ -1095,7 +1095,7 @@ def _update_by_id(c, column: sa.Column, values: dict[int, str]) -> None:
     for k in range(0, len(items), 200):
         part = items[k:k + 200]
         c.execute(column.table.update().where(column.table.c.id.in_([i for i, _ in part]))
-                  .values({column.name: sa.case({i: v for i, v in part}, value=column.table.c.id)}))
+                  .values({column.name: sa.case({i: sa.cast(sa.literal(v), column.type) for i, v in part}, value=column.table.c.id)}))   # (typed: Postgres needs it)
 
 
 def _fill_prediction_readings(eng: sa.Engine):
