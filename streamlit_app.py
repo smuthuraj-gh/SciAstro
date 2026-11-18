@@ -230,12 +230,12 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
               "browser and system, and their browser's time zone. Access: theirs then. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
               "either asks first, and a deleted row cannot be brought back.",
-    "Page Defaults": "The Page Defaults table: what each page's inputs start as. A row per input, each column its own: Page (e.g. DOB Details), Box Title (the box the input is in, e.g. Get more days of access: DOB Details shows it as that box's title), Choice (the input, e.g. Days), Choice Values (what it starts as, e.g. 1) and Allowed Values (the values Choice Values may be set to, e.g. 1, 7, 30, 90, 180, 365: all the input's values, or those typed there, comma-separated; the page offers only those; clear it for all again; a text box, the words allowed, e.g. Pay, Free, blank for any text; dates and single on / off buttons cannot be narrowed). "
+    "Page Defaults": "The Page Defaults table: what each page's inputs start as. A row per input, each column its own: Page (e.g. DOB Details), Choice (the input, e.g. Days), Choice Values (what it starts as, e.g. 1) and Allowed Values (the values Choice Values may be set to, e.g. 1, 7, 30, 90, 180, 365: all the input's values, or those typed there, comma-separated; the page offers only those; clear it for all again; a text box, the words allowed, e.g. Pay, Free, blank for any text; dates and single on / off buttons cannot be narrowed). "
                 "Choice Values: buttons, the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0, 180; 1d), "
                 "blank for none; Coordinates: the buttons below it that start on (e.g. Ho, DA; Ce, AU). Start Date (UT): DOB or Now. End Date (UT): Now, or "
                 "Start Date (UT) + a time, e.g. 5 days, 2 years 6 months (years, months, weeks, days), which moves with the "
                 "Start. Update checks each row against the page's input. An input with no row starts as the app's own default. "
-                "Rows are sorted by Page, Box Title, Choice; Choice Values blank: the app's own default; click a column name to sort by it. Changes apply when a page is next opened (a button already changed this visit keeps its choice). Seen by admins "
+                "Rows are sorted by Page, Choice; Choice Values blank: the app's own default; click a column name to sort by it. Changes apply when a page is next opened (a button already changed this visit keeps its choice). Seen by admins "
                 "only, who can Insert, Update and Delete rows (each saved at once).",
     "Symbols": "The Symbols table: the short name (SAbr), symbol (Symb), long name (SDesc) and colour (RGB, and its name, Color) of each planet, the Earth (Ea), the Moon's nodes (NN, SN), the place now (CN) and the birth place (CB). Seen by admins only, who can "
                "use Insert for a new row, type changes in the table and press Update, tick Del and press Delete: each is saved at once; Ignore drops changes not saved yet. Click a column name to sort. SAbr is unique, and stays once a row is in the table. Symb is what the pages show in place of its SAbr, the SAbr itself when blank. On AstroClock-2D, AstroClock-3D and Geo/Helio Model the conventional symbols are drawn, in the row's RGB colour; anything else is shown as typed, an emoji such as the baby in its own colours. RGB is rgb(r,g,b) or #rrggbb; Color is its name in words, for reference, and may be blank. Size_Clock-3D says how AstroClock-3D draws the Sun, Moon, planets, Ea, the nodes NN and SN and the places CB and CN: Angular Size, by how big it looks from the Earth; Tiny, a dot with no symbol; Small, 9 pixels; a number, its radius in pixels; Bigger than, Smaller than or Same as another, by its SAbr or SDesc (Bigger than Moon); blank, as usual (a planet by its angular size, Ea a dot, the nodes and places 9 pixels). Size_Clock-2D says the same for AstroClock-2D, its Dec and Distance(%) graphs (it starts as Size_Geo), Size_Geo for Geo/Helio Model's Geo, and Size_Helio for its Helio (it starts as Size_Geo, with the Moon Tiny). The charts take the colours from here: a planet's marker, RA and Dec lines and path; Ea's mark and name on Geo/Helio Model's Geo; NN's and SN's symbol; CN's and CB's mark, name, RA and Dec lines. The Ea, NN, SN, CN and CB rows come back if deleted.",
@@ -321,7 +321,7 @@ def _pick_customer_box() -> tuple[pd.Series | None, Prepared | None]:
     # fades); on DOB Details, below its boxes (page_notes)
     locked_note = st.session_state.pop("_dob_locked", None) if nav.url_path != "me" else None
     if locked_note:
-        st.warning(days_note(locked_note if isinstance(locked_note, str) else access.PAID_NOTE))
+        st.warning(locked_note if isinstance(locked_note, str) else access.PAID_NOTE)
     if df.empty:
         if user.is_admin:                                     # (anyone signed in sees the Now charts)
             st.sidebar.info("No customers yet.")
@@ -361,7 +361,7 @@ def _pick_customer_box() -> tuple[pd.Series | None, Prepared | None]:
         prep = Prepared(True, access.EXPIRED_NOTE if GRANT.expired else access.PAID_NOTE,   # (shown when they pick DOB)
                         now_only=True, locked=True,   # at the place they live now
                         cn=prep.cn if prep.ok else None, cn_tz=prep.cn_tz if prep.ok else None)
-        st.sidebar.caption(days_note(GRANT.note))
+        st.sidebar.caption(GRANT.note)
     elif not prep.ok:                                         # birth details that cannot be worked out: the Now charts still
         st.sidebar.error(prep.message)
         prep = Prepared(True, prep.message + (" Fix it on the DOB page." if user.is_admin else " Fix it in DOB Details."),
@@ -376,7 +376,7 @@ def _pick_customer_box() -> tuple[pd.Series | None, Prepared | None]:
                            f"{at}, UTC {prep.utc:+.2f}  \n"
                            + ", ".join(str(row[f]) for f in ("city", "state", "country") if pd.notna(row[f]))
                            + f" ({prep.birth_lat}, {prep.birth_lon})"
-                           + (f"  \n{days_note(GRANT.note)}" if GRANT.note else ""))
+                           + (f"  \n{GRANT.note}" if GRANT.note else ""))
     mark_accessed()
     viewed = st.session_state.setdefault("viewed_customers", set())   # a View in the Logins table: once per customer per visit
     if cid not in viewed:
@@ -624,7 +624,7 @@ def need_chart(prep: Prepared | None) -> bool:
             new_member_form()
         return False
     if not prep.ok:
-        st.warning(days_note(prep.message))
+        st.warning(prep.message)
         return False
     return True
 
@@ -757,7 +757,7 @@ def default_choice(page: str, title: str):
 def offered(page: str, title: str, options: list) -> list:
     """The options an input offers: those its Defaults row's Allowed Values names (in the app's order), else all of them
     (and all of them too when Allowed Values names none of them: an input is never left with nothing)."""
-    text = DEFAULT_MORE.get((page.lower(), title.lower()), ("", ""))[1]
+    text = DEFAULT_ALLOWED.get((page.lower(), title.lower()), "")
     if not text:
         return list(options)
     spec = default_inputs().get((page, title))
@@ -769,21 +769,10 @@ def offered(page: str, title: str, options: list) -> list:
 
 def allowed_words(page: str, title: str) -> list[str]:
     """A text box's Allowed Values: the words it takes (none: any text)."""
-    text = DEFAULT_MORE.get((page.lower(), title.lower()), ("", ""))[1]
+    text = DEFAULT_ALLOWED.get((page.lower(), title.lower()), "")
     return [w.strip() for w in text.split(",") if w.strip()]
 
 
-def menu_title(page: str, title: str, own: str) -> str:
-    """The title of the box an input is in: its Defaults row's Box Title, else the app's own."""
-    return DEFAULT_MORE.get((page.lower(), title.lower()), ("", ""))[0] or own
-
-
-MORE_DAYS = "Get more days of access"                         # DOB Details' box for more days, as the app names it
-
-
-def days_note(text):
-    """A message naming DOB Details' box for more days, by its title now (the Defaults table's Box Title)."""
-    return text.replace(MORE_DAYS, menu_title("DOB Details", "Days", MORE_DAYS)) if isinstance(text, str) else text
 
 
 def options_problems(rows: pd.DataFrame) -> list[str]:
@@ -1487,9 +1476,8 @@ def allowed_to_keep(page, options, text) -> tuple[str | None, list[str]]:
 
 
 def page_defaults():
-    """The Defaults table, each column its own: Page, Box Title (the box the input is in), Choice (the input), Choice Values (what it
-    starts as) and Allowed Values (the values Choice Values may be set to, and all the page offers); Box Title is the title of
-    the box the input is in, where the page has one (DOB Details' Get more days of access)."""
+    """The Defaults table, each column its own: Page, Choice (the input), Choice Values (what it starts as) and Allowed
+    Values (the values Choice Values may be set to, and all the page offers)."""
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
 
@@ -1545,8 +1533,6 @@ def page_defaults():
     crud_table("defaults_table", table, problems, commit, on_update=shown,
                height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
                column_config={"Page": st.column_config.TextColumn(width=150),
-                              "Box Title": st.column_config.TextColumn(width=190, help="The box the input is in on its page "
-                                                                     "(e.g. Get more days of access: DOB Details shows it as that box's title)."),
                               "Choice": st.column_config.TextColumn(width=150, help="The input: its name on the page "
                                                                      "(e.g. Days). Each Page has one row per input."),
                               "Choice Values": st.column_config.TextColumn(width=300, help="What the input starts as (e.g. 7). "
@@ -1850,7 +1836,7 @@ def page_notes():
     saved."""
     locked = st.session_state.pop("_dob_locked", None)
     if locked:
-        st.warning(days_note(locked if isinstance(locked, str) else access.PAID_NOTE))
+        st.warning(locked if isinstance(locked, str) else access.PAID_NOTE)
     said = st.session_state.pop("days_added", None)
     if said:
         st.success(said)
@@ -1868,9 +1854,9 @@ def more_days_box():
     if user.is_admin:
         return
     # (open when they were sent here for it: they picked DOB, which is not open to them)
-    with st.expander(menu_title("DOB Details", "Days", MORE_DAYS),   # (its title: the Defaults table's Box Title)
+    with st.expander("Get more days of access",
                      expanded=st.session_state.pop("_open_more_days", False)):
-        note = days_note(GRANT.note or "DOB charts open.") if GRANT.dob else "Now charts only: add days here to open the DOB charts."
+        note = (GRANT.note or "DOB charts open.") if GRANT.dob else "Now charts only: add days here to open the DOB charts."
         st.caption(note + " Days are added to your End Date while it runs, else from now. For now, apply the coupon "
                    "Free to add them free.")
         # (a form: Enter in Pay / Coupon adds the days as Add days does; before, Enter only changed the box, and nothing
@@ -1906,7 +1892,7 @@ def more_days_box():
 core.SIZE_TEXTS, core.SIZE_WORDS, core.SIZE_TEXTS_HELIO, core.SIZE_TEXTS_GLOBE, core.SIZE_TEXTS_CLOCK = db.planet_sizes()   # and their sizes
 core.SYMBOL_TEXTS = db.planet_symbols()                       # and their symbols, shown in place of the SNs
 DEFAULT_TEXTS = db.defaults_map()                             # what each page's inputs start as (the Defaults table)
-DEFAULT_MORE = db.defaults_more_map()                         # and each one's Box Title (its box's title) and Allowed Values
+DEFAULT_ALLOWED = db.defaults_allowed_map()                   # and what each may be set to (its Allowed Values)
 core.COLOURS.update(core.DEFAULT_COLOURS | db.planet_colours())   # every chart's colours are the Symbols table's (a deleted row's, the usual one)
 def add_person_form():
     """A person to add under their login (DOB members, on DOB Details): its form, with Search Only and Save and Search."""
