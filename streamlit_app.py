@@ -1995,6 +1995,7 @@ def page_prediction_rules():
                                                                        help="RA: the RA between the two is the Angle. De: Angle 0 parallel, 180 contra-parallel. Distance rows: Near or Far, Angle 0."),
                               "Angle": st.column_config.NumberColumn("Angle *", min_value=0, max_value=180, step=1, format="%d",
                                                                      help="0 to 180 (De: 0 or 180)."),
+                              "Aspect": st.column_config.TextColumn(disabled=True, help="The aspect by name, from Kind and Angle (as Aspect Rules names them: Conjunction 0, Opposition 180, Square 90 ..; De: Parallel, Contra-parallel; Distance: Closest, Farthest). Set by the app."),
                               "Event": st.column_config.TextColumn("Event *", help="Its reading, at most 500 characters."),
                               "Prediction": st.column_config.TextColumn(help="The prediction for the row (optional), at most 500 characters.")})
 

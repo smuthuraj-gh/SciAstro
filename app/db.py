@@ -5,6 +5,7 @@ whose own disk is wiped on every restart). Without it, a local SQLite file priva
 """
 from __future__ import annotations
 
+import functools
 import io
 import re
 from datetime import datetime, timedelta
@@ -1298,15 +1299,40 @@ def _pred_key(r) -> tuple:
             999 if pd.isna(angle) else angle)
 
 
+def aspect_name(kind, angle) -> str:
+    """A rule's aspect by name: RA, the name of its Angle among the aspects (Conjunction 0 .. Quincunx 150, as Aspect Rules
+    names them); De, Parallel (0) or Contra-parallel (180); Near, Closest; Far, Farthest ('' for none of those)."""
+    kind, a = _cell(kind), pd.to_numeric(angle, errors="coerce")
+    if kind in ("Near", "Far"):
+        return "Closest" if kind == "Near" else "Farthest"
+    if pd.isna(a):
+        return ""
+    if kind == "De":
+        return {0: "Parallel", 180: "Contra-parallel"}.get(int(a), "")
+    if kind == "RA":
+        return _aspect_names().get(float(a), "")
+    return ""
+
+
+@functools.lru_cache(maxsize=1)
+def _aspect_names() -> dict[float, str]:
+    """The aspects' names by angle, as Aspect Rules names them (read once)."""
+    names = core.default_orb_table()
+    return {float(x): str(n) for n, x in zip(names["Aspect"], names["Angle"]) if pd.notna(x)}
+
+
 def predictions_sorted(rows: pd.DataFrame) -> pd.DataFrame:
-    """The Predictions rows in the order the page shows them (see _pred_key)."""
+    """The Predictions rows in the order the page shows them (see _pred_key), with each one's Aspect by name (after Angle;
+    worked out from Kind and Angle, not kept)."""
     order = sorted(range(len(rows)), key=lambda i: _pred_key(rows.iloc[i]))
-    return rows.iloc[order].reset_index(drop=True)
+    rows = rows.iloc[order].reset_index(drop=True).drop(columns="Aspect", errors="ignore")
+    rows.insert(rows.columns.get_loc("Angle") + 1, "Aspect", [aspect_name(k, a) for k, a in zip(rows["Kind"], rows["Angle"])])
+    return rows
 
 
 def predictions_rows() -> pd.DataFrame:
-    """The Predictions table: id, Chart, Moving, Birth, Kind, Angle, Event (its prediction), Prediction (its forecast), as
-    the page shows it."""
+    """The Predictions table: id, Chart, Moving, Birth, Kind, Angle, Aspect (its name), Event (its prediction), Prediction
+    (its forecast), as the page shows it."""
     with engine().connect() as c:
         rows = c.execute(sa.select(predictions)).mappings().all()
     df = pd.DataFrame([{"id": r["id"], "Chart": r["chart"], "Moving": r["moving"], "Birth": r["birth"], "Kind": r["kind"], "Angle": r["angle"],
