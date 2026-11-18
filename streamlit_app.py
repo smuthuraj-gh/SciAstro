@@ -228,7 +228,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                    "Aspect (RA and its angle, or Dec parallel / contra-parallel), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, as on Aspects; before Start / after End: within it already, or still), "
                    "Off (degrees from the angle at Exact) and Events (the reading). Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details.",
     "Prediction Rules": "The Predictions table: a row per Chart (Birth: the two points at the angle in the birth chart, Moving the first, Birth the second; Transit: the planet now coming to the angle with the birth point), Moving planet (Transit: Mo .. Sa, NN, SN; Birth: CB too), Birth point (the same, and CB), Kind (RA: the RA between the two is the Angle; Dec: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
-                        "unique together (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair), with its Events (required, at most 500 characters: its reading, shown in the Predictions page's Events column). It starts with every combination: Transit, each planet now (Mo .. Sa, NN, SN) with each birth point (and CB); Birth, each two birth points once (not NN with SN); each at RA 0, 60, 90, 120, 180 and Dec 0, 180, with a plain Prediction naming it to replace with your reading (938 rows; a row deleted stays deleted). "
+                        "unique together (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair), with its Events (required, at most 500 characters: its reading, shown in the Predictions page's Events column) and, last, its Prediction (optional, at most 500 characters). It starts with every combination: Transit, each planet now (Mo .. Sa, NN, SN) with each birth point (and CB); Birth, each two birth points once (not NN with SN); each at RA 0, 60, 90, 120, 180 and Dec 0, 180, with a plain Prediction naming it to replace with your reading (938 rows; a row deleted stays deleted). "
                         "Insert, Update, Delete, each saved at once; Ignore; Reset to Previous.",
     "AstroClock-3D": "Time, with Now and DOB below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the North and South Celestial Poles (NCP, SCP); ECE and WCE are East and West on the Celestial Equator. "
                   "Rotate in 1s: the Earth turns about that fixed axis, west to east, while the sphere stands still, and time "
@@ -1766,7 +1766,8 @@ def page_prediction_rules():
                                                                        help="RA: the RA between the two is the Angle. Dec: Angle 0 parallel, 180 contra-parallel."),
                               "Angle": st.column_config.NumberColumn("Angle *", min_value=0, max_value=180, step=1, format="%d", width=70,
                                                                      help="0 to 180 (Dec: 0 or 180)."),
-                              "Events": st.column_config.TextColumn("Events *", width=600, help="Its reading, at most 500 characters.")})
+                              "Events": st.column_config.TextColumn("Events *", width=600, help="Its reading, at most 500 characters."),
+                              "Prediction": st.column_config.TextColumn(width=400, help="The prediction for the row (optional), at most 500 characters.")})
 
 
 def page_naming():
@@ -2096,8 +2097,8 @@ def add_person_form():
 pages = [st.Page(page_astroclock, title="AstroClock-2D", icon=":material/science:", url_path="astroclock-2d"),
          st.Page(page_globe, title="AstroClock-3D", icon=":material/language:", url_path="astroclock-3d"),
          st.Page(page_centric, title="Geo/Helio Model", icon=":material/orbit:", url_path="geo-helio-model"),
-         st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_predictions, title="Predictions", icon=":material/auto_awesome:", url_path="predictions"),
+         st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
 if user.is_admin:                                             # the Aspect Rules, App Conditions, DOB, Symbols, Page Defaults, Help, Logins, Readme pages: admins only
