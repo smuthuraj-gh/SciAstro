@@ -227,16 +227,17 @@ def _sky_line(pts: list[tuple[float, float]], ra_facing: float, colour: str, wid
             f"<title>{tip}</title></polyline>")
 
 
-def _text(x: float, y: float, text: str, colour: str, anchor: str = "middle", opacity: float = 1.0) -> str:
-    return (f'<text x="{x:.1f}" y="{y:.1f}" text-anchor="{anchor}" fill="{colour}" font-weight="bold" '
-            f'font-size="{FONT}" opacity="{opacity}" font-family="{CHART_FONT_FAMILY}" stroke="white" stroke-width="3" '
+def _text(x: float, y: float, text: str, colour: str) -> str:
+    """A label centred on x, its baseline at y."""
+    return (f'<text x="{x:.1f}" y="{y:.1f}" text-anchor="middle" fill="{colour}" font-weight="bold" '
+            f'font-size="{FONT}" font-family="{CHART_FONT_FAMILY}" stroke="white" stroke-width="3" '
             f'paint-order="stroke">{text}</text>')
 
 
-def _box(x: float, y: float, text: str, anchor: str = "middle") -> tuple[float, float, float, float]:
-    """The room a label takes: left, top, right, bottom (y is its baseline)."""
+def _box(x: float, y: float, text: str) -> tuple[float, float, float, float]:
+    """The room a label (centred on x) takes: left, top, right, bottom (y is its baseline)."""
     w = len(text) * TEXT_W
-    left = x - w / 2 if anchor == "middle" else x if anchor == "start" else x - w
+    left = x - w / 2
     return left - 3, y - TEXT_H + 3, left + w + 3, y + 3      # (a little to spare at each side)
 
 

@@ -1862,7 +1862,7 @@ def _ensure_accounts(c, emails, first=()) -> int:
     want = {str(e).strip().lower() for e in emails if isinstance(e, str) and e.strip()}
     have = {e.lower(): a for e, a in c.execute(sa.select(accounts.c.email, accounts.c.access)).all()}
     now = _now()
-    one_day = dict(access="DOB", start_date=now, end_date=access.period_end("DOB", now))
+    one_day = dict(access="DOB", start_date=now, end_date=access.period_end(now))
     for e in sorted(want - set(have)):
         c.execute(accounts.insert().values(email=e, **one_day))
     for e in sorted({str(e).strip().lower() for e in first if isinstance(e, str)} & want & set(have)):
@@ -1917,7 +1917,7 @@ def ensure_account(email: str) -> dict:
 def _set_access(c, email: str, value: str):
     """This login's Customers row gets this Access, from now (DOB: for 1 day; the row made if it has none)."""
     now = _now()
-    data = dict(access=value, start_date=now, end_date=access.period_end(value, now) if value in access.LASTS else None)
+    data = dict(access=value, start_date=now, end_date=access.period_end(now) if value in access.LASTS else None)
     if c.execute(sa.select(accounts.c.id).where(accounts.c.email == email.lower())).first():
         c.execute(accounts.update().where(accounts.c.email == email.lower()).values(**data))
     else:
@@ -1986,7 +1986,7 @@ def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None =
             typed_start, typed_end = _stamp(rec.get("start_date")), _stamp(rec.get("end_date"))
 
             def period(start):                                # from start: (start, end); DOB: 1 day
-                return start, access.period_end(a, start) if a in access.LASTS else None
+                return start, access.period_end(start) if a in access.LASTS else None
 
             aid = rec.get("id")
             if aid is None or pd.isna(aid):
@@ -2049,9 +2049,9 @@ def add_days(email: str, days: int, coupon: str | None = None) -> datetime:
             a = None
         if a == "Admin":
             raise ValueError("An admin's access has no end.")
-        running = a == "DOB" and not access.ended("DOB", r["start_date"], r["end_date"], now)
+        running = a == "DOB" and not access.ended(r["start_date"], r["end_date"], now)
         start = _stamp(r["start_date"]) if running else now
-        base = access.ends_at("DOB", r["start_date"], r["end_date"], now) if running else now
+        base = access.ends_at(r["start_date"], r["end_date"], now) if running else now
         end = base + timedelta(days=days)
         data = dict(access="DOB", start_date=start, end_date=end)
         if r:
@@ -2182,7 +2182,7 @@ def _access_now(c, email: str, now) -> str | None:
         a = access.canonical(r["access"], access.ACCESS) or "Now"
     except ValueError:
         return None
-    if a in access.LASTS and access.ended(a, r["start_date"], r["end_date"], now):
+    if a in access.LASTS and access.ended(r["start_date"], r["end_date"], now):
         return f"{a} ended"
     return a
 

@@ -1761,7 +1761,7 @@ def readme_lines_with(text: str, words: str, typed: str) -> str:
             others.append(line)
     mark = (lambda s: re.sub(re.escape(typed), lambda m: f"**{m.group(0)}**", s, flags=re.IGNORECASE)) if "*" not in typed else (lambda s: s)
     count = len(others) + len(rows)
-    said = f"{count} line{'' if count == 1 else 's'} of the README have '{typed}'."
+    said = f"{count} line{' of the README has' if count == 1 else 's of the README have'} '{typed}'."
     parts = [said] + [mark(line) for line in others]             # (each its own paragraph)
     if rows:
         parts.append("\n".join([*head, *[mark(r) for r in rows]]))   # (one table)
@@ -1798,7 +1798,7 @@ def searched_rows(name: str, table: pd.DataFrame, words: str, column_config: dic
     if not words:
         return False
     found = rows_with(table, words)
-    st.caption(f"{len(found)} of {len(table)} rows have '{st.session_state[f'{name}_search']}'."
+    st.caption(f"{len(found)} of {len(table)} rows {'has' if len(found) == 1 else 'have'} '{st.session_state[f'{name}_search']}'."
                + (" Clear the search to change the table." if user.is_admin else ""))
     if len(found):
         show_table(found, column_config, hide_index=True, width="content", height=rows_px(len(found)))
@@ -1849,7 +1849,9 @@ def page_predictions():
     no_birth = prep is None or prep.now_only or prep.jd_birth is None or not prep.birth   # (no birth details, or DOB not open)
     if no_birth and not user.is_admin and "me" in PAGE_BY_PATH:   # a member: told so, on DOB Details, to add them there
         locked = prep is not None and prep.locked
+        unusable = prep is not None and not prep.ok and prep.message   # (birth details that cannot be worked out: why)
         st.session_state["_dob_locked"] = ((prep.message or access.PAID_NOTE) if locked else
+                                           f"{prep.message} Fix it here to see Predictions." if unusable else
                                            PREDICTIONS_NEED_BIRTH)   # (shown on DOB Details)
         if locked:
             st.session_state["_open_more_days"] = True         # Get more days of access, open

@@ -60,28 +60,19 @@ def as_time(v) -> datetime | None:
     return None if pd.isna(t) else t.to_pydatetime().replace(tzinfo=None)
 
 
-def period_end(value: str, start: datetime, days=None) -> datetime:
-    """When a DOB from start runs out: days days on (blank: SIGNUP_DAYS)."""
-    return start + timedelta(days=whole_days(days) or SIGNUP_DAYS)
+def period_end(start: datetime) -> datetime:
+    """When a DOB from start runs out: SIGNUP_DAYS on."""
+    return start + timedelta(days=SIGNUP_DAYS)
 
 
-def whole_days(v) -> int | None:
-    """Days as a whole number of 1 or more; None when blank or not one."""
-    try:
-        f = float(v)
-    except (TypeError, ValueError):
-        return None
-    return int(f) if f == f and f >= 1 and f.is_integer() else None
-
-
-def ends_at(value: str, since, until, now: datetime) -> datetime:
+def ends_at(since, until, now: datetime) -> datetime:
     """When a DOB runs out: its End Date (until), else its period after its Start Date (since; blank: now)."""
-    return as_time(until) or period_end(value, as_time(since) or now)
+    return as_time(until) or period_end(as_time(since) or now)
 
 
-def ended(value: str, since, until, now: datetime) -> bool:
+def ended(since, until, now: datetime) -> bool:
     """Whether a DOB with this Start Date and End Date has run out."""
-    return ends_at(value, since, until, now) <= now
+    return ends_at(since, until, now) <= now
 
 
 def grant(value, since: datetime | None, now: datetime, until=None) -> Grant:
@@ -94,7 +85,7 @@ def grant(value, since: datetime | None, now: datetime, until=None) -> Grant:
     if a == "Admin":
         return Grant(admin=True, dob=True, many=True)
     if a in LASTS:
-        end = ends_at(a, since, until, now)
+        end = ends_at(since, until, now)
         if end > now:
             return Grant(admin=False, dob=True, many=True, note=f"{a} until {end:%Y-%m-%d %H:%M} UT.")
         return Grant(admin=False, dob=False, note=f"Your {a} ended on {end:%Y-%m-%d}. " + PAID_NOTE, expired=True)
