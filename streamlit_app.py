@@ -222,13 +222,13 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "Predictions": "The Prediction Rules table's readings for the birth chart of the customer picked, in two tables. Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, as on Aspects), closest first: Planet, With, Aspect, Off (degrees from the angle), Orb, Events and Prediction (its reading, from Prediction Rules). "
+    "Predictions": "The Prediction Rules table's readings for the birth chart of the customer picked, in two tables. Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, as on Aspects), closest first: Planet, With, Aspect, Off (degrees from the angle), Orb, Event and Prediction (its reading, from Prediction Rules). "
                    "Transits: its Transit rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Planets (Transits only): the moving planets to look at (and the Moon's nodes, NN and SN). Each row: Exact (when it is closest to the angle), Moving, Birth (the point of the birth chart; CB: house 10 at birth), "
                    "Aspect (RA and its angle, or Dec parallel / contra-parallel), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, as on Aspects; before Start / after End: within it already, or still), "
-                   "Off (degrees from the angle at Exact), Events and Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details.",
+                   "Off (degrees from the angle at Exact), Event and Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details.",
     "Prediction Rules": "The Predictions table: a row per Chart (Birth: the two points at the angle in the birth chart, Moving the first, Birth the second; Transit: the planet now coming to the angle with the birth point), Moving planet (Transit: Mo .. Sa, NN, SN; Birth: CB too), Birth point (the same, and CB), Kind (RA: the RA between the two is the Angle; Dec: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
-                        "unique together (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair), with its Events (required, at most 500 characters: its reading, shown in the Predictions page's Events column) and, last, its Prediction (optional, at most 500 characters; filled once, where empty, with a draft reading from the planets' and angles' usual meanings: a Transit row a period, a Birth row a lasting trait). It starts with every combination: Transit, each planet now (Mo .. Sa, NN, SN) with each birth point (and CB); Birth, each two birth points once (not NN with SN); each at RA 0, 60, 90, 120, 180 and Dec 0, 180, with a plain Prediction naming it to replace with your reading (938 rows; a row deleted stays deleted). "
+                        "unique together (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair), with its Event (required, at most 500 characters: its reading, shown in the Predictions page's Event column) and, last, its Prediction (optional, at most 500 characters; filled once, where empty, with a draft reading from the planets' and angles' usual meanings: a Transit row a period, a Birth row a lasting trait). It starts with every combination: Transit, each planet now (Mo .. Sa, NN, SN) with each birth point (and CB); Birth, each two birth points once (not NN with SN); each at RA 0, 60, 90, 120, 180 and Dec 0, 180, with a plain Prediction naming it to replace with your reading (938 rows; a row deleted stays deleted). "
                         "Insert, Update, Delete, each saved at once; Ignore; Reset to Previous.",
     "AstroClock-3D": "Time, with Now and DOB below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the North and South Celestial Poles (NCP, SCP); ECE and WCE are East and West on the Celestial Equator. "
                   "Rotate in 1s: the Earth turns about that fixed axis, west to east, while the sphere stands still, and time "
@@ -1740,7 +1740,7 @@ def page_predictions():
         return
     with st.spinner("Finding predictions..."):
         events = _predictions_cached(tuple(sorted(birth.items())), tuple(r[:4] for r in rules), *jds, db.orb_table().to_csv(index=False))
-    texts = {r[:4]: r[4:6] for r in rules}                   # (Events, Prediction)
+    texts = {r[:4]: r[4:6] for r in rules}                   # (Event, Prediction)
     st.caption(f"{len(events)} in this period." if events else "None in this period.")
     if not events:
         return
@@ -1748,7 +1748,7 @@ def page_predictions():
     rows = [{"Exact (UT)": at(exact), "Moving": core.with_symbols(m), "Birth": core.with_symbols(b),
              "Aspect": f"RA {a}°" if k == "RA" else "Dec parallel" if a == 0 else "Dec contra-parallel",
              "Begins (UT)": at(begins) if begins is not None else "before Start", "Ends (UT)": at(ends) if ends is not None else "after End",
-             "Off": off, "Events": texts.get((m, b, k, a), ("", ""))[0], "Prediction": texts.get((m, b, k, a), ("", ""))[1]}
+             "Off": off, "Event": texts.get((m, b, k, a), ("", ""))[0], "Prediction": texts.get((m, b, k, a), ("", ""))[1]}
             for m, b, k, a, begins, exact, ends, off in events]
     show_table(pd.DataFrame(rows), hide_index=True, width="content",
                  column_config={"Off": st.column_config.NumberColumn(format="%.2f", help="Degrees from the angle at Exact.")})
@@ -1768,7 +1768,7 @@ def birth_predictions(rules: list, birth: dict) -> None:
         if off <= orb:
             rows.append({"Planet": core.with_symbols(a), "With": core.with_symbols(b),
                          "Aspect": f"RA {angle}°" if kind == "RA" else "Dec parallel" if angle == 0 else "Dec contra-parallel",
-                         "Off": off, "Orb": orb, "Events": text, "Prediction": reading})
+                         "Off": off, "Orb": orb, "Event": text, "Prediction": reading})
     if not rules:
         st.caption("The Prediction Rules table has no Birth rows.")
         return
@@ -1789,7 +1789,7 @@ def _predictions_cached(birth, rules, jd_from, jd_to, orb_csv):
 
 
 def page_prediction_rules():
-    """The Predictions table: a row per Chart, Moving, Birth, Kind and Angle (unique together), with its Events;
+    """The Predictions table: a row per Chart, Moving, Birth, Kind and Angle (unique together), with its Event;
     admins only (Insert, Update, Delete, each saved at once; Ignore; Reset to Previous)."""
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
@@ -1808,7 +1808,7 @@ def page_prediction_rules():
                                                                        help="RA: the RA between the two is the Angle. Dec: Angle 0 parallel, 180 contra-parallel."),
                               "Angle": st.column_config.NumberColumn("Angle *", min_value=0, max_value=180, step=1, format="%d",
                                                                      help="0 to 180 (Dec: 0 or 180)."),
-                              "Events": st.column_config.TextColumn("Events *", help="Its reading, at most 500 characters."),
+                              "Event": st.column_config.TextColumn("Event *", help="Its reading, at most 500 characters."),
                               "Prediction": st.column_config.TextColumn(help="The prediction for the row (optional), at most 500 characters.")})
 
 
