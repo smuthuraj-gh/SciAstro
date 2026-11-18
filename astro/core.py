@@ -296,11 +296,18 @@ class AspectEvent:
     ra2: float = 0.0
 
 
-def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[int], orbs: Orbs) -> list[AspectEvent]:
+CN_STEP = 1.0 / 96                    # CN (house 10 now) goes once round in a day: looked at every 15 minutes (under 4 degrees)
+
+
+def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[int], orbs: Orbs,
+                  places: dict | None = None) -> list[AspectEvent]:
     """Each time two of the planets come into one of the aspects (C / O / Q / T / S) across the period. The Moon's nodes (NN,
     SN) may be among them, with their own orbs where the Aspect Rules table has them (NN-RA, SN-RA), as the planets', the total of the pair's;
-    NN with SN is never one (they are always opposite)."""
-    names = shown_order([p for p in BUTTON_ORDER + ["NN", "SN"] if p in labels])   # named in this order: 0-Mo-Su .. 0-Sa-SN
+    NN with SN is never one (they are always opposite). places: the house points that may be among them too, CB (house 10 at
+    birth: fixed, ("fixed", RA, De)) and CN (house 10 now: ("now", latitude, longitude), its RA the sidereal time there at each
+    moment, its De the latitude), with their orbs (CB-RA, CN-RA ..; 0: the planet's alone)."""
+    places = places or {}
+    names = shown_order([p for p in BUTTON_ORDER + ["NN", "SN"] if p in labels]) + [p for p in ("CB", "CN") if p in labels and p in places]
     if len(names) < 2 or not angles:
         return []
     span = jd_to - jd_from
@@ -309,6 +316,8 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
         return []
     if "Mo" in names and step > MOON_STEP:
         step = MOON_STEP
+    if "CN" in names and step > CN_STEP:
+        step = CN_STEP
     import numpy as np
     n = int(math.ceil(span / step))
     jds = np.minimum(jd_from + np.arange(n + 1) * step, jd_to)
@@ -319,6 +328,10 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
         for p in names:
             if p in ("NN", "SN"):                                    # the south node opposite the north
                 ra[p][k], de[p][k] = (node[0], node[1]) if p == "NN" else ((node[0] + 180.0) % 360.0, -node[1])
+                continue
+            if p in ("CB", "CN"):                                    # the house points: CB fixed; CN turning with the Earth
+                kind, a, b = places[p]
+                ra[p][k], de[p][k] = (a, b) if kind == "fixed" else (lst(float(jd), b), a)
                 continue
             x, err = se.calc_ut(float(jd), PLANET_ID[p])
             if x is None:

@@ -256,7 +256,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                     "Each has its symbol inside its marker (☿ Me, ♀ Ve, ⊕ Ea, ☽ Mo, ♂ Ma, ♃ Ju, ♄ Sa, ☉ Su). Sizes follow the Size_Helio column of Symbols: usually a planet by how big it looks from the Earth at that moment (a logarithmic scale), the Sun and the Earth as their Sizes say. Point at a planet for its De/Lati, RA, Angular Size and distance from the Sun, or at a path for its span and distances. "
                     "Time: DOB is hollow with dashed paths, Now solid. PP, under Coordinates: the Planet Path of each planet shown, a trail behind it, drawn only while time runs, kept for up to 72 years (with time standing still there are no trails, and each start begins new ones). "
                     "Coordinates: Ce, AU and PP below it. Distances are on the Fit scale: each tenfold distance takes the same room, so Mercury's path and Saturn's can be seen together. A label with no room is left off: point at its mark.",
-    "Aspects": "The aspects between the chosen planets, and the Moon's nodes (NN, SN; by their own orbs in Aspect Rules, ☊ and ☋, the total of the pair's as for two planets; never with each other), over the period, as tables, newest first: one table per "
+    "Aspects": "The aspects between the chosen planets, and the Moon's nodes (NN, SN; by their own orbs in Aspect Rules, ☊ and ☋, the total of the pair's as for two planets; never with each other), and the house points 👶 CB (house 10 at birth: fixed, at the birth place's sidereal time and latitude) and 🏠 CN (house 10 now: turning once a day with the Earth, at the place the customer lives now; looked at every 15 minutes), by their own orbs in Aspect Rules (0: the planet's alone), over the period, as tables, newest first: one table per "
                "angle, headed with its name in Aspect Rules, a row each time two planets came into it (RA within the RA orb of the "
                "angle, and the two Declinations within the De orb of equal or mirrored). The angles to pick from, and their orbs, "
                "are the Aspect Rules table's: Major Aspects, on or off, with its major angles (0, 60, 90, 120, 180) below it; "
@@ -745,7 +745,7 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
             ("Geo/Helio Model", "Planets"): (bodies, True, bodies),
             ("Geo/Helio Model", "Coordinates"): (["Ce", "AU", "PP"], True, ["Ce", "AU"]),
             ("Geo/Helio Model", "Rotate in 1s"): (SPEED_CHOICES, False, None)}
-    for page, end, planets in (("Aspects", (0, 5), core.BUTTON_ORDER + ["NN", "SN"]), ("Planets Cycles", (360, 0), core.BUTTON_ORDER),
+    for page, end, planets in (("Aspects", (0, 5), core.BUTTON_ORDER + ["NN", "SN", "CB", "CN"]), ("Planets Cycles", (360, 0), core.BUTTON_ORDER),
                                ("Planets Distance(%)", (24, 0), core.BUTTON_ORDER)):
         out |= {(page, "Start Date (UT)"): (START, False, "DOB"), (page, "End Date (UT)"): (END, False, end),
                 (page, "Planets"): (list(planets), True, ["Sa", "Ju"])}
@@ -930,19 +930,19 @@ def period(prep: Prepared, row=None, page: str = "") -> tuple[float, float] | No
     return core.jd_of_datetime(start), core.jd_of_datetime(end)
 
 
-def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, page: str = "Planets Cycles"):
+def cycles_inputs(keys: str, aspect_buttons: bool = True, nodes: bool = False, page: str = "Planets Cycles", places: bool = False):
     """The inputs of Planets Cycles (and Aspects, which shares them; keys keeps each page's buttons
     apart): (period as Julian days, planets, major angles, minor angles), or None when there is nothing to show yet.
     Planets Cycles has a button per major and per minor angle; Aspects (aspect_buttons False) has a Major Aspects and a
     Minor Aspects on / off button instead, each with its angles to pick from below it. nodes: NN and SN
-    buttons too (Aspects)."""
+    buttons too (Aspects); places: CB and CN too (Aspects)."""
     _, prep = pick_customer()
     head = st.container(horizontal=True, vertical_alignment="top", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return None
     jds = period(prep, head, page)
     # on / off buttons, as on Distance: every choice always in view
-    choices = core.BUTTON_ORDER + (["NN", "SN"] if nodes else [])
+    choices = core.BUTTON_ORDER + (["NN", "SN"] if nodes else []) + (["CB", "CN"] if places else [])
     choices = offered(page, "Planets", choices)
     dec_on = core.in_order(titled(head, "Planets", f"{keys}t_planets", core.shown_order(choices), f"{keys}dec_on_v2", default_choice(page, "Planets"),
                                   selection_mode="multi", format_func=core.symbol_of), choices)
@@ -1225,10 +1225,21 @@ def rule_angles() -> dict[int, str]:
 def page_aspects_view():
     """Planets Cycles' aspects as tables: one per chosen angle, one row per time two of the planets come into it,
     newest first; then, with the Minor Aspects switch on, one per minor angle too."""
-    got = cycles_inputs("asp_", aspect_buttons=False, nodes=True, page="Aspects")   # Major / Minor Aspects on / off buttons; NN, SN too
+    got = cycles_inputs("asp_", aspect_buttons=False, nodes=True, page="Aspects", places=True)   # Major / Minor Aspects on / off buttons; NN, SN, CB, CN too
     if got is None:
         return
     jds, dec_on, angles, minor = got
+    _, prep = pick_customer()
+    places = {}                                               # CB: the birth's house 10 (fixed); CN: house 10 at the place now
+    if not prep.now_only and prep.birth and "CB" in prep.birth:
+        places["CB"] = ("fixed", *prep.birth["CB"])
+    if prep.cn:
+        places["CN"] = ("now", float(prep.cn[0]), float(prep.cn[1]))
+    missing = [p for p in ("CB", "CN") if p in dec_on and p not in places]
+    if missing:
+        st.caption(" ".join({"CB": "👶 CB needs birth details.", "CN": "🏠 CN needs the place the customer lives now."}[p] for p in missing)
+                   + " Left out.")
+        dec_on = [p for p in dec_on if p not in missing]
     if len(dec_on) < 2:
         st.info("Choose at least two planets.")
         return
@@ -1241,10 +1252,10 @@ def page_aspects_view():
     left, right = both.container(width="content"), both.container(width="content")
     if angles:                                                # the major angles picked
         with st.spinner("Finding aspects..."):
-            _aspect_tables(_events_cached(tuple(dec_on), tuple(angles), *jds, orb_csv), angles, left, rule_angles())
+            _aspect_tables(_events_cached(tuple(dec_on), tuple(angles), *jds, orb_csv, tuple(sorted(places.items()))), angles, left, rule_angles())
     if minor:                                                 # the minor angles picked
         with st.spinner("Finding minor aspects..."):
-            _aspect_tables(_events_cached(tuple(dec_on), tuple(minor), *jds, orb_csv), minor, right, rule_angles())
+            _aspect_tables(_events_cached(tuple(dec_on), tuple(minor), *jds, orb_csv, tuple(sorted(places.items()))), minor, right, rule_angles())
 
 
 def _aspect_tables(events: list, angles: list[int], where, names: dict | None = None):
@@ -1270,9 +1281,9 @@ def _aspect_tables(events: list, angles: list[int], where, names: dict | None = 
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
-def _events_cached(dec_on, angles, jd_from, jd_to, orb_csv):
+def _events_cached(dec_on, angles, jd_from, jd_to, orb_csv, places=()):
     import io
-    ev = core.aspect_events(list(dec_on), jd_from, jd_to, list(angles), core.Orbs(pd.read_csv(io.StringIO(orb_csv))))
+    ev = core.aspect_events(list(dec_on), jd_from, jd_to, list(angles), core.Orbs(pd.read_csv(io.StringIO(orb_csv))), dict(places))
     return [(e.jd, e.angle, e.title, e.de1, e.de2, e.ra1, e.ra2) for e in sorted(ev, key=lambda e: e.jd)]
 
 
