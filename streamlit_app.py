@@ -332,6 +332,7 @@ def birth_label(row: pd.Series | None, prep: Prepared | None) -> str:
 def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
     """Every page's top line: its title (with its help), then the chosen customer's First and Last Name, their DOB when
     there is one, and the Now clock (UT, to the second)."""
+    TABLES_DRAWN["n"] = 0                                      # (each run: the same keys for the same tables)
     # one row drawn here (not Streamlit's row, which can wrap the name onto a line of its own): both on one baseline
     name = ""
     if row is not None:                                       # First Name and Last Name (blank parts left out)
@@ -1264,9 +1265,8 @@ def _aspect_tables(events: list, angles: list[int], where, names: dict | None = 
                          "DeD": abs(de1 - de2)})                      # DeD: how far apart they are in Dec
         # sorted by clicking a column's name; RAD and DeD as numbers, so that they sort as numbers
         found = pd.DataFrame(rows)
-        where.dataframe(found, hide_index=True, width="content",
-                        column_config=fitted(found, {"RAD": st.column_config.NumberColumn(format="%.2f"),
-                                                     "DeD": st.column_config.NumberColumn(format="%.2f")}))
+        show_table(found, {"RAD": st.column_config.NumberColumn(format="%.2f"), "DeD": st.column_config.NumberColumn(format="%.2f")},
+                   where=where, hide_index=True)
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
@@ -1320,7 +1320,7 @@ CHAR_PX = dict(zip(" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ
                     7.06, 7.74, 6.38, 7.77, 6.94, 4.09, 7.06, 7.62, 3.46, 3.46, 6.93, 3.57, 11.61, 7.66, 7.59, 7.77, 7.77, 4.86, 5.87,
                     4.73, 7.62, 6.54, 10.07, 6.24, 6.54, 5.95, 4.24, 3.37, 4.24, 6.96, 4.63, 13.27]))
 OTHER_CHAR_PX = 14.0
-TABLE_FONT_PX = 10.5                                          # the tables' text (Streamlit's small type on the app's 12 px)
+TABLE_FONT_PX = 10.0                                          # the tables' text (the page's script draws their canvas text in 10 px)
 CELL_PAD_PX = 14                                              # a cell's space, both sides together (6 px each, and 2 to spare)
 HEAD_ICON_PX = 18                                             # an editable table's heading: the small icon before its name
 
@@ -1352,14 +1352,52 @@ def fitted(df: pd.DataFrame, column_config: dict | None = None, icons: bool = Fa
     return out
 
 
-def show_table(df: pd.DataFrame, column_config: dict | None = None, **kw):
-    """st.dataframe with its columns close together (fitted)."""
-    return st.dataframe(df, column_config=fitted(df, column_config), **kw)
+ROW_PX = 26                                                   # a table's row (and heading) height, as the tables draw it
+
+
+def rows_px(n: int) -> int:
+    """A table's height with all its n rows in view, and its heading (no empty rows below them)."""
+    return ROW_PX * (n + 1) + 3
+
+
+TABLES_DRAWN = {"n": 0}                                       # the tables drawn on this run (a key each: see table_fit)
+
+
+def table_fit(df: pd.DataFrame, config: dict, kw: dict, name: str | None = None) -> tuple[dict, str, str]:
+    """For a table: kw (width "content"), the key of a box to draw it in (from name, else a new one), and the style that
+    makes the table in that box just as wide as its columns (Streamlit's own content width leaves space after the last):
+    set in the table's own pixels, which the page's zoom does not change, so it holds at any window size; with room for a
+    scroll bar when its rows do not all fit; never wider than the page."""
+    if name is None:
+        TABLES_DRAWN["n"] += 1
+        name = str(TABLES_DRAWN["n"])
+    box = "fit_" + re.sub(r"[^A-Za-z0-9_-]", "_", str(name))
+    kw = {**kw, "width": "content"} if kw.get("width", "content") == "content" else kw
+    total = sum(c["width"] for col, c in config.items() if col in df.columns and c is not None and c.get("width"))
+    h = kw.get("height", "auto")
+    scrolls = len(df) > 10 if h in (None, "auto") else isinstance(h, int) and h < rows_px(len(df))
+    px = int(total) + 2 + (14 if scrolls else 0)
+    style = (f'<style>.st-key-{box} [data-testid="stDataFrame"], .st-key-{box} [data-testid="stDataFrameResizable"] '
+             f'{{ width: min({px}px, 100%) !important; max-width: 100% !important; }}</style>')
+    return kw, box, style
+
+
+def show_table(df: pd.DataFrame, column_config: dict | None = None, where=None, **kw):
+    """st.dataframe (in where, or the page) with its columns close together (fitted), and no space after the last."""
+    config = fitted(df, column_config)
+    kw, box, style = table_fit(df, config, kw)
+    got = (where or st).container(key=box).dataframe(df, column_config=config, **kw)
+    st.html(style)
+    return got
 
 
 def edit_table(df: pd.DataFrame, column_config: dict | None = None, **kw):
-    """st.data_editor with its columns close together (fitted)."""
-    return st.data_editor(df, column_config=fitted(df, column_config, icons=True), **kw)
+    """st.data_editor with its columns close together (fitted), and no space after the last."""
+    config = fitted(df, column_config, icons=True)
+    kw, box, style = table_fit(df, config, kw, name=kw.get("key"))
+    got = st.container(key=box).data_editor(df, column_config=config, **kw)
+    st.html(style)
+    return got
 
 
 def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: dict | None = None, width: str = "content",
@@ -1387,7 +1425,7 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
         st.rerun()
     if st.session_state.pop(f"{key}_add_row", False):          # Insert: a blank row at the bottom, to fill in
         if isinstance(height, int):                            # (the page sized the table before the row was added)
-            height += 30
+            height += ROW_PX
         start = st.session_state.get(f"{key}_working", show)
         st.session_state.setdefault(f"{key}_base", show)       # what the rows started from (see page_customers)
         st.session_state[f"{key}_working"] = start.reindex(range(len(start) + 1)).reset_index(drop=True)
@@ -1669,7 +1707,7 @@ def page_defaults():
 
     table = shown(db.defaults_table())
     crud_table("defaults_table", table, problems, commit, on_update=shown,
-               height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
+               height=rows_px(len(st.session_state.get("defaults_table_working", table))),   # every row in view
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved)."), "Choice": st.column_config.TextColumn(help="The input: its name on the page "
                                                                      "(e.g. Days). Each Page has one row per input."),
                               "Choice Values": st.column_config.TextColumn(help="What the input starts as (e.g. 7). "
@@ -1691,15 +1729,44 @@ def page_readme():
     st.markdown(readme.read_text(encoding="utf-8") if readme.exists() else "README.md is not there.")
 
 
+def help_search(table: pd.DataFrame) -> pd.DataFrame | None:
+    """Help's Search: a box and a Search button (or Enter), and Clear. The rows whose Abbreviation or Description has the
+    text typed (any case), or None when nothing is searched for."""
+    with st.form("help_search_form", border=False, enter_to_submit=True):
+        row = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
+        text = row.text_input("Search", value=st.session_state.get("help_search", ""), placeholder="Abbreviation or description",
+                              max_chars=60, width=260, label_visibility="collapsed")
+        if row.form_submit_button("Search"):
+            st.session_state["help_search"] = text.strip()
+    if st.session_state.get("help_search") and st.button("Clear", key="help_search_clear"):
+        st.session_state["help_search"] = ""
+        st.rerun()
+    words = (st.session_state.get("help_search") or "").lower()
+    if not words:
+        return None
+    hit = (table["Abbreviation"].fillna("").str.lower().str.contains(words, regex=False)
+           | table["Description"].fillna("").str.lower().str.contains(words, regex=False))
+    return table[hit].reset_index(drop=True)
+
+
 def page_help_table():
-    """The abbreviations the pages use: everyone can read them; admins change them (Insert, Update, Delete, each saved at once; Ignore)."""
+    """The abbreviations the pages use: everyone can read them, and search them; admins change them (Insert, Update, Delete,
+    each saved at once; Ignore), the whole table, not a search's rows."""
     table = db.help_rows()
+    found = help_search(table)
+    if found is not None:                                      # a search: its rows only, to read
+        st.caption(f"{len(found)} of {len(table)} rows have '{st.session_state['help_search']}'."
+                   + (" Clear the search to change the table." if user.is_admin else ""))
+        if len(found):
+            show_table(found, hide_index=True, width="content", height=rows_px(len(found)),
+                       column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app.")})
+        return
     if not user.is_admin:
-        show_table(table, hide_index=True, width="content", height=35 * (len(table) + 1) + 3,   # every row in view
+        show_table(table, hide_index=True, width="content", height=rows_px(len(table)),   # every row in view
                      column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved).")})
         return
     crud_table("help_table", table, db.help_problems, lambda rows: f"Saved: {db.save_help(rows)} row(s).", on_update=db.help_sorted,   # (Update: in Abbreviation order)
-               height=30 * (len(st.session_state.get("help_table_working", table)) + 1) + 8,   # every row in view
+               height=rows_px(len(st.session_state.get("help_table_working", table))),   # every row in view
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved).")})
 
 
@@ -1711,7 +1778,7 @@ def page_conditions():
     table = db.conditions_rows()
     crud_table("conditions_table", table, db.conditions_problems, lambda rows: f"Saved: {db.save_conditions(rows)} row(s).",
                on_update=db.conditions_sorted,                  # (Update: in Condition order)
-               height=30 * (len(st.session_state.get("conditions_table_working", table)) + 1) + 8,   # every row in view
+               height=rows_px(len(st.session_state.get("conditions_table_working", table))),   # every row in view
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved)."), "Condition": st.column_config.TextColumn("Condition *", help="Required, unique "
                                                                        "(whatever its case), at most 60 characters."),
                               "Object": st.column_config.TextColumn(help="What it is for, at most 60 "
@@ -1816,7 +1883,7 @@ def page_prediction_rules():
     table = db.predictions_rows()
     crud_table("predictions_table", table, db.predictions_problems, lambda rows: f"Saved: {db.save_predictions(rows)} row(s).",
                on_update=db.predictions_sorted,               # (Update: in the page's order)
-               height=30 * (len(st.session_state.get("predictions_table_working", table)) + 1) + 8,   # every row in view
+               height=rows_px(len(st.session_state.get("predictions_table_working", table))),   # every row in view
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved)."),
                               "Chart": st.column_config.SelectboxColumn("Chart *", options=db.PRED_CHARTS,
                                                                         help="Birth: the two points at the angle in the birth chart. Transit: the planet now coming to the angle with the birth point."),
@@ -1841,7 +1908,7 @@ def page_naming():
     table = db.all_planets().assign(_sn=lambda d: d["SN"]).rename(columns=shown_as)[["id", "Symb", "SAbr", "SDesc", "RGB", "Color", "Size_Clock-2D", "Size_Clock-3D", "Size_Geo", "Size_Helio", "_sn"]]
     crud_table("planets_table", table, lambda rows: db.planet_problems(rows.rename(columns=back)),
                lambda rows: "Saved: {} added, {} changed, {} deleted.".format(*db.save_planets(rows.rename(columns=back))),
-               height=30 * (len(st.session_state.get("planets_table_working", table)) + 1) + 24,   # every row in view, above the scroll bar
+               height=rows_px(len(st.session_state.get("planets_table_working", table))) + 16,   # every row in view, above the scroll bar
                column_config={"_sn": None, "id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved).")}, width="content")
 
 
