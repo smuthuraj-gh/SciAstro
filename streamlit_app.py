@@ -11,7 +11,6 @@ from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-import importlib
 import os
 import sys
 
@@ -31,8 +30,10 @@ STAMP = "_loaded_file_time"                                    # kept on each ow
 
 
 def _reload_changed_modules(record_only: bool = False) -> None:
-    """Loads again each own module changed since it was loaded, or loaded before this check came in (with no time kept on
-    it, so its age is not known), with those after it (record_only: keeps the times of those just imported only)."""
+    """Has each own module changed since it was loaded (or loaded before this check came in, with no time kept on it, so
+    its age is not known), with those after it, loaded afresh by the imports below: they are taken out of the loaded
+    modules (and off their package), not reloaded in place, which fails when the package itself has been unloaded
+    (Streamlit may do that when files change). record_only: keeps the times of those just imported only."""
     first = None
     for i, name in enumerate(OWN_MODULES):
         mod = sys.modules.get(name)
@@ -47,10 +48,10 @@ def _reload_changed_modules(record_only: bool = False) -> None:
     if first is None or record_only:
         return
     for name in OWN_MODULES[first:]:
-        mod = sys.modules.get(name)
-        if mod is not None:
-            importlib.reload(mod)
-            setattr(mod, STAMP, os.path.getmtime(mod.__file__))
+        sys.modules.pop(name, None)
+        package, _, leaf = name.rpartition(".")
+        if package in sys.modules and hasattr(sys.modules[package], leaf):
+            delattr(sys.modules[package], leaf)             # (else "from package import leaf" would give the old one)
 
 
 _reload_changed_modules()
