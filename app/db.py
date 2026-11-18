@@ -1065,7 +1065,8 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
     """What is wrong with the Predictions rows: each needs a Chart (Birth or Transit), a Moving planet (PRED_MOVING; Birth
     chart: a point of PRED_BIRTH, not the Birth one), a Birth point (PRED_BIRTH), a Kind (RA or Dec), an Angle (a whole
     number, 0 to 180; Dec: 0 or 180) and a Prediction (at most PRED_TEXT_MOST characters); Chart, Moving, Birth, Kind and
-    Angle together once in the table. A wholly empty row does not count."""
+    Angle together once in the table (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair). A wholly
+    empty row does not count."""
     out, seen = [], set()
     for _, r in rows.iterrows():
         cells = [_cell(r.get(c)) for c in PREDICTIONS_COLUMNS[1:]]
@@ -1096,9 +1097,11 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
         elif len(text) > PRED_TEXT_MOST:
             out.append(f"{label}: Prediction can be at most {PRED_TEXT_MOST} characters")
         if chart and moving and birth and kind and pd.notna(angle):
-            key = (chart, moving, birth, kind, int(angle))
+            pair = tuple(sorted((moving, birth))) if chart == "Birth" else (moving, birth)   # (Birth: Su-Mo and Mo-Su are one pair)
+            key = (chart, *pair, kind, int(angle))
             if key in seen:
-                out.append(f"{label}: is in the table twice (Chart, Moving, Birth, Kind and Angle are unique together)")
+                out.append(f"{label}: is in the table twice (Chart, Moving, Birth, Kind and Angle are unique together"
+                           + ("; a Birth row's two points count either way round)" if chart == "Birth" else ")"))
             seen.add(key)
     return out
 
