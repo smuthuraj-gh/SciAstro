@@ -239,16 +239,16 @@ predictions = sa.Table(
 )
 PREDICTIONS_COLUMNS = ["id", "Chart", "Moving", "Birth", "Kind", "Angle", "Events"]   # (Events: the column prediction)
 PREDICTION_ROWS = [                                           # the Transit rows the table starts with, once (samples, to be replaced)
-    ("Sa", "Su", "RA", 0, "Sample: Saturn at your birth Sun's RA. Replace this with your own reading."),
-    ("Sa", "Sa", "RA", 0, "Sample: Saturn back at its birth RA (Saturn return). Replace this with your own reading."),
-    ("Ju", "Su", "RA", 0, "Sample: Jupiter at your birth Sun's RA. Replace this with your own reading."),
-    ("Sa", "Su", "RA", 180, "Sample: Saturn opposite your birth Sun in RA. Replace this with your own reading."),
-    ("Ma", "Mo", "Dec", 0, "Sample: Mars parallel your birth Moon in Dec. Replace this with your own reading."),
+    ("Sa", "Su", "RA", 0, "Sample: Saturn at your birth Sun's RA."),
+    ("Sa", "Sa", "RA", 0, "Sample: Saturn back at its birth RA (Saturn return)."),
+    ("Ju", "Su", "RA", 0, "Sample: Jupiter at your birth Sun's RA."),
+    ("Sa", "Su", "RA", 180, "Sample: Saturn opposite your birth Sun in RA."),
+    ("Ma", "Mo", "Dec", 0, "Sample: Mars parallel your birth Moon in Dec."),
 ]
 PREDICTION_BIRTH_ROWS = [                                     # and the Birth rows, once (added later)
-    ("Su", "Mo", "RA", 0, "Sample: Sun with Moon in RA at birth. Replace this with your own reading."),
-    ("Su", "Sa", "RA", 90, "Sample: Sun square Saturn in RA at birth. Replace this with your own reading."),
-    ("Ve", "Ma", "Dec", 0, "Sample: Venus parallel Mars in Dec at birth. Replace this with your own reading."),
+    ("Su", "Mo", "RA", 0, "Sample: Sun with Moon in RA at birth."),
+    ("Su", "Sa", "RA", 90, "Sample: Sun square Saturn in RA at birth."),
+    ("Ve", "Ma", "Dec", 0, "Sample: Venus parallel Mars in Dec at birth."),
 ]
 
 
@@ -438,6 +438,7 @@ def engine() -> sa.Engine:
     _seed_help(eng)
     _add_prediction_chart(eng)
     _seed_predictions(eng)
+    _trim_prediction_texts(eng)
     return eng
 
 
@@ -979,14 +980,36 @@ def prediction_combinations() -> list[tuple[str, str, str, str, int, str]]:
     for m in PRED_MOVING:
         for b in PRED_BIRTH:
             for kind, angle, word in PRED_ANGLES:
-                out.append(("Transit", m, b, kind, angle, f"{name(m)} {word} your birth {name(b)} in {kind} ({angle}°). Add your reading."))
+                out.append(("Transit", m, b, kind, angle, f"{name(m)} {word} your birth {name(b)} in {kind} ({angle}°)."))
     for i, a in enumerate(PRED_BIRTH):
         for b in PRED_BIRTH[i + 1:]:
             if {a, b} == {"NN", "SN"}:
                 continue
             for kind, angle, word in PRED_ANGLES:
-                out.append(("Birth", a, b, kind, angle, f"{name(a)} {word} {name(b)} in {kind} ({angle}°) at birth. Add your reading."))
+                out.append(("Birth", a, b, kind, angle, f"{name(a)} {word} {name(b)} in {kind} ({angle}°) at birth."))
     return out
+
+
+PRED_TEXT_ENDS = (" Add your reading.", " Replace this with your own reading.")   # once at the end of the texts the app wrote
+
+
+def _trim_prediction_texts(eng: sa.Engine):
+    """Once (a note among the settings says it is done): the Predictions texts the app wrote lose PRED_TEXT_ENDS at their
+    end (the rest of each kept; texts without it are left as they are)."""
+    if "predictions" not in sa.inspect(eng).get_table_names():
+        return
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "predictions_trimmed")).scalar():
+            return
+        changed = []
+        for i, text in c.execute(sa.select(predictions.c.id, predictions.c.prediction)).all():
+            for end in PRED_TEXT_ENDS:
+                if text and text.endswith(end):
+                    changed.append({"_id": i, "_text": text[: -len(end)]})
+                    break
+        if changed:
+            c.execute(predictions.update().where(predictions.c.id == sa.bindparam("_id")).values(prediction=sa.bindparam("_text")), changed)
+        c.execute(settings.insert().values(key="predictions_trimmed", value="1"))
 
 
 def _seed_predictions(eng: sa.Engine):
