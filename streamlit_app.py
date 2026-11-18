@@ -352,7 +352,7 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
         f'flex-wrap:nowrap; font-weight:600">'
         f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}'
-        + (f'<span style="font-weight:400; margin-left:12px">{html.escape(dob)}</span>' if (dob := birth_label(row, prep)) else "") +
+        + (f'<span class="dob-label" style="font-weight:400; margin-left:12px">{html.escape(dob)}</span>' if (dob := birth_label(row, prep)) else "") +
         '<span class="now-clock" style="font-weight:400; margin-left:12px"></span>'   # (NOW_CLOCK_JS writes it)
         + ('<span class="globe-clock" style="white-space:pre; font-weight:400; margin-left:12px"></span>'   # the chart's Timer, as close (its script writes it)
            if title in ("AstroClock-2D", "AstroClock-3D", "Geo/Helio Model") else "") +
@@ -1019,6 +1019,7 @@ def page_globe():
         shown = one_time("Now")
     else:
         shown = one_time(default_choice("AstroClock-3D", "Time"))
+    time_on_top_line(shown[0] if shown else None)
     all_bodies = list(globechart.BODY_CHOICES)
     with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # shown in two rows: Mo Su Me Ve Ma, Ju Sa NN SN
     bodies = options_under("Planets", "bodies", offered("AstroClock-3D", "Planets", with_nodes), default_choice("AstroClock-3D", "Planets"), width=140)
@@ -1118,6 +1119,13 @@ def coords_below(coords, keys: dict, names: list, on: list, title_key: str) -> l
     return [n for n in names if kept_pills(below, n, [n], keys[n], n if n in (on or []) else None, label_visibility="collapsed")]
 
 
+def time_on_top_line(when: str | None) -> None:
+    """A page with DOB and Now buttons shows on its top line only the one picked: DOB (the birth) or Now (the clock); neither
+    with Time off."""
+    hide = {"DOB": [".now-clock"], "Now": [".dob-label"]}.get(when, [".now-clock", ".dob-label"])
+    st.html(f"<style>{', '.join(hide)} {{ display: none; }}</style>")
+
+
 def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "Geo", flat: bool = False):
     """GeoCentric (centre Ea) or HelioCentric (centre Su): its buttons each keep their own choice (key), also while the other
     model is shown; they start as the Defaults table says (Geo/Helio Model's rows, Time .. Rotate in 1s, for both models)."""
@@ -1136,6 +1144,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     else:
         when = titled(head, "Time", f"{key}_t_time", may("Time", list(TIMES)), f"{key}_when", start("Time"))
     shown = [when] if when else []                            # Now or DOB, one at a time
+    time_on_top_line(when)
     choices = tuple(may("Planets", list(choices)))
     bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
                                   format_func=core.symbol_of), choices)
