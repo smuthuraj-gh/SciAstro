@@ -352,10 +352,10 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
         f'flex-wrap:nowrap; font-weight:600">'
         f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}'
+        + ('<span class="globe-clock" style="white-space:pre; font-weight:400; margin-left:12px"></span>'   # the chart's Timer, next to the name (its script writes it)
+           if title in ("AstroClock-2D", "AstroClock-3D", "Geo/Helio Model") else "")
         + (f'<span class="dob-label" style="font-weight:400; margin-left:12px">{html.escape(dob)}</span>' if (dob := birth_label(row, prep)) else "") +
         '<span class="now-clock" style="font-weight:400; margin-left:12px"></span>'   # (NOW_CLOCK_JS writes it)
-        + ('<span class="globe-clock" style="white-space:pre; font-weight:400; margin-left:12px"></span>'   # the chart's Timer, as close (its script writes it)
-           if title in ("AstroClock-2D", "AstroClock-3D", "Geo/Helio Model") else "") +
         '</span>'
         f'</div>' + NOW_CLOCK_JS, unsafe_allow_javascript=True)
     # the slot fills the rest of the line
