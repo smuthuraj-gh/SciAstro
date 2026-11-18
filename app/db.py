@@ -786,7 +786,7 @@ def save_help(rows: pd.DataFrame) -> int:
 
 
 # ---------------------------------------------------------------- the Conditions table
-CONDITIONS_COLUMNS = ["Condition", "Object", "Values"]
+CONDITIONS_COLUMNS = ["Object", "Condition", "Values"]
 
 
 def _add_conditions_table_name(eng: sa.Engine):
@@ -803,7 +803,7 @@ def conditions_sorted(rows: pd.DataFrame) -> pd.DataFrame:
 
 
 def conditions_rows() -> pd.DataFrame:
-    """The Conditions table: Condition, Object, Values, in the order of Condition (case aside)."""
+    """The Conditions table: Object, Condition, Values, in the order of Condition (case aside)."""
     with engine().connect() as c:
         rows = c.execute(sa.select(conditions).order_by(sa.func.lower(conditions.c.name))).mappings().all()
     return pd.DataFrame([{"Condition": r["name"], "Object": r["table_name"], "Values": r["value_list"]} for r in rows],
