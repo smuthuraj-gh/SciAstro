@@ -222,7 +222,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "Predictions": "The Prediction Rules table's readings for the birth chart of the customer picked, in two tables. Birth chart: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, as on Aspects), closest first: Planet, With, Aspect, Off (degrees from the angle), Orb and Events (the reading). "
+    "Predictions": "The Prediction Rules table's readings for the birth chart of the customer picked, in two tables. Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, as on Aspects), closest first: Planet, With, Aspect, Off (degrees from the angle), Orb and Events (the reading). "
                    "Transits: its Transit rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Planets (Transits only): the moving planets to look at (and the Moon's nodes, NN and SN). Each row: Exact (when it is closest to the angle), Moving, Birth (the point of the birth chart; CB: house 10 at birth), "
                    "Aspect (RA and its angle, or Dec parallel / contra-parallel), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, as on Aspects; before Start / after End: within it already, or still), "
@@ -1712,9 +1712,9 @@ def page_predictions():
 
 
 def birth_predictions(rules: list, birth: dict) -> None:
-    """Birth chart: the Birth rows of the Prediction Rules table whose two points are at their angle at birth (within the
+    """Birth: the Birth rows of the Prediction Rules table whose two points are at their angle at birth (within the
     pair's orb in Aspect Rules, as on Aspects), closest first, each with its Prediction."""
-    st.markdown("**Birth chart**")
+    st.markdown("**Birth**")
     o = orbs()
     rows = []
     for a, b, kind, angle, text in rules:
