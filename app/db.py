@@ -151,7 +151,8 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
 HELP_RENAMED = {"Page Defaults": ("Defaults", "Page_Defaults"), "App Conditions": ("Conditions",)}   # pages' Help rows renamed
 HELP_GONE_TOO = {"Box Title": ("Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box",
                               "Page Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box")}   # (the Page Defaults table has no Box Title now)
-HELP_GONE = {"Aspects": "Page: when the planets are in aspect, between a start and an end date",   # (the page is gone)
+HELP_GONE = {"AR": "Aspect Rules: Predictions column (Birth), the pair's orb in the Aspect Rules table",   # (the Predictions column is gone)
+             "Aspects": "Page: when the planets are in aspect, between a start and an end date",   # (the page is gone)
              "Came from": "Logins column: the site that brought the visitor (its name only); blank: none known",
              "Manual": "Time stands still; drag the drawing to turn it", "Planet Path": "Title button: the path of each planet picked"}   # the Help rows for buttons since gone, as the app wrote them
 HELP_ROWS_4 = [                                               # added later again
@@ -174,7 +175,7 @@ HELP_ROWS_6 = [                                               # and again: Predi
 ]
 HELP_ROWS_7 = [("Chart", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)")]   # (for a table given set 6 before Chart came in)
 HELP_ROWS_8 = [("Prediction", "Prediction Rules column: the prediction for the row (optional, at most 500 characters); Event: what happens")]
-HELP_ROWS_9 = [("AR", "Aspect Rules: Predictions column (Birth), the pair's orb in the Aspect Rules table")]
+HELP_ROWS_9 = []                                              # (was AR, a column since gone: see HELP_GONE)
 HELP_ROWS_10 = [
     ("Sky", "Predictions (Chart Sky): two planets now at an angle with each other, the same for everyone (with New and Full Moon)"),
     ("Near", "Predictions (Chart Distance, Kind Near): a planet at its closest to the Earth"),
