@@ -1254,9 +1254,10 @@ def _aspect_tables(events: list, angles: list[int], where, names: dict | None = 
                          "RAD": 360.0 - rd if rd > 180.0 else rd,     # RAD: the angle in RA between the two, 0-180
                          "DeD": abs(de1 - de2)})                      # DeD: how far apart they are in Dec
         # sorted by clicking a column's name; RAD and DeD as numbers, so that they sort as numbers
-        where.dataframe(pd.DataFrame(rows), hide_index=True, width="content",
-                        column_config={"RAD": st.column_config.NumberColumn(format="%.2f"),
-                                       "DeD": st.column_config.NumberColumn(format="%.2f")})
+        found = pd.DataFrame(rows)
+        where.dataframe(found, hide_index=True, width="content",
+                        column_config=fitted(found, {"RAD": st.column_config.NumberColumn(format="%.2f"),
+                                                     "DeD": st.column_config.NumberColumn(format="%.2f")}))
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
@@ -1300,7 +1301,41 @@ def _distance_cached(dist_on, jd_from, jd_to):
 # Customers, DOB, Defaults, Help and Symbols: Insert, Update, Delete and Ignore on the title line. Editable tables sort by their
 # column headers only while they cannot add or delete rows themselves, so these buttons do that. Each saves at once (Update
 # checks what has been typed; Delete takes the rows ticked in the first column); Ignore drops what has not been saved.
-def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: dict | None = None, width: str = "stretch",
+CHAR_PX, CELL_PAD_PX, COLUMN_MOST_PX = 5.6, 18, 420         # a table's text: about this wide a character (as measured on the page)
+
+
+def fitted(df: pd.DataFrame, column_config: dict | None = None) -> dict:
+    """column_config with a width for each column of df that has none: just wide enough for its longest value or its
+    heading (at most COLUMN_MOST_PX, a long text then cut short), so the columns stand close together."""
+    out = dict(column_config or {})
+    for col in df.columns:
+        cfg = out.get(col)
+        if cfg is None and col in out:                        # (a column hidden)
+            continue
+        cfg = dict(cfg or {})
+        if cfg.get("width"):
+            out[col] = cfg
+            continue
+        head = str(cfg.get("label") or col)
+        values = df[col].dropna()
+        shown = (f"{v:.2f}" if isinstance(v, float) else str(v) for v in values.head(2000))   # (numbers as the tables show them)
+        longest = max([len(head) + 2] + [len(s) for s in shown])
+        cfg["width"] = int(min(COLUMN_MOST_PX, longest * CHAR_PX + CELL_PAD_PX))
+        out[col] = cfg
+    return out
+
+
+def show_table(df: pd.DataFrame, column_config: dict | None = None, **kw):
+    """st.dataframe with its columns close together (fitted)."""
+    return st.dataframe(df, column_config=fitted(df, column_config), **kw)
+
+
+def edit_table(df: pd.DataFrame, column_config: dict | None = None, **kw):
+    """st.data_editor with its columns close together (fitted)."""
+    return st.data_editor(df, column_config=fitted(df, column_config), **kw)
+
+
+def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: dict | None = None, width: str = "content",
                height: int | None = None, on_update=None) -> None:
     """Insert, Update, Delete, Ignore and Reset to Previous, each saving at once (no Commit): Insert saves the edits made,
     then adds a blank row at the bottom to fill in; Update saves the rows as they stand (the new row too, once filled in);
@@ -1335,7 +1370,7 @@ def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: di
     view = st.session_state.get(f"{key}_working", show).copy()
     view.insert(0, "Del", False)
     editor_key = f"{key}_v{st.session_state.get(f'{key}_ver', 0)}"   # (a new one after each save: see fresh)
-    edited = st.data_editor(view, hide_index=True, width=width, num_rows="fixed", key=editor_key, height=height or "auto",
+    edited = edit_table(view, hide_index=True, width=width, num_rows="fixed", key=editor_key, height=height or "auto",
                             column_config={"Del": st.column_config.CheckboxColumn("Del", width="small",
                                                                                   help="Tick, then press Delete."),
                                            **(column_config or {})}).reset_index(drop=True)
@@ -1441,25 +1476,23 @@ def page_logins():
     view = table.copy()
     view.insert(0, "Del", all_on)
     # (ticks are kept by row position: a new key when the rows move, so that a tick cannot land on another row)
-    edited = st.data_editor(view, hide_index=True, width="content", num_rows="fixed",
+    edited = edit_table(view, hide_index=True, width="content", num_rows="fixed",
                             key=f"logins_table_{len(table)}_{table['Id'].iloc[0] if len(table) else 0}_{int(all_on)}",
                             height="auto" if len(table) <= 18 else 700, disabled=["Id", "Email", "Activity", "Date_Time", "Page", "Details", "Device", "Time zone", "Access"],
                             column_config={"Del": st.column_config.CheckboxColumn("Del", width="small", help="Tick, then press Delete."),
                                            "Id": st.column_config.NumberColumn("ID", format="%d", width="small",
                                                                                help="The row's number, set by the app."),
-                                           "Email": st.column_config.TextColumn(width=260),
-                                           "Activity": st.column_config.TextColumn(width=100),
                                            "Date_Time": st.column_config.DatetimeColumn("Date_Time (UT)", format="YYYY-MM-DD HH:mm:ss",
                                                                                         width=170),
-                                           "Device": st.column_config.TextColumn(width=140, help="Their browser and system, e.g. "
+                                           "Device": st.column_config.TextColumn(help="Their browser and system, e.g. "
                                                                                  "Chrome on Windows; blank when not known."),
-                                           "Time zone": st.column_config.TextColumn(width=200, help="The time zone their browser "
+                                           "Time zone": st.column_config.TextColumn(help="The time zone their browser "
                                                                                     "is set to; blank when not known."),
-                                           "Page": st.column_config.TextColumn(width=130, help="The page they were on."),
-                                           "Details": st.column_config.TextColumn(width=300, help="What was done: which customer "
+                                           "Page": st.column_config.TextColumn(help="The page they were on."),
+                                           "Details": st.column_config.TextColumn(help="What was done: which customer "
                                                                                   "was opened (by record number), which table was "
                                                                                   "saved, days added with which coupon .."),
-                                           "Access": st.column_config.TextColumn(width=110, help="Their Access then (Now, DOB, Admin; "
+                                           "Access": st.column_config.TextColumn(help="Their Access then (Now, DOB, Admin; "
                                                                                  "'DOB ended' after its End Date); blank "
                                                                                  "with none, or no customer record.")})
     ticked = edited.loc[edited["Del"].fillna(False).astype(bool), "Id"].tolist()
@@ -1611,12 +1644,11 @@ def page_defaults():
     table = shown(db.defaults_table())
     crud_table("defaults_table", table, problems, commit, on_update=shown,
                height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
-               column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."), "Page": st.column_config.TextColumn(width=150),
-                              "Choice": st.column_config.TextColumn(width=150, help="The input: its name on the page "
+               column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."), "Choice": st.column_config.TextColumn(help="The input: its name on the page "
                                                                      "(e.g. Days). Each Page has one row per input."),
-                              "Choice Values": st.column_config.TextColumn(width=300, help="What the input starts as (e.g. 7). "
+                              "Choice Values": st.column_config.TextColumn(help="What the input starts as (e.g. 7). "
                                                                    "Blank: the app's own default (none, for buttons)."),
-                              "Allowed Values": st.column_config.TextColumn("Allowed Values", width="large",
+                              "Allowed Values": st.column_config.TextColumn("Allowed Values",
                                                                    help="The values Choice Values may be set to: all the input's "
                                                                         "values, or those typed here (comma-separated). The page "
                                                                         "then offers only those (buttons, Days, coupons). Clear "
@@ -1637,12 +1669,12 @@ def page_help_table():
     """The abbreviations the pages use: everyone can read them; admins change them (Insert, Update, Delete, each saved at once; Ignore)."""
     table = db.help_rows()
     if not user.is_admin:
-        st.dataframe(table, hide_index=True, width="content", height=35 * (len(table) + 1) + 3,   # every row in view
-                     column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."), "Abbreviation": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=1200)})
+        show_table(table, hide_index=True, width="content", height=35 * (len(table) + 1) + 3,   # every row in view
+                     column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved).")})
         return
     crud_table("help_table", table, db.help_problems, lambda rows: f"Saved: {db.save_help(rows)} row(s).", on_update=db.help_sorted,   # (Update: in Abbreviation order)
                height=30 * (len(st.session_state.get("help_table_working", table)) + 1) + 8,   # every row in view
-               column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."), "Abbreviation": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=1200)})
+               column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved).")})
 
 
 def page_conditions():
@@ -1654,11 +1686,11 @@ def page_conditions():
     crud_table("conditions_table", table, db.conditions_problems, lambda rows: f"Saved: {db.save_conditions(rows)} row(s).",
                on_update=db.conditions_sorted,                  # (Update: in Condition order)
                height=30 * (len(st.session_state.get("conditions_table_working", table)) + 1) + 8,   # every row in view
-               column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."), "Condition": st.column_config.TextColumn("Condition *", width=220, help="Required, unique "
+               column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."), "Condition": st.column_config.TextColumn("Condition *", help="Required, unique "
                                                                        "(whatever its case), at most 60 characters."),
-                              "Object": st.column_config.TextColumn(width=200, help="What it is for, at most 60 "
+                              "Object": st.column_config.TextColumn(help="What it is for, at most 60 "
                                                                         "characters."),
-                              "Values": st.column_config.TextColumn(width=600, help="Its values, at most 500 characters.")})
+                              "Values": st.column_config.TextColumn(help="Its values, at most 500 characters.")})
 
 
 def page_predictions():
@@ -1706,10 +1738,8 @@ def page_predictions():
              "Begins (UT)": at(begins) if begins is not None else "before Start", "Ends (UT)": at(ends) if ends is not None else "after End",
              "Off": off, "Events": texts.get((m, b, k, a), ("", ""))[0], "Prediction": texts.get((m, b, k, a), ("", ""))[1]}
             for m, b, k, a, begins, exact, ends, off in events]
-    st.dataframe(pd.DataFrame(rows), hide_index=True, width="content",
-                 column_config={"Off": st.column_config.NumberColumn(format="%.2f", help="Degrees from the angle at Exact."),
-                                "Events": st.column_config.TextColumn(width="large"),
-                                "Prediction": st.column_config.TextColumn(width="large")})
+    show_table(pd.DataFrame(rows), hide_index=True, width="content",
+                 column_config={"Off": st.column_config.NumberColumn(format="%.2f", help="Degrees from the angle at Exact.")})
 
 
 def birth_predictions(rules: list, birth: dict) -> None:
@@ -1734,11 +1764,9 @@ def birth_predictions(rules: list, birth: dict) -> None:
         st.caption("None of the Birth rows is at its angle in this birth chart.")
         return
     rows.sort(key=lambda r: r["Off"])
-    st.dataframe(pd.DataFrame(rows), hide_index=True, width="content",
+    show_table(pd.DataFrame(rows), hide_index=True, width="content",
                  column_config={"Off": st.column_config.NumberColumn(format="%.2f", help="Degrees from the angle at birth."),
-                                "Orb": st.column_config.NumberColumn(format="%g", help="The pair's orb (Aspect Rules)."),
-                                "Events": st.column_config.TextColumn(width="large"),
-                                "Prediction": st.column_config.TextColumn(width="large")})
+                                "Orb": st.column_config.NumberColumn(format="%g", help="The pair's orb (Aspect Rules).")})
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
@@ -1758,18 +1786,18 @@ def page_prediction_rules():
                on_update=db.predictions_sorted,               # (Update: in the page's order)
                height=30 * (len(st.session_state.get("predictions_table_working", table)) + 1) + 8,   # every row in view
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."),
-                              "Chart": st.column_config.SelectboxColumn("Chart *", options=db.PRED_CHARTS, width=80,
+                              "Chart": st.column_config.SelectboxColumn("Chart *", options=db.PRED_CHARTS,
                                                                         help="Birth: the two points at the angle in the birth chart. Transit: the planet now coming to the angle with the birth point."),
-                              "Moving": st.column_config.SelectboxColumn("Moving *", options=db.PRED_BIRTH, width=70,
+                              "Moving": st.column_config.SelectboxColumn("Moving *", options=db.PRED_BIRTH,
                                                                           help="Transit: the planet now (not CB). Birth: the first point of the birth chart."),
-                              "Birth": st.column_config.SelectboxColumn("Birth *", options=db.PRED_BIRTH, width=70,
+                              "Birth": st.column_config.SelectboxColumn("Birth *", options=db.PRED_BIRTH,
                                                                         help="The point of the birth chart it comes to (CB: house 10 at birth)."),
-                              "Kind": st.column_config.SelectboxColumn("Kind *", options=["RA", "Dec"], width=70,
+                              "Kind": st.column_config.SelectboxColumn("Kind *", options=["RA", "Dec"],
                                                                        help="RA: the RA between the two is the Angle. Dec: Angle 0 parallel, 180 contra-parallel."),
-                              "Angle": st.column_config.NumberColumn("Angle *", min_value=0, max_value=180, step=1, format="%d", width=70,
+                              "Angle": st.column_config.NumberColumn("Angle *", min_value=0, max_value=180, step=1, format="%d",
                                                                      help="0 to 180 (Dec: 0 or 180)."),
-                              "Events": st.column_config.TextColumn("Events *", width=600, help="Its reading, at most 500 characters."),
-                              "Prediction": st.column_config.TextColumn(width=400, help="The prediction for the row (optional), at most 500 characters.")})
+                              "Events": st.column_config.TextColumn("Events *", help="Its reading, at most 500 characters."),
+                              "Prediction": st.column_config.TextColumn(help="The prediction for the row (optional), at most 500 characters.")})
 
 
 def page_naming():
@@ -1782,8 +1810,7 @@ def page_naming():
     crud_table("planets_table", table, lambda rows: db.planet_problems(rows.rename(columns=back)),
                lambda rows: "Saved: {} added, {} changed, {} deleted.".format(*db.save_planets(rows.rename(columns=back))),
                height=30 * (len(st.session_state.get("planets_table_working", table)) + 1) + 24,   # every row in view, above the scroll bar
-               column_config={"_sn": None, "id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."), "Symb": st.column_config.TextColumn(width="small"), "SDesc": st.column_config.TextColumn(width=135),
-                              "RGB": st.column_config.TextColumn(width=118), "Size_Clock-3D": st.column_config.TextColumn(width=112), "Size_Geo": st.column_config.TextColumn(width=112), "Size_Helio": st.column_config.TextColumn(width=112), "Size_Clock-2D": st.column_config.TextColumn(width=112)}, width="content")
+               column_config={"_sn": None, "id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."), "Symb": st.column_config.TextColumn(width="small")}, width="content")
 
 
 def page_aspects():
@@ -1857,16 +1884,16 @@ def page_accounts():
                height="auto" if len(st.session_state.get("acct_editor_working", show)) <= 18 else 700,
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small",
                                                                   help="The row's number, set by the app (blank on a new row until saved)."),
-                              "Email": st.column_config.TextColumn("Email *", width=260, help="The Google account email they sign "
+                              "Email": st.column_config.TextColumn("Email *", help="The Google account email they sign "
                                                                    "in with: required, one row per email."),
                               "Access": st.column_config.SelectboxColumn("Access", options=list(access.ACCESS), width="small",
                                                                          help="Now, DOB, Admin "
                                                                               "(see the page's help); blank is saved as Now."),
-                              "Start Date": st.column_config.DatetimeColumn("Start Date", format="YYYY-MM-DD HH:mm", width=150,
+                              "Start Date": st.column_config.DatetimeColumn("Start Date", format="YYYY-MM-DD HH:mm",
                                                                             help="When DOB counts from (UT). Change it "
                                                                                  "to count from another day (the day paid, say); "
                                                                                  "changing Access alone sets it to now."),
-                              "End Date": st.column_config.DatetimeColumn("End Date", format="YYYY-MM-DD HH:mm", width=150,
+                              "End Date": st.column_config.DatetimeColumn("End Date", format="YYYY-MM-DD HH:mm",
                                                                           help="When DOB runs out (UT): after it, the Now "
                                                                                "charts only. Type a new one and press Update to "
                                                                                "lengthen or shorten DOB (the row becomes DOB).")})
@@ -1955,7 +1982,7 @@ def page_customers():
                                 "First Name": st.column_config.TextColumn("First Name *", help="Required."),
                                 "Last Name": st.column_config.TextColumn("Last Name *", help="Required."),
                                 "Local-Time-24hr": st.column_config.TimeColumn("Local-Time-24hr *", help="Birth time, local, 24 h: required.",
-                                                                    format="HH:mm", step=60, width=80),
+                                                                    format="HH:mm", step=60),
                                 "Date": st.column_config.DateColumn("Date *", help="Birth date: required, 1800 to 2399.",
                                                                     format="YYYY-MM-DD", min_value=date(1800, 1, 1),
                                                                     max_value=date(2399, 12, 31), width=110),
@@ -2098,8 +2125,8 @@ def add_person_form():
 
 pages = [st.Page(page_astroclock, title="AstroClock-2D", icon=":material/science:", url_path="astroclock-2d"),
          st.Page(page_globe, title="AstroClock-3D", icon=":material/language:", url_path="astroclock-3d"),
-         st.Page(page_centric, title="Geo/Helio Model", icon=":material/orbit:", url_path="geo-helio-model"),
          st.Page(page_predictions, title="Predictions", icon=":material/auto_awesome:", url_path="predictions"),
+         st.Page(page_centric, title="Geo/Helio Model", icon=":material/orbit:", url_path="geo-helio-model"),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
