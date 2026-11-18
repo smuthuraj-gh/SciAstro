@@ -343,6 +343,94 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
     return out
 
 
+# ---------------------------------------------------------------- Predictions: the moving planets against the birth chart
+TRANSIT_KINDS = ("RA", "Dec")       # RA: the RA between the two is the angle; Dec: 0 parallel (same Dec), 180 contra-parallel (mirrored)
+TRANSIT_NEAR = 1.0                  # a pass counts only when the moving planet comes this close to the angle (degrees)
+
+
+@dataclass
+class TransitEvent:
+    moving: str             # the planet now (Mo .. Sa, NN, SN)
+    birth: str              # the point at birth it comes to (Mo .. Sa, NN, SN, CB)
+    kind: str               # RA or Dec
+    angle: int
+    begins: float | None    # when it comes within the orb (None: already within it at the Start)
+    exact: float            # when it is closest to the angle
+    ends: float | None      # when it leaves the orb (None: still within it at the End)
+    off: float              # how far from the angle it is then (degrees)
+
+
+def sky_point(name: str, jd_ut: float) -> tuple[float, float]:
+    """A planet's, or the Moon's node's, (RA, Dec) then (SN: opposite NN)."""
+    if name in ("NN", "SN"):
+        ra, de = moon_north_node(jd_ut)
+        return (ra, de) if name == "NN" else ((ra + 180.0) % 360.0, -de)
+    ps = position(name, jd_ut)
+    return ps.ra, ps.dec
+
+
+def _transit_gap(kind: str, angle: int, ra: float, de: float, at_birth: tuple[float, float]) -> float:
+    """How far the moving point is from the angle with the birth point (degrees, 0 at exact)."""
+    if kind == "RA":
+        sep = abs(ra - at_birth[0]) % 360.0
+        return abs(min(sep, 360.0 - sep) - angle)
+    return abs(de - at_birth[1]) if angle == 0 else abs(de + at_birth[1])
+
+
+def transit_events(birth: dict[str, tuple[float, float]], rules: list[tuple[str, str, str, int]], jd_from: float,
+                   jd_to: float, orbs: Orbs) -> list[TransitEvent]:
+    """Each time a moving planet comes to the angle with a point of the birth chart, as each rule (moving, birth, kind,
+    angle) says, across the period: when it comes within the orb (the pair's, as on Aspects: the total of the two's, from
+    Aspect Rules; RA orbs for RA, Dec orbs for Dec), when it is exact and when it leaves the orb; newest last. A planet
+    that turns back may come to it more than once. A pass that never comes within TRANSIT_NEAR of the angle does not count."""
+    import numpy as np
+    rules = [r for r in rules if r[1] in birth and r[2] in TRANSIT_KINDS and (r[2] == "RA" or r[3] in (0, 180))]
+    movers = sorted({r[0] for r in rules})
+    span = jd_to - jd_from
+    if not rules or span <= 0:
+        return []
+    step = MOON_STEP if "Mo" in movers else 1.0
+    n = int(math.ceil(span / step))
+    jds = np.minimum(jd_from + np.arange(n + 1) * step, jd_to)
+    sky = {m: np.array([sky_point(m, float(jd)) for jd in jds]) for m in movers}   # (RA, Dec) at each step
+
+    def gap_at(m, kind, angle, b, jd) -> float:
+        return _transit_gap(kind, angle, *sky_point(m, jd), birth[b])
+
+    out = []
+    for m, b, kind, angle in rules:
+        ra, de = sky[m][:, 0], sky[m][:, 1]
+        bra, bde = birth[b]
+        if kind == "RA":
+            sep = np.abs(ra - bra) % 360.0
+            gap = np.abs(np.minimum(sep, 360.0 - sep) - angle)
+        else:
+            gap = np.abs(de - bde) if angle == 0 else np.abs(de + bde)
+        orb = orbs.pair(angle, m, b, is_dec=kind == "Dec")
+        inside = gap <= orb
+        edges = np.flatnonzero(np.diff(np.concatenate(([0], inside.astype(int), [0]))))
+        for i, j in zip(edges[::2], edges[1::2] - 1):         # each run of steps within the orb: i .. j
+            def cross(a: int, z: int) -> float:               # where the gap passes the orb, between two steps
+                ga, gz = gap[a] - orb, gap[z] - orb
+                return float(jds[a] + (jds[z] - jds[a]) * (ga / (ga - gz) if ga != gz else 0.5))
+            k = i + int(np.argmin(gap[i:j + 1]))
+            lo, hi = float(jds[max(k - 1, 0)]), float(jds[min(k + 1, n)])
+            for _ in range(40):                               # the closest moment, to the minute
+                a, z = lo + (hi - lo) / 3.0, hi - (hi - lo) / 3.0
+                if gap_at(m, kind, angle, b, a) <= gap_at(m, kind, angle, b, z):
+                    hi = z
+                else:
+                    lo = a
+            exact = (lo + hi) / 2.0
+            off = gap_at(m, kind, angle, b, exact)
+            if off > TRANSIT_NEAR:                            # (within the orb, but never at the angle)
+                continue
+            out.append(TransitEvent(m, b, kind, int(angle), cross(i - 1, i) if i > 0 else None, exact,
+                                    cross(j, j + 1) if j < n else None, off))
+    out.sort(key=lambda e: e.exact)
+    return out
+
+
 def jd_to_datetime(jd: float) -> datetime:
     """UT datetime of a Julian day (Gregorian), to the nearest second (a Julian day's last digits are rounding error)."""
     return datetime(2000, 1, 1, 12) + timedelta(seconds=round(float(jd - 2451545.0) * 86400.0))

@@ -222,6 +222,13 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
+    "Predictions": "When the planets now come to the angles with the birth chart (of the customer picked) that the Prediction Rules table names, between the Start and End dates, each with its Prediction, soonest first. "
+                   "Planets: the moving planets to look at (and the Moon's nodes, NN and SN). Each row: Exact (when it is closest to the angle), Moving, Birth (the point of the birth chart; CB: house 10 at birth), "
+                   "Aspect (RA and its angle, or Dec parallel / contra-parallel), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, as on Aspects; before Start / after End: within it already, or still), "
+                   "Off (degrees from the angle at Exact) and the Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details.",
+    "Prediction Rules": "The Predictions table: a row per Moving planet (Mo .. Sa, NN, SN), Birth point (the same, and CB), Kind (RA: the RA between the two is the Angle; Dec: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
+                        "unique together, with its Prediction (required, at most 500 characters), as the Predictions page shows it. It starts with a few sample rows to replace. "
+                        "Insert, Update, Delete, each saved at once; Ignore; Reset to Previous.",
     "AstroClock-3D": "Time, with Now and DOB below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the North and South Celestial Poles (NCP, SCP); ECE and WCE are East and West on the Celestial Equator. "
                   "Rotate in 1s: the Earth turns about that fixed axis, west to east, while the sphere stands still, and time "
                   "runs from each moment, until it is turned off: the clock beside the name gives the date and time, and the Sun, "
@@ -713,6 +720,8 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
     out[("Aspects", "Minor Aspects")] = (GLOBE_MINOR, True, GLOBE_MINOR)
     out[("Planets Cycles", "Major Aspects")] = ([str(a) for a in rangechart.EA_NAME], True, ["0", "180"])
     out[("Planets Cycles", "Minor Aspects")] = (GLOBE_MINOR, True, [])
+    out |= {("Predictions", "Start Date (UT)"): (START, False, "Now"), ("Predictions", "End Date (UT)"): (END, False, (12, 0)),
+            ("Predictions", "Planets"): (list(db.PRED_MOVING), True, ["Ju", "Sa"])}
     return out
 
 
@@ -1622,6 +1631,80 @@ def page_conditions():
                               "Values": st.column_config.TextColumn(width=600, help="Its values, at most 500 characters.")})
 
 
+def page_predictions():
+    """Predictions: when the planets now come to the angles with the birth chart that the Prediction Rules table names,
+    between a start and an end date, each with its Prediction; the birth chart of the customer picked (DOB charts only)."""
+    _, prep = pick_customer()
+    head = st.container(horizontal=True, vertical_alignment="top", gap="xsmall")
+    if not need_chart(prep):
+        return
+    if prep.now_only or prep.jd_birth is None or not prep.birth:   # (no birth details, or DOB not open to them)
+        st.info(prep.message or "Predictions need birth details: add them in DOB Details.")
+        return
+    jds = period(prep, head, "Predictions")
+    choices = offered("Predictions", "Planets", db.PRED_MOVING)
+    moving = core.in_order(titled(head, "Planets", "pred_t_planets", core.shown_order(choices), "pred_planets",
+                                  default_choice("Predictions", "Planets"), selection_mode="multi", format_func=core.symbol_of), choices)
+    if jds is None:
+        return
+    rules = db.prediction_rules()
+    if not rules:
+        st.info("No prediction rules yet." + (" Add them on the Prediction Rules page." if user.is_admin else ""))
+        return
+    if not moving:
+        st.info("Choose at least one planet.")
+        return
+    rules = [r for r in rules if r[0] in moving]
+    if not rules:
+        st.info("The Prediction Rules table has no rows for the planets chosen.")
+        return
+    nn = core.moon_north_node(prep.jd_birth)                  # (the birth chart's nodes too)
+    birth = {**prep.birth, "NN": nn, "SN": ((nn[0] + 180.0) % 360.0, -nn[1])}
+    with st.spinner("Finding predictions..."):
+        events = _predictions_cached(tuple(sorted(birth.items())), tuple(r[:4] for r in rules), *jds, db.orb_table().to_csv(index=False))
+    texts = {r[:4]: r[4] for r in rules}
+    st.markdown(f"**{len(events)} prediction{'' if len(events) == 1 else 's'}**")
+    if not events:
+        st.caption("None in this period.")
+        return
+    at = lambda jd: core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M")
+    rows = [{"Exact (UT)": at(exact), "Moving": core.with_symbols(m), "Birth": core.with_symbols(b),
+             "Aspect": f"RA {a}°" if k == "RA" else "Dec parallel" if a == 0 else "Dec contra-parallel",
+             "Begins (UT)": at(begins) if begins is not None else "before Start", "Ends (UT)": at(ends) if ends is not None else "after End",
+             "Off": off, "Prediction": texts.get((m, b, k, a), "")}
+            for m, b, k, a, begins, exact, ends, off in events]
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="content",
+                 column_config={"Off": st.column_config.NumberColumn(format="%.2f", help="Degrees from the angle at Exact."),
+                                "Prediction": st.column_config.TextColumn(width="large")})
+
+
+@st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
+def _predictions_cached(birth, rules, jd_from, jd_to, orb_csv):
+    import io
+    ev = core.transit_events(dict(birth), list(rules), jd_from, jd_to, core.Orbs(pd.read_csv(io.StringIO(orb_csv))))
+    return [(e.moving, e.birth, e.kind, e.angle, e.begins, e.exact, e.ends, e.off) for e in ev]
+
+
+def page_prediction_rules():
+    """The Predictions table: a row per Moving planet, Birth point, Kind and Angle (unique together), with its Prediction;
+    admins only (Insert, Update, Delete, each saved at once; Ignore; Reset to Previous)."""
+    if not user.is_admin:                                     # admins only (not in a user's menu either)
+        st.stop()
+    table = db.predictions_rows()
+    crud_table("predictions_table", table, db.predictions_problems, lambda rows: f"Saved: {db.save_predictions(rows)} row(s).",
+               on_update=db.predictions_sorted,               # (Update: in the page's order)
+               height=30 * (len(st.session_state.get("predictions_table_working", table)) + 1) + 8,   # every row in view
+               column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."), "Moving": st.column_config.SelectboxColumn("Moving *", options=db.PRED_MOVING, width=70,
+                                                                          help="The planet now."),
+                              "Birth": st.column_config.SelectboxColumn("Birth *", options=db.PRED_BIRTH, width=70,
+                                                                        help="The point of the birth chart it comes to (CB: house 10 at birth)."),
+                              "Kind": st.column_config.SelectboxColumn("Kind *", options=["RA", "Dec"], width=70,
+                                                                       help="RA: the RA between the two is the Angle. Dec: Angle 0 parallel, 180 contra-parallel."),
+                              "Angle": st.column_config.NumberColumn("Angle *", min_value=0, max_value=180, step=1, format="%d", width=70,
+                                                                     help="0 to 180 (Dec: 0 or 180)."),
+                              "Prediction": st.column_config.TextColumn("Prediction *", width=600, help="Its reading, at most 500 characters.")})
+
+
 def page_naming():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
@@ -1950,6 +2033,7 @@ pages = [st.Page(page_astroclock, title="AstroClock-2D", icon=":material/science
          st.Page(page_globe, title="AstroClock-3D", icon=":material/language:", url_path="astroclock-3d"),
          st.Page(page_centric, title="Geo/Helio Model", icon=":material/orbit:", url_path="geo-helio-model"),
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
+         st.Page(page_predictions, title="Predictions", icon=":material/auto_awesome:", url_path="predictions"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
 if user.is_admin:                                             # the Aspect Rules, App Conditions, DOB, Symbols, Page Defaults, Help, Logins, Readme pages: admins only
@@ -1960,6 +2044,7 @@ if user.is_admin:                                             # the Aspect Rules
               st.Page(page_help_table, title="Help", icon=":material/help:", url_path="help"),
               st.Page(page_logins, title="Logins", icon=":material/history:", url_path="logins"),
               st.Page(page_defaults, title="Page Defaults", icon=":material/settings:", url_path="defaults"),
+              st.Page(page_prediction_rules, title="Prediction Rules", icon=":material/menu_book:", url_path="prediction-rules"),
               st.Page(page_readme, title="Readme", icon=":material/description:", url_path="readme"),
               st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols")]
 else:

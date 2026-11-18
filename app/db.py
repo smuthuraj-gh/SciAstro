@@ -151,7 +151,18 @@ HELP_ROWS_4 = [                                               # added later agai
 HELP_ROWS_5 = [                                               # and again
     ("App Conditions", "Page (admins): the App Conditions table: a row per Object, its Values and Condition (unique)"),
 ]
-HELP_VERSION = "5"                                            # the sets of rows the Help table has been given
+HELP_ROWS_6 = [                                               # and again: Predictions
+    ("Predictions", "Page: when the planets now come to the angles with the birth chart that the Prediction Rules table names, with its Prediction for each"),
+    ("Prediction Rules", "Page (admins): the Predictions table: a row per Moving planet, Birth point, Kind (RA or Dec) and Angle, with its Prediction"),
+    ("Moving", "Predictions column: the planet now (Mo .. Sa, NN, SN)"),
+    ("Birth", "Predictions column: the point of the birth chart it comes to (Mo .. Sa, NN, SN, CB)"),
+    ("Kind", "Predictions column: RA (the RA between the two is the Angle) or Dec (Angle 0: parallel, the same Dec; 180: contra-parallel, mirrored)"),
+    ("Begins", "Predictions column: when the moving planet comes within the orb (before Start: within it already)"),
+    ("Exact", "Predictions column: when it is closest to the Angle"),
+    ("Ends", "Predictions column: when it leaves the orb (after End: still within it)"),
+    ("Off", "Predictions column: how far from the Angle it is at Exact (degrees; 0: exact)"),
+]
+HELP_VERSION = "6"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
     ("AstroClock-2D", "Page: the Geo drawing seen from above the north celestial pole, each planet at its RA and distance, with the Dec and Distance(%) graphs"),
@@ -204,6 +215,31 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Size_Clock-3D", "Symbols column: a planet's mark size on AstroClock-3D"),
     ("Size_Geo", "Symbols column: a planet's mark size on Geo"), ("Size_Helio", "Symbols column: a planet's mark size on Helio"),
 ]
+# The Predictions table (the Prediction Rules page): a row per rule, kept by admins: when the Moving planet comes to the
+# Angle with the Birth point, in RA or in Dec (Kind), the Predictions page shows its Prediction
+PRED_MOVING = ["Mo", "Su", "Me", "Ve", "Ma", "Ju", "Sa", "NN", "SN"]   # the planets now
+PRED_BIRTH = PRED_MOVING + ["CB"]                             # the points of the birth chart (CB: house 10 at birth)
+PRED_TEXT_MOST = 500                                          # a Prediction's most characters
+predictions = sa.Table(
+    "predictions", meta,
+    sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
+    sa.Column("moving", sa.String(8), nullable=False),       # Moving
+    sa.Column("birth", sa.String(8), nullable=False),        # Birth
+    sa.Column("kind", sa.String(8), nullable=False),         # Kind: RA or Dec
+    sa.Column("angle", sa.Integer, nullable=False),          # Angle (Dec: 0 parallel, 180 contra-parallel)
+    sa.Column("prediction", sa.String(PRED_TEXT_MOST)),      # Prediction
+    sa.UniqueConstraint("moving", "birth", "kind", "angle", name="ux_predictions_rule"),
+)
+PREDICTIONS_COLUMNS = ["id", "Moving", "Birth", "Kind", "Angle", "Prediction"]
+PREDICTION_ROWS = [                                           # the rows the table starts with, once (samples, to be replaced)
+    ("Sa", "Su", "RA", 0, "Sample: Saturn at your birth Sun's RA. Replace this with your own reading."),
+    ("Sa", "Sa", "RA", 0, "Sample: Saturn back at its birth RA (Saturn return). Replace this with your own reading."),
+    ("Ju", "Su", "RA", 0, "Sample: Jupiter at your birth Sun's RA. Replace this with your own reading."),
+    ("Sa", "Su", "RA", 180, "Sample: Saturn opposite your birth Sun in RA. Replace this with your own reading."),
+    ("Ma", "Mo", "Dec", 0, "Sample: Mars parallel your birth Moon in Dec. Replace this with your own reading."),
+]
+
+
 # The Conditions table: a row per Condition (unique, whatever its case), its Object and its Values; kept by admins (the
 # Conditions page)
 COND_NAME_MOST, COND_VALUES_MOST = 60, 500                    # a Condition's and its Values' most characters
@@ -278,8 +314,11 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Planets Distance(%)", "Planets", "Ju, Sa"),
     ("DOB Details", "Days", "7"),                             # Get more days of access: the days picked to start
     ("DOB Details", "Pay / Coupon", ""),                     # and the coupon filled in to start (blank: none; Free: free)
+    ("Predictions", "Start Date (UT)", "Now"),
+    ("Predictions", "End Date (UT)", "Start Date (UT) + 1 year"),
+    ("Predictions", "Planets", "Ju, Sa"),
 ]
-DEFAULTS_VERSION = "7"                                        # 7: AstroClock-2D's and Geo/Helio Model's Coordinates (one row for the buttons below it; Geo/Helio Model's rows one per input since); 6: DOB Details' Days and Pay / Coupon; 5: AstroClock-2D's aspects; 4: Aspects' angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
+DEFAULTS_VERSION = "8"                                        # 8: Predictions; 7: AstroClock-2D's and Geo/Helio Model's Coordinates (one row for the buttons below it; Geo/Helio Model's rows one per input since); 6: DOB Details' Days and Pay / Coupon; 5: AstroClock-2D's aspects; 4: Aspects' angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
@@ -385,6 +424,7 @@ def engine() -> sa.Engine:
     _widen_help_abbreviation(eng)
     _add_conditions_table_name(eng)
     _seed_help(eng)
+    _seed_predictions(eng)
     return eng
 
 
@@ -477,6 +517,7 @@ NEW_IN_4 = (("Aspects", "Major Aspects"), ("Aspects", "Minor Aspects"), ("Planet
 NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects"))
 NEW_IN_6 = (("DOB Details", "Days"), ("DOB Details", "Pay / Coupon"))
 NEW_IN_7 = (("AstroClock-2D", "Coordinates"), ("Geo/Helio Model", "Coordinates"))
+NEW_IN_8 = (("Predictions", "Start Date (UT)"), ("Predictions", "End Date (UT)"), ("Predictions", "Planets"))
 
 
 TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio model", "geo time"), ("geo/helio model", "helio time"),
@@ -654,10 +695,10 @@ def _seed_defaults(eng: sa.Engine):
         if done == DEFAULTS_VERSION:
             return
         have = {(p.lower(), t.lower()) for p, t in c.execute(sa.select(defaults.c.page, defaults.c.options)).all()}
-        added_since = {"2": lambda r: r[0] == "AstroClock-2D" or r[:2] in NEW_IN_4 + NEW_IN_6 + NEW_IN_7,
-                       "3": lambda r: r[:2] in NEW_IN_4 + NEW_IN_5 + NEW_IN_6 + NEW_IN_7,
-                       "4": lambda r: r[:2] in NEW_IN_5 + NEW_IN_6 + NEW_IN_7, "5": lambda r: r[:2] in NEW_IN_6 + NEW_IN_7,
-                       "6": lambda r: r[:2] in NEW_IN_7}
+        added_since = {"2": lambda r: r[0] == "AstroClock-2D" or r[:2] in NEW_IN_4 + NEW_IN_6 + NEW_IN_7 + NEW_IN_8,
+                       "3": lambda r: r[:2] in NEW_IN_4 + NEW_IN_5 + NEW_IN_6 + NEW_IN_7 + NEW_IN_8,
+                       "4": lambda r: r[:2] in NEW_IN_5 + NEW_IN_6 + NEW_IN_7 + NEW_IN_8, "5": lambda r: r[:2] in NEW_IN_6 + NEW_IN_7 + NEW_IN_8,
+                       "6": lambda r: r[:2] in NEW_IN_7 + NEW_IN_8, "7": lambda r: r[:2] in NEW_IN_8}
         wanted = [r for r in DEFAULT_ROWS if added_since[done](r)] if done in added_since else DEFAULT_ROWS   # (a row deleted before stays deleted)
         new = [dict(page=p, options=t, choices=o or None) for p, t, o in wanted if (p.lower(), t.lower()) not in have]
         if new:
@@ -692,7 +733,7 @@ def _rename_help_rows(eng: sa.Engine):
                              .values(abbreviation=new)).rowcount:
                     break
         # (a row still as the app first wrote it, since out of date, gets the one the app has now; one an admin has changed stays)
-        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5)
+        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5 + HELP_ROWS_6)
         for abbreviation, olds in HELP_OUT_OF_DATE.items():
             c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(),
                                                 help_table.c.description.in_(olds)).values(description=now[abbreviation]))
@@ -730,7 +771,7 @@ def _seed_help(eng: sa.Engine):
         done = c.execute(sa.select(settings.c.value).where(settings.c.key == "help_seeded")).scalar()
         if done == HELP_VERSION:
             return
-        later = [HELP_ROWS_2, HELP_ROWS_3, HELP_ROWS_4, HELP_ROWS_5]   # (the sets added since each note: 1 has had HELP_ROWS ..)
+        later = [HELP_ROWS_2, HELP_ROWS_3, HELP_ROWS_4, HELP_ROWS_5, HELP_ROWS_6]   # (the sets added since each note: 1 has had HELP_ROWS ..)
         wanted = sum(later[int(done) - 1:], []) if done and done.isdigit() else HELP_ROWS + sum(later, [])
         have = {a.lower() for (a,) in c.execute(sa.select(help_table.c.abbreviation)).all()}
         new = [dict(abbreviation=a, description=d) for a, d in wanted if a.lower() not in have]
@@ -881,6 +922,101 @@ def save_conditions(rows: pd.DataFrame) -> int:
     return _save_by_id(conditions, [(_row_id(r.get("id")), dict(name=_cell(r["Condition"]), table_name=_cell(r.get("Object")) or None,
                                                               value_list=_cell(r["Values"]) or None))
                                     for _, r in rows.iterrows() if _cell(r["Condition"]) or _cell(r.get("Object")) or _cell(r["Values"])])
+
+
+# ---------------------------------------------------------------- the Predictions table
+def _seed_predictions(eng: sa.Engine):
+    """Once (a note among the settings says it is done): the Predictions table gets the sample rows of PREDICTION_ROWS
+    (a row deleted since stays deleted)."""
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "predictions_seeded")).scalar():
+            return
+        if not c.execute(sa.select(predictions.c.id).limit(1)).first():
+            c.execute(predictions.insert(), [dict(moving=m, birth=b, kind=k, angle=a, prediction=p) for m, b, k, a, p in PREDICTION_ROWS])
+        c.execute(settings.insert().values(key="predictions_seeded", value="1"))
+
+
+def _pred_key(r) -> tuple:
+    """A Predictions row's place in the table: by Moving, then Birth (in the order the planet buttons are shown), Kind
+    and Angle; rows not filled in at the bottom."""
+    def at(names, v):
+        v = _cell(v)
+        return names.index(v) if v in names else len(names)
+    angle = pd.to_numeric(r.get("Angle"), errors="coerce")
+    return (at(PRED_MOVING, r.get("Moving")), at(PRED_BIRTH, r.get("Birth")), _cell(r.get("Kind")), 999 if pd.isna(angle) else angle)
+
+
+def predictions_sorted(rows: pd.DataFrame) -> pd.DataFrame:
+    """The Predictions rows in the order the page shows them (see _pred_key)."""
+    order = sorted(range(len(rows)), key=lambda i: _pred_key(rows.iloc[i]))
+    return rows.iloc[order].reset_index(drop=True)
+
+
+def predictions_rows() -> pd.DataFrame:
+    """The Predictions table: id, Moving, Birth, Kind, Angle, Prediction, as the page shows it."""
+    with engine().connect() as c:
+        rows = c.execute(sa.select(predictions)).mappings().all()
+    df = pd.DataFrame([{"id": r["id"], "Moving": r["moving"], "Birth": r["birth"], "Kind": r["kind"], "Angle": r["angle"],
+                        "Prediction": r["prediction"]} for r in rows], columns=PREDICTIONS_COLUMNS)
+    return predictions_sorted(df)
+
+
+def prediction_rules() -> list[tuple[str, str, str, int, str]]:
+    """The Predictions rows as (moving, birth, kind, angle, prediction), for the Predictions page."""
+    with engine().connect() as c:
+        rows = c.execute(sa.select(predictions.c.moving, predictions.c.birth, predictions.c.kind, predictions.c.angle,
+                                   predictions.c.prediction)).all()
+    return [(m, b, k, int(a), p or "") for m, b, k, a, p in rows]
+
+
+def _pick(names: list[str], value) -> str:
+    """value as one of names, whatever its case ('' when it is none of them)."""
+    v = _cell(value).lower()
+    return next((n for n in names if n.lower() == v), "")
+
+
+def predictions_problems(rows: pd.DataFrame) -> list[str]:
+    """What is wrong with the Predictions rows: each needs a Moving planet (PRED_MOVING), a Birth point (PRED_BIRTH), a Kind
+    (RA or Dec), an Angle (a whole number, 0 to 180; Dec: 0 or 180) and a Prediction (at most PRED_TEXT_MOST characters);
+    Moving, Birth, Kind and Angle together once in the table. A wholly empty row does not count."""
+    out, seen = [], set()
+    for _, r in rows.iterrows():
+        cells = [_cell(r.get(c)) for c in PREDICTIONS_COLUMNS[1:]]
+        if not any(cells):
+            continue
+        moving, birth, kind = _pick(PRED_MOVING, r.get("Moving")), _pick(PRED_BIRTH, r.get("Birth")), _pick(["RA", "Dec"], r.get("Kind"))
+        angle = pd.to_numeric(r.get("Angle"), errors="coerce")
+        text = _cell(r.get("Prediction"))
+        label = " ".join(c for c in cells[:4] if c) or "New row"
+        if not moving:
+            out.append(f"{label}: Moving must be one of {', '.join(PRED_MOVING)}")
+        if not birth:
+            out.append(f"{label}: Birth must be one of {', '.join(PRED_BIRTH)}")
+        if not kind:
+            out.append(f"{label}: Kind must be RA or Dec")
+        if pd.isna(angle) or float(angle) != int(angle) or not 0 <= angle <= 180:
+            out.append(f"{label}: Angle must be a whole number from 0 to 180")
+        elif kind == "Dec" and int(angle) not in (0, 180):
+            out.append(f"{label}: a Dec Angle is 0 (parallel) or 180 (contra-parallel)")
+        if not text:
+            out.append(f"{label}: Prediction is empty")
+        elif len(text) > PRED_TEXT_MOST:
+            out.append(f"{label}: Prediction can be at most {PRED_TEXT_MOST} characters")
+        if moving and birth and kind and pd.notna(angle):
+            key = (moving, birth, kind, int(angle))
+            if key in seen:
+                out.append(f"{label}: is in the table twice (Moving, Birth, Kind and Angle are unique together)")
+            seen.add(key)
+    return out
+
+
+def save_predictions(rows: pd.DataFrame) -> int:
+    """Makes the Predictions table these rows (wholly empty ones left out), each keeping its ID; gives how many it has."""
+    return _save_by_id(predictions, [
+        (_row_id(r.get("id")), dict(moving=_pick(PRED_MOVING, r.get("Moving")), birth=_pick(PRED_BIRTH, r.get("Birth")),
+                                    kind=_pick(["RA", "Dec"], r.get("Kind")), angle=int(pd.to_numeric(r.get("Angle"))),
+                                    prediction=_cell(r.get("Prediction")) or None))
+        for _, r in rows.iterrows() if any(_cell(r.get(c)) for c in PREDICTIONS_COLUMNS[1:])])
 
 
 # ---------------------------------------------------------------- the Defaults table
