@@ -390,57 +390,133 @@ def transit_gap(kind: str, angle: int, ra: float, de: float, at_birth: tuple[flo
     return abs(de - at_birth[1]) if angle == 0 else abs(de + at_birth[1])
 
 
+def _passes(gap, jds, orb: float, gap_at) -> list[tuple]:
+    """The passes in a sampled gap (degrees from the angle at each of jds): each run of steps within the orb that comes
+    within TRANSIT_NEAR of the angle, as (begins, exact, ends, off): when it comes within the orb (None: already at the
+    start), the closest moment (to the minute, by gap_at(jd)), when it leaves (None: still within at the end), and how far
+    from the angle it is then."""
+    import numpy as np
+    n = len(jds) - 1
+    inside = gap <= orb
+    edges = np.flatnonzero(np.diff(np.concatenate(([0], inside.astype(int), [0]))))
+    out = []
+    for i, j in zip(edges[::2], edges[1::2] - 1):             # each run of steps within the orb: i .. j
+        def cross(a: int, z: int) -> float:                   # where the gap passes the orb, between two steps
+            ga, gz = gap[a] - orb, gap[z] - orb
+            return float(jds[a] + (jds[z] - jds[a]) * (ga / (ga - gz) if ga != gz else 0.5))
+        k = i + int(np.argmin(gap[i:j + 1]))
+        lo, hi = float(jds[max(k - 1, 0)]), float(jds[min(k + 1, n)])
+        for _ in range(22):                                   # the closest moment, to the minute ((2/3)^22 of 2 steps: under a minute)
+            a, z = lo + (hi - lo) / 3.0, hi - (hi - lo) / 3.0
+            if gap_at(a) <= gap_at(z):
+                hi = z
+            else:
+                lo = a
+        exact = (lo + hi) / 2.0
+        off = gap_at(exact)
+        if off <= TRANSIT_NEAR:                               # (within the orb, but never at the angle: not a pass)
+            out.append((cross(i - 1, i) if i > 0 else None, exact, cross(j, j + 1) if j < n else None, off))
+    return out
+
+
+def _samples(points, jd_from: float, jd_to: float):
+    """The steps (1 day; 6 hours with the Moon) and each point's (RA, De) at each."""
+    import numpy as np
+    step = MOON_STEP if "Mo" in points else 1.0
+    n = int(math.ceil((jd_to - jd_from) / step))
+    jds = np.minimum(jd_from + np.arange(n + 1) * step, jd_to)
+    return jds, {p: np.array([sky_point(p, float(jd)) for jd in jds]) for p in points}
+
+
+def _gap_arrays(kind: str, angle: int, ra1, de1, ra2, de2):
+    """How far from the angle two points are at each step (degrees): RA's angle, or De's parallel / contra-parallel."""
+    import numpy as np
+    if kind == "RA":
+        sep = np.abs(ra1 - ra2) % 360.0
+        return np.abs(np.minimum(sep, 360.0 - sep) - angle)
+    return np.abs(de1 - de2) if angle == 0 else np.abs(de1 + de2)
+
+
 def transit_events(birth: dict[str, tuple[float, float]], rules: list[tuple[str, str, str, int]], jd_from: float,
                    jd_to: float, orbs: Orbs) -> list[TransitEvent]:
     """Each time a moving planet comes to the angle with a point of the birth chart, as each rule (moving, birth, kind,
     angle) says, across the period: when it comes within the orb (the pair's, as on Aspects: the total of the two's, from
     Aspect Rules; RA orbs for RA, De orbs for De), when it is exact and when it leaves the orb; newest last. A planet
     that turns back may come to it more than once. A pass that never comes within TRANSIT_NEAR of the angle does not count."""
-    import numpy as np
     rules = [r for r in rules if r[1] in birth and r[2] in TRANSIT_KINDS and (r[2] == "RA" or r[3] in (0, 180))]
-    movers = sorted({r[0] for r in rules})
-    span = jd_to - jd_from
-    if not rules or span <= 0:
+    if not rules or jd_to <= jd_from:
         return []
-    step = MOON_STEP if "Mo" in movers else 1.0
-    n = int(math.ceil(span / step))
-    jds = np.minimum(jd_from + np.arange(n + 1) * step, jd_to)
-    sky = {m: np.array([sky_point(m, float(jd)) for jd in jds]) for m in movers}   # (RA, De) at each step
-
-    def gap_at(m, kind, angle, b, jd) -> float:
-        return transit_gap(kind, angle, *sky_point(m, jd), birth[b])
-
+    jds, sky = _samples(sorted({r[0] for r in rules}), jd_from, jd_to)
     out = []
     for m, b, kind, angle in rules:
-        ra, de = sky[m][:, 0], sky[m][:, 1]
         bra, bde = birth[b]
-        if kind == "RA":
-            sep = np.abs(ra - bra) % 360.0
-            gap = np.abs(np.minimum(sep, 360.0 - sep) - angle)
-        else:
-            gap = np.abs(de - bde) if angle == 0 else np.abs(de + bde)
-        orb = orbs.pair(angle, m, b, is_dec=kind == "De")
-        inside = gap <= orb
-        edges = np.flatnonzero(np.diff(np.concatenate(([0], inside.astype(int), [0]))))
-        for i, j in zip(edges[::2], edges[1::2] - 1):         # each run of steps within the orb: i .. j
-            def cross(a: int, z: int) -> float:               # where the gap passes the orb, between two steps
-                ga, gz = gap[a] - orb, gap[z] - orb
-                return float(jds[a] + (jds[z] - jds[a]) * (ga / (ga - gz) if ga != gz else 0.5))
-            k = i + int(np.argmin(gap[i:j + 1]))
-            lo, hi = float(jds[max(k - 1, 0)]), float(jds[min(k + 1, n)])
-            for _ in range(22):                               # the closest moment, to the minute ((2/3)^22 of 2 steps: under a minute)
+        gap = _gap_arrays(kind, angle, sky[m][:, 0], sky[m][:, 1], bra, bde)
+        at = lambda jd, m=m, b=b, kind=kind, angle=angle: transit_gap(kind, angle, *sky_point(m, jd), birth[b])
+        for begins, exact, ends, off in _passes(gap, jds, orbs.pair(angle, m, b, is_dec=kind == "De"), at):
+            out.append(TransitEvent(m, b, kind, int(angle), begins, exact, ends, off))
+    out.sort(key=lambda e: e.exact)
+    return out
+
+
+def sky_events(rules: list[tuple[str, str, str, int]], jd_from: float, jd_to: float, orbs: Orbs) -> list[TransitEvent]:
+    """Each time two planets now come to the angle with each other, as each rule (one, other, kind, angle) says, across the
+    period, the same for everyone: as transit_events, but both moving (the pair's orb from Aspect Rules); NN with SN never
+    (always opposite). As TransitEvents: moving the one, birth the other."""
+    rules = [r for r in rules if r[0] != r[1] and {r[0], r[1]} != {"NN", "SN"} and r[2] in TRANSIT_KINDS and (r[2] == "RA" or r[3] in (0, 180))]
+    if not rules or jd_to <= jd_from:
+        return []
+    jds, sky = _samples(sorted({p for r in rules for p in r[:2]}), jd_from, jd_to)
+    out = []
+    for a, b, kind, angle in rules:
+        gap = _gap_arrays(kind, angle, sky[a][:, 0], sky[a][:, 1], sky[b][:, 0], sky[b][:, 1])
+        at = lambda jd, a=a, b=b, kind=kind, angle=angle: transit_gap(kind, angle, *sky_point(a, jd), sky_point(b, jd))
+        for begins, exact, ends, off in _passes(gap, jds, orbs.pair(angle, a, b, is_dec=kind == "De"), at):
+            out.append(TransitEvent(a, b, kind, int(angle), begins, exact, ends, off))
+    out.sort(key=lambda e: e.exact)
+    return out
+
+
+@dataclass
+class DistanceEvent:
+    planet: str
+    kind: str               # Near (closest to the Earth) or Far (farthest)
+    jd: float
+    au: float               # its distance from the Earth then (AU)
+    pct: float | None       # and as Distance(%) shows it
+
+
+def distance_events(rules: list[tuple[str, str]], jd_from: float, jd_to: float) -> list[DistanceEvent]:
+    """Each time a planet is at its closest to the Earth (Near) or farthest (Far) within the period, as each rule (planet,
+    Near or Far) says, to the minute; soonest first. (The Sun's: the Earth's nearest and farthest from it; the Moon's: its
+    perigee and apogee.)"""
+    import numpy as np
+    rules = [r for r in rules if r[0] in PLANET_ID and r[1] in ("Near", "Far")]
+    if not rules or jd_to <= jd_from:
+        return []
+    out = []
+    for p in sorted({r[0] for r in rules}):
+        kinds = {r[1] for r in rules if r[0] == p}
+        step = MOON_STEP if p == "Mo" else 1.0
+        n = int(math.ceil((jd_to - jd_from) / step))
+        jds = np.minimum(jd_from + np.arange(n + 1) * step, jd_to)
+        d = np.array([position(p, float(jd)).dist_au for jd in jds])
+        for k in range(1, n):
+            near, far = d[k] < d[k - 1] and d[k] <= d[k + 1], d[k] > d[k - 1] and d[k] >= d[k + 1]
+            kind = "Near" if near else "Far" if far else None
+            if kind not in kinds:
+                continue
+            sign = 1.0 if kind == "Near" else -1.0              # (Far: the least of minus the distance)
+            lo, hi = float(jds[k - 1]), float(jds[k + 1])
+            for _ in range(22):
                 a, z = lo + (hi - lo) / 3.0, hi - (hi - lo) / 3.0
-                if gap_at(m, kind, angle, b, a) <= gap_at(m, kind, angle, b, z):
+                if sign * position(p, a).dist_au <= sign * position(p, z).dist_au:
                     hi = z
                 else:
                     lo = a
-            exact = (lo + hi) / 2.0
-            off = gap_at(m, kind, angle, b, exact)
-            if off > TRANSIT_NEAR:                            # (within the orb, but never at the angle)
-                continue
-            out.append(TransitEvent(m, b, kind, int(angle), cross(i - 1, i) if i > 0 else None, exact,
-                                    cross(j, j + 1) if j < n else None, off))
-    out.sort(key=lambda e: e.exact)
+            jd = (lo + hi) / 2.0
+            au = position(p, jd).dist_au
+            out.append(DistanceEvent(p, kind, jd, au, distance_pct(p, au)))
+    out.sort(key=lambda e: e.jd)
     return out
 
 

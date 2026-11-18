@@ -121,6 +121,7 @@ HELP_ROWS_3 = [                                               # added later stil
     ("Select all", "Logins button: ticks every row (pressed again, Unselect all: none)"),
 ]
 HELP_OUT_OF_DATE = {                                          # the Help rows' Descriptions the app once wrote, out of date since
+    "Chart": ("Predictions column: Birth (the two points at the angle in the birth chart) or Transit (the planet now coming to the angle with the birth point)",), "Kind": ("Predictions column: RA (the RA between the two is the Angle) or De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored)",),   # (Sky and Distance rows came in)
     "De": ("Each planet's Dec line on the sphere",   # (Dec is De now, and the Dec row joined it)
            "De: Declination, a planet's angle north (+) or south (-) of the celestial equator; on AstroClock-3D, the Coordinates button for each planet's De line on the sphere"),
     "Predictions": ("Page: when the planets now come to the angles with the birth chart that the Prediction Rules table names, with its Prediction for each",), "Prediction Rules": ("Page (admins): the Predictions table: a row per Moving planet, Birth point, Kind (RA or Dec) and Angle, with its Prediction", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Prediction", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Events"),
@@ -161,17 +162,22 @@ HELP_ROWS_6 = [                                               # and again: Predi
     ("Prediction Rules", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or De) and Angle, with its Event"),
     ("Moving", "Predictions column: Transit: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart"),
     ("Birth", "Predictions column: the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB)"),
-    ("Chart", "Predictions column: Birth (the two points at the angle in the birth chart) or Transit (the planet now coming to the angle with the birth point)"),
-    ("Kind", "Predictions column: RA (the RA between the two is the Angle) or De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored)"),
+    ("Chart", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other, the same for everyone) or Distance (a planet at its closest to, or farthest from, the Earth)"),
+    ("Kind", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)"),
     ("Begins", "Predictions column: when the moving planet comes within the orb (before Start: within it already)"),
     ("Exact", "Predictions column: when it is closest to the Angle"),
     ("Ends", "Predictions column: when it leaves the orb (after End: still within it)"),
     ("Off", "Predictions column: how far from the Angle it is at Exact (degrees; 0: exact)"),
 ]
-HELP_ROWS_7 = [("Chart", "Predictions column: Birth (the two points at the angle in the birth chart) or Transit (the planet now coming to the angle with the birth point)")]   # (for a table given set 6 before Chart came in)
+HELP_ROWS_7 = [("Chart", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other, the same for everyone) or Distance (a planet at its closest to, or farthest from, the Earth)")]   # (for a table given set 6 before Chart came in)
 HELP_ROWS_8 = [("Prediction", "Prediction Rules column: the prediction for the row (optional, at most 500 characters); Event: what happens")]
 HELP_ROWS_9 = [("AR", "Aspect Rules: Predictions column (Birth), the pair's orb in the Aspect Rules table")]
-HELP_VERSION = "9"                                            # the sets of rows the Help table has been given
+HELP_ROWS_10 = [
+    ("Sky", "Predictions (Chart Sky): two planets now at an angle with each other, the same for everyone (with New and Full Moon)"),
+    ("Near", "Predictions (Chart Distance, Kind Near): a planet at its closest to the Earth"),
+    ("Far", "Predictions (Chart Distance, Kind Far): a planet at its farthest from the Earth"),
+]
+HELP_VERSION = "10"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
     ("AstroClock-2D", "Page: the Geo drawing seen from above the north celestial pole, each planet at its RA and distance, with the De and Distance(%) graphs"),
@@ -227,7 +233,9 @@ HELP_ROWS_2 = [                                               # added later: the
 # The Predictions table (the Prediction Rules page): a row per rule, kept by admins. Chart Transit: when the Moving planet
 # (now) comes to the Angle with the Birth point, in RA or in De (Kind), the Predictions page shows its Prediction; Chart
 # Birth: when the two (Moving: the first point, Birth: the second) are at that Angle in the birth chart itself
-PRED_CHARTS = ["Birth", "Transit"]
+PRED_CHARTS = ["Birth", "Transit", "Sky", "Distance"]      # Sky: two planets now; Distance: a planet's closest and farthest
+PRED_KINDS = ["RA", "De", "Near", "Far"]                     # (Near, Far: Distance rows only)
+DIST_POINTS = ["Mo", "Su", "Me", "Ve", "Ma", "Ju", "Sa"]     # the planets a Distance row may name (their Birth: Ea, the Earth)
 PRED_MOVING = ["Mo", "Su", "Me", "Ve", "Ma", "Ju", "Sa", "NN", "SN"]   # the planets now
 PRED_BIRTH = PRED_MOVING + ["CB"]                             # the points of the birth chart (CB: house 10 at birth)
 PRED_TEXT_MOST = 500                                          # a Prediction's most characters
@@ -444,11 +452,11 @@ def engine() -> sa.Engine:
     _seed_help(eng)
     _add_prediction_chart(eng)
     _add_prediction_forecast(eng)
+    _dec_is_de(eng)                                           # (before new rows come in: they are De already)
     _seed_predictions(eng)
     _trim_prediction_texts(eng)
     _drop_prediction_dots(eng)
     _fill_prediction_readings(eng)
-    _dec_is_de(eng)
     return eng
 
 
@@ -766,7 +774,7 @@ def _rename_help_rows(eng: sa.Engine):
                              .values(abbreviation=new)).rowcount:
                     break
         # (a row still as the app first wrote it, since out of date, gets the one the app has now; one an admin has changed stays)
-        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5 + HELP_ROWS_6 + HELP_ROWS_7 + HELP_ROWS_8 + HELP_ROWS_9)
+        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5 + HELP_ROWS_6 + HELP_ROWS_7 + HELP_ROWS_8 + HELP_ROWS_9 + HELP_ROWS_10)
         for abbreviation, olds in HELP_OUT_OF_DATE.items():
             c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(),
                                                 help_table.c.description.in_(olds)).values(description=now[abbreviation]))
@@ -804,7 +812,7 @@ def _seed_help(eng: sa.Engine):
         done = c.execute(sa.select(settings.c.value).where(settings.c.key == "help_seeded")).scalar()
         if done == HELP_VERSION:
             return
-        later = [HELP_ROWS_2, HELP_ROWS_3, HELP_ROWS_4, HELP_ROWS_5, HELP_ROWS_6, HELP_ROWS_7, HELP_ROWS_8, HELP_ROWS_9]   # (the sets added since each note: 1 has had HELP_ROWS ..)
+        later = [HELP_ROWS_2, HELP_ROWS_3, HELP_ROWS_4, HELP_ROWS_5, HELP_ROWS_6, HELP_ROWS_7, HELP_ROWS_8, HELP_ROWS_9, HELP_ROWS_10]   # (the sets added since each note: 1 has had HELP_ROWS ..)
         wanted = sum(later[int(done) - 1:], []) if done and done.isdigit() else HELP_ROWS + sum(later, [])
         have = {a.lower() for (a,) in c.execute(sa.select(help_table.c.abbreviation)).all()}
         new = []
@@ -986,13 +994,16 @@ def _add_prediction_chart(eng: sa.Engine):
 
 
 PRED_ANGLES = [("RA", 0, "conjunct"), ("RA", 60, "sextile"), ("RA", 90, "square"), ("RA", 120, "trine"), ("RA", 180, "opposite"),
-               ("De", 0, "parallel"), ("De", 180, "contra-parallel")]   # every combination gets each (the major angles; De both)
+               ("RA", 30, "semi-sextile"), ("RA", 45, "semi-square"), ("RA", 72, "quintile"), ("RA", 135, "sesquiquadrate"),
+               ("RA", 144, "bi-quintile"), ("RA", 150, "quincunx"),
+               ("De", 0, "parallel"), ("De", 180, "contra-parallel")]   # every combination gets each (major and minor angles; De both)
 
 
 def prediction_combinations() -> list[tuple[str, str, str, str, int, str]]:
-    """Every combination, as (chart, moving, birth, kind, angle, prediction): Transit, each planet now (PRED_MOVING) with
-    each point of the birth chart (PRED_BIRTH); Birth, each two points of the birth chart once (not NN with SN, always
-    opposite); at each of PRED_ANGLES, with a plain Prediction naming it, to be replaced with a reading."""
+    """Every combination, as (chart, moving, birth, kind, angle, event): Transit, each planet now (PRED_MOVING) with each
+    point of the birth chart (PRED_BIRTH); Birth, each two points of the birth chart once (not NN with SN, always opposite);
+    Sky, each two planets now once (not NN with SN; the Sun with the Moon at 0 and 180 named New and Full Moon); each at
+    PRED_ANGLES; and Distance, each of DIST_POINTS at its closest (Near) and farthest (Far) from the Earth (Ea)."""
     def name(p):
         return "house 10 (CB)" if p == "CB" else PLANET_NAMES.get(p, p)
     out = []
@@ -1006,6 +1017,17 @@ def prediction_combinations() -> list[tuple[str, str, str, str, int, str]]:
                 continue
             for kind, angle, word in PRED_ANGLES:
                 out.append(("Birth", a, b, kind, angle, f"{name(a)} {word} {name(b)} in {kind} ({angle}°) at birth"))
+    for i, a in enumerate(PRED_MOVING):
+        for b in PRED_MOVING[i + 1:]:
+            if {a, b} == {"NN", "SN"}:
+                continue
+            for kind, angle, word in PRED_ANGLES:
+                moon = {a, b} == {"Mo", "Su"} and kind == "RA" and angle in (0, 180)
+                lead = ("New Moon: " if angle == 0 else "Full Moon: ") if moon else ""
+                out.append(("Sky", a, b, kind, angle, f"{lead}{name(a)} {word} {name(b)} in {kind} ({angle}°) in the sky"))
+    for p in DIST_POINTS:
+        out.append(("Distance", p, "Ea", "Near", 0, f"{name(p)} at its closest to the Earth"))
+        out.append(("Distance", p, "Ea", "Far", 0, f"{name(p)} at its farthest from the Earth"))
     return out
 
 
@@ -1062,6 +1084,12 @@ TRANSIT_ANGLE = {   # (kind, angle): how the planet now meets the birth point
     ("RA", 90): "{brings} press on {part} {span}: tension that asks for effort and patience",
     ("RA", 120): "{brings} flow easily into {part} {span}: a smooth, supportive time",
     ("RA", 180): "{brings} pull against {part} {span}: others or outside events ask for balance",
+    ("RA", 30): "{brings} brush {part} {span}: a light touch, small adjustments",
+    ("RA", 45): "{brings} rub against {part} {span}: minor friction to work through",
+    ("RA", 72): "{brings} spark {part} {span}: a creative, inventive opening",
+    ("RA", 135): "{brings} grate on {part} {span}: niggling strain that asks for care",
+    ("RA", 144): "{brings} lend a talent to {part} {span}: a quietly productive time",
+    ("RA", 150): "{brings} sit awkwardly with {part} {span}: adjustments are needed",
     ("De", 0): "{brings} quietly charge {part} {span}, like a soft conjunction",
     ("De", 180): "{brings} stand across from {part} {span}, like a soft opposition asking for balance",
 }
@@ -1082,10 +1110,35 @@ BIRTH_ANGLE = {   # (kind, angle): how two points of the birth chart meet
     ("RA", 90): "{a} and {b} pull at each other: an inner tension that becomes strength through effort",
     ("RA", 120): "{a} and {b} work in easy harmony: a natural gift",
     ("RA", 180): "{a} and {b} face each other: a lifelong balancing act, often lived out through others",
+    ("RA", 30): "{a} and {b} sit side by side: a subtle link that grows with attention",
+    ("RA", 45): "{a} and {b} chafe: a small inner friction that drives effort",
+    ("RA", 72): "{a} and {b} spark each other: a creative gift",
+    ("RA", 135): "{a} and {b} grate: a lasting strain that asks for patience",
+    ("RA", 144): "{a} and {b} combine: a quiet talent",
+    ("RA", 150): "{a} and {b} need adjusting: two sides of you that learn to cooperate",
     ("De", 0): "{a} and {b} are quietly linked and color each other, like a soft conjunction",
     ("De", 180): "{a} and {b} quietly mirror each other, like a soft opposition seeking balance",
 }
-EASY, HARD = {("RA", 60), ("RA", 120)}, {("RA", 90), ("RA", 180), ("De", 180)}
+SKY_ANGLE = {   # (kind, angle): two planets now, for everyone
+    ("RA", 0): "{a} and {b} merge {span}: a strong, shared theme for everyone",
+    ("RA", 60): "{a} and {b} support each other {span}: openings for everyone",
+    ("RA", 90): "{a} and {b} clash {span}: tension felt widely, asking for effort",
+    ("RA", 120): "{a} and {b} flow together {span}: an easy, helpful time for everyone",
+    ("RA", 180): "{a} and {b} pull apart {span}: a time of balance and choices",
+    ("RA", 30): "{a} and {b} touch lightly {span}: small adjustments in the air",
+    ("RA", 45): "{a} and {b} rub {span}: minor friction around",
+    ("RA", 72): "{a} and {b} spark {span}: a creative moment",
+    ("RA", 135): "{a} and {b} grate {span}: niggling strain around",
+    ("RA", 144): "{a} and {b} combine {span}: a quietly productive moment",
+    ("RA", 150): "{a} and {b} sit awkwardly {span}: adjustments needed all round",
+    ("De", 0): "{a} and {b} share their De {span}, like a soft conjunction for everyone",
+    ("De", 180): "{a} and {b} mirror each other's De {span}, like a soft opposition for everyone",
+}
+MOON_PHASES = {0: "New Moon: a fresh start; a good time for beginnings and intentions",
+               180: "Full Moon: things come to light; a time of completion, release and feelings running high"}
+SPEED_ORDER = ["Mo", "Su", "Me", "Ve", "Ma", "Ju", "Sa", "NN", "SN"]   # fastest first (a Sky pair lasts as its faster passes)
+EASY = {("RA", 60), ("RA", 120), ("RA", 30), ("RA", 72), ("RA", 144)}
+HARD = {("RA", 90), ("RA", 180), ("RA", 45), ("RA", 135), ("RA", 150), ("De", 180)}
 
 
 def prediction_reading(chart: str, moving: str, birth: str, kind: str, angle: int) -> str:
@@ -1099,6 +1152,17 @@ def prediction_reading(chart: str, moving: str, birth: str, kind: str, angle: in
     if chart == "Birth" and moving in BIRTH_PART and birth in BIRTH_PART and key in BIRTH_ANGLE:
         text = BIRTH_ANGLE[key].format(a="your " + BIRTH_PART[moving][1], b="your " + BIRTH_PART[birth][1])
         return text[0].upper() + text[1:]
+    if chart == "Sky" and moving in TRANSIT_BRINGS and birth in TRANSIT_BRINGS and key in SKY_ANGLE:
+        if {moving, birth} == {"Mo", "Su"} and kind == "RA" and int(angle) in MOON_PHASES:
+            return MOON_PHASES[int(angle)]
+        faster, slower = sorted((moving, birth), key=SPEED_ORDER.index)   # (it lasts as the faster passes; the slower sets the tone)
+        text = SKY_ANGLE[key].format(a=PLANET_NAMES[moving], b=PLANET_NAMES[birth], span=TRANSIT_BRINGS[faster][1])
+        easy, hard, other = TRANSIT_ADVICE[slower]
+        return text[0].upper() + text[1:] + "; " + (easy if key in EASY else hard if key in HARD else other)
+    if chart == "Distance" and moving in TRANSIT_BRINGS and kind in ("Near", "Far"):
+        brings = TRANSIT_BRINGS[moving][0]
+        return (f"At its closest to the Earth: its {brings} are felt more strongly and nearer to hand" if kind == "Near" else
+                f"At its farthest from the Earth: its {brings} feel quieter and more distant")
     return ""
 
 
@@ -1194,7 +1258,7 @@ def _seed_predictions(eng: sa.Engine):
     already there keep their Prediction)."""
     with eng.begin() as c:
         done = c.execute(sa.select(settings.c.value).where(settings.c.key == "predictions_seeded")).scalar()
-        if done == "3":
+        if done == "4":
             return
         new = []
         if done is None and not c.execute(sa.select(predictions.c.id).limit(1)).first():
@@ -1207,16 +1271,20 @@ def _seed_predictions(eng: sa.Engine):
         have = {(ch, m, b, k, a) for ch, m, b, k, a in c.execute(sa.select(predictions.c.chart, predictions.c.moving, predictions.c.birth,
                                                                          predictions.c.kind, predictions.c.angle)).all()}
         have |= {(r["chart"], r["moving"], r["birth"], r["kind"], r["angle"]) for r in new}
+        later = done is not None and done.isdigit() and int(done) >= 3   # (set 3 had the major angles: the new ones get their readings now)
         for ch, m, b, k, a, p in prediction_combinations():
-            if (ch, m, b, k, a) in have or (ch == "Birth" and (ch, b, m, k, a) in have):
+            if (ch, m, b, k, a) in have or (ch in ("Birth", "Sky") and (ch, b, m, k, a) in have):
                 continue
-            new.append(dict(chart=ch, moving=m, birth=b, kind=k, angle=a, prediction=p))
+            new.append(dict(chart=ch, moving=m, birth=b, kind=k, angle=a, prediction=p,
+                            forecast=prediction_reading(ch, m, b, k, a) or None if later else None))
+        for row in new:                                       # (every row the same fields: one insert for them all)
+            row.setdefault("forecast", None)
         if new:
             c.execute(predictions.insert(), new)
         if done is None:
-            c.execute(settings.insert().values(key="predictions_seeded", value="3"))
+            c.execute(settings.insert().values(key="predictions_seeded", value="4"))
         else:
-            c.execute(settings.update().where(settings.c.key == "predictions_seeded").values(value="3"))
+            c.execute(settings.update().where(settings.c.key == "predictions_seeded").values(value="4"))
 
 
 def _pred_key(r) -> tuple:
@@ -1226,7 +1294,7 @@ def _pred_key(r) -> tuple:
         v = _cell(v)
         return names.index(v) if v in names else len(names)
     angle = pd.to_numeric(r.get("Angle"), errors="coerce")
-    return (at(PRED_CHARTS, r.get("Chart")), at(PRED_BIRTH, r.get("Moving")), at(PRED_BIRTH, r.get("Birth")), _cell(r.get("Kind")),
+    return (at(PRED_CHARTS, r.get("Chart")), at(PRED_BIRTH, r.get("Moving")), at(PRED_BIRTH, r.get("Birth")), at(PRED_KINDS, r.get("Kind")),
             999 if pd.isna(angle) else angle)
 
 
@@ -1261,36 +1329,43 @@ def _pick(names: list[str], value) -> str:
 
 
 def predictions_problems(rows: pd.DataFrame) -> list[str]:
-    """What is wrong with the Predictions rows: each needs a Chart (Birth or Transit), a Moving planet (PRED_MOVING; Birth
-    chart: a point of PRED_BIRTH, not the Birth one), a Birth point (PRED_BIRTH), a Kind (RA or De), an Angle (a whole
-    number, 0 to 180; De: 0 or 180) and a Prediction (at most PRED_TEXT_MOST characters); Chart, Moving, Birth, Kind and
-    Angle together once in the table (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair). A wholly
-    empty row does not count."""
+    """What is wrong with the Predictions rows: each needs a Chart (PRED_CHARTS), and by its Chart: Transit, a Moving planet
+    (PRED_MOVING) and a Birth point (PRED_BIRTH); Birth, two different points of PRED_BIRTH; Sky, two different planets of
+    PRED_MOVING (not NN with SN); each of those a Kind, RA or De, and an Angle (a whole number, 0 to 180; De: 0 or 180);
+    Distance, a planet of DIST_POINTS, Birth Ea (the Earth), Kind Near or Far and Angle 0. Every row an Event, and a
+    Prediction of at most PRED_TEXT_MOST characters; Chart, Moving, Birth, Kind and Angle together once in the table (a
+    Birth or Sky row's two points either way round: Su-Mo and Mo-Su are one pair). A wholly empty row does not count."""
     out, seen = [], set()
     for _, r in rows.iterrows():
         cells = [_cell(r.get(c)) for c in PREDICTIONS_COLUMNS[1:]]
         if not any(cells):
             continue
         chart = _pick(PRED_CHARTS, r.get("Chart"))
-        movers = PRED_BIRTH if chart == "Birth" else PRED_MOVING
-        moving, birth, kind = _pick(movers, r.get("Moving")), _pick(PRED_BIRTH, r.get("Birth")), _pick(["RA", "De"], r.get("Kind"))
+        movers = {"Birth": PRED_BIRTH, "Distance": DIST_POINTS}.get(chart, PRED_MOVING)
+        others = {"Transit": PRED_BIRTH, "Birth": PRED_BIRTH, "Sky": PRED_MOVING, "Distance": ["Ea"]}.get(chart, PRED_BIRTH)
+        kinds = ["Near", "Far"] if chart == "Distance" else ["RA", "De"]
+        moving, birth, kind = _pick(movers, r.get("Moving")), _pick(others, r.get("Birth")), _pick(kinds, r.get("Kind"))
         angle = pd.to_numeric(r.get("Angle"), errors="coerce")
         text = _cell(r.get("Event"))
         label = " ".join(c for c in cells[:5] if c) or "New row"
         if not chart:
-            out.append(f"{label}: Chart must be Birth or Transit")
+            out.append(f"{label}: Chart must be one of {', '.join(PRED_CHARTS)}")
         if not moving:
             out.append(f"{label}: Moving must be one of {', '.join(movers)}")
-        elif chart == "Birth" and moving == birth:
-            out.append(f"{label}: a Birth chart row needs two different points (Moving and Birth)")
+        elif chart in ("Birth", "Sky") and moving == birth:
+            out.append(f"{label}: a {chart} row needs two different points (Moving and Birth)")
+        elif chart == "Sky" and {moving, birth} == {"NN", "SN"}:
+            out.append(f"{label}: NN and SN are always opposite (no Sky row for them)")
         if not birth:
-            out.append(f"{label}: Birth must be one of {', '.join(PRED_BIRTH)}")
+            out.append(f"{label}: Birth must be " + ("Ea (the Earth)" if chart == "Distance" else f"one of {', '.join(others)}"))
         if not kind:
-            out.append(f"{label}: Kind must be RA or De")
+            out.append(f"{label}: Kind must be {' or '.join(kinds)}")
         if pd.isna(angle) or float(angle) != int(angle) or not 0 <= angle <= 180:
             out.append(f"{label}: Angle must be a whole number from 0 to 180")
         elif kind == "De" and int(angle) not in (0, 180):
             out.append(f"{label}: a De Angle is 0 (parallel) or 180 (contra-parallel)")
+        elif chart == "Distance" and int(angle) != 0:
+            out.append(f"{label}: a Distance row's Angle is 0")
         if not text:
             out.append(f"{label}: Event is empty")
         elif len(text) > PRED_TEXT_MOST:
@@ -1298,11 +1373,11 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
         if len(_cell(r.get("Prediction"))) > PRED_TEXT_MOST:
             out.append(f"{label}: Prediction can be at most {PRED_TEXT_MOST} characters")
         if chart and moving and birth and kind and pd.notna(angle):
-            pair = tuple(sorted((moving, birth))) if chart == "Birth" else (moving, birth)   # (Birth: Su-Mo and Mo-Su are one pair)
+            pair = tuple(sorted((moving, birth))) if chart in ("Birth", "Sky") else (moving, birth)   # (Su-Mo and Mo-Su are one pair)
             key = (chart, *pair, kind, int(angle))
             if key in seen:
                 out.append(f"{label}: is in the table twice (Chart, Moving, Birth, Kind and Angle are unique together"
-                           + ("; a Birth row's two points count either way round)" if chart == "Birth" else ")"))
+                           + (f"; a {chart} row's two points count either way round)" if chart in ("Birth", "Sky") else ")"))
             seen.add(key)
     return out
 
@@ -1310,8 +1385,9 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
 def save_predictions(rows: pd.DataFrame) -> int:
     """Makes the Predictions table these rows (wholly empty ones left out), each keeping its ID; gives how many it has."""
     return _save_by_id(predictions, [
-        (_row_id(r.get("id")), dict(chart=_pick(PRED_CHARTS, r.get("Chart")), moving=_pick(PRED_BIRTH, r.get("Moving")), birth=_pick(PRED_BIRTH, r.get("Birth")),
-                                    kind=_pick(["RA", "De"], r.get("Kind")), angle=int(pd.to_numeric(r.get("Angle"))),
+        (_row_id(r.get("id")), dict(chart=_pick(PRED_CHARTS, r.get("Chart")), moving=_pick(PRED_BIRTH, r.get("Moving")),
+                                    birth=_pick(PRED_BIRTH + ["Ea"], r.get("Birth")),
+                                    kind=_pick(PRED_KINDS, r.get("Kind")), angle=int(pd.to_numeric(r.get("Angle"))),
                                     prediction=_cell(r.get("Event")) or None, forecast=_cell(r.get("Prediction")) or None))
         for _, r in rows.iterrows() if any(_cell(r.get(c)) for c in PREDICTIONS_COLUMNS[1:])])
 
