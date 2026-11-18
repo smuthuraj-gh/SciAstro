@@ -1914,7 +1914,7 @@ def aspect_predictions(rules: list, jds: tuple, orb_csv: str) -> None:
     if not rules:
         st.caption("The Prediction Rules table has no Aspect rows.")
         return
-    texts = {(frozenset((a, b)), int(angle)): (event, reading) for a, b, kind, angle, event, reading in rules}
+    texts = {(frozenset((a, b)), int(angle)): (event, reading) for a, b, _, angle, event, reading in rules}   # (Kind: RA+De)
     planets = sorted({p for a, b, *_ in rules for p in (a, b)})
     angles = sorted({int(r[3]) for r in rules})
     with st.spinner("Finding aspects..."):
