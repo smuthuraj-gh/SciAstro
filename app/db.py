@@ -443,6 +443,7 @@ def engine() -> sa.Engine:
     _seed_predictions(eng)
     _trim_prediction_texts(eng)
     _drop_prediction_dots(eng)
+    _fill_prediction_readings(eng)
     return eng
 
 
@@ -1005,15 +1006,112 @@ def _trim_prediction_texts(eng: sa.Engine):
     with eng.begin() as c:
         if c.execute(sa.select(settings.c.value).where(settings.c.key == "predictions_trimmed")).scalar():
             return
-        changed = []
+        changed = {}
         for i, text in c.execute(sa.select(predictions.c.id, predictions.c.prediction)).all():
             for end in PRED_TEXT_ENDS:
                 if text and text.endswith(end):
-                    changed.append({"_id": i, "_text": text[: -len(end)]})
+                    changed[i] = text[: -len(end)]
                     break
         if changed:
-            c.execute(predictions.update().where(predictions.c.id == sa.bindparam("_id")).values(prediction=sa.bindparam("_text")), changed)
+            _update_by_id(c, predictions.c.prediction, changed)
         c.execute(settings.insert().values(key="predictions_trimmed", value="1"))
+
+
+# The Prediction column's readings, made from each planet's and angle's usual meanings (a draft to edit): a Transit
+# row, a period the moving planet brings to that part of the birth chart; a Birth row, a lasting trait
+TRANSIT_BRINGS = {   # what the planet now brings, and for how long
+    "Mo": ("moods, needs and passing feelings", "for a day or two"),
+    "Su": ("attention, vitality and visibility", "for a few days"),
+    "Me": ("news, talks, errands and ideas", "for a few days"),
+    "Ve": ("affection, ease, pleasure and money matters", "for a few days"),
+    "Ma": ("energy, drive, haste and friction", "for a week or two"),
+    "Ju": ("growth, opportunity and confidence", "over several weeks"),
+    "Sa": ("duty, limits, tests and hard work", "over some months"),
+    "NN": ("new directions and meetings that point the way", "over some months"),
+    "SN": ("endings, release and old patterns coming back", "over some months"),
+}
+BIRTH_PART = {   # the part of the birth chart (as a Transit's object), and the quality it is at birth
+    "Mo": ("your feelings, home and family", "feelings"),
+    "Su": ("your sense of self and vitality", "will"),
+    "Me": ("your thinking, learning and dealings", "mind"),
+    "Ve": ("your relationships, tastes and finances", "affections"),
+    "Ma": ("your drive, courage and ambitions", "drive"),
+    "Ju": ("your hopes, beliefs and good fortune", "optimism"),
+    "Sa": ("your duties, structures and long-term plans", "discipline"),
+    "NN": ("your life direction and growth", "life direction"),
+    "SN": ("your inborn gifts and past habits", "inborn gifts"),
+    "CB": ("your career and public standing", "public aims"),
+}
+TRANSIT_ANGLE = {   # (kind, angle): how the planet now meets the birth point
+    ("RA", 0): "{brings} merge with {part} {span}: a strong, focused influence",
+    ("RA", 60): "{brings} open a door for {part} {span}: a chance worth taking",
+    ("RA", 90): "{brings} press on {part} {span}: tension that asks for effort and patience",
+    ("RA", 120): "{brings} flow easily into {part} {span}: a smooth, supportive time",
+    ("RA", 180): "{brings} pull against {part} {span}: others or outside events ask for balance",
+    ("Dec", 0): "{brings} quietly charge {part} {span}, like a soft conjunction",
+    ("Dec", 180): "{brings} stand across from {part} {span}, like a soft opposition asking for balance",
+}
+TRANSIT_ADVICE = {   # the moving planet's advice: (with an easy angle, with a hard one, otherwise)
+    "Mo": ("a good moment to rest and connect", "let reactions settle before acting", "notice what you need"),
+    "Su": ("a good time to be seen and to lead", "avoid clashes of pride", "put yourself into it"),
+    "Me": ("a good time to talk, write, sign or plan", "check details and messages twice", "keep your thoughts clear"),
+    "Ve": ("enjoy, mend ties and make peace", "beware overspending and easy indulgence", "let warmth guide you"),
+    "Ma": ("act with confidence", "avoid rash moves and quarrels", "channel the energy into action"),
+    "Ju": ("a good time to grow, travel or ask for support", "beware promising or taking on too much", "aim high but stay grounded"),
+    "Sa": ("patient work builds something lasting", "steady effort pays off, shortcuts do not", "take it seriously and pace yourself"),
+    "NN": ("follow the people and chances that appear", "growth comes from the harder path", "a turning point worth heeding"),
+    "SN": ("old skills come in useful", "let go of what no longer fits", "review the past to move on"),
+}
+BIRTH_ANGLE = {   # (kind, angle): how two points of the birth chart meet
+    ("RA", 0): "{a} and {b} act as one: a strong, concentrated trait",
+    ("RA", 60): "{a} and {b} help each other: talents that grow with use",
+    ("RA", 90): "{a} and {b} pull at each other: an inner tension that becomes strength through effort",
+    ("RA", 120): "{a} and {b} work in easy harmony: a natural gift",
+    ("RA", 180): "{a} and {b} face each other: a lifelong balancing act, often lived out through others",
+    ("Dec", 0): "{a} and {b} are quietly linked and color each other, like a soft conjunction",
+    ("Dec", 180): "{a} and {b} quietly mirror each other, like a soft opposition seeking balance",
+}
+EASY, HARD = {("RA", 60), ("RA", 120)}, {("RA", 90), ("RA", 180), ("Dec", 180)}
+
+
+def prediction_reading(chart: str, moving: str, birth: str, kind: str, angle: int) -> str:
+    """The Prediction column's reading for a row (no full stop at the end, as Events), or '' for one it has none for."""
+    key = (kind, int(angle))
+    if chart == "Transit" and moving in TRANSIT_BRINGS and birth in BIRTH_PART and key in TRANSIT_ANGLE:
+        brings, span = TRANSIT_BRINGS[moving]
+        easy, hard, other = TRANSIT_ADVICE[moving]
+        text = TRANSIT_ANGLE[key].format(brings=brings, part=BIRTH_PART[birth][0], span=span)
+        return text[0].upper() + text[1:] + "; " + (easy if key in EASY else hard if key in HARD else other)
+    if chart == "Birth" and moving in BIRTH_PART and birth in BIRTH_PART and key in BIRTH_ANGLE:
+        text = BIRTH_ANGLE[key].format(a="your " + BIRTH_PART[moving][1], b="your " + BIRTH_PART[birth][1])
+        return text[0].upper() + text[1:]
+    return ""
+
+
+def _update_by_id(c, column: sa.Column, values: dict[int, str]) -> None:
+    """Sets column to values[id] in each of those rows, a few hundred rows a statement (one round trip each, quick on a
+    distant database too)."""
+    items = list(values.items())
+    for k in range(0, len(items), 200):
+        part = items[k:k + 200]
+        c.execute(column.table.update().where(column.table.c.id.in_([i for i, _ in part]))
+                  .values({column.name: sa.case({i: v for i, v in part}, value=column.table.c.id)}))
+
+
+def _fill_prediction_readings(eng: sa.Engine):
+    """Once (a note among the settings says it is done): every Predictions row with an empty Prediction gets its reading
+    (prediction_reading); a Prediction already written is left as it is."""
+    if "predictions" not in sa.inspect(eng).get_table_names():
+        return
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "predictions_readings")).scalar():
+            return
+        rows = c.execute(sa.select(predictions.c.id, predictions.c.chart, predictions.c.moving, predictions.c.birth,
+                                   predictions.c.kind, predictions.c.angle, predictions.c.forecast)).all()
+        fill = {i: text for i, ch, m, b, k, a, f in rows if not (f or "").strip() and (text := prediction_reading(ch, m, b, k, a))}
+        if fill:
+            _update_by_id(c, predictions.c.forecast, fill)
+        c.execute(settings.insert().values(key="predictions_readings", value="1"))
 
 
 def _add_prediction_forecast(eng: sa.Engine):
@@ -1032,11 +1130,10 @@ def _drop_prediction_dots(eng: sa.Engine):
     with eng.begin() as c:
         if c.execute(sa.select(settings.c.value).where(settings.c.key == "predictions_no_dot")).scalar():
             return
-        changed = [{"_id": i, "_text": text.rstrip().rstrip(".").rstrip()}
-                   for i, text in c.execute(sa.select(predictions.c.id, predictions.c.prediction)).all()
-                   if text and text.rstrip().endswith(".")]
+        changed = {i: text.rstrip().rstrip(".").rstrip() for i, text in c.execute(sa.select(predictions.c.id, predictions.c.prediction)).all()
+                   if text and text.rstrip().endswith(".")}
         if changed:
-            c.execute(predictions.update().where(predictions.c.id == sa.bindparam("_id")).values(prediction=sa.bindparam("_text")), changed)
+            _update_by_id(c, predictions.c.prediction, changed)
         c.execute(settings.insert().values(key="predictions_no_dot", value="1"))
 
 
