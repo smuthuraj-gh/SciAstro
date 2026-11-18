@@ -1911,7 +1911,7 @@ def distance_predictions(rules: list, jds: tuple) -> None:
     if not rules:
         st.caption("The Prediction Rules table has no Distance rows.")
         return
-    events = _distance_cached(tuple((r[0], r[2]) for r in rules), *jds)
+    events = _closest_farthest_cached(tuple((r[0], r[2]) for r in rules), *jds)
     texts = {(r[0], r[2]): r[4:6] for r in rules}            # (planet, Near / Far): (Event, Prediction)
     st.caption(f"{len(events)} in this period." if events else "None in this period.")
     if not events:
@@ -1967,7 +1967,7 @@ def _sky_cached(rules, jd_from, jd_to, orb_csv):
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
-def _distance_cached(rules, jd_from, jd_to):
+def _closest_farthest_cached(rules, jd_from, jd_to):
     return [(e.planet, e.kind, e.jd, e.au, e.pct) for e in core.distance_events(list(rules), jd_from, jd_to)]
 
 
