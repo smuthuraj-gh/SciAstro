@@ -239,16 +239,16 @@ predictions = sa.Table(
 )
 PREDICTIONS_COLUMNS = ["id", "Chart", "Moving", "Birth", "Kind", "Angle", "Events"]   # (Events: the column prediction)
 PREDICTION_ROWS = [                                           # the Transit rows the table starts with, once (samples, to be replaced)
-    ("Sa", "Su", "RA", 0, "Sample: Saturn at your birth Sun's RA."),
-    ("Sa", "Sa", "RA", 0, "Sample: Saturn back at its birth RA (Saturn return)."),
-    ("Ju", "Su", "RA", 0, "Sample: Jupiter at your birth Sun's RA."),
-    ("Sa", "Su", "RA", 180, "Sample: Saturn opposite your birth Sun in RA."),
-    ("Ma", "Mo", "Dec", 0, "Sample: Mars parallel your birth Moon in Dec."),
+    ("Sa", "Su", "RA", 0, "Sample: Saturn at your birth Sun's RA"),
+    ("Sa", "Sa", "RA", 0, "Sample: Saturn back at its birth RA (Saturn return)"),
+    ("Ju", "Su", "RA", 0, "Sample: Jupiter at your birth Sun's RA"),
+    ("Sa", "Su", "RA", 180, "Sample: Saturn opposite your birth Sun in RA"),
+    ("Ma", "Mo", "Dec", 0, "Sample: Mars parallel your birth Moon in Dec"),
 ]
 PREDICTION_BIRTH_ROWS = [                                     # and the Birth rows, once (added later)
-    ("Su", "Mo", "RA", 0, "Sample: Sun with Moon in RA at birth."),
-    ("Su", "Sa", "RA", 90, "Sample: Sun square Saturn in RA at birth."),
-    ("Ve", "Ma", "Dec", 0, "Sample: Venus parallel Mars in Dec at birth."),
+    ("Su", "Mo", "RA", 0, "Sample: Sun with Moon in RA at birth"),
+    ("Su", "Sa", "RA", 90, "Sample: Sun square Saturn in RA at birth"),
+    ("Ve", "Ma", "Dec", 0, "Sample: Venus parallel Mars in Dec at birth"),
 ]
 
 
@@ -439,6 +439,7 @@ def engine() -> sa.Engine:
     _add_prediction_chart(eng)
     _seed_predictions(eng)
     _trim_prediction_texts(eng)
+    _drop_prediction_dots(eng)
     return eng
 
 
@@ -980,13 +981,13 @@ def prediction_combinations() -> list[tuple[str, str, str, str, int, str]]:
     for m in PRED_MOVING:
         for b in PRED_BIRTH:
             for kind, angle, word in PRED_ANGLES:
-                out.append(("Transit", m, b, kind, angle, f"{name(m)} {word} your birth {name(b)} in {kind} ({angle}°)."))
+                out.append(("Transit", m, b, kind, angle, f"{name(m)} {word} your birth {name(b)} in {kind} ({angle}°)"))
     for i, a in enumerate(PRED_BIRTH):
         for b in PRED_BIRTH[i + 1:]:
             if {a, b} == {"NN", "SN"}:
                 continue
             for kind, angle, word in PRED_ANGLES:
-                out.append(("Birth", a, b, kind, angle, f"{name(a)} {word} {name(b)} in {kind} ({angle}°) at birth."))
+                out.append(("Birth", a, b, kind, angle, f"{name(a)} {word} {name(b)} in {kind} ({angle}°) at birth"))
     return out
 
 
@@ -1010,6 +1011,21 @@ def _trim_prediction_texts(eng: sa.Engine):
         if changed:
             c.execute(predictions.update().where(predictions.c.id == sa.bindparam("_id")).values(prediction=sa.bindparam("_text")), changed)
         c.execute(settings.insert().values(key="predictions_trimmed", value="1"))
+
+
+def _drop_prediction_dots(eng: sa.Engine):
+    """Once (a note among the settings says it is done): every Predictions text loses the full stop at its end."""
+    if "predictions" not in sa.inspect(eng).get_table_names():
+        return
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "predictions_no_dot")).scalar():
+            return
+        changed = [{"_id": i, "_text": text.rstrip().rstrip(".").rstrip()}
+                   for i, text in c.execute(sa.select(predictions.c.id, predictions.c.prediction)).all()
+                   if text and text.rstrip().endswith(".")]
+        if changed:
+            c.execute(predictions.update().where(predictions.c.id == sa.bindparam("_id")).values(prediction=sa.bindparam("_text")), changed)
+        c.execute(settings.insert().values(key="predictions_no_dot", value="1"))
 
 
 def _seed_predictions(eng: sa.Engine):
