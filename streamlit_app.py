@@ -355,7 +355,7 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
         + (f'<span style="font-weight:400; margin-left:12px">{html.escape(dob)}</span>' if (dob := birth_label(row, prep)) else "") +
         '<span class="now-clock" style="font-weight:400; margin-left:12px"></span>'   # (NOW_CLOCK_JS writes it)
         '</span>'
-        + ('<span class="globe-clock" style="white-space:pre"></span>' if title in ("AstroClock-2D", "AstroClock-3D", "Geo/Helio Model") else "") +   # its script writes it
+        + ('<span class="globe-clock" style="white-space:pre; font-weight:400"></span>' if title in ("AstroClock-2D", "AstroClock-3D", "Geo/Helio Model") else "") +   # its script writes it
         f'</div>' + NOW_CLOCK_JS, unsafe_allow_javascript=True)
     # the slot fills the rest of the line
     TITLE_SLOT = line.container(width="stretch", horizontal=True, gap="small")
