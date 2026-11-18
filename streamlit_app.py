@@ -222,7 +222,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "Predictions": "The Prediction Rules table's readings for the birth chart of the customer picked, in two tables. Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, as on Aspects), closest first: Planet, With, Aspect, Off (degrees from the angle), Orb, Event and Prediction (its reading, from Prediction Rules). "
+    "Predictions": "The Prediction Rules table's readings for the birth chart of the customer picked, in two tables. Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, as on Aspects), closest first: Planet, With, Aspect, Off (degrees from the angle), AR (Aspect Rules: the pair's orb there), Event and Prediction (its reading, from Prediction Rules). "
                    "Transits: its Transit rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Moving, Birth (the point of the birth chart; CB: house 10 at birth), "
                    "Aspect (RA and its angle, or Dec parallel / contra-parallel), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, as on Aspects; before Start / after End: within it already, or still), "
@@ -1787,7 +1787,7 @@ def birth_predictions(rules: list, birth: dict) -> None:
         if off <= orb:
             rows.append({"Planet": core.with_symbols(a), "With": core.with_symbols(b),
                          "Aspect": f"RA {angle}°" if kind == "RA" else "Dec parallel" if angle == 0 else "Dec contra-parallel",
-                         "Off": off, "Orb": orb, "Event": text, "Prediction": reading})
+                         "Off": off, "AR": orb, "Event": text, "Prediction": reading})
     if not rules:
         st.caption("The Prediction Rules table has no Birth rows.")
         return
@@ -1797,7 +1797,7 @@ def birth_predictions(rules: list, birth: dict) -> None:
     rows.sort(key=lambda r: r["Off"])
     show_table(pd.DataFrame(rows), hide_index=True, width="content",
                  column_config={"Off": st.column_config.NumberColumn(format="%.2f", help="Degrees from the angle at birth."),
-                                "Orb": st.column_config.NumberColumn(format="%g", help="The pair's orb (Aspect Rules).")})
+                                "AR": st.column_config.NumberColumn(format="%g", help="Aspect Rules: the pair's orb there.")})
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
