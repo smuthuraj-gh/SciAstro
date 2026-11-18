@@ -1657,7 +1657,8 @@ def page_accounts():
 
     crud_table("acct_editor", show, lambda rows: db.account_problems(rows.rename(columns=back)), commit, width="content",
                height="auto" if len(st.session_state.get("acct_editor_working", show)) <= 18 else 700,
-               column_config={"id": None,
+               column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small",
+                                                                  help="The row's number, set by the app (blank on a new row until saved)."),
                               "Email": st.column_config.TextColumn("Email *", width=260, help="The Google account email they sign "
                                                                    "in with: required, one row per email."),
                               "Access": st.column_config.SelectboxColumn("Access", options=list(access.ACCESS), width="small",
