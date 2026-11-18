@@ -121,7 +121,7 @@ HELP_ROWS_3 = [                                               # added later stil
     ("Select all", "Logins button: ticks every row (pressed again, Unselect all: none)"),
 ]
 HELP_OUT_OF_DATE = {                                          # the Help rows' Descriptions the app once wrote, out of date since
-    "Predictions": ("Page: when the planets now come to the angles with the birth chart that the Prediction Rules table names, with its Prediction for each",), "Prediction Rules": ("Page (admins): the Predictions table: a row per Moving planet, Birth point, Kind (RA or Dec) and Angle, with its Prediction",),   # (Chart: Birth too)
+    "Predictions": ("Page: when the planets now come to the angles with the birth chart that the Prediction Rules table names, with its Prediction for each",), "Prediction Rules": ("Page (admins): the Predictions table: a row per Moving planet, Birth point, Kind (RA or Dec) and Angle, with its Prediction", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Prediction"),   # (Chart: Birth too)
     "Moving": ("Predictions column: the planet now (Mo .. Sa, NN, SN)",), "Birth": ("Predictions column: the point of the birth chart it comes to (Mo .. Sa, NN, SN, CB)",),
     "Page Defaults": ("Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed Values)",   # (no Box Title now)
                       "Page (admins): what each page's buttons start as (Page, Options, Choices)",
@@ -155,7 +155,7 @@ HELP_ROWS_5 = [                                               # and again
 ]
 HELP_ROWS_6 = [                                               # and again: Predictions
     ("Predictions", "Page: the Prediction Rules readings for the birth chart (its points at those angles at birth) and for transits (when the planets now come to those angles with it)"),
-    ("Prediction Rules", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Prediction"),
+    ("Prediction Rules", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Events"),
     ("Moving", "Predictions column: Transit: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart"),
     ("Birth", "Predictions column: the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB)"),
     ("Chart", "Predictions column: Birth (the two points at the angle in the birth chart) or Transit (the planet now coming to the angle with the birth point)"),
@@ -237,7 +237,7 @@ predictions = sa.Table(
     sa.Column("prediction", sa.String(PRED_TEXT_MOST)),      # Prediction
     sa.UniqueConstraint("chart", "moving", "birth", "kind", "angle", name="ux_predictions_chart_rule"),
 )
-PREDICTIONS_COLUMNS = ["id", "Chart", "Moving", "Birth", "Kind", "Angle", "Prediction"]
+PREDICTIONS_COLUMNS = ["id", "Chart", "Moving", "Birth", "Kind", "Angle", "Events"]   # (Events: the column prediction)
 PREDICTION_ROWS = [                                           # the Transit rows the table starts with, once (samples, to be replaced)
     ("Sa", "Su", "RA", 0, "Sample: Saturn at your birth Sun's RA. Replace this with your own reading."),
     ("Sa", "Sa", "RA", 0, "Sample: Saturn back at its birth RA (Saturn return). Replace this with your own reading."),
@@ -1039,11 +1039,11 @@ def predictions_sorted(rows: pd.DataFrame) -> pd.DataFrame:
 
 
 def predictions_rows() -> pd.DataFrame:
-    """The Predictions table: id, Chart, Moving, Birth, Kind, Angle, Prediction, as the page shows it."""
+    """The Predictions table: id, Chart, Moving, Birth, Kind, Angle, Events (its prediction), as the page shows it."""
     with engine().connect() as c:
         rows = c.execute(sa.select(predictions)).mappings().all()
     df = pd.DataFrame([{"id": r["id"], "Chart": r["chart"], "Moving": r["moving"], "Birth": r["birth"], "Kind": r["kind"], "Angle": r["angle"],
-                        "Prediction": r["prediction"]} for r in rows], columns=PREDICTIONS_COLUMNS)
+                        "Events": r["prediction"]} for r in rows], columns=PREDICTIONS_COLUMNS)
     return predictions_sorted(df)
 
 
@@ -1076,7 +1076,7 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
         movers = PRED_BIRTH if chart == "Birth" else PRED_MOVING
         moving, birth, kind = _pick(movers, r.get("Moving")), _pick(PRED_BIRTH, r.get("Birth")), _pick(["RA", "Dec"], r.get("Kind"))
         angle = pd.to_numeric(r.get("Angle"), errors="coerce")
-        text = _cell(r.get("Prediction"))
+        text = _cell(r.get("Events"))
         label = " ".join(c for c in cells[:5] if c) or "New row"
         if not chart:
             out.append(f"{label}: Chart must be Birth or Transit")
@@ -1093,9 +1093,9 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
         elif kind == "Dec" and int(angle) not in (0, 180):
             out.append(f"{label}: a Dec Angle is 0 (parallel) or 180 (contra-parallel)")
         if not text:
-            out.append(f"{label}: Prediction is empty")
+            out.append(f"{label}: Events is empty")
         elif len(text) > PRED_TEXT_MOST:
-            out.append(f"{label}: Prediction can be at most {PRED_TEXT_MOST} characters")
+            out.append(f"{label}: Events can be at most {PRED_TEXT_MOST} characters")
         if chart and moving and birth and kind and pd.notna(angle):
             pair = tuple(sorted((moving, birth))) if chart == "Birth" else (moving, birth)   # (Birth: Su-Mo and Mo-Su are one pair)
             key = (chart, *pair, kind, int(angle))
@@ -1111,7 +1111,7 @@ def save_predictions(rows: pd.DataFrame) -> int:
     return _save_by_id(predictions, [
         (_row_id(r.get("id")), dict(chart=_pick(PRED_CHARTS, r.get("Chart")), moving=_pick(PRED_BIRTH, r.get("Moving")), birth=_pick(PRED_BIRTH, r.get("Birth")),
                                     kind=_pick(["RA", "Dec"], r.get("Kind")), angle=int(pd.to_numeric(r.get("Angle"))),
-                                    prediction=_cell(r.get("Prediction")) or None))
+                                    prediction=_cell(r.get("Events")) or None))
         for _, r in rows.iterrows() if any(_cell(r.get(c)) for c in PREDICTIONS_COLUMNS[1:])])
 
 

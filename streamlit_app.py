@@ -228,7 +228,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                    "Aspect (RA and its angle, or Dec parallel / contra-parallel), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, as on Aspects; before Start / after End: within it already, or still), "
                    "Off (degrees from the angle at Exact) and the Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details.",
     "Prediction Rules": "The Predictions table: a row per Chart (Birth: the two points at the angle in the birth chart, Moving the first, Birth the second; Transit: the planet now coming to the angle with the birth point), Moving planet (Transit: Mo .. Sa, NN, SN; Birth: CB too), Birth point (the same, and CB), Kind (RA: the RA between the two is the Angle; Dec: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
-                        "unique together (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair), with its Prediction (required, at most 500 characters), as the Predictions page shows it. It starts with every combination: Transit, each planet now (Mo .. Sa, NN, SN) with each birth point (and CB); Birth, each two birth points once (not NN with SN); each at RA 0, 60, 90, 120, 180 and Dec 0, 180, with a plain Prediction naming it to replace with your reading (938 rows; a row deleted stays deleted). "
+                        "unique together (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair), with its Events (required, at most 500 characters: its reading, shown in the Predictions page's Prediction column). It starts with every combination: Transit, each planet now (Mo .. Sa, NN, SN) with each birth point (and CB); Birth, each two birth points once (not NN with SN); each at RA 0, 60, 90, 120, 180 and Dec 0, 180, with a plain Prediction naming it to replace with your reading (938 rows; a row deleted stays deleted). "
                         "Insert, Update, Delete, each saved at once; Ignore; Reset to Previous.",
     "AstroClock-3D": "Time, with Now and DOB below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the North and South Celestial Poles (NCP, SCP); ECE and WCE are East and West on the Celestial Equator. "
                   "Rotate in 1s: the Earth turns about that fixed axis, west to east, while the sphere stands still, and time "
@@ -1747,7 +1747,7 @@ def _predictions_cached(birth, rules, jd_from, jd_to, orb_csv):
 
 
 def page_prediction_rules():
-    """The Predictions table: a row per Chart, Moving, Birth, Kind and Angle (unique together), with its Prediction;
+    """The Predictions table: a row per Chart, Moving, Birth, Kind and Angle (unique together), with its Events;
     admins only (Insert, Update, Delete, each saved at once; Ignore; Reset to Previous)."""
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
@@ -1766,7 +1766,7 @@ def page_prediction_rules():
                                                                        help="RA: the RA between the two is the Angle. Dec: Angle 0 parallel, 180 contra-parallel."),
                               "Angle": st.column_config.NumberColumn("Angle *", min_value=0, max_value=180, step=1, format="%d", width=70,
                                                                      help="0 to 180 (Dec: 0 or 180)."),
-                              "Prediction": st.column_config.TextColumn("Prediction *", width=600, help="Its reading, at most 500 characters.")})
+                              "Events": st.column_config.TextColumn("Events *", width=600, help="Its reading, at most 500 characters.")})
 
 
 def page_naming():
