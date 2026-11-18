@@ -390,7 +390,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
   const clockLine = (s, t) => {                    // as the drawing's: its date and time, at its place's UTC offset
     const known = s.offset !== null && s.offset !== undefined, off = known ? s.offset : 0;
     const ms = (s.jd + t - 2440587.5) * 86400000 + off * 3600000 + 500;       // to the nearest second
-    return (s.clock === "Now" ? "Timer" : s.clock) + " " + new Date(ms).toISOString().slice(0, 19).replace("T", " ") + (known ? " UTC" + pad2(off) : " UT");   // (Now runs on: Timer)
+    return "Timer " + new Date(ms).toISOString().slice(0, 19).replace("T", " ") + (known ? " UTC" + pad2(off) : " UT");   // (the moment the chart shows, from Now or DOB: Timer)
   };
   const showClocks = (t) => {                      // in the page's clock, beside the customer's name
     const box = document.querySelector(".globe-clock");
