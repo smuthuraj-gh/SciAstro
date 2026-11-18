@@ -11,13 +11,53 @@ from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import importlib
+import os
+import sys
+
 import pandas as pd
 import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
 
+# The app's own modules, each after those it imports. Streamlit runs this file again when it changes (as after a push, on
+# Streamlit Cloud), but keeps the modules it imported as they were: a module whose file has changed since is loaded again
+# here, with those after it in this list (they may use it), so the app never runs a new page with old modules.
+OWN_MODULES = ["astro.se", "astro.core", "astro.mapchart", "astro.places", "astro.rangechart", "astro.distancechart",
+               "astro.globechart", "astro.space3d", "astro.space3dview",
+               "app.access", "app.location", "app.db", "app.auth", "app.chartdata"]
+
+
+@st.cache_resource
+def _module_stamps() -> dict:
+    """Each own module's file time when last loaded, kept while the app runs."""
+    return {}
+
+
+def _reload_changed_modules(record_only: bool = False) -> None:
+    """Loads again each own module changed since (record_only: notes their file times only, as first imported)."""
+    stamps = _module_stamps()
+    first = None
+    for i, name in enumerate(OWN_MODULES):
+        mod = sys.modules.get(name)
+        if mod is None or not getattr(mod, "__file__", None):
+            continue
+        stamp = os.path.getmtime(mod.__file__)
+        if name in stamps and stamps[name] != stamp and first is None:
+            first = i
+        stamps.setdefault(name, stamp)
+    if first is None or record_only:
+        return
+    for name in OWN_MODULES[first:]:
+        if name in sys.modules:
+            importlib.reload(sys.modules[name])
+            stamps[name] = os.path.getmtime(sys.modules[name].__file__)
+
+
+_reload_changed_modules()
 from app import access, auth, db
 from app.chartdata import NOW_ONLY, Prepared, locate_cached, now_values, prepare
 from astro import core, distancechart, globechart, mapchart, places, rangechart, se, space3d, space3dview
+_reload_changed_modules(record_only=True)                     # (their file times, as first imported)
 
 # wide pages, the sidebar (menu, customer) starting closed so the charts get the whole window; » opens it
 st.set_page_config(page_title="Equatorial charts", page_icon=":material/public:", layout="wide",
