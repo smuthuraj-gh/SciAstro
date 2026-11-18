@@ -1,8 +1,8 @@
-"""Equatorial positions (RA / Dec only, no zodiac), distances, sidereal time and the aspect rules.
+"""Equatorial positions (RA / De only, no zodiac), distances, sidereal time and the aspect rules.
 
 Ported from the Excel workbook's VBA (modSE, modTable, modMap, modMovement); the rules are the same:
-an aspect at an angle holds when the RA separation is within the RA orb of the angle and the two Decs are within the
-Dec orb of equal or mirrored (one rule for every angle). A pair's orb is the total of its two planets' orbs (RA and Dec
+an aspect at an angle holds when the RA separation is within the RA orb of the angle and the two De values are within the
+De orb of equal or mirrored (one rule for every angle). A pair's orb is the total of its two planets' orbs (RA and De
 each); a house point (CB, CN) takes the planet's.
 """
 from __future__ import annotations
@@ -167,7 +167,7 @@ def position(label: str, jd_ut: float) -> Pos:
 
 
 def helio_position(label: str, jd_ut: float) -> Pos:
-    """As position, but seen from the Sun: RA and Dec on the same equatorial frame (the Earth's equator), and the distance from
+    """As position, but seen from the Sun: RA and De on the same equatorial frame (the Earth's equator), and the distance from
     the Sun. Ea is the Earth."""
     x, err = se.calc_ut(jd_ut, EARTH if label == "Ea" else PLANET_ID[label], se.CALC_FLAGS | se.FLG_HELCTR)
     if x is None:
@@ -176,7 +176,7 @@ def helio_position(label: str, jd_ut: float) -> Pos:
 
 
 def moon_north_node(jd_ut: float) -> tuple[float, float]:
-    """The (RA, Dec) of the Moon's true north node, where its path crosses the Sun's going north. The south node is opposite."""
+    """The (RA, De) of the Moon's true north node, where its path crosses the Sun's going north. The south node is opposite."""
     x, err = se.calc_ut(jd_ut, TRUE_NODE)
     if x is None:
         raise RuntimeError(f"Swiss Ephemeris: {err}")
@@ -191,8 +191,8 @@ def distance_pct(label: str, dist_au: float) -> float | None:
 
 
 def birth_points(jd_b: float, lat: float, lon: float) -> dict[str, tuple[float, float]]:
-    """The planets at birth and house 10 (as "CB"), RA / Dec rounded to 0.01 as the workbook keeps them.
-    CB: RA = the sidereal time at the birth place, Dec = its latitude."""
+    """The planets at birth and house 10 (as "CB"), RA / De rounded to 0.01 as the workbook keeps them.
+    CB: RA = the sidereal time at the birth place, De = its latitude."""
     pts = {}
     for p in BUTTON_ORDER:
         ps = position(p, jd_b)
@@ -211,7 +211,7 @@ def now_points(jd_now: float) -> dict[str, tuple[float, float]]:
 
 # ---------------------------------------------------------------- orbs
 def start_orb(angle: float) -> float:
-    """The orb used where the table has none (for RA and for Dec)."""
+    """The orb used where the table has none (for RA and for De)."""
     if angle in (0, 180):
         return 8.0
     if angle in (90, 120):
@@ -223,7 +223,7 @@ def start_orb(angle: float) -> float:
 
 @dataclass
 class Orbs:
-    """The orb table (Aspect, Angle, Mo-RA .. Sa-RA, NN-RA, SN-RA, Mo-De .. SN-De): an RA orb and a Dec orb per planet (a Dec
+    """The orb table (Aspect, Angle, Mo-RA .. Sa-RA, NN-RA, SN-RA, Mo-De .. SN-De): an RA orb and a De orb per planet (a De
     orb missing: its RA orb). The Aspect Rules table has one row, for every angle; a row for an angle of its own (an older
     table) still counts for that angle."""
     table: pd.DataFrame
@@ -246,7 +246,7 @@ class Orbs:
 
     def planet(self, angle: float, name: str, is_dec: bool = False) -> float:
         got = self._lookup.get((float(angle), name, is_dec), self._every.get((name, is_dec), -1.0))
-        return got if got >= 0 or not is_dec else self.planet(angle, name)   # (no Dec orb: its RA orb)
+        return got if got >= 0 or not is_dec else self.planet(angle, name)   # (no De orb: its RA orb)
 
     def pair(self, angle: float, n1: str, n2: str, is_dec: bool = False) -> float:
         """A pair's orb: the total of its two planets' orbs (a house point, CB or CN, with none: the planet's alone)."""
@@ -266,7 +266,7 @@ MOON_STEP = 0.25
 
 
 def range_rows(labels: list[str], jd_from: float, jd_to: float) -> pd.DataFrame:
-    """Each planet's RA / Dec / D every step (at most 2 days, at least 300 rows), the last row at jd_to."""
+    """Each planet's RA / De / D every step (at most 2 days, at least 300 rows), the last row at jd_to."""
     span = jd_to - jd_from
     step = min(span / MOVE_MIN_ROWS, MOVE_STEP_DAYS)
     if step <= 0:
@@ -333,7 +333,7 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
             sep = np.where(sep > 180.0, 360.0 - sep, sep)
             same, mirror = np.abs(de[a] - de[b]), np.abs(de[a] + de[b])
             for ang in angles:
-                o, od = orbs.pair(ang, a, b), orbs.pair(ang, a, b, is_dec=True)   # the RA orb and the Dec orb; one rule for every angle
+                o, od = orbs.pair(ang, a, b), orbs.pair(ang, a, b, is_dec=True)   # the RA orb and the De orb; one rule for every angle
                 h = (np.abs(sep - ang) <= o) & ((same <= od) | (mirror <= od))
                 start = h & ~np.concatenate(([False], h[:-1]))      # coming into the aspect
                 for k in np.flatnonzero(start):
@@ -344,7 +344,7 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
 
 
 # ---------------------------------------------------------------- Predictions: the moving planets against the birth chart
-TRANSIT_KINDS = ("RA", "Dec")       # RA: the RA between the two is the angle; Dec: 0 parallel (same Dec), 180 contra-parallel (mirrored)
+TRANSIT_KINDS = ("RA", "De")       # RA: the RA between the two is the angle; De: 0 parallel (same De), 180 contra-parallel (mirrored)
 TRANSIT_NEAR = 1.0                  # a pass counts only when the moving planet comes this close to the angle (degrees)
 
 
@@ -352,7 +352,7 @@ TRANSIT_NEAR = 1.0                  # a pass counts only when the moving planet 
 class TransitEvent:
     moving: str             # the planet now (Mo .. Sa, NN, SN)
     birth: str              # the point at birth it comes to (Mo .. Sa, NN, SN, CB)
-    kind: str               # RA or Dec
+    kind: str               # RA or De
     angle: int
     begins: float | None    # when it comes within the orb (None: already within it at the Start)
     exact: float            # when it is closest to the angle
@@ -361,7 +361,7 @@ class TransitEvent:
 
 
 def sky_point(name: str, jd_ut: float) -> tuple[float, float]:
-    """A planet's, or the Moon's node's, (RA, Dec) then (SN: opposite NN)."""
+    """A planet's, or the Moon's node's, (RA, De) then (SN: opposite NN)."""
     if name in ("NN", "SN"):
         ra, de = moon_north_node(jd_ut)
         return (ra, de) if name == "NN" else ((ra + 180.0) % 360.0, -de)
@@ -381,7 +381,7 @@ def transit_events(birth: dict[str, tuple[float, float]], rules: list[tuple[str,
                    jd_to: float, orbs: Orbs) -> list[TransitEvent]:
     """Each time a moving planet comes to the angle with a point of the birth chart, as each rule (moving, birth, kind,
     angle) says, across the period: when it comes within the orb (the pair's, as on Aspects: the total of the two's, from
-    Aspect Rules; RA orbs for RA, Dec orbs for Dec), when it is exact and when it leaves the orb; newest last. A planet
+    Aspect Rules; RA orbs for RA, De orbs for De), when it is exact and when it leaves the orb; newest last. A planet
     that turns back may come to it more than once. A pass that never comes within TRANSIT_NEAR of the angle does not count."""
     import numpy as np
     rules = [r for r in rules if r[1] in birth and r[2] in TRANSIT_KINDS and (r[2] == "RA" or r[3] in (0, 180))]
@@ -392,7 +392,7 @@ def transit_events(birth: dict[str, tuple[float, float]], rules: list[tuple[str,
     step = MOON_STEP if "Mo" in movers else 1.0
     n = int(math.ceil(span / step))
     jds = np.minimum(jd_from + np.arange(n + 1) * step, jd_to)
-    sky = {m: np.array([sky_point(m, float(jd)) for jd in jds]) for m in movers}   # (RA, Dec) at each step
+    sky = {m: np.array([sky_point(m, float(jd)) for jd in jds]) for m in movers}   # (RA, De) at each step
 
     def gap_at(m, kind, angle, b, jd) -> float:
         return transit_gap(kind, angle, *sky_point(m, jd), birth[b])
@@ -406,7 +406,7 @@ def transit_events(birth: dict[str, tuple[float, float]], rules: list[tuple[str,
             gap = np.abs(np.minimum(sep, 360.0 - sep) - angle)
         else:
             gap = np.abs(de - bde) if angle == 0 else np.abs(de + bde)
-        orb = orbs.pair(angle, m, b, is_dec=kind == "Dec")
+        orb = orbs.pair(angle, m, b, is_dec=kind == "De")
         inside = gap <= orb
         edges = np.flatnonzero(np.diff(np.concatenate(([0], inside.astype(int), [0]))))
         for i, j in zip(edges[::2], edges[1::2] - 1):         # each run of steps within the orb: i .. j

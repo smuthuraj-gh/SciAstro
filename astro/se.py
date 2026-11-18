@@ -30,7 +30,7 @@ try:
     BACKEND = "pyswisseph"
 
     def calc_ut(jd_ut: float, ipl: int, flags: int = CALC_FLAGS) -> tuple[tuple[float, ...] | None, str]:
-        """(RA, Dec, distance AU, and their daily speeds), or (None, error text)."""
+        """(RA, De, distance AU, and their daily speeds), or (None, error text)."""
         try:
             with _ONE_AT_A_TIME:
                 x, _ = _swe.calc_ut(jd_ut, ipl, flags)

@@ -1,4 +1,4 @@
-"""The Planets Cycles chart (the workbook's Range tab; the page was called Range): each chosen planet's Dec (-M) from the start (birth) to the end (now),
+"""The Planets Cycles chart (the workbook's Range tab; the page was called Range): each chosen planet's De (-M) from the start (birth) to the end (now),
 with dots where two -M planets come into an aspect (major or minor) joined pair by pair and tagged.
 The distance lines (-D) have their own chart (distancechart.py)."""
 from __future__ import annotations
@@ -33,7 +33,7 @@ def range_figure(dec_on: list[str], ea_on: list[int], jd_from: float, jd_to: flo
     t = [core.jd_to_datetime(j) for j in rows["jd"]]
     for p in labels:
         fig.add_trace(go.Scatter(x=t, y=rows[f"{p}-De"], mode="lines", name=f"{core.symbol_of(p)}-M", line=dict(color=core.colour(p), width=1.5),
-                                 hovertemplate=f"{core.symbol_of(p)}-M %{{x|%Y-%m-%d %H:%M}}<br>Dec %{{y:+.2f}}<extra></extra>"))
+                                 hovertemplate=f"{core.symbol_of(p)}-M %{{x|%Y-%m-%d %H:%M}}<br>De %{{y:+.2f}}<extra></extra>"))
     events = core.aspect_events(labels, jd_from, jd_to, ea_on, orbs)
     for ang in sorted(DOT_COLOUR):
         ev = [e for e in events if e.angle == ang]

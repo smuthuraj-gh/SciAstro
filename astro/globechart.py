@@ -1,8 +1,8 @@
 """The AstroClock-3D page: the Earth turning inside the celestial sphere. The sphere stands still, with the celestial equator
 and the celestial poles; the Earth inside it, with CB and CN on it, turns about the axis that joins those poles. As it turns,
-time runs, and each planet moves over the sphere as it really did, with its RA line (the circle of RA through it), Dec line
-(the circle of Dec through it) and size. At the start the Earth is set as it was at that moment, so a planet is straight
-above the place it was overhead. Equatorial only (RA / Dec)."""
+time runs, and each planet moves over the sphere as it really did, with its RA line (the circle of RA through it), De line
+(the circle of De through it) and size. At the start the Earth is set as it was at that moment, so a planet is straight
+above the place it was overhead. Equatorial only (RA / De)."""
 from __future__ import annotations
 
 import json
@@ -41,15 +41,15 @@ NODE_CHOICES = ("NN", "SN")       # the Moon's north and south nodes, picked wit
 ASPECT_NAMES = core.shown_order(core.BUTTON_ORDER + list(NODE_CHOICES))   # in aspect with each other (not NN with SN), named in this order
 HOUSE_COLOUR = "rgb(0,0,0)"
 ASPECT_COLOURS = {False: "rgb(0,0,0)", True: "rgb(110,110,110)"}     # major, minor
-HOUSE_VALUE_DEC = (-32.0, -44.0)  # the Dec of each house line's RA value, first and second place shown: low on the line
-HOUSE_LABEL_DEC = (55.0, 40.0)    # the Dec of the house names, first and second place shown: on the side tilted toward the viewer, off the planets' way
+HOUSE_VALUE_DEC = (-32.0, -44.0)  # the De of each house line's RA value, first and second place shown: low on the line
+HOUSE_LABEL_DEC = (55.0, 40.0)    # the De of the house names, first and second place shown: on the side tilted toward the viewer, off the planets' way
 PLACE_APART = 24.0                # pixels within which the icons of CB and CN would overlap on the Earth, and are moved apart
 EARTH_DEGREES_A_DAY = 360.98565  # the Earth's turn against the still sky in one day of the clock
 MOTION_DAYS = 26298               # how far time runs (72 years) before it starts again, the trails too, and the tables' reach ...
 NODE_STEP_DAYS = 2.0              # the Moon's true node wobbles over days
 MOTION_STEP_DAYS = {"Mo": 0.5, "Me": 2.0, "Ve": 4.0, "Su": 5.0, "Ma": 5.0, "Ju": 20.0, "Sa": 20.0}    # ... and their steps
 CX, CY = SKY_RADIUS + 58.0, HEIGHT / 2.0   # at the left, room left for the name WCE
-# AU (Coordinates): each planet inside the sphere, along its RA and Dec, at a radius by its distance from the Earth, from
+# AU (Coordinates): each planet inside the sphere, along its RA and De, at a radius by its distance from the Earth, from
 # the Earth's surface out to DIST_AU[1] at the sphere (past Saturn), to scale, or with Fit (Coordinates) on Geo/Helio Model's
 # Fit scale (space3d: each tenfold distance the same room, the empty space between the Moon and the planets taken out)
 DIST_AU = (0.0013, 11.0)
@@ -59,8 +59,8 @@ TEXT_W, TEXT_H = 8.0, 18.0      # a character's width and a line's height, for k
 
 @dataclass
 class GlobeInput:
-    birth: dict | None            # planet -> (RA, Dec) at birth, CB included
-    now: dict | None              # planet -> (RA, Dec) now
+    birth: dict | None            # planet -> (RA, De) at birth, CB included
+    now: dict | None              # planet -> (RA, De) now
     jd_birth: float | None
     jd_now: float
     cb: tuple[float, float] | None    # birth place (lat, lon)
@@ -77,8 +77,8 @@ class GlobeInput:
     show_houses: bool = False         # the twelve house lines from CB and CN, on the sphere, turning with the Earth
     show_distance: bool = False       # AU: each planet inside the sphere at a radius by its distance from the Earth
     show_links: bool = False          # SpC: a line from CB (DOB) or CN (Now) on the Earth to each planet
-    show_spokes: bool = False         # Sp (with AU): a dashed line from the Earth's centre, through the planet, out to its RA and Dec on the sphere
-    bodies: tuple = BODY_CHOICES      # the bodies to show, with their RA and Dec lines
+    show_spokes: bool = False         # Sp (with AU): a dashed line from the Earth's centre, through the planet, out to its RA and De on the sphere
+    bodies: tuple = BODY_CHOICES      # the bodies to show, with their RA and De lines
     paths: tuple = BODY_CHOICES       # the bodies whose paths to draw
     utc_birth: float | None = None    # the UTC offsets the clocks show their moments in, hours (None: in UT)
     utc_now: float | None = None
@@ -189,7 +189,7 @@ def _motion_rows(planet: str, start: float, days: int) -> dict:
 
 
 def _motion_table(planet: str, jd: float, days: int = MOTION_DAYS) -> dict:
-    """A body's RA, Dec and distance from jd on, for the page to move it by: what it needs to size it and name its Distance(%)
+    """A body's RA, De and distance from jd on, for the page to move it by: what it needs to size it and name its Distance(%)
     too. (To true scale the Sun and Moon would be about 3 px wide and the planets far less than 1 px, so the page sizes the
     markers on a logarithmic scale of how wide they look from the Earth: bigger always means looks bigger.) The rows start
     at jd's day_start; shift is how far on jd is, and at0 its exact place."""
@@ -277,7 +277,7 @@ def sky_svg(g: GlobeInput) -> tuple[str, list]:
     # the celestial equator
     circle = [(ra_facing + v, 0.0) for v in range(-180, 181, 2)]
     if g.show_celes:
-        _sky_line(circle, ra_facing, AXIS_COLOUR, 1.4, False, "Celestial equator (Dec 0)", near, far)
+        _sky_line(circle, ra_facing, AXIS_COLOUR, 1.4, False, "Celestial equator (De 0)", near, far)
 
     hole =f"M{CX - E} {CY}a{E} {E} 0 1 0 {2 * E} 0a{E} {E} 0 1 0 {-2 * E} 0Z"     # the Earth's disc
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}" '
@@ -335,17 +335,17 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
 
 
 def globe_figure(g: GlobeInput) -> go.Figure:
-    """The Earth: land and sea, and CB and CN with their RA and Dec lines, which turn with it."""
+    """The Earth: land and sea, and CB and CN with their RA and De lines, which turn with it."""
     fig = go.Figure()
     lats = [v / 2.0 for v in range(-180, 181)]           # a meridian, pole to pole, every half degree
     lons = [v / 2.0 for v in range(-360, 361)]           # a circle of latitude, right round, every half degree
     for label, place, show, jd in (("CB", g.cb, g.show_birth, g.jd_birth), ("CN", g.cn, g.show_now, g.jd_now)):
         if show and place:
             lat, lon = place
-            if jd is not None:                                # its RA (the sidereal time there) and Dec (its latitude)
+            if jd is not None:                                # its RA (the sidereal time there) and De (its latitude)
                 ra = core.lst(jd, lon)
                 for on, text, line_lon, line_lat in ((g.show_ra, f"{core.symbol_of(label)} RA: {ra:.2f}", [lon] * len(lats), lats),
-                                                     (g.show_dec, f"{core.symbol_of(label)} Dec/Lati: {lat:+.2f}", lons, [lat] * len(lons))):
+                                                     (g.show_dec, f"{core.symbol_of(label)} De/Lati: {lat:+.2f}", lons, [lat] * len(lons))):
                     if not on:
                         continue
                     fig.add_trace(go.Scattergeo(
@@ -413,7 +413,7 @@ __SYMBOL_JS__
             dist: b.dist[i] + (b.dist[i + 1] - b.dist[i]) * f,
             dec_speed: b.dec_speed[i] + (b.dec_speed[i + 1] - b.dec_speed[i]) * f};
   };
-  const nodeSample = (n, t) => {                   // the north node's RA and Dec, the same way
+  const nodeSample = (n, t) => {                   // the north node's RA and De, the same way
     if (t === 0 && n.at0) return n.at0;
     const u = (t + (n.shift || 0)) / n.step, i = Math.min(Math.floor(u), n.ra.length - 2), f = u - i;
     const change = ((n.ra[i + 1] - n.ra[i] + 540) % 360) - 180;
@@ -489,7 +489,7 @@ __SYMBOL_JS__
   const aspectAt = (s, name, t) => (name === "NN" || name === "SN"      // where a planet, or a node, is then
     ? nodeAt({s, turn: name === "NN" ? 0 : 180, sign: name === "NN" ? 1 : -1}, t) : sample(s.tables[name], t));
   const inAspect = (angle, a, b, orb, decOrb) => {   // the rule of core.aspect_events, for every angle: RA within the RA orb of
-    let sep = Math.abs(a.ra - b.ra);               // the angle, and the Decs within the Dec orb of equal or mirrored
+    let sep = Math.abs(a.ra - b.ra);               // the angle, and the De values within the De orb of equal or mirrored
     if (sep > 180) sep = 360 - sep;
     return Math.abs(sep - angle) <= orb && (Math.abs(a.dec - b.dec) <= decOrb || Math.abs(a.dec + b.dec) <= decOrb);
   };
@@ -510,7 +510,7 @@ __SYMBOL_JS__
   const clear = (a, taken) => taken.every((b) => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
   const inChart = (a) => a[0] > 0 && a[1] > 0 && a[2] < D.width && a[3] < D.height;
   const names = (list) => list.sort((a, b) => a[1] - b[1]).map(([p, gap]) => symbolOf(p) + " " + gap.toFixed(1) + "°").join(", ") || "none";
-  const moving = (body, s, t) => {                 // the others approaching and leaving it: the gap in Dec closing or opening
+  const moving = (body, s, t) => {                 // the others approaching and leaving it: the gap in De closing or opening
     const near = [], away = [];
     Object.entries(body.set.tables).forEach(([q, b]) => {
       if (q === body.name) return;
@@ -530,7 +530,7 @@ __SYMBOL_JS__
       make("rect", mark, {x: -9, y: -9, width: 18, height: 18, fill: "transparent"});   // to point at, the gaps too
       drawShape(mark, name, colour, hollow ? 1.2 : 2.2);   // thinner for DOB, as the planets are hollow
       const place = D.places.find((pl) => D.sets[pl.set] === s);   // CB for DOB, CN for Now
-      nodes.push({name, turn, sign, pole, s, mark, tip: make("title", mark),      // with its RA and Dec lines, as the planets'
+      nodes.push({name, turn, sign, pole, s, mark, tip: make("title", mark),      // with its RA and De lines, as the planets'
                   raLine: D.show_ra ? line(colour, hollow) : null, decLine: D.show_dec ? line(colour, hollow) : null,
                   place,                           // AU: at the Moon's distance; Sp and SpC lines as the planets'
                   spoke: D.by_distance && D.show_spokes ? make("line", spokeG, {stroke: colour, "stroke-width": 1, "stroke-dasharray": "2 3", style: "pointer-events:none"}) : null,
@@ -581,7 +581,7 @@ __SYMBOL_JS__
     const decs = p.pts.map((q) => q[1]), show = (v) => (v >= 0 ? "+" : "") + v.toFixed(2), days = Math.round(run);
     const aus = p.pts.filter((q) => q.length > 3).map((q) => q[3]);
     p.tip = p.name + " " + p.clock + ": where it has been since time started running, " + days + (days === 1 ? " day" : " days") +
-      (decs.length ? " (Dec between " + show(Math.min(...decs)) + " and " + show(Math.max(...decs)) + ")" : "") +
+      (decs.length ? " (De between " + show(Math.min(...decs)) + " and " + show(Math.max(...decs)) + ")" : "") +
       (aus.length ? "\nDistance from earth between " + Math.min(...aus).toPrecision(4) + " and " + Math.max(...aus).toPrecision(4) + " AU" : "");
   };
   const drawPaths = () => {                        // named only on pointing at them
@@ -596,7 +596,7 @@ __SYMBOL_JS__
       drawPaths();
     } else if (pathsFacing !== raFacing) drawPaths();
     const taken = D.taken.slice();       // in the order of who keeps their place: the planets' tags before the houses', which spin past
-    aspectLines.forEach((l) => {                   // the short way round between the two, straight in RA and Dec
+    aspectLines.forEach((l) => {                   // the short way round between the two, straight in RA and De
       const a = aspectAt(l.s, l.p, t), b = aspectAt(l.s, l.q, t);
       const on = D.aspects.filter((d) => inAspect(d.angle, a, b, d.orbs[l.p + "|" + l.q], d.dec_orbs[l.p + "|" + l.q]));
       l.tagged = on[0] || null;
@@ -618,7 +618,7 @@ __SYMBOL_JS__
       if (body.decLine) {
         const pts = [];
         for (let v = -180; v !== 183; v += 3) pts.push([raFacing + v, s.dec]);
-        body.decLine(pts, body.tipName + " Dec/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2));
+        body.decLine(pts, body.tipName + " De/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2));
       }
       const arcsec = 2 * Math.atan(b.km / (s.dist * D.au_km)) / RAD * 3600;
       const r = radiusAt(D.size_rules[body.name], body.set.tables, t);
@@ -630,7 +630,7 @@ __SYMBOL_JS__
         [["x1", px], ["y1", py], ["x2", x], ["y2", y]].forEach(([a, v]) => body.link.setAttribute(a, v.toFixed(1)));
         body.link.setAttribute("opacity", hidden || pz < 0 ? 0.25 : 0.55);   // every planet's: fainter from or to the far side
       }
-      if (body.spoke) {                            // from the Earth's centre, through the planet, out to its RA and Dec on the sphere
+      if (body.spoke) {                            // from the Earth's centre, through the planet, out to its RA and De on the sphere
         [["x1", D.cx], ["y1", D.cy], ["x2", sx], ["y2", sy]].forEach(([a, v]) => body.spoke.setAttribute(a, v.toFixed(1)));
         body.spoke.setAttribute("opacity", z >= 0 && !hidden ? 0.8 : 0.35);
       }
@@ -658,7 +658,7 @@ __SYMBOL_JS__
       if (node.decLine) {
         const pts = [];
         for (let v = -180; v !== 183; v += 3) pts.push([raFacing + v, at.dec]);
-        node.decLine(pts, tipName + " Dec/Lati: " + (at.dec >= 0 ? "+" : "") + at.dec.toFixed(2));
+        node.decLine(pts, tipName + " De/Lati: " + (at.dec >= 0 ? "+" : "") + at.dec.toFixed(2));
       }
       const hidden = z < 0 && Math.hypot(x - D.cx, y - D.cy) < D.earth, fade = z >= 0 ? 1 : 0.55;
       if (node.link) {                             // SpC: from CB or CN on the turning Earth (fainter from or to the far side)
@@ -666,7 +666,7 @@ __SYMBOL_JS__
         [["x1", px], ["y1", py], ["x2", x], ["y2", y]].forEach(([a, v]) => node.link.setAttribute(a, v.toFixed(1)));
         node.link.setAttribute("opacity", hidden || pz < 0 ? 0.25 : 0.55);
       }
-      if (node.spoke) {                            // Sp: from the Earth's centre out to its RA and Dec on the sphere
+      if (node.spoke) {                            // Sp: from the Earth's centre out to its RA and De on the sphere
         [["x1", D.cx], ["y1", D.cy], ["x2", sx], ["y2", sy]].forEach(([a, v]) => node.spoke.setAttribute(a, v.toFixed(1)));
         node.spoke.setAttribute("opacity", z >= 0 && !hidden ? 0.8 : 0.35);
       }
@@ -762,13 +762,13 @@ __SYMBOL_JS__
   const signed = (v) => (v >= 0 ? "+" : "") + v.toFixed(2);
   const tag = (name) => String.fromCharCode(60) + name + String.fromCharCode(62);   // (no tags written out in this script)
   const NL = tag("br");
-  const placeBox = (pl, t) => {                    // CB's or CN's box: approaching = the gap in Dec to its latitude is closing
+  const placeBox = (pl, t) => {                    // CB's or CN's box: approaching = the gap in De to its latitude is closing
     const near = [], away = [];
     Object.entries(D.sets[pl.set].tables).forEach(([p, b]) => {
       const s = sample(b, t), gap = s.dec - pl.lat, rate = s.dec_speed * (gap >= 0 ? 1 : -1);
       if (rate) (rate < 0 ? near : away).push([p, Math.abs(gap)]);
     });
-    return tag("b") + symbolOf(pl.label) + tag("/b") + " " + pl.title + NL + "Long: " + signed(pl.lon) + NL + "Dec/Lati: " + signed(pl.lat) +
+    return tag("b") + symbolOf(pl.label) + tag("/b") + " " + pl.title + NL + "Long: " + signed(pl.lon) + NL + "De/Lati: " + signed(pl.lat) +
       NL + "RA: " + (((pl.ra + D.spin * t) % 360 + 360) % 360).toFixed(2) +
       NL + "Approaching: " + names(near) + NL + "Leaving: " + names(away);
   };

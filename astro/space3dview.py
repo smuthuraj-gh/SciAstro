@@ -1,5 +1,5 @@
 """Geo/Helio Model's 3D view (its 3D button): the Earth (Geo) or the Sun (Helio) in the middle with the bodies around it in
-their real directions (RA, Dec) and distances, drawn in true 3D that can be turned and zoomed with the mouse (Plotly's 3D
+their real directions (RA, De) and distances, drawn in true 3D that can be turned and zoomed with the mouse (Plotly's 3D
 scene). Equatorial only: x toward RA 0, y toward RA 90, z toward the north celestial pole. One moment each for Now and DOB."""
 from __future__ import annotations
 
@@ -98,7 +98,7 @@ def _ball(radius: float, colour: str, name: str) -> go.Surface:
 
 
 def _place(centre: str, name: str, jd: float) -> tuple[float, float, float]:
-    """(RA, Dec, distance in AU) of a body seen from the centre; NN and SN on the Moon's path, at the Moon's distance."""
+    """(RA, De, distance in AU) of a body seen from the centre; NN and SN on the Moon's path, at the Moon's distance."""
     if name in ("NN", "SN"):
         ra, dec = core.moon_north_node(jd)
         moon = core.position("Mo", jd).dist_au
@@ -119,7 +119,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
     show_au: the rings of distance on the plane of the equator (the page's AU button); show_celes: the celestial
     coordinates, the plane of the equator, the axis with NCP and SCP, the equator and its RA names (its Ce button). show_links (SpC, Geo): a line from CB (DOB) or CN (Now) on the Earth
     to each body of its moment. show_spokes (Sp): a dashed line from the centre through each body out to the edge of the
-    view, at the body's RA and Dec."""
+    view, at the body's RA and De."""
     c = CENTRE[centre]
     ball_r = c["fit_r"]
     fig = go.Figure()
@@ -148,7 +148,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
                             color=_light(colour, 0.6) if hollow else colour,
                             line=dict(color=colour, width=2),
                             symbol="circle", opacity=1),
-                hovertemplate=f"{sym} {clock}<br>RA: {ra:.2f}<br>Dec/Lati: {dec:+.2f}<br>Distance from {c['name'].lower()}: "
+                hovertemplate=f"{sym} {clock}<br>RA: {ra:.2f}<br>De/Lati: {dec:+.2f}<br>Distance from {c['name'].lower()}: "
                               f"{au:.4g} AU<extra></extra>"))
         for name in paths:                                    # Planet Path: one trip round from the moment
             if name not in c["spans"] or name not in bodies:
@@ -235,7 +235,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
              offsets: dict | None = None, show_links: bool = False) -> str:
     """Rotate in 1s, for the 3D view: time runs from each moment, day_seconds a day of it (the speed picked), and each body's
     marker moves to where it really was then, its hover box with it; the clock of each moment at the top. The tables are
-    the same as the other pages' (72 years of RA, Dec and distance), and the markers are found by their names. Geo: the
+    the same as the other pages' (72 years of RA, De and distance), and the markers are found by their names. Geo: the
     Earth drawn as a globe, land and sea from Plotly's own world map (the one its map charts load, from cdn.plot.ly), with
     coastlines, lines of latitude and longitude every 30 degrees, and CB and CN at their places, turned as at the globe's
     moment and turning with time."""
@@ -405,7 +405,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
       const tb = M.tables[k], s = sample(tb, t), r = reach(s.dist), cd = Math.cos(s.dec * RAD);
       xs.push([r * cd * Math.cos(s.ra * RAD)]); ys.push([r * cd * Math.sin(s.ra * RAD)]); zs.push([r * Math.sin(s.dec * RAD)]);
       // (no "<" before a letter in this script: st.html's sanitizer would drop the whole script, so written as \\u003c)
-      tips.push(k + "\\u003cbr>RA: " + s.ra.toFixed(2) + "\\u003cbr>Dec/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2) +
+      tips.push(k + "\\u003cbr>RA: " + s.ra.toFixed(2) + "\\u003cbr>De/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2) +
                 "\\u003cbr>Distance from " + M.word + ": " + s.dist.toPrecision(4) + " AU\\u003cextra>\\u003c/extra>");
     });
     const radii = keys.map((k) => {                // by the Symbols table's Size, as on the flat drawing

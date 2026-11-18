@@ -1,5 +1,5 @@
 """The Geo/Helio Model page, GeoCentric and HelioCentric: the paths of the Sun, Moon and planets around the Earth, or of the planets and the Earth
-around the Sun, each at its real distance, unlike AstroClock-3D, where all are on one sphere. A point is placed by its RA, Dec and distance only (equatorial, no zodiac); north is up and the
+around the Sun, each at its real distance, unlike AstroClock-3D, where all are on one sphere. A point is placed by its RA, De and distance only (equatorial, no zodiac); north is up and the
 Earth's equator is the flat plane. Drawn on the page in SVG, so its labels can be kept apart as it is turned."""
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ SCP_BEYOND_AU = 20.0              # the axis reaches, both ways on the page, pas
 SCP_PAST_PX = 22                  # ... by this many pixels, NCP and SCP at its ends
 SIDES = 96                        # a ring is drawn with this many straight pieces
 # Flat (the AstroClock-2D page): GeoCentric seen from above the north celestial pole, each body at its RA and its distance
-# from the Earth (its Dec in its hover box only); only the FLAT_RING_AU circle, at the edge, with an RA scale round it,
+# from the Earth (its De in its hover box only); only the FLAT_RING_AU circle, at the edge, with an RA scale round it,
 # 1 to 360 (a tick every degree, longer every 5, numbered every 10)
 FLAT_RING_AU = 12.0
 OUTER_RING_AU = 20.0              # Geo and Helio: a circle beyond the planets, with the AU button
@@ -72,7 +72,7 @@ def _helio_rows(planet: str, start: float, days: int) -> dict:
 
 
 def _helio_table(planet: str, jd: float, days: int = RUN_DAYS) -> dict:
-    """A body's RA, Dec and distance as seen from the Sun, from jd on, for the page to move it by (rows from jd's day_start,
+    """A body's RA, De and distance as seen from the Sun, from jd on, for the page to move it by (rows from jd's day_start,
     shift and at0, as globechart._motion_table)."""
     start, p = day_start(jd), core.helio_position(planet, jd)
     return {**_helio_rows(planet, start, days), "shift": jd - start,
@@ -81,7 +81,7 @@ def _helio_table(planet: str, jd: float, days: int = RUN_DAYS) -> dict:
 
 def _node_geo_table(name: str, jd: float, days: int = RUN_DAYS) -> dict:
     """NN or SN as a body round the Earth (the flat page): on the Moon's path, so at the Moon's distance then, at the node's
-    own RA and Dec (the south node opposite the north)."""
+    own RA and De (the south node opposite the north)."""
     moon, node = _motion_table("Mo", jd, days), _node_table(jd)
     ra0, dec0 = node["at0"] if name == "NN" else ((node["at0"][0] + 180.0) % 360.0, -node["at0"][1])
     return {**_node_geo_rows(name, day_start(jd), days), "shift": moon["shift"],
@@ -229,7 +229,7 @@ __SYMBOL_JS__
     const log = Math.max(Math.log10(s.dist / D.log_from), 0), lo = Math.log10(D.gap[0] / D.log_from), hi = Math.log10(D.gap[1] / D.log_from);
     const r = log <= lo ? log :                    // Fit: the gap past the Moon closed up
       log >= hi ? log - (hi - lo) + D.gap[2] : lo + (log - lo) / (hi - lo) * D.gap[2], a = s.ra * RAD, d = s.dec * RAD;
-    if (D.flat) {                                  // flat: at its RA and distance (the Dec left out); Aspect: all at one distance
+    if (D.flat) {                                  // flat: at its RA and distance (the De left out); Aspect: all at one distance
       const rr = D.one_circle ? D.outer * D.one_circle_at : r;
       return [rr * Math.cos(a), rr * Math.sin(a), 0];
     }
@@ -383,7 +383,7 @@ __SYMBOL_JS__
       aspectLines.push({c, p, q, e, tip: make("title", e), tag: words("black")});
     }));
   });
-  const inAspect = (angle, a, b, orb, decOrb) => {   // the rule of core.aspect_events: RA within the RA orb of the angle, Decs within the Dec orb of equal or mirrored
+  const inAspect = (angle, a, b, orb, decOrb) => {   // the rule of core.aspect_events: RA within the RA orb of the angle, De values within the De orb of equal or mirrored
     let sep = Math.abs(a.ra - b.ra);
     if (sep > 180) sep = 360 - sep;
     return Math.abs(sep - angle) <= orb && (Math.abs(a.dec - b.dec) <= decOrb || Math.abs(a.dec + b.dec) <= decOrb);
@@ -477,12 +477,12 @@ __SYMBOL_JS__
       const auScale = make("path", svg, {d: auTicks, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 1});
       make("title", auScale).textContent = "Distance from earth in AU (not to scale: its marks evenly spaced): the planets at the time picked, to the left";
       const auName = words("rgb(90,90,90)");
-      auName.setAttribute("x", DIST_X - DIST_AU / 2); auName.setAttribute("y", (cy + R + 56).toFixed(1)); auName.textContent = "AU";   // (on the line of Dec and RA)
+      auName.setAttribute("x", DIST_X - DIST_AU / 2); auName.setAttribute("y", (cy + R + 56).toFixed(1)); auName.textContent = "AU";   // (on the line of De and RA)
     }
     const sides = [...distClocks, "Ave"].filter((name) => name !== "Ave" || aveMarks.length).map((name) => {   // which column is which, below that tag
       const x = distCol(name);
       const side = words("rgb(90,90,90)");
-      side.setAttribute("x", x); side.setAttribute("y", (cy + R + 56).toFixed(1)); side.textContent = name === "Ave" ? "Average" : name;   // (on the line of Dec and RA)
+      side.setAttribute("x", x); side.setAttribute("y", (cy + R + 56).toFixed(1)); side.textContent = name === "Ave" ? "Average" : name;   // (on the line of De and RA)
       return side;
     });
     if (sides.length && sides[0].getBBox) {         // Distance(%): its front over DOB's or Now's front, its back over Ave's back
@@ -589,7 +589,7 @@ __SYMBOL_JS__
       g.draw(g.p.pts, g.p.tip);
     });
     const states = marks.map((g) => posAt(g.m.clock, g.m.name, t).s);
-    const inSpace = (s) => {                         // a body's place in space (AU), from its RA, Dec and distance
+    const inSpace = (s) => {                         // a body's place in space (AU), from its RA, De and distance
       const ra = s.ra * Math.PI / 180, dec = s.dec * Math.PI / 180;
       return [s.dist * Math.cos(dec) * Math.cos(ra), s.dist * Math.cos(dec) * Math.sin(ra), s.dist * Math.sin(dec)];
     };
@@ -622,7 +622,7 @@ __SYMBOL_JS__
       return {g, x, y, z, r, ra: s.ra};
     }).sort((a, b) => b.r - a.r || a.z - b.z);       // the biggest first, so that a small planet is drawn over a big one
     // the Declination graph, each mark sized as on the clock, all in one column on lines of one length: marks at the same
-    // Dec overlap, which shows a possible conjunction
+    // De overlap, which shows a possible conjunction
     decMarks.forEach((g) => {
       const s = posAt(g.m.clock, g.m.name, t).s, r = radiusAt(g.m.rule, sizing(g.m.clock), t);
       const y = decY(Math.max(D.flat_dec[1], Math.min(D.flat_dec[0], s.dec))), x = DEC_X - DEC_LEAD;

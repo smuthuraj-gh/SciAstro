@@ -121,6 +121,8 @@ HELP_ROWS_3 = [                                               # added later stil
     ("Select all", "Logins button: ticks every row (pressed again, Unselect all: none)"),
 ]
 HELP_OUT_OF_DATE = {                                          # the Help rows' Descriptions the app once wrote, out of date since
+    "De": ("Each planet's Dec line on the sphere",   # (Dec is De now, and the Dec row joined it)
+           "De: Declination, a planet's angle north (+) or south (-) of the celestial equator; on AstroClock-3D, the Coordinates button for each planet's De line on the sphere"),
     "Predictions": ("Page: when the planets now come to the angles with the birth chart that the Prediction Rules table names, with its Prediction for each",), "Prediction Rules": ("Page (admins): the Predictions table: a row per Moving planet, Birth point, Kind (RA or Dec) and Angle, with its Prediction", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Prediction", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Events"),
     "Prediction": ("Prediction Rules column: the prediction for the row (optional, at most 500 characters); Events: what happens",),   # (Events is Event)   # (Chart: Birth too)
     "Moving": ("Predictions column: the planet now (Mo .. Sa, NN, SN)",), "Birth": ("Predictions column: the point of the birth chart it comes to (Mo .. Sa, NN, SN, CB)",),
@@ -156,11 +158,11 @@ HELP_ROWS_5 = [                                               # and again
 ]
 HELP_ROWS_6 = [                                               # and again: Predictions
     ("Predictions", "Page: the Prediction Rules readings for the birth chart (its points at those angles at birth) and for transits (when the planets now come to those angles with it)"),
-    ("Prediction Rules", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Event"),
+    ("Prediction Rules", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or De) and Angle, with its Event"),
     ("Moving", "Predictions column: Transit: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart"),
     ("Birth", "Predictions column: the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB)"),
     ("Chart", "Predictions column: Birth (the two points at the angle in the birth chart) or Transit (the planet now coming to the angle with the birth point)"),
-    ("Kind", "Predictions column: RA (the RA between the two is the Angle) or Dec (Angle 0: parallel, the same Dec; 180: contra-parallel, mirrored)"),
+    ("Kind", "Predictions column: RA (the RA between the two is the Angle) or De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored)"),
     ("Begins", "Predictions column: when the moving planet comes within the orb (before Start: within it already)"),
     ("Exact", "Predictions column: when it is closest to the Angle"),
     ("Ends", "Predictions column: when it leaves the orb (after End: still within it)"),
@@ -172,15 +174,15 @@ HELP_ROWS_9 = [("AR", "Aspect Rules: Predictions column (Birth), the pair's orb 
 HELP_VERSION = "9"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
-    ("AstroClock-2D", "Page: the Geo drawing seen from above the north celestial pole, each planet at its RA and distance, with the Dec and Distance(%) graphs"),
-    ("AstroClock-3D", "Page: the Earth turning inside the celestial sphere, the planets on it at their RA and Dec (3D: a true 3D view)"),
+    ("AstroClock-2D", "Page: the Geo drawing seen from above the north celestial pole, each planet at its RA and distance, with the De and Distance(%) graphs"),
+    ("AstroClock-3D", "Page: the Earth turning inside the celestial sphere, the planets on it at their RA and De (3D: a true 3D view)"),
     ("Geo/Helio Model", "Page: the planets' paths at their real distances round the Earth (Geo) or the Sun (Helio)"),
     ("Aspects", "Page: when the planets are in aspect, between a start and an end date"),
-    ("Planets Cycles", "Page: each planet's RA and Dec over time, between a start and an end date"),
+    ("Planets Cycles", "Page: each planet's RA and De over time, between a start and an end date"),
     ("Planets Distance(%)", "Page: each planet's Distance(%) from the Earth over time"),
     ("DOB Details", "Page (members): their birth details, and people added under their login"),
     ("Help", "Page: this table of the app's names and what they mean (admins change it)"),
-    ("Aspect Rules", "Page (admins): the orbs, RA and Dec, a pair of planets must be within to be in aspect"),
+    ("Aspect Rules", "Page (admins): the orbs, RA and De, a pair of planets must be within to be in aspect"),
     ("Customers", "Page (admins): a row per login: Email, Access, Start Date, End Date"),
     ("Page Defaults", "Page (admins): what each page's inputs start as (Page, Choice, Choice Values, Allowed Values)"),
     ("Logins", "Page (admins): who opened, added, changed or deleted what, when and from where"),
@@ -223,7 +225,7 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Size_Geo", "Symbols column: a planet's mark size on Geo"), ("Size_Helio", "Symbols column: a planet's mark size on Helio"),
 ]
 # The Predictions table (the Prediction Rules page): a row per rule, kept by admins. Chart Transit: when the Moving planet
-# (now) comes to the Angle with the Birth point, in RA or in Dec (Kind), the Predictions page shows its Prediction; Chart
+# (now) comes to the Angle with the Birth point, in RA or in De (Kind), the Predictions page shows its Prediction; Chart
 # Birth: when the two (Moving: the first point, Birth: the second) are at that Angle in the birth chart itself
 PRED_CHARTS = ["Birth", "Transit"]
 PRED_MOVING = ["Mo", "Su", "Me", "Ve", "Ma", "Ju", "Sa", "NN", "SN"]   # the planets now
@@ -235,8 +237,8 @@ predictions = sa.Table(
     sa.Column("chart", sa.String(8), nullable=False, server_default="Transit"),   # Chart: Birth or Transit
     sa.Column("moving", sa.String(8), nullable=False),       # Moving
     sa.Column("birth", sa.String(8), nullable=False),        # Birth
-    sa.Column("kind", sa.String(8), nullable=False),         # Kind: RA or Dec
-    sa.Column("angle", sa.Integer, nullable=False),          # Angle (Dec: 0 parallel, 180 contra-parallel)
+    sa.Column("kind", sa.String(8), nullable=False),         # Kind: RA or De
+    sa.Column("angle", sa.Integer, nullable=False),          # Angle (De: 0 parallel, 180 contra-parallel)
     sa.Column("prediction", sa.String(PRED_TEXT_MOST)),      # Event (named prediction before)
     sa.Column("forecast", sa.String(PRED_TEXT_MOST)),        # Prediction (optional)
     sa.UniqueConstraint("chart", "moving", "birth", "kind", "angle", name="ux_predictions_chart_rule"),
@@ -247,12 +249,12 @@ PREDICTION_ROWS = [                                           # the Transit rows
     ("Sa", "Sa", "RA", 0, "Sample: Saturn back at its birth RA (Saturn return)"),
     ("Ju", "Su", "RA", 0, "Sample: Jupiter at your birth Sun's RA"),
     ("Sa", "Su", "RA", 180, "Sample: Saturn opposite your birth Sun in RA"),
-    ("Ma", "Mo", "Dec", 0, "Sample: Mars parallel your birth Moon in Dec"),
+    ("Ma", "Mo", "De", 0, "Sample: Mars parallel your birth Moon in De"),
 ]
 PREDICTION_BIRTH_ROWS = [                                     # and the Birth rows, once (added later)
     ("Su", "Mo", "RA", 0, "Sample: Sun with Moon in RA at birth"),
     ("Su", "Sa", "RA", 90, "Sample: Sun square Saturn in RA at birth"),
-    ("Ve", "Ma", "Dec", 0, "Sample: Venus parallel Mars in Dec at birth"),
+    ("Ve", "Ma", "De", 0, "Sample: Venus parallel Mars in De at birth"),
 ]
 
 
@@ -277,7 +279,6 @@ HELP_ROWS = [                                                 # the abbreviation
     ("DOB", "Date of birth: as a Time, the planets at birth; also the admins' page of every customer's birth details"), ("Now", "The planets now"),
     ("Ave", "Average: each planet's Distance(%) halfway between DOB and Now"),
     ("RA", "Right Ascension: a planet's position along the celestial equator, 0 to 360 degrees"),
-    ("Dec", "Declination: a planet's angle north (+) or south (-) of the celestial equator"),
     ("AU", "Astronomical unit: the Earth's average distance from the Sun, about 150 million km"),
     ("Distance(%)", "A planet's distance from the Earth between its nearest (0) and farthest (100)"),
     ("Ho", "House lines: twelve, 30 degrees apart from the RA of CB and of CN"),
@@ -286,7 +287,7 @@ HELP_ROWS = [                                                 # the abbreviation
     ("WCE", "West end of the celestial equator, as drawn"), ("ECE", "East end of the celestial equator, as drawn"),
     ("Sp", "Spokes: a line from the Earth's centre through each planet to the sphere (in 3D, to the edge of the view)"),
     ("SpC", "Lines from CB (DOB) or CN (Now) on the Earth to each planet"),
-    ("De", "Each planet's Dec line on the sphere"), ("La", "The Earth's lines of latitude, every 30 degrees"),
+    ("De", "Declination, a planet's angle north (+) or south (-) of the celestial equator; on AstroClock-3D, the Coordinates button for each planet's De line on the sphere"), ("La", "The Earth's lines of latitude, every 30 degrees"),
     ("Lg", "The Earth's lines of longitude, every 30 degrees"),
     ("3D", "A true 3D view round the Earth, to turn and zoom with the mouse"),
     ("1C", "One circle: every planet on one circle at its RA, whatever its distance, to see conjunctions"),
@@ -347,7 +348,7 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("size_helio", sa.String(40)),                   # how the HelioCentric chart sizes it: Size_Helio
     sa.Column("size_clock_2d", sa.String(40)),                   # how the AstroClock-2D chart sizes it: Size_Clock-2D
 )
-# The Aspect Rules table: one row, ALL_ASPECTS, with an RA orb and a Dec orb per planet (-RA, -De), for every angle (kept
+# The Aspect Rules table: one row, ALL_ASPECTS, with an RA orb and a De orb per planet (-RA, -De), for every angle (kept
 # under angle 0; pos 0)
 ORB_COLUMNS = [c for c in core.default_orb_table().columns if c not in ("Aspect", "Angle")]
 aspect_details = sa.Table(
@@ -447,6 +448,7 @@ def engine() -> sa.Engine:
     _trim_prediction_texts(eng)
     _drop_prediction_dots(eng)
     _fill_prediction_readings(eng)
+    _dec_is_de(eng)
     return eng
 
 
@@ -659,7 +661,7 @@ COORD_BUTTONS_RENAMED = {"dec": "De", "lati": "La", "long": "Lg", "lat": "La", "
 
 
 def _rename_dec_button(eng: sa.Engine):
-    """AstroClock-3D's Coordinates buttons Dec, Lati, Long (then Lat, Lon), House, Celes, True and Co are called De, La, Lg, Ho, Ce, Tru and SpC: a
+    """AstroClock-3D's Coordinates buttons De, Lati, Long (then Lat, Lon), House, Celes, True and Co are called De, La, Lg, Ho, Ce, Tru and SpC: a
     Defaults row that names them gets the new names."""
     with eng.begin() as c:
         rows = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(
@@ -984,7 +986,7 @@ def _add_prediction_chart(eng: sa.Engine):
 
 
 PRED_ANGLES = [("RA", 0, "conjunct"), ("RA", 60, "sextile"), ("RA", 90, "square"), ("RA", 120, "trine"), ("RA", 180, "opposite"),
-               ("Dec", 0, "parallel"), ("Dec", 180, "contra-parallel")]   # every combination gets each (the major angles; Dec both)
+               ("De", 0, "parallel"), ("De", 180, "contra-parallel")]   # every combination gets each (the major angles; De both)
 
 
 def prediction_combinations() -> list[tuple[str, str, str, str, int, str]]:
@@ -1060,8 +1062,8 @@ TRANSIT_ANGLE = {   # (kind, angle): how the planet now meets the birth point
     ("RA", 90): "{brings} press on {part} {span}: tension that asks for effort and patience",
     ("RA", 120): "{brings} flow easily into {part} {span}: a smooth, supportive time",
     ("RA", 180): "{brings} pull against {part} {span}: others or outside events ask for balance",
-    ("Dec", 0): "{brings} quietly charge {part} {span}, like a soft conjunction",
-    ("Dec", 180): "{brings} stand across from {part} {span}, like a soft opposition asking for balance",
+    ("De", 0): "{brings} quietly charge {part} {span}, like a soft conjunction",
+    ("De", 180): "{brings} stand across from {part} {span}, like a soft opposition asking for balance",
 }
 TRANSIT_ADVICE = {   # the moving planet's advice: (with an easy angle, with a hard one, otherwise)
     "Mo": ("a good moment to rest and connect", "let reactions settle before acting", "notice what you need"),
@@ -1080,10 +1082,10 @@ BIRTH_ANGLE = {   # (kind, angle): how two points of the birth chart meet
     ("RA", 90): "{a} and {b} pull at each other: an inner tension that becomes strength through effort",
     ("RA", 120): "{a} and {b} work in easy harmony: a natural gift",
     ("RA", 180): "{a} and {b} face each other: a lifelong balancing act, often lived out through others",
-    ("Dec", 0): "{a} and {b} are quietly linked and color each other, like a soft conjunction",
-    ("Dec", 180): "{a} and {b} quietly mirror each other, like a soft opposition seeking balance",
+    ("De", 0): "{a} and {b} are quietly linked and color each other, like a soft conjunction",
+    ("De", 180): "{a} and {b} quietly mirror each other, like a soft opposition seeking balance",
 }
-EASY, HARD = {("RA", 60), ("RA", 120)}, {("RA", 90), ("RA", 180), ("Dec", 180)}
+EASY, HARD = {("RA", 60), ("RA", 120)}, {("RA", 90), ("RA", 180), ("De", 180)}
 
 
 def prediction_reading(chart: str, moving: str, birth: str, kind: str, angle: int) -> str:
@@ -1108,6 +1110,42 @@ def _update_by_id(c, column: sa.Column, values: dict[int, str]) -> None:
         part = items[k:k + 200]
         c.execute(column.table.update().where(column.table.c.id.in_([i for i, _ in part]))
                   .values({column.name: sa.case({i: sa.cast(sa.literal(v), column.type) for i, v in part}, value=column.table.c.id)}))   # (typed: Postgres needs it)
+
+
+DEC_WORD = re.compile(r"\bDecs\b|\bDec\b")                   # Dec, as it was called before De (uniform naming)
+
+
+def _dec_text(text):
+    """text with Dec called De (Decs: De values)."""
+    return DEC_WORD.sub(lambda m: "De values" if m.group(0) == "Decs" else "De", text) if text else text
+
+
+def _dec_is_de(eng: sa.Engine):
+    """Once (a note among the settings says it is done): Dec is called De everywhere in the data: the Predictions table's
+    Kind, Event and Prediction; the Help table's descriptions, its Dec row joining its De row (or becoming it)."""
+    tables = sa.inspect(eng).get_table_names()
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "dec_is_de")).scalar():
+            return
+        if "predictions" in tables:
+            c.execute(predictions.update().where(predictions.c.kind == "Dec").values(kind="De"))
+            for col in (predictions.c.prediction, predictions.c.forecast):
+                rows = c.execute(sa.select(predictions.c.id, col)).all()
+                changed = {i: _dec_text(v) for i, v in rows if v and _dec_text(v) != v}
+                if changed:
+                    _update_by_id(c, col, changed)
+        if "help" in tables:
+            ids = {a.lower(): i for i, a in c.execute(sa.select(help_table.c.id, help_table.c.abbreviation)).all()}
+            if "dec" in ids:
+                if "de" in ids:
+                    c.execute(help_table.delete().where(help_table.c.id == ids["dec"]))
+                else:
+                    c.execute(help_table.update().where(help_table.c.id == ids["dec"]).values(abbreviation="De"))
+            rows = c.execute(sa.select(help_table.c.id, help_table.c.description)).all()
+            changed = {i: _dec_text(v) for i, v in rows if v and _dec_text(v) != v}
+            if changed:
+                _update_by_id(c, help_table.c.description, changed)
+        c.execute(settings.insert().values(key="dec_is_de", value="1"))
 
 
 def _fill_prediction_readings(eng: sa.Engine):
@@ -1224,8 +1262,8 @@ def _pick(names: list[str], value) -> str:
 
 def predictions_problems(rows: pd.DataFrame) -> list[str]:
     """What is wrong with the Predictions rows: each needs a Chart (Birth or Transit), a Moving planet (PRED_MOVING; Birth
-    chart: a point of PRED_BIRTH, not the Birth one), a Birth point (PRED_BIRTH), a Kind (RA or Dec), an Angle (a whole
-    number, 0 to 180; Dec: 0 or 180) and a Prediction (at most PRED_TEXT_MOST characters); Chart, Moving, Birth, Kind and
+    chart: a point of PRED_BIRTH, not the Birth one), a Birth point (PRED_BIRTH), a Kind (RA or De), an Angle (a whole
+    number, 0 to 180; De: 0 or 180) and a Prediction (at most PRED_TEXT_MOST characters); Chart, Moving, Birth, Kind and
     Angle together once in the table (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair). A wholly
     empty row does not count."""
     out, seen = [], set()
@@ -1235,7 +1273,7 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
             continue
         chart = _pick(PRED_CHARTS, r.get("Chart"))
         movers = PRED_BIRTH if chart == "Birth" else PRED_MOVING
-        moving, birth, kind = _pick(movers, r.get("Moving")), _pick(PRED_BIRTH, r.get("Birth")), _pick(["RA", "Dec"], r.get("Kind"))
+        moving, birth, kind = _pick(movers, r.get("Moving")), _pick(PRED_BIRTH, r.get("Birth")), _pick(["RA", "De"], r.get("Kind"))
         angle = pd.to_numeric(r.get("Angle"), errors="coerce")
         text = _cell(r.get("Event"))
         label = " ".join(c for c in cells[:5] if c) or "New row"
@@ -1248,11 +1286,11 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
         if not birth:
             out.append(f"{label}: Birth must be one of {', '.join(PRED_BIRTH)}")
         if not kind:
-            out.append(f"{label}: Kind must be RA or Dec")
+            out.append(f"{label}: Kind must be RA or De")
         if pd.isna(angle) or float(angle) != int(angle) or not 0 <= angle <= 180:
             out.append(f"{label}: Angle must be a whole number from 0 to 180")
-        elif kind == "Dec" and int(angle) not in (0, 180):
-            out.append(f"{label}: a Dec Angle is 0 (parallel) or 180 (contra-parallel)")
+        elif kind == "De" and int(angle) not in (0, 180):
+            out.append(f"{label}: a De Angle is 0 (parallel) or 180 (contra-parallel)")
         if not text:
             out.append(f"{label}: Event is empty")
         elif len(text) > PRED_TEXT_MOST:
@@ -1273,7 +1311,7 @@ def save_predictions(rows: pd.DataFrame) -> int:
     """Makes the Predictions table these rows (wholly empty ones left out), each keeping its ID; gives how many it has."""
     return _save_by_id(predictions, [
         (_row_id(r.get("id")), dict(chart=_pick(PRED_CHARTS, r.get("Chart")), moving=_pick(PRED_BIRTH, r.get("Moving")), birth=_pick(PRED_BIRTH, r.get("Birth")),
-                                    kind=_pick(["RA", "Dec"], r.get("Kind")), angle=int(pd.to_numeric(r.get("Angle"))),
+                                    kind=_pick(["RA", "De"], r.get("Kind")), angle=int(pd.to_numeric(r.get("Angle"))),
                                     prediction=_cell(r.get("Event")) or None, forecast=_cell(r.get("Prediction")) or None))
         for _, r in rows.iterrows() if any(_cell(r.get(c)) for c in PREDICTIONS_COLUMNS[1:])])
 
@@ -1365,8 +1403,8 @@ def _add_orb_points(eng: sa.Engine):
 
 
 def _add_orb_dec(eng: sa.Engine):
-    """Once (a note among the settings says it is done): the Aspect Rules table gets its Dec orbs back (Mo-De .. SN-De),
-    each as its RA orb, so that the aspects found stay as they were (old Dec orbs kept in the table are replaced)."""
+    """Once (a note among the settings says it is done): the Aspect Rules table gets its De orbs back (Mo-De .. SN-De),
+    each as its RA orb, so that the aspects found stay as they were (old De orbs kept in the table are replaced)."""
     have = {c["name"] for c in sa.inspect(eng).get_columns("aspect_details")}
     with eng.begin() as c:
         if c.execute(sa.select(settings.c.value).where(settings.c.key == "dec_orbs_set")).scalar():
