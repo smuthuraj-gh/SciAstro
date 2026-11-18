@@ -1196,12 +1196,12 @@ def predictions_rows() -> pd.DataFrame:
     return predictions_sorted(df)
 
 
-def prediction_rules() -> list[tuple[str, str, str, str, int, str]]:
-    """The Predictions rows as (chart, moving, birth, kind, angle, prediction), for the Predictions page."""
+def prediction_rules() -> list[tuple[str, str, str, str, int, str, str]]:
+    """The Predictions rows as (chart, moving, birth, kind, angle, events, prediction), for the Predictions page."""
     with engine().connect() as c:
         rows = c.execute(sa.select(predictions.c.chart, predictions.c.moving, predictions.c.birth, predictions.c.kind,
-                                   predictions.c.angle, predictions.c.prediction)).all()
-    return [(ch, m, b, k, int(a), p or "") for ch, m, b, k, a, p in rows]
+                                   predictions.c.angle, predictions.c.prediction, predictions.c.forecast)).all()
+    return [(ch, m, b, k, int(a), p or "", f or "") for ch, m, b, k, a, p, f in rows]
 
 
 def _pick(names: list[str], value) -> str:
