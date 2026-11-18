@@ -1,7 +1,7 @@
 """Equatorial (RA / Dec) charts with Swiss Ephemeris - the web version of the Excel workbook.
 
 Pages: AstroClock-2D, AstroClock-3D, Geo/Helio Model, Planets Distance(%), Planets Cycles, Aspects (its aspects as tables) for everyone (their own customers only);
-Aspect Rules, Customers (each login's Access), DOB (the birth details), Symbols, Defaults and Logins for admins; DOB Details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
+Aspect Rules, Customers (each login's Access), DOB (the birth details), Symbols, Page Defaults, App Conditions and Logins for admins; DOB Details for users. Run locally:  .venv\\Scripts\\streamlit run streamlit_app.py
 """
 from __future__ import annotations
 
@@ -219,7 +219,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "AstroClock-2D": "Coordinates: Ho (the house lines of CB and CN), 1C (every planet on one circle at its RA, whatever its distance, so that planets in conjunction sit together) DA (the Ave planets on the Distance(%) graph, on to start) and PP (the Planet Path of each planet shown: a trail behind it while time runs). Left of the clock, Dec: each planet's Declination on a scale from +30 to -30 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at DOB and at Now to the left of its line, and at Ave (the average of the two, moving as time runs) to the right. Major Aspects and Minor Aspects: the angles to draw; two planets at the same time in one of them, by the orbs in Aspect Rules, are joined by a line tagged as 0-Ma-Ju. Rotate in 1s: pick a speed for time to run; with none picked it stands still, and dragging the drawing moves it by hand: right is later, left is back, as far as where it started, 6 hours a pixel.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
-    "Conditions": "The Conditions table: a row per Condition, its Table Name and its Values. Condition is required and unique (Abc and abc "
+    "App Conditions": "The App Conditions table: a row per Condition, its Table Name and its Values. Condition is required and unique (Abc and abc "
                   "are the same), at most 60 characters; Table Name at most 60; Values at most 500. Rows are in Condition order. Seen by admins only, "
                   "who can Insert, Update and Delete rows (each saved at once), Ignore changes not saved yet, and Reset to "
                   "Previous; click a column name to sort.",
@@ -230,7 +230,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
               "browser and system, and their browser's time zone. Access: theirs then. Seen by admins only; "
               "click a column name to sort. To delete rows, tick them in the Del column and press Delete, or press Delete all; "
               "either asks first, and a deleted row cannot be brought back.",
-    "Defaults": "The Defaults table: what each page's inputs start as. A row per input, each column its own: Page (e.g. DOB Details), Box Title (the box the input is in, e.g. Get more days of access: DOB Details shows it as that box's title), Choice (the input, e.g. Days), Choice Values (what it starts as, e.g. 1) and Allowed Values (the values Choice Values may be set to, e.g. 1, 7, 30, 90, 180, 365: all the input's values, or those typed there, comma-separated; the page offers only those; clear it for all again; a text box, the words allowed, e.g. Pay, Free, blank for any text; dates and single on / off buttons cannot be narrowed). "
+    "Page Defaults": "The Page Defaults table: what each page's inputs start as. A row per input, each column its own: Page (e.g. DOB Details), Box Title (the box the input is in, e.g. Get more days of access: DOB Details shows it as that box's title), Choice (the input, e.g. Days), Choice Values (what it starts as, e.g. 1) and Allowed Values (the values Choice Values may be set to, e.g. 1, 7, 30, 90, 180, 365: all the input's values, or those typed there, comma-separated; the page offers only those; clear it for all again; a text box, the words allowed, e.g. Pay, Free, blank for any text; dates and single on / off buttons cannot be narrowed). "
                 "Choice Values: buttons, the ones on, comma-separated, by name, SAbr or symbol (e.g. Ju, Sa; 0, 180; 1d), "
                 "blank for none; Coordinates: the buttons below it that start on (e.g. Ho, DA; Ce, AU). Start Date (UT): DOB or Now. End Date (UT): Now, or "
                 "Start Date (UT) + a time, e.g. 5 days, 2 years 6 months (years, months, weeks, days), which moves with the "
@@ -261,7 +261,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "DOB Details": "Get more days of access (every member): pick 1, 7, 30, 90, 180 or 365 days, apply the coupon Free (for now, free) and press Add days (Days and Pay / Coupon start as the Defaults table says); they are added to your End Date while it runs, else from now, and open the DOB charts. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them; your login "
+    "DOB Details": "Get more days of access (every member): pick 1, 7, 30, 90, 180 or 365 days, apply the coupon Free (for now, free) and press Add days (Days and Pay / Coupon start as the Page Defaults table says); they are added to your End Date while it runs, else from now, and open the DOB charts. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them; your login "
                   "email stays the same.",
 }
 
@@ -1926,12 +1926,12 @@ pages = [st.Page(page_astroclock, title="AstroClock-2D", icon=":material/science
          st.Page(page_aspects_view, title="Aspects", icon=":material/scatter_plot:", url_path="aspects"),
          st.Page(page_range, title="Planets Cycles", icon=":material/show_chart:", url_path="planets-cycles"),
          st.Page(page_distance, title="Planets Distance(%)", icon=":material/straighten:", url_path="planets-distance")]
-if user.is_admin:                                             # the Aspect Rules, Conditions, DOB, Symbols, Defaults, Help, Logins, Readme pages: admins only
+if user.is_admin:                                             # the Aspect Rules, App Conditions, DOB, Symbols, Page Defaults, Help, Logins, Readme pages: admins only
     pages += [st.Page(page_aspects, title="Aspect Rules", icon=":material/tune:", url_path="aspect-rules"),
-              st.Page(page_conditions, title="Conditions", icon=":material/rule:", url_path="conditions"),
+              st.Page(page_conditions, title="App Conditions", icon=":material/rule:", url_path="conditions"),
               st.Page(page_accounts, title="Customers", icon=":material/badge:", url_path="customers"),
               st.Page(page_customers, title="DOB", icon=":material/group:", url_path="dob"),
-              st.Page(page_defaults, title="Defaults", icon=":material/settings:", url_path="defaults"),
+              st.Page(page_defaults, title="Page Defaults", icon=":material/settings:", url_path="defaults"),
               st.Page(page_help_table, title="Help", icon=":material/help:", url_path="help"),
               st.Page(page_logins, title="Logins", icon=":material/history:", url_path="logins"),
               st.Page(page_readme, title="Readme", icon=":material/description:", url_path="readme"),

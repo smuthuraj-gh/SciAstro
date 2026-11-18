@@ -109,11 +109,11 @@ help_table = sa.Table(
     sa.Column("description", sa.String(500)),
 )
 HELP_ROWS_3 = [                                               # added later still: the Defaults table's columns, DOB Details' and Logins' names
-    ("Box Title", "Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box"),
-    ("Choice", "Defaults column: the input, by its name on the page (e.g. Days); one row per Page and Choice"),
-    ("Choice Values", "Defaults column: what the input starts as (e.g. 7; Ju, Sa; On); blank: the app's own default"),
-    ("Allowed Values", "Defaults column: the values Choice Values may be set to, and all the page offers (e.g. 1, 7, 30; for a text box, words such as Pay, Free); blank: all"),
-    ("Get more days of access", "DOB Details box (its title as the Defaults table's Box Title says): add days of DOB access with Days and Pay / Coupon"),
+    ("Box Title", "Page Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box"),
+    ("Choice", "Page Defaults column: the input, by its name on the page (e.g. Days); one row per Page and Choice"),
+    ("Choice Values", "Page Defaults column: what the input starts as (e.g. 7; Ju, Sa; On); blank: the app's own default"),
+    ("Allowed Values", "Page Defaults column: the values Choice Values may be set to, and all the page offers (e.g. 1, 7, 30; for a text box, words such as Pay, Free); blank: all"),
+    ("Get more days of access", "DOB Details box (its title as the Page Defaults table's Box Title says): add days of DOB access with Days and Pay / Coupon"),
     ("Pay / Coupon", "DOB Details: the coupon (Free, for now) or, later, the payment for the days added"),
     ("Add days", "DOB Details button: adds the Days picked to your End Date (from now when it has passed)"),
     ("Add a DOB", "DOB Details box: a person to add under your login, with Search Only or Save and Search"),
@@ -123,22 +123,29 @@ HELP_ROWS_3 = [                                               # added later stil
     ("Select all", "Logins button: ticks every row (pressed again, Unselect all: none)"),
 ]
 HELP_OUT_OF_DATE = {                                          # the Help rows' Descriptions the app once wrote, out of date since
-    "Defaults": ("Page (admins): what each page's buttons start as (Page, Options, Choices)",
+    "Page Defaults": ("Page (admins): what each page's buttons start as (Page, Options, Choices)",
                  "Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed_Values)"),
     "Customers": ("Page (admins): a row per login: Email, Access, Start Date, Days, End Date",),                    # (its Days column is gone)
     "Access": ("Customers column: Now (the Now charts), DOB (the DOB charts, for Days days) or Admin",),
     "Coordinates": ("Title button: which lines and tags to show (Ho, Ce, AU, 3D, Sp, SpC, RA, De, La, Lg, 1C, DA)",),                # (PP added)
     "Rotate in 1s": ("Title button: how much time passes each second (Manual, 1s to 1y)",),                   # (Manual is gone)
-    "Conditions": ("Page (admins): the Conditions table: a row per Condition (unique) and its Values",),   # (Table Name added)
+    "App Conditions": ("Page (admins): the Conditions table: a row per Condition (unique) and its Values",   # (Table Name added;
+                       "Page (admins): the Conditions table: a row per Condition (unique), its Table Name and its Values"),   # renamed)
+    "Box Title": ("Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box",),
+    "Choice": ("Defaults column: the input, by its name on the page (e.g. Days); one row per Page and Choice",),
+    "Choice Values": ("Defaults column: what the input starts as (e.g. 7; Ju, Sa; On); blank: the app's own default",),
+    "Allowed Values": ("Defaults column: the values Choice Values may be set to, and all the page offers (e.g. 1, 7, 30; for a text box, words such as Pay, Free); blank: all",),
+    "Get more days of access": ("DOB Details box (its title as the Defaults table's Box Title says): add days of DOB access with Days and Pay / Coupon",),   # (the page called Page Defaults)
     "Days": ("Customers column: days of DOB access to add (1, 7, 30, 90, 180, 365); End Date is extended by them",),                         # (now DOB Details')
 }
+HELP_RENAMED = {"Page Defaults": ("Defaults", "Page_Defaults"), "App Conditions": ("Conditions",)}   # pages' Help rows renamed
 HELP_GONE = {"Came from": "Logins column: the site that brought the visitor (its name only); blank: none known",
              "Manual": "Time stands still; drag the drawing to turn it", "Planet Path": "Title button: the path of each planet picked"}   # the Help rows for buttons since gone, as the app wrote them
 HELP_ROWS_4 = [                                               # added later again
     ("PP", "Planet Path: a button under Coordinates (AstroClock-2D, AstroClock-3D, Geo/Helio Model): the path of each planet shown"),
 ]
 HELP_ROWS_5 = [                                               # and again
-    ("Conditions", "Page (admins): the Conditions table: a row per Condition (unique), its Table Name and its Values"),
+    ("App Conditions", "Page (admins): the App Conditions table: a row per Condition (unique), its Table Name and its Values"),
 ]
 HELP_VERSION = "5"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
@@ -153,7 +160,7 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Help", "Page: this table of the app's names and what they mean (admins change it)"),
     ("Aspect Rules", "Page (admins): the orbs, RA and Dec, a pair of planets must be within to be in aspect"),
     ("Customers", "Page (admins): a row per login: Email, Access, Start Date, End Date"),
-    ("Defaults", "Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed Values)"),
+    ("Page Defaults", "Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed Values)"),
     ("Logins", "Page (admins): who opened, added, changed or deleted what, when and from where"),
     ("Readme", "Page (admins): the app's README file"),
     ("Symbols", "Page (admins): each planet's symbol, short name, colour and size"),
@@ -687,13 +694,18 @@ def _rename_help_abbre(eng: sa.Engine):
 
 
 def _rename_help_rows(eng: sa.Engine):
-    """Help rows for pages since renamed get the new name (their Description kept): Page_Defaults, for a while the
-    Defaults page's name, is Defaults again; rows the app wrote that are out of date since (HELP_OUT_OF_DATE) are brought up to date."""
+    """Help rows for pages since renamed get the new name (their Description kept; HELP_RENAMED: Defaults, once
+    Page_Defaults, is Page Defaults, and Conditions is App Conditions); rows the app wrote that are out of date since (HELP_OUT_OF_DATE) are brought up to date."""
     if "help" not in sa.inspect(eng).get_table_names():
         return
     with eng.begin() as c:
-        if not c.execute(sa.select(help_table.c.id).where(sa.func.lower(help_table.c.abbreviation) == "defaults")).first():
-            c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == "page_defaults").values(abbreviation="Defaults"))
+        for new, olds in HELP_RENAMED.items():               # (the first old name there, when the new one is not)
+            if c.execute(sa.select(help_table.c.id).where(sa.func.lower(help_table.c.abbreviation) == new.lower())).first():
+                continue
+            for old in olds:
+                if c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == old.lower())
+                             .values(abbreviation=new)).rowcount:
+                    break
         # (a row still as the app first wrote it, since out of date, gets the one the app has now; one an admin has changed stays)
         now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5)
         for abbreviation, olds in HELP_OUT_OF_DATE.items():
