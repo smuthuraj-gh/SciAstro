@@ -130,7 +130,8 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
     "Rotate in 1s": ("Title button: how much time passes each second (Manual, 1s to 1y)",),                   # (Manual is gone)
     "App Conditions": ("Page (admins): the Conditions table: a row per Condition (unique) and its Values",   # (Table Name added;
                        "Page (admins): the Conditions table: a row per Condition (unique), its Table Name and its Values",   # renamed;
-                       "Page (admins): the App Conditions table: a row per Condition (unique), its Table Name and its Values"),   # Table Name is Object)
+                       "Page (admins): the App Conditions table: a row per Condition (unique), its Table Name and its Values",   # Table Name is Object;
+                       "Page (admins): the App Conditions table: a row per Condition (unique), its Object and its Values"),   # Values is Desc)
     "Choice": ("Defaults column: the input, by its name on the page (e.g. Days); one row per Page and Choice",),
     "Choice Values": ("Defaults column: what the input starts as (e.g. 7; Ju, Sa; On); blank: the app's own default",),
     "Allowed Values": ("Defaults column: the values Choice Values may be set to, and all the page offers (e.g. 1, 7, 30; for a text box, words such as Pay, Free); blank: all",),
@@ -147,7 +148,7 @@ HELP_ROWS_4 = [                                               # added later agai
     ("PP", "Planet Path: a button under Coordinates (AstroClock-2D, AstroClock-3D, Geo/Helio Model): the path of each planet shown"),
 ]
 HELP_ROWS_5 = [                                               # and again
-    ("App Conditions", "Page (admins): the App Conditions table: a row per Condition (unique), its Object and its Values"),
+    ("App Conditions", "Page (admins): the App Conditions table: a row per Object, Condition (unique) and its Desc"),
 ]
 HELP_VERSION = "5"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
@@ -202,9 +203,9 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Size_Clock-3D", "Symbols column: a planet's mark size on AstroClock-3D"),
     ("Size_Geo", "Symbols column: a planet's mark size on Geo"), ("Size_Helio", "Symbols column: a planet's mark size on Helio"),
 ]
-# The Conditions table: a row per Condition (unique, whatever its case), its Object and its Values; kept by admins (the
+# The Conditions table: a row per Condition (unique, whatever its case), its Object and its Desc; kept by admins (the
 # Conditions page)
-COND_NAME_MOST, COND_VALUES_MOST = 60, 500                    # a Condition's and its Values' most characters
+COND_NAME_MOST, COND_VALUES_MOST = 60, 500                    # a Condition's and its Desc's most characters
 conditions = sa.Table(
     "conditions", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
@@ -786,7 +787,7 @@ def save_help(rows: pd.DataFrame) -> int:
 
 
 # ---------------------------------------------------------------- the Conditions table
-CONDITIONS_COLUMNS = ["Object", "Condition", "Values"]
+CONDITIONS_COLUMNS = ["Object", "Condition", "Desc"]
 
 
 def _add_conditions_table_name(eng: sa.Engine):
@@ -803,20 +804,20 @@ def conditions_sorted(rows: pd.DataFrame) -> pd.DataFrame:
 
 
 def conditions_rows() -> pd.DataFrame:
-    """The Conditions table: Object, Condition, Values, in the order of Condition (case aside)."""
+    """The Conditions table: Object, Condition, Desc, in the order of Condition (case aside)."""
     with engine().connect() as c:
         rows = c.execute(sa.select(conditions).order_by(sa.func.lower(conditions.c.name))).mappings().all()
-    return pd.DataFrame([{"Condition": r["name"], "Object": r["table_name"], "Values": r["value_list"]} for r in rows],
+    return pd.DataFrame([{"Condition": r["name"], "Object": r["table_name"], "Desc": r["value_list"]} for r in rows],
                         columns=CONDITIONS_COLUMNS)
 
 
 def conditions_problems(rows: pd.DataFrame) -> list[str]:
     """What is wrong with the Conditions rows: each needs a Condition (at most COND_NAME_MOST characters, once in the table,
-    whatever its case), an Object of at most COND_NAME_MOST and Values of at most COND_VALUES_MOST. A wholly empty row
+    whatever its case), an Object of at most COND_NAME_MOST and a Desc of at most COND_VALUES_MOST. A wholly empty row
     does not count."""
     out, seen = [], set()
     for _, r in rows.iterrows():
-        name, table, values = _cell(r["Condition"]), _cell(r.get("Object")), _cell(r["Values"])
+        name, table, values = _cell(r["Condition"]), _cell(r.get("Object")), _cell(r["Desc"])
         if not (name or table or values):
             continue
         label = name or "New row"
@@ -827,7 +828,7 @@ def conditions_problems(rows: pd.DataFrame) -> list[str]:
         if len(table) > COND_NAME_MOST:
             out.append(f"{label}: Object can be at most {COND_NAME_MOST} characters")
         if len(values) > COND_VALUES_MOST:
-            out.append(f"{label}: Values can be at most {COND_VALUES_MOST} characters")
+            out.append(f"{label}: Desc can be at most {COND_VALUES_MOST} characters")
         if name:
             if name.lower() in seen:
                 out.append(f"{label}: is in the table twice (a Condition is unique)")
@@ -837,8 +838,8 @@ def conditions_problems(rows: pd.DataFrame) -> list[str]:
 
 def save_conditions(rows: pd.DataFrame) -> int:
     """Makes the Conditions table these rows (wholly empty ones left out); gives how many it has."""
-    keep = [dict(name=_cell(r["Condition"]), table_name=_cell(r.get("Object")) or None, value_list=_cell(r["Values"]) or None)
-            for _, r in rows.iterrows() if _cell(r["Condition"]) or _cell(r.get("Object")) or _cell(r["Values"])]
+    keep = [dict(name=_cell(r["Condition"]), table_name=_cell(r.get("Object")) or None, value_list=_cell(r["Desc"]) or None)
+            for _, r in rows.iterrows() if _cell(r["Condition"]) or _cell(r.get("Object")) or _cell(r["Desc"])]
     with engine().begin() as c:
         c.execute(sa.delete(conditions))
         if keep:
