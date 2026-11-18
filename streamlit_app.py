@@ -1737,40 +1737,80 @@ def page_readme():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     readme = Path(__file__).with_name("README.md")
-    st.markdown(readme.read_text(encoding="utf-8") if readme.exists() else "README.md is not there.")
-
-
-def help_search(table: pd.DataFrame) -> pd.DataFrame | None:
-    """Help's Search: a box and a Search button (or Enter), and Clear. The rows whose Abbreviation or Description has the
-    text typed (any case), or None when nothing is searched for."""
-    with st.form("help_search_form", border=False, enter_to_submit=True):
-        row = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
-        text = row.text_input("Search", value=st.session_state.get("help_search", ""), placeholder="Abbreviation or description",
-                              max_chars=60, width=260, label_visibility="collapsed")
-        if row.form_submit_button("Search"):
-            st.session_state["help_search"] = text.strip()
-    if st.session_state.get("help_search") and st.button("Clear", key="help_search_clear"):
-        st.session_state["help_search"] = ""
-        st.rerun()
-    words = (st.session_state.get("help_search") or "").lower()
+    text = readme.read_text(encoding="utf-8") if readme.exists() else "README.md is not there."
+    words = search_box("readme", "Any word in the README")
     if not words:
-        return None
-    hit = (table["Abbreviation"].fillna("").str.lower().str.contains(words, regex=False)
-           | table["Description"].fillna("").str.lower().str.contains(words, regex=False))
+        st.markdown(text)
+        return
+    st.markdown(readme_lines_with(text, words, st.session_state["readme_search"]))
+
+
+def readme_lines_with(text: str, words: str, typed: str) -> str:
+    """The README's lines with the text (any case), the text marked in each, as markdown: how many first; the lines of its
+    pages table kept as a table, under its headings."""
+    lines = text.splitlines()
+    head, rows, others = [], [], []
+    for n, line in enumerate(lines):
+        if line.startswith("|"):
+            if not head and n + 1 < len(lines) and re.fullmatch(r"\|[\s:|-]+\|", lines[n + 1].strip()):
+                head = [line, lines[n + 1]]                  # (the table's headings and its line below them)
+                continue
+            if words in line.lower() and not re.fullmatch(r"\|[\s:|-]+\|", line.strip()):
+                rows.append(line)
+        elif line.strip() and words in line.lower():
+            others.append(line)
+    mark = (lambda s: re.sub(re.escape(typed), lambda m: f"**{m.group(0)}**", s, flags=re.IGNORECASE)) if "*" not in typed else (lambda s: s)
+    count = len(others) + len(rows)
+    said = f"{count} line{'' if count == 1 else 's'} of the README have '{typed}'."
+    parts = [said] + [mark(line) for line in others]             # (each its own paragraph)
+    if rows:
+        parts.append("\n".join([*head, *[mark(r) for r in rows]]))   # (one table)
+    return "\n\n".join(parts)
+
+
+def search_box(name: str, placeholder: str) -> str:
+    """A page's Search: a box and a Search button (or Enter), and Clear once something is searched for. The text searched
+    for, in lower case ('' for none); kept while the page is left and come back to."""
+    key = f"{name}_search"
+    with st.form(f"{key}_form", border=False, enter_to_submit=True):
+        row = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
+        text = row.text_input("Search", value=st.session_state.get(key, ""), placeholder=placeholder, max_chars=60, width=260,
+                              label_visibility="collapsed")
+        if row.form_submit_button("Search"):
+            st.session_state[key] = text.strip()
+    if st.session_state.get(key) and st.button("Clear", key=f"{key}_clear"):
+        st.session_state[key] = ""
+        st.rerun()
+    return (st.session_state.get(key) or "").lower()
+
+
+def rows_with(table: pd.DataFrame, words: str) -> pd.DataFrame:
+    """The rows of table with the text in any of their cells (any case)."""
+    hit = pd.Series(False, index=table.index)
+    for col in table.columns:
+        hit |= table[col].map(lambda v: "" if v is None or (isinstance(v, float) and pd.isna(v)) else str(v)).str.lower().str.contains(words, regex=False)
     return table[hit].reset_index(drop=True)
+
+
+def searched_rows(name: str, table: pd.DataFrame, words: str, column_config: dict | None = None) -> bool:
+    """With something searched for: the table's rows that have it, to read (an admin clears the search to change the table,
+    so that a save never meets only some of its rows); True. Else False."""
+    if not words:
+        return False
+    found = rows_with(table, words)
+    st.caption(f"{len(found)} of {len(table)} rows have '{st.session_state[f'{name}_search']}'."
+               + (" Clear the search to change the table." if user.is_admin else ""))
+    if len(found):
+        show_table(found, column_config, hide_index=True, width="content", height=rows_px(len(found)))
+    return True
 
 
 def page_help_table():
     """The abbreviations the pages use: everyone can read them, and search them; admins change them (Insert, Update, Delete,
     each saved at once; Ignore), the whole table, not a search's rows."""
     table = db.help_rows()
-    found = help_search(table)
-    if found is not None:                                      # a search: its rows only, to read
-        st.caption(f"{len(found)} of {len(table)} rows have '{st.session_state['help_search']}'."
-                   + (" Clear the search to change the table." if user.is_admin else ""))
-        if len(found):
-            show_table(found, hide_index=True, width="content", height=rows_px(len(found)),
-                       column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app.")})
+    if searched_rows("help", table, search_box("help", "Abbreviation or description"),
+                     {"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app.")}):
         return
     if not user.is_admin:
         show_table(table, hide_index=True, width="content", height=rows_px(len(table)),   # every row in view
@@ -1892,6 +1932,9 @@ def page_prediction_rules():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     table = db.predictions_rows()
+    if searched_rows("predictions", table, search_box("predictions", "Any column (e.g. Sa, square, De)"),
+                     {"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app.")}):
+        return
     crud_table("predictions_table", table, db.predictions_problems, lambda rows: f"Saved: {db.save_predictions(rows)} row(s).",
                on_update=db.predictions_sorted,               # (Update: in the page's order)
                height=rows_px(len(st.session_state.get("predictions_table_working", table))),   # every row in view
