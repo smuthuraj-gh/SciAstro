@@ -27,30 +27,30 @@ OWN_MODULES = ["astro.se", "astro.core", "astro.mapchart", "astro.places", "astr
                "app.access", "app.location", "app.db", "app.auth", "app.chartdata"]
 
 
-@st.cache_resource
-def _module_stamps() -> dict:
-    """Each own module's file time when last loaded, kept while the app runs."""
-    return {}
+STAMP = "_loaded_file_time"                                    # kept on each own module: its file's time when it was loaded
 
 
 def _reload_changed_modules(record_only: bool = False) -> None:
-    """Loads again each own module changed since (record_only: notes their file times only, as first imported)."""
-    stamps = _module_stamps()
+    """Loads again each own module changed since it was loaded, or loaded before this check came in (with no time kept on
+    it, so its age is not known), with those after it (record_only: keeps the times of those just imported only)."""
     first = None
     for i, name in enumerate(OWN_MODULES):
         mod = sys.modules.get(name)
         if mod is None or not getattr(mod, "__file__", None):
             continue
         stamp = os.path.getmtime(mod.__file__)
-        if name in stamps and stamps[name] != stamp and first is None:
+        if record_only:
+            if not hasattr(mod, STAMP):
+                setattr(mod, STAMP, stamp)
+        elif getattr(mod, STAMP, None) != stamp and first is None:
             first = i
-        stamps.setdefault(name, stamp)
     if first is None or record_only:
         return
     for name in OWN_MODULES[first:]:
-        if name in sys.modules:
-            importlib.reload(sys.modules[name])
-            stamps[name] = os.path.getmtime(sys.modules[name].__file__)
+        mod = sys.modules.get(name)
+        if mod is not None:
+            importlib.reload(mod)
+            setattr(mod, STAMP, os.path.getmtime(mod.__file__))
 
 
 _reload_changed_modules()
