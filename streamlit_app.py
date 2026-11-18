@@ -1957,9 +1957,9 @@ if user.is_admin:                                             # the Aspect Rules
               st.Page(page_conditions, title="App Conditions", icon=":material/rule:", url_path="conditions"),
               st.Page(page_accounts, title="Customers", icon=":material/badge:", url_path="customers"),
               st.Page(page_customers, title="DOB", icon=":material/group:", url_path="dob"),
-              st.Page(page_defaults, title="Page Defaults", icon=":material/settings:", url_path="defaults"),
               st.Page(page_help_table, title="Help", icon=":material/help:", url_path="help"),
               st.Page(page_logins, title="Logins", icon=":material/history:", url_path="logins"),
+              st.Page(page_defaults, title="Page Defaults", icon=":material/settings:", url_path="defaults"),
               st.Page(page_readme, title="Readme", icon=":material/description:", url_path="readme"),
               st.Page(page_naming, title="Symbols", icon=":material/planet:", url_path="symbols")]
 else:
