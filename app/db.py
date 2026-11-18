@@ -121,6 +121,8 @@ HELP_ROWS_3 = [                                               # added later stil
     ("Select all", "Logins button: ticks every row (pressed again, Unselect all: none)"),
 ]
 HELP_OUT_OF_DATE = {                                          # the Help rows' Descriptions the app once wrote, out of date since
+    "Predictions": ("Page: when the planets now come to the angles with the birth chart that the Prediction Rules table names, with its Prediction for each",), "Prediction Rules": ("Page (admins): the Predictions table: a row per Moving planet, Birth point, Kind (RA or Dec) and Angle, with its Prediction",),   # (Chart: Birth too)
+    "Moving": ("Predictions column: the planet now (Mo .. Sa, NN, SN)",), "Birth": ("Predictions column: the point of the birth chart it comes to (Mo .. Sa, NN, SN, CB)",),
     "Page Defaults": ("Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed Values)",   # (no Box Title now)
                       "Page (admins): what each page's buttons start as (Page, Options, Choices)",
                  "Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed_Values)"),
@@ -152,17 +154,19 @@ HELP_ROWS_5 = [                                               # and again
     ("App Conditions", "Page (admins): the App Conditions table: a row per Object, its Values and Condition (unique)"),
 ]
 HELP_ROWS_6 = [                                               # and again: Predictions
-    ("Predictions", "Page: when the planets now come to the angles with the birth chart that the Prediction Rules table names, with its Prediction for each"),
-    ("Prediction Rules", "Page (admins): the Predictions table: a row per Moving planet, Birth point, Kind (RA or Dec) and Angle, with its Prediction"),
-    ("Moving", "Predictions column: the planet now (Mo .. Sa, NN, SN)"),
-    ("Birth", "Predictions column: the point of the birth chart it comes to (Mo .. Sa, NN, SN, CB)"),
+    ("Predictions", "Page: the Prediction Rules readings for the birth chart (its points at those angles at birth) and for transits (when the planets now come to those angles with it)"),
+    ("Prediction Rules", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Prediction"),
+    ("Moving", "Predictions column: Transit: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart"),
+    ("Birth", "Predictions column: the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB)"),
+    ("Chart", "Predictions column: Birth (the two points at the angle in the birth chart) or Transit (the planet now coming to the angle with the birth point)"),
     ("Kind", "Predictions column: RA (the RA between the two is the Angle) or Dec (Angle 0: parallel, the same Dec; 180: contra-parallel, mirrored)"),
     ("Begins", "Predictions column: when the moving planet comes within the orb (before Start: within it already)"),
     ("Exact", "Predictions column: when it is closest to the Angle"),
     ("Ends", "Predictions column: when it leaves the orb (after End: still within it)"),
     ("Off", "Predictions column: how far from the Angle it is at Exact (degrees; 0: exact)"),
 ]
-HELP_VERSION = "6"                                            # the sets of rows the Help table has been given
+HELP_ROWS_7 = [("Chart", "Predictions column: Birth (the two points at the angle in the birth chart) or Transit (the planet now coming to the angle with the birth point)")]   # (for a table given set 6 before Chart came in)
+HELP_VERSION = "7"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
     ("AstroClock-2D", "Page: the Geo drawing seen from above the north celestial pole, each planet at its RA and distance, with the Dec and Distance(%) graphs"),
@@ -215,28 +219,36 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Size_Clock-3D", "Symbols column: a planet's mark size on AstroClock-3D"),
     ("Size_Geo", "Symbols column: a planet's mark size on Geo"), ("Size_Helio", "Symbols column: a planet's mark size on Helio"),
 ]
-# The Predictions table (the Prediction Rules page): a row per rule, kept by admins: when the Moving planet comes to the
-# Angle with the Birth point, in RA or in Dec (Kind), the Predictions page shows its Prediction
+# The Predictions table (the Prediction Rules page): a row per rule, kept by admins. Chart Transit: when the Moving planet
+# (now) comes to the Angle with the Birth point, in RA or in Dec (Kind), the Predictions page shows its Prediction; Chart
+# Birth: when the two (Moving: the first point, Birth: the second) are at that Angle in the birth chart itself
+PRED_CHARTS = ["Birth", "Transit"]
 PRED_MOVING = ["Mo", "Su", "Me", "Ve", "Ma", "Ju", "Sa", "NN", "SN"]   # the planets now
 PRED_BIRTH = PRED_MOVING + ["CB"]                             # the points of the birth chart (CB: house 10 at birth)
 PRED_TEXT_MOST = 500                                          # a Prediction's most characters
 predictions = sa.Table(
     "predictions", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
+    sa.Column("chart", sa.String(8), nullable=False, server_default="Transit"),   # Chart: Birth or Transit
     sa.Column("moving", sa.String(8), nullable=False),       # Moving
     sa.Column("birth", sa.String(8), nullable=False),        # Birth
     sa.Column("kind", sa.String(8), nullable=False),         # Kind: RA or Dec
     sa.Column("angle", sa.Integer, nullable=False),          # Angle (Dec: 0 parallel, 180 contra-parallel)
     sa.Column("prediction", sa.String(PRED_TEXT_MOST)),      # Prediction
-    sa.UniqueConstraint("moving", "birth", "kind", "angle", name="ux_predictions_rule"),
+    sa.UniqueConstraint("chart", "moving", "birth", "kind", "angle", name="ux_predictions_chart_rule"),
 )
-PREDICTIONS_COLUMNS = ["id", "Moving", "Birth", "Kind", "Angle", "Prediction"]
-PREDICTION_ROWS = [                                           # the rows the table starts with, once (samples, to be replaced)
+PREDICTIONS_COLUMNS = ["id", "Chart", "Moving", "Birth", "Kind", "Angle", "Prediction"]
+PREDICTION_ROWS = [                                           # the Transit rows the table starts with, once (samples, to be replaced)
     ("Sa", "Su", "RA", 0, "Sample: Saturn at your birth Sun's RA. Replace this with your own reading."),
     ("Sa", "Sa", "RA", 0, "Sample: Saturn back at its birth RA (Saturn return). Replace this with your own reading."),
     ("Ju", "Su", "RA", 0, "Sample: Jupiter at your birth Sun's RA. Replace this with your own reading."),
     ("Sa", "Su", "RA", 180, "Sample: Saturn opposite your birth Sun in RA. Replace this with your own reading."),
     ("Ma", "Mo", "Dec", 0, "Sample: Mars parallel your birth Moon in Dec. Replace this with your own reading."),
+]
+PREDICTION_BIRTH_ROWS = [                                     # and the Birth rows, once (added later)
+    ("Su", "Mo", "RA", 0, "Sample: Sun with Moon in RA at birth. Replace this with your own reading."),
+    ("Su", "Sa", "RA", 90, "Sample: Sun square Saturn in RA at birth. Replace this with your own reading."),
+    ("Ve", "Ma", "Dec", 0, "Sample: Venus parallel Mars in Dec at birth. Replace this with your own reading."),
 ]
 
 
@@ -424,6 +436,7 @@ def engine() -> sa.Engine:
     _widen_help_abbreviation(eng)
     _add_conditions_table_name(eng)
     _seed_help(eng)
+    _add_prediction_chart(eng)
     _seed_predictions(eng)
     return eng
 
@@ -733,7 +746,7 @@ def _rename_help_rows(eng: sa.Engine):
                              .values(abbreviation=new)).rowcount:
                     break
         # (a row still as the app first wrote it, since out of date, gets the one the app has now; one an admin has changed stays)
-        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5 + HELP_ROWS_6)
+        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5 + HELP_ROWS_6 + HELP_ROWS_7)
         for abbreviation, olds in HELP_OUT_OF_DATE.items():
             c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(),
                                                 help_table.c.description.in_(olds)).values(description=now[abbreviation]))
@@ -771,10 +784,14 @@ def _seed_help(eng: sa.Engine):
         done = c.execute(sa.select(settings.c.value).where(settings.c.key == "help_seeded")).scalar()
         if done == HELP_VERSION:
             return
-        later = [HELP_ROWS_2, HELP_ROWS_3, HELP_ROWS_4, HELP_ROWS_5, HELP_ROWS_6]   # (the sets added since each note: 1 has had HELP_ROWS ..)
+        later = [HELP_ROWS_2, HELP_ROWS_3, HELP_ROWS_4, HELP_ROWS_5, HELP_ROWS_6, HELP_ROWS_7]   # (the sets added since each note: 1 has had HELP_ROWS ..)
         wanted = sum(later[int(done) - 1:], []) if done and done.isdigit() else HELP_ROWS + sum(later, [])
         have = {a.lower() for (a,) in c.execute(sa.select(help_table.c.abbreviation)).all()}
-        new = [dict(abbreviation=a, description=d) for a, d in wanted if a.lower() not in have]
+        new = []
+        for a, d in wanted:                                   # (each once: a later set may name one again)
+            if a.lower() not in have:
+                new.append(dict(abbreviation=a, description=d))
+                have.add(a.lower())
         if new:
             c.execute(help_table.insert(), new)
         if done is None:
@@ -925,25 +942,55 @@ def save_conditions(rows: pd.DataFrame) -> int:
 
 
 # ---------------------------------------------------------------- the Predictions table
-def _seed_predictions(eng: sa.Engine):
-    """Once (a note among the settings says it is done): the Predictions table gets the sample rows of PREDICTION_ROWS
-    (a row deleted since stays deleted)."""
+def _add_prediction_chart(eng: sa.Engine):
+    """A Predictions table made before its Chart column is made again with it (its rows kept, as Transit rows), so that
+    Chart is unique with Moving, Birth, Kind and Angle."""
+    if "predictions" not in sa.inspect(eng).get_table_names():
+        return
+    if "chart" in {c["name"] for c in sa.inspect(eng).get_columns("predictions")}:
+        return
     with eng.begin() as c:
-        if c.execute(sa.select(settings.c.value).where(settings.c.key == "predictions_seeded")).scalar():
+        old = [dict(r) for r in c.execute(sa.text("SELECT id, moving, birth, kind, angle, prediction FROM predictions")).mappings()]
+        c.execute(sa.text("DROP TABLE predictions"))
+    predictions.create(eng)
+    if old:
+        with eng.begin() as c:
+            c.execute(predictions.insert(), [{**r, "chart": "Transit"} for r in old])
+            if eng.dialect.name == "postgresql":              # (the ids go on from the highest)
+                c.execute(sa.text("SELECT setval(pg_get_serial_sequence('predictions', 'id'), (SELECT MAX(id) FROM predictions))"))
+
+
+def _seed_predictions(eng: sa.Engine):
+    """Once per set (a note among the settings says which; a row deleted since stays deleted): the Predictions table gets
+    the Transit sample rows of PREDICTION_ROWS (when it is empty), then the Birth ones of PREDICTION_BIRTH_ROWS."""
+    with eng.begin() as c:
+        done = c.execute(sa.select(settings.c.value).where(settings.c.key == "predictions_seeded")).scalar()
+        if done == "2":
             return
-        if not c.execute(sa.select(predictions.c.id).limit(1)).first():
-            c.execute(predictions.insert(), [dict(moving=m, birth=b, kind=k, angle=a, prediction=p) for m, b, k, a, p in PREDICTION_ROWS])
-        c.execute(settings.insert().values(key="predictions_seeded", value="1"))
+        new = []
+        if done is None and not c.execute(sa.select(predictions.c.id).limit(1)).first():
+            new += [dict(chart="Transit", moving=m, birth=b, kind=k, angle=a, prediction=p) for m, b, k, a, p in PREDICTION_ROWS]
+        have = {(m, b, k, a) for m, b, k, a in c.execute(sa.select(predictions.c.moving, predictions.c.birth, predictions.c.kind,
+                                                                   predictions.c.angle).where(predictions.c.chart == "Birth")).all()}
+        new += [dict(chart="Birth", moving=m, birth=b, kind=k, angle=a, prediction=p) for m, b, k, a, p in PREDICTION_BIRTH_ROWS
+                if (m, b, k, a) not in have]
+        if new:
+            c.execute(predictions.insert(), new)
+        if done is None:
+            c.execute(settings.insert().values(key="predictions_seeded", value="2"))
+        else:
+            c.execute(settings.update().where(settings.c.key == "predictions_seeded").values(value="2"))
 
 
 def _pred_key(r) -> tuple:
-    """A Predictions row's place in the table: by Moving, then Birth (in the order the planet buttons are shown), Kind
-    and Angle; rows not filled in at the bottom."""
+    """A Predictions row's place in the table: by Chart (Birth first), Moving, then Birth (in the order the planet buttons
+    are shown), Kind and Angle; rows not filled in at the bottom."""
     def at(names, v):
         v = _cell(v)
         return names.index(v) if v in names else len(names)
     angle = pd.to_numeric(r.get("Angle"), errors="coerce")
-    return (at(PRED_MOVING, r.get("Moving")), at(PRED_BIRTH, r.get("Birth")), _cell(r.get("Kind")), 999 if pd.isna(angle) else angle)
+    return (at(PRED_CHARTS, r.get("Chart")), at(PRED_BIRTH, r.get("Moving")), at(PRED_BIRTH, r.get("Birth")), _cell(r.get("Kind")),
+            999 if pd.isna(angle) else angle)
 
 
 def predictions_sorted(rows: pd.DataFrame) -> pd.DataFrame:
@@ -953,20 +1000,20 @@ def predictions_sorted(rows: pd.DataFrame) -> pd.DataFrame:
 
 
 def predictions_rows() -> pd.DataFrame:
-    """The Predictions table: id, Moving, Birth, Kind, Angle, Prediction, as the page shows it."""
+    """The Predictions table: id, Chart, Moving, Birth, Kind, Angle, Prediction, as the page shows it."""
     with engine().connect() as c:
         rows = c.execute(sa.select(predictions)).mappings().all()
-    df = pd.DataFrame([{"id": r["id"], "Moving": r["moving"], "Birth": r["birth"], "Kind": r["kind"], "Angle": r["angle"],
+    df = pd.DataFrame([{"id": r["id"], "Chart": r["chart"], "Moving": r["moving"], "Birth": r["birth"], "Kind": r["kind"], "Angle": r["angle"],
                         "Prediction": r["prediction"]} for r in rows], columns=PREDICTIONS_COLUMNS)
     return predictions_sorted(df)
 
 
-def prediction_rules() -> list[tuple[str, str, str, int, str]]:
-    """The Predictions rows as (moving, birth, kind, angle, prediction), for the Predictions page."""
+def prediction_rules() -> list[tuple[str, str, str, str, int, str]]:
+    """The Predictions rows as (chart, moving, birth, kind, angle, prediction), for the Predictions page."""
     with engine().connect() as c:
-        rows = c.execute(sa.select(predictions.c.moving, predictions.c.birth, predictions.c.kind, predictions.c.angle,
-                                   predictions.c.prediction)).all()
-    return [(m, b, k, int(a), p or "") for m, b, k, a, p in rows]
+        rows = c.execute(sa.select(predictions.c.chart, predictions.c.moving, predictions.c.birth, predictions.c.kind,
+                                   predictions.c.angle, predictions.c.prediction)).all()
+    return [(ch, m, b, k, int(a), p or "") for ch, m, b, k, a, p in rows]
 
 
 def _pick(names: list[str], value) -> str:
@@ -976,20 +1023,27 @@ def _pick(names: list[str], value) -> str:
 
 
 def predictions_problems(rows: pd.DataFrame) -> list[str]:
-    """What is wrong with the Predictions rows: each needs a Moving planet (PRED_MOVING), a Birth point (PRED_BIRTH), a Kind
-    (RA or Dec), an Angle (a whole number, 0 to 180; Dec: 0 or 180) and a Prediction (at most PRED_TEXT_MOST characters);
-    Moving, Birth, Kind and Angle together once in the table. A wholly empty row does not count."""
+    """What is wrong with the Predictions rows: each needs a Chart (Birth or Transit), a Moving planet (PRED_MOVING; Birth
+    chart: a point of PRED_BIRTH, not the Birth one), a Birth point (PRED_BIRTH), a Kind (RA or Dec), an Angle (a whole
+    number, 0 to 180; Dec: 0 or 180) and a Prediction (at most PRED_TEXT_MOST characters); Chart, Moving, Birth, Kind and
+    Angle together once in the table. A wholly empty row does not count."""
     out, seen = [], set()
     for _, r in rows.iterrows():
         cells = [_cell(r.get(c)) for c in PREDICTIONS_COLUMNS[1:]]
         if not any(cells):
             continue
-        moving, birth, kind = _pick(PRED_MOVING, r.get("Moving")), _pick(PRED_BIRTH, r.get("Birth")), _pick(["RA", "Dec"], r.get("Kind"))
+        chart = _pick(PRED_CHARTS, r.get("Chart"))
+        movers = PRED_BIRTH if chart == "Birth" else PRED_MOVING
+        moving, birth, kind = _pick(movers, r.get("Moving")), _pick(PRED_BIRTH, r.get("Birth")), _pick(["RA", "Dec"], r.get("Kind"))
         angle = pd.to_numeric(r.get("Angle"), errors="coerce")
         text = _cell(r.get("Prediction"))
-        label = " ".join(c for c in cells[:4] if c) or "New row"
+        label = " ".join(c for c in cells[:5] if c) or "New row"
+        if not chart:
+            out.append(f"{label}: Chart must be Birth or Transit")
         if not moving:
-            out.append(f"{label}: Moving must be one of {', '.join(PRED_MOVING)}")
+            out.append(f"{label}: Moving must be one of {', '.join(movers)}")
+        elif chart == "Birth" and moving == birth:
+            out.append(f"{label}: a Birth chart row needs two different points (Moving and Birth)")
         if not birth:
             out.append(f"{label}: Birth must be one of {', '.join(PRED_BIRTH)}")
         if not kind:
@@ -1002,10 +1056,10 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
             out.append(f"{label}: Prediction is empty")
         elif len(text) > PRED_TEXT_MOST:
             out.append(f"{label}: Prediction can be at most {PRED_TEXT_MOST} characters")
-        if moving and birth and kind and pd.notna(angle):
-            key = (moving, birth, kind, int(angle))
+        if chart and moving and birth and kind and pd.notna(angle):
+            key = (chart, moving, birth, kind, int(angle))
             if key in seen:
-                out.append(f"{label}: is in the table twice (Moving, Birth, Kind and Angle are unique together)")
+                out.append(f"{label}: is in the table twice (Chart, Moving, Birth, Kind and Angle are unique together)")
             seen.add(key)
     return out
 
@@ -1013,7 +1067,7 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
 def save_predictions(rows: pd.DataFrame) -> int:
     """Makes the Predictions table these rows (wholly empty ones left out), each keeping its ID; gives how many it has."""
     return _save_by_id(predictions, [
-        (_row_id(r.get("id")), dict(moving=_pick(PRED_MOVING, r.get("Moving")), birth=_pick(PRED_BIRTH, r.get("Birth")),
+        (_row_id(r.get("id")), dict(chart=_pick(PRED_CHARTS, r.get("Chart")), moving=_pick(PRED_BIRTH, r.get("Moving")), birth=_pick(PRED_BIRTH, r.get("Birth")),
                                     kind=_pick(["RA", "Dec"], r.get("Kind")), angle=int(pd.to_numeric(r.get("Angle"))),
                                     prediction=_cell(r.get("Prediction")) or None))
         for _, r in rows.iterrows() if any(_cell(r.get(c)) for c in PREDICTIONS_COLUMNS[1:])])

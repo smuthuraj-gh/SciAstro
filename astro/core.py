@@ -369,8 +369,8 @@ def sky_point(name: str, jd_ut: float) -> tuple[float, float]:
     return ps.ra, ps.dec
 
 
-def _transit_gap(kind: str, angle: int, ra: float, de: float, at_birth: tuple[float, float]) -> float:
-    """How far the moving point is from the angle with the birth point (degrees, 0 at exact)."""
+def transit_gap(kind: str, angle: int, ra: float, de: float, at_birth: tuple[float, float]) -> float:
+    """How far the point at (ra, de) is from the angle with the birth point (degrees, 0 at exact)."""
     if kind == "RA":
         sep = abs(ra - at_birth[0]) % 360.0
         return abs(min(sep, 360.0 - sep) - angle)
@@ -395,7 +395,7 @@ def transit_events(birth: dict[str, tuple[float, float]], rules: list[tuple[str,
     sky = {m: np.array([sky_point(m, float(jd)) for jd in jds]) for m in movers}   # (RA, Dec) at each step
 
     def gap_at(m, kind, angle, b, jd) -> float:
-        return _transit_gap(kind, angle, *sky_point(m, jd), birth[b])
+        return transit_gap(kind, angle, *sky_point(m, jd), birth[b])
 
     out = []
     for m, b, kind, angle in rules:
