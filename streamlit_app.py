@@ -224,7 +224,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Predictions": "The Prediction Rules table's readings for the birth chart of the customer picked, in two tables. Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, as on Aspects), closest first: Planet, With, Aspect, Off (degrees from the angle), Orb, Event and Prediction (its reading, from Prediction Rules). "
                    "Transits: its Transit rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
-                   "Planets (Transits only): the moving planets to look at (and the Moon's nodes, NN and SN). Each row: Exact (when it is closest to the angle), Moving, Birth (the point of the birth chart; CB: house 10 at birth), "
+                   "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Moving, Birth (the point of the birth chart; CB: house 10 at birth), "
                    "Aspect (RA and its angle, or Dec parallel / contra-parallel), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, as on Aspects; before Start / after End: within it already, or still), "
                    "Off (degrees from the angle at Exact), Event and Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details.",
     "Prediction Rules": "The Predictions table: a row per Chart (Birth: the two points at the angle in the birth chart, Moving the first, Birth the second; Transit: the planet now coming to the angle with the birth point), Moving planet (Transit: Mo .. Sa, NN, SN; Birth: CB too), Birth point (the same, and CB), Kind (RA: the RA between the two is the Angle; Dec: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
@@ -754,8 +754,7 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
     out[("Aspects", "Minor Aspects")] = (GLOBE_MINOR, True, GLOBE_MINOR)
     out[("Planets Cycles", "Major Aspects")] = ([str(a) for a in rangechart.EA_NAME], True, ["0", "180"])
     out[("Planets Cycles", "Minor Aspects")] = (GLOBE_MINOR, True, [])
-    out |= {("Predictions", "Start Date (UT)"): (START, False, "Now"), ("Predictions", "End Date (UT)"): (END, False, (12, 0)),
-            ("Predictions", "Planets"): (list(db.PRED_MOVING), True, ["Ju", "Sa"])}
+    out |= {("Predictions", "Start Date (UT)"): (START, False, "Now"), ("Predictions", "End Date (UT)"): (END, False, (12, 0))}
     return out
 
 
@@ -1716,10 +1715,7 @@ def page_predictions():
     if prep.now_only or prep.jd_birth is None or not prep.birth:   # (no birth details, or DOB not open to them)
         st.info(prep.message or "Predictions need birth details: add them in DOB Details.")
         return
-    jds = period(prep, head, "Predictions")
-    choices = offered("Predictions", "Planets", db.PRED_MOVING)
-    moving = core.in_order(titled(head, "Planets", "pred_t_planets", core.shown_order(choices), "pred_planets",
-                                  default_choice("Predictions", "Planets"), selection_mode="multi", format_func=core.symbol_of), choices)
+    jds = period(prep, head, "Predictions")                  # (every planet: no Planets buttons)
     if jds is None:
         return
     every = db.prediction_rules()
@@ -1731,12 +1727,8 @@ def page_predictions():
     birth_predictions([r[1:] for r in every if r[0] == "Birth"], birth)
     st.markdown("**Transits**")
     rules = [r[1:] for r in every if r[0] == "Transit"]
-    if not moving:
-        st.caption("Choose at least one planet.")
-        return
-    rules = [r for r in rules if r[0] in moving]
     if not rules:
-        st.caption("The Prediction Rules table has no Transit rows for the planets chosen.")
+        st.caption("The Prediction Rules table has no Transit rows.")
         return
     with st.spinner("Finding predictions..."):
         events = _predictions_cached(tuple(sorted(birth.items())), tuple(r[:4] for r in rules), *jds, db.orb_table().to_csv(index=False))

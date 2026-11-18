@@ -331,7 +331,6 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("DOB Details", "Pay / Coupon", ""),                     # and the coupon filled in to start (blank: none; Free: free)
     ("Predictions", "Start Date (UT)", "Now"),
     ("Predictions", "End Date (UT)", "Start Date (UT) + 1 year"),
-    ("Predictions", "Planets", "Ju, Sa"),
 ]
 DEFAULTS_VERSION = "8"                                        # 8: Predictions; 7: AstroClock-2D's and Geo/Helio Model's Coordinates (one row for the buttons below it; Geo/Helio Model's rows one per input since); 6: DOB Details' Days and Pay / Coupon; 5: AstroClock-2D's aspects; 4: Aspects' angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
@@ -428,6 +427,7 @@ def engine() -> sa.Engine:
     _merge_geo_helio(eng)
     _merge_coordinates(eng)
     _seed_defaults(eng)
+    _drop_gone_inputs(eng)
     _set_time_now(eng)
     _rename_dec_button(eng)
     _merge_coordinates(eng)                                   # (again: a button row an earlier name has just given back)
@@ -537,7 +537,16 @@ NEW_IN_4 = (("Aspects", "Major Aspects"), ("Aspects", "Minor Aspects"), ("Planet
 NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects"))
 NEW_IN_6 = (("DOB Details", "Days"), ("DOB Details", "Pay / Coupon"))
 NEW_IN_7 = (("AstroClock-2D", "Coordinates"), ("Geo/Helio Model", "Coordinates"))
-NEW_IN_8 = (("Predictions", "Start Date (UT)"), ("Predictions", "End Date (UT)"), ("Predictions", "Planets"))
+NEW_IN_8 = (("Predictions", "Start Date (UT)"), ("Predictions", "End Date (UT)"))
+GONE_INPUTS = (("predictions", "planets"),)                  # inputs since taken off their page: their Defaults rows go
+
+
+def _drop_gone_inputs(eng: sa.Engine):
+    """The Defaults rows of inputs since taken off their page (GONE_INPUTS: Predictions' Planets, every planet being looked
+    at now) go, so that the Page Defaults page has no row it cannot use."""
+    with eng.begin() as c:
+        for page, title in GONE_INPUTS:
+            c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == page, sa.func.lower(defaults.c.options) == title))
 
 
 TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio model", "geo time"), ("geo/helio model", "helio time"),
