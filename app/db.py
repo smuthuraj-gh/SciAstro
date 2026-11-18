@@ -136,7 +136,10 @@ HELP_GONE = {"Came from": "Logins column: the site that brought the visitor (its
 HELP_ROWS_4 = [                                               # added later again
     ("PP", "Planet Path: a button under Coordinates (AstroClock-2D, AstroClock-3D, Geo/Helio Model): the path of each planet shown"),
 ]
-HELP_VERSION = "4"                                            # the sets of rows the Help table has been given
+HELP_ROWS_5 = [                                               # and again
+    ("Conditions", "Page (admins): the Conditions table: a row per Condition (unique) and its Values"),
+]
+HELP_VERSION = "5"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
     ("AstroClock-2D", "Page: the Geo drawing seen from above the north celestial pole, each planet at its RA and distance, with the Dec and Distance(%) graphs"),
@@ -189,6 +192,15 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Size_Clock-3D", "Symbols column: a planet's mark size on AstroClock-3D"),
     ("Size_Geo", "Symbols column: a planet's mark size on Geo"), ("Size_Helio", "Symbols column: a planet's mark size on Helio"),
 ]
+# The Conditions table: a row per Condition (unique, whatever its case) and its Values; kept by admins (the Conditions page)
+COND_NAME_MOST, COND_VALUES_MOST = 60, 500                    # a Condition's and its Values' most characters
+conditions = sa.Table(
+    "conditions", meta,
+    sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
+    sa.Column("name", sa.String(COND_NAME_MOST), nullable=False, unique=True),   # Condition
+    sa.Column("value_list", sa.String(COND_VALUES_MOST)),     # Values
+)
+sa.Index("ux_conditions_name", sa.func.lower(conditions.c.name), unique=True)   # (Abc and abc are one)
 HELP_INDEX = "ux_help_abbre"                                   # one row per Abbreviation, whatever its case (Su and su are one)
 sa.Index(HELP_INDEX, sa.func.lower(help_table.c.abbreviation), unique=True)
 HELP_ROWS = [                                                 # the abbreviations the pages use, as the table starts
@@ -679,7 +691,7 @@ def _rename_help_rows(eng: sa.Engine):
         if not c.execute(sa.select(help_table.c.id).where(sa.func.lower(help_table.c.abbreviation) == "defaults")).first():
             c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == "page_defaults").values(abbreviation="Defaults"))
         # (a row still as the app first wrote it, since out of date, gets the one the app has now; one an admin has changed stays)
-        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4)
+        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5)
         for abbreviation, olds in HELP_OUT_OF_DATE.items():
             c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(),
                                                 help_table.c.description.in_(olds)).values(description=now[abbreviation]))
@@ -717,8 +729,8 @@ def _seed_help(eng: sa.Engine):
         done = c.execute(sa.select(settings.c.value).where(settings.c.key == "help_seeded")).scalar()
         if done == HELP_VERSION:
             return
-        wanted = {"1": HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4, "2": HELP_ROWS_3 + HELP_ROWS_4, "3": HELP_ROWS_4}.get(
-            done, HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4)
+        later = [HELP_ROWS_2, HELP_ROWS_3, HELP_ROWS_4, HELP_ROWS_5]   # (the sets added since each note: 1 has had HELP_ROWS ..)
+        wanted = sum(later[int(done) - 1:], []) if done and done.isdigit() else HELP_ROWS + sum(later, [])
         have = {a.lower() for (a,) in c.execute(sa.select(help_table.c.abbreviation)).all()}
         new = [dict(abbreviation=a, description=d) for a, d in wanted if a.lower() not in have]
         if new:
@@ -773,6 +785,53 @@ def save_help(rows: pd.DataFrame) -> int:
         c.execute(sa.delete(help_table))
         if keep:
             c.execute(help_table.insert(), keep)
+    return len(keep)
+
+
+# ---------------------------------------------------------------- the Conditions table
+def conditions_sorted(rows: pd.DataFrame) -> pd.DataFrame:
+    """The Conditions rows in the order of Condition (case aside), as the page shows them; rows with none yet at the bottom."""
+    key = rows["Condition"].map(lambda v: (_cell(v) == "", _cell(v).lower()))
+    return rows.iloc[sorted(range(len(rows)), key=lambda i: key.iloc[i])].reset_index(drop=True)
+
+
+def conditions_rows() -> pd.DataFrame:
+    """The Conditions table: Condition, Values, in the order of Condition (case aside)."""
+    with engine().connect() as c:
+        rows = c.execute(sa.select(conditions).order_by(sa.func.lower(conditions.c.name))).mappings().all()
+    return pd.DataFrame([{"Condition": r["name"], "Values": r["value_list"]} for r in rows], columns=["Condition", "Values"])
+
+
+def conditions_problems(rows: pd.DataFrame) -> list[str]:
+    """What is wrong with the Conditions rows: each needs a Condition (at most COND_NAME_MOST characters, once in the table,
+    whatever its case) and Values of at most COND_VALUES_MOST. A wholly empty row does not count."""
+    out, seen = [], set()
+    for _, r in rows.iterrows():
+        name, values = _cell(r["Condition"]), _cell(r["Values"])
+        if not (name or values):
+            continue
+        label = name or "New row"
+        if not name:
+            out.append(f"{label}: Condition is empty")
+        if len(name) > COND_NAME_MOST:
+            out.append(f"{label}: Condition can be at most {COND_NAME_MOST} characters")
+        if len(values) > COND_VALUES_MOST:
+            out.append(f"{label}: Values can be at most {COND_VALUES_MOST} characters")
+        if name:
+            if name.lower() in seen:
+                out.append(f"{label}: is in the table twice (a Condition is unique)")
+            seen.add(name.lower())
+    return out
+
+
+def save_conditions(rows: pd.DataFrame) -> int:
+    """Makes the Conditions table these rows (wholly empty ones left out); gives how many it has."""
+    keep = [dict(name=_cell(r["Condition"]), value_list=_cell(r["Values"]) or None)
+            for _, r in rows.iterrows() if _cell(r["Condition"]) or _cell(r["Values"])]
+    with engine().begin() as c:
+        c.execute(sa.delete(conditions))
+        if keep:
+            c.execute(conditions.insert(), keep)
     return len(keep)
 
 
