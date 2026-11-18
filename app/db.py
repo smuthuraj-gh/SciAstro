@@ -150,7 +150,8 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
 HELP_RENAMED = {"Page Defaults": ("Defaults", "Page_Defaults"), "App Conditions": ("Conditions",)}   # pages' Help rows renamed
 HELP_GONE_TOO = {"Box Title": ("Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box",
                               "Page Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box")}   # (the Page Defaults table has no Box Title now)
-HELP_GONE = {"Came from": "Logins column: the site that brought the visitor (its name only); blank: none known",
+HELP_GONE = {"Aspects": "Page: when the planets are in aspect, between a start and an end date",   # (the page is gone)
+             "Came from": "Logins column: the site that brought the visitor (its name only); blank: none known",
              "Manual": "Time stands still; drag the drawing to turn it", "Planet Path": "Title button: the path of each planet picked"}   # the Help rows for buttons since gone, as the app wrote them
 HELP_ROWS_4 = [                                               # added later again
     ("PP", "Planet Path: a button under Coordinates (AstroClock-2D, AstroClock-3D, Geo/Helio Model): the path of each planet shown"),
@@ -179,7 +180,7 @@ HELP_ROWS_10 = [
     ("Far", "Predictions (Chart Distance, Kind Far): a planet at its farthest from the Earth"),
 ]
 HELP_ROWS_11 = [
-    ("RA+De", "Predictions (Chart Aspect): two planets in aspect by Aspect Rules, as on the Aspects page: RA within the RA orb of the angle and De within the De orb, equal or mirrored"),
+    ("RA+De", "Predictions (Chart Aspect): two planets in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored"),
 ]
 HELP_VERSION = "11"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
@@ -187,7 +188,6 @@ HELP_ROWS_2 = [                                               # added later: the
     ("AstroClock-2D", "Page: the Geo drawing seen from above the north celestial pole, each planet at its RA and distance, with the De and Distance(%) graphs"),
     ("AstroClock-3D", "Page: the Earth turning inside the celestial sphere, the planets on it at their RA and De (3D: a true 3D view)"),
     ("Geo/Helio Model", "Page: the planets' paths at their real distances round the Earth (Geo) or the Sun (Helio)"),
-    ("Aspects", "Page: when the planets are in aspect, between a start and an end date"),
     ("Planets Cycles", "Page: each planet's RA and De over time, between a start and an end date"),
     ("Planets Distance(%)", "Page: each planet's Distance(%) from the Earth over time"),
     ("DOB Details", "Page (members): their birth details, and people added under their login"),
@@ -328,12 +328,6 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("Geo/Helio Model", "Planets", "Mo, Su, Ea, Me, Ve, Ma, Ju, Sa"),
     ("Geo/Helio Model", "Coordinates", "Ce, AU"),            # and here (Ce, AU)
     ("Geo/Helio Model", "Rotate in 1s", ""),
-    ("Aspects", "Start Date (UT)", "DOB"),
-    ("Aspects", "End Date (UT)", "Start Date (UT) + 5 days"),
-    ("Aspects", "Planets", "Ju, Sa"),
-    ("Aspects", "Aspects", "Major Aspects, Minor Aspects"),
-    ("Aspects", "Major Aspects", "0, 60, 90, 120, 180"),
-    ("Aspects", "Minor Aspects", "30, 45, 72, 135, 144, 150"),
     ("Planets Cycles", "Start Date (UT)", "DOB"),
     ("Planets Cycles", "End Date (UT)", "Start Date (UT) + 30 years"),
     ("Planets Cycles", "Planets", "Ju, Sa"),
@@ -555,7 +549,9 @@ NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects
 NEW_IN_6 = (("DOB Details", "Days"), ("DOB Details", "Pay / Coupon"))
 NEW_IN_7 = (("AstroClock-2D", "Coordinates"), ("Geo/Helio Model", "Coordinates"))
 NEW_IN_8 = (("Predictions", "Start Date (UT)"), ("Predictions", "End Date (UT)"))
-GONE_INPUTS = (("predictions", "planets"),)                  # inputs since taken off their page: their Defaults rows go
+GONE_INPUTS = (("predictions", "planets"),                   # inputs since taken off their page (or the page gone): their Defaults rows go
+               ("aspects", "start date (ut)"), ("aspects", "end date (ut)"), ("aspects", "planets"), ("aspects", "aspects"),
+               ("aspects", "major aspects"), ("aspects", "minor aspects"))   # (the Aspects page is gone; Predictions has its Aspects)
 
 
 def _drop_gone_inputs(eng: sa.Engine):

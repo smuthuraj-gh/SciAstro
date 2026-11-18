@@ -296,18 +296,11 @@ class AspectEvent:
     ra2: float = 0.0
 
 
-CN_STEP = 1.0 / 96                    # CN (house 10 now) goes once round in a day: looked at every 15 minutes (under 4 degrees)
-
-
-def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[int], orbs: Orbs,
-                  places: dict | None = None) -> list[AspectEvent]:
+def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[int], orbs: Orbs) -> list[AspectEvent]:
     """Each time two of the planets come into one of the aspects (C / O / Q / T / S) across the period. The Moon's nodes (NN,
     SN) may be among them, with their own orbs where the Aspect Rules table has them (NN-RA, SN-RA), as the planets', the total of the pair's;
-    NN with SN is never one (they are always opposite). places: the house points that may be among them too, CB (house 10 at
-    birth: fixed, ("fixed", RA, De)) and CN (house 10 now: ("now", latitude, longitude), its RA the sidereal time there at each
-    moment, its De the latitude), with their orbs (CB-RA, CN-RA ..; 0: the planet's alone)."""
-    places = places or {}
-    names = shown_order([p for p in BUTTON_ORDER + ["NN", "SN"] if p in labels]) + [p for p in ("CB", "CN") if p in labels and p in places]
+    NN with SN is never one (they are always opposite)."""
+    names = shown_order([p for p in BUTTON_ORDER + ["NN", "SN"] if p in labels])   # named in this order: 0-Mo-Su .. 0-Sa-SN
     if len(names) < 2 or not angles:
         return []
     span = jd_to - jd_from
@@ -316,8 +309,6 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
         return []
     if "Mo" in names and step > MOON_STEP:
         step = MOON_STEP
-    if "CN" in names and step > CN_STEP:
-        step = CN_STEP
     import numpy as np
     n = int(math.ceil(span / step))
     jds = np.minimum(jd_from + np.arange(n + 1) * step, jd_to)
@@ -328,10 +319,6 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
         for p in names:
             if p in ("NN", "SN"):                                    # the south node opposite the north
                 ra[p][k], de[p][k] = (node[0], node[1]) if p == "NN" else ((node[0] + 180.0) % 360.0, -node[1])
-                continue
-            if p in ("CB", "CN"):                                    # the house points: CB fixed; CN turning with the Earth
-                kind, a, b = places[p]
-                ra[p][k], de[p][k] = (a, b) if kind == "fixed" else (lst(float(jd), b), a)
                 continue
             x, err = se.calc_ut(float(jd), PLANET_ID[p])
             if x is None:
@@ -440,7 +427,7 @@ def _gap_arrays(kind: str, angle: int, ra1, de1, ra2, de2):
 def transit_events(birth: dict[str, tuple[float, float]], rules: list[tuple[str, str, str, int]], jd_from: float,
                    jd_to: float, orbs: Orbs) -> list[TransitEvent]:
     """Each time a moving planet comes to the angle with a point of the birth chart, as each rule (moving, birth, kind,
-    angle) says, across the period: when it comes within the orb (the pair's, as on Aspects: the total of the two's, from
+    angle) says, across the period: when it comes within the orb (the pair's: the total of the two's, from
     Aspect Rules; RA orbs for RA, De orbs for De), when it is exact and when it leaves the orb; newest last. A planet
     that turns back may come to it more than once. A pass that never comes within TRANSIT_NEAR of the angle does not count."""
     rules = [r for r in rules if r[1] in birth and r[2] in TRANSIT_KINDS and (r[2] == "RA" or r[3] in (0, 180))]
