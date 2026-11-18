@@ -1572,7 +1572,7 @@ def page_defaults():
     table = shown(db.defaults_table())
     crud_table("defaults_table", table, problems, commit, on_update=shown,
                height=30 * (len(st.session_state.get("defaults_table_working", table)) + 1) + 8,   # every row in view
-               column_config={"Page": st.column_config.TextColumn(width=150),
+               column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."), "Page": st.column_config.TextColumn(width=150),
                               "Choice": st.column_config.TextColumn(width=150, help="The input: its name on the page "
                                                                      "(e.g. Days). Each Page has one row per input."),
                               "Choice Values": st.column_config.TextColumn(width=300, help="What the input starts as (e.g. 7). "
@@ -1599,11 +1599,11 @@ def page_help_table():
     table = db.help_rows()
     if not user.is_admin:
         st.dataframe(table, hide_index=True, width="content", height=35 * (len(table) + 1) + 3,   # every row in view
-                     column_config={"Abbreviation": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=1200)})
+                     column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."), "Abbreviation": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=1200)})
         return
     crud_table("help_table", table, db.help_problems, lambda rows: f"Saved: {db.save_help(rows)} row(s).", on_update=db.help_sorted,   # (Update: in Abbreviation order)
                height=30 * (len(st.session_state.get("help_table_working", table)) + 1) + 8,   # every row in view
-               column_config={"Abbreviation": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=1200)})
+               column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."), "Abbreviation": st.column_config.TextColumn(width=170), "Description": st.column_config.TextColumn(width=1200)})
 
 
 def page_conditions():
@@ -1615,7 +1615,7 @@ def page_conditions():
     crud_table("conditions_table", table, db.conditions_problems, lambda rows: f"Saved: {db.save_conditions(rows)} row(s).",
                on_update=db.conditions_sorted,                  # (Update: in Condition order)
                height=30 * (len(st.session_state.get("conditions_table_working", table)) + 1) + 8,   # every row in view
-               column_config={"Condition": st.column_config.TextColumn("Condition *", width=220, help="Required, unique "
+               column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."), "Condition": st.column_config.TextColumn("Condition *", width=220, help="Required, unique "
                                                                        "(whatever its case), at most 60 characters."),
                               "Object": st.column_config.TextColumn(width=200, help="What it is for, at most 60 "
                                                                         "characters."),
@@ -1628,11 +1628,11 @@ def page_naming():
     # the page's names for the table's columns (the store keeps its own)
     shown_as = {"SN": "SAbr", "Symbol": "Symb", "Name": "SDesc", "Color": "RGB", "Color_Name": "Color", "Size": "Size_Geo"}   # (Size_Clock-3D, Size_Helio as they are)
     back = {v: k for k, v in shown_as.items()}
-    table = db.all_planets().assign(_sn=lambda d: d["SN"]).rename(columns=shown_as)[["Symb", "SAbr", "SDesc", "RGB", "Color", "Size_Clock-2D", "Size_Clock-3D", "Size_Geo", "Size_Helio", "_sn"]]
+    table = db.all_planets().assign(_sn=lambda d: d["SN"]).rename(columns=shown_as)[["id", "Symb", "SAbr", "SDesc", "RGB", "Color", "Size_Clock-2D", "Size_Clock-3D", "Size_Geo", "Size_Helio", "_sn"]]
     crud_table("planets_table", table, lambda rows: db.planet_problems(rows.rename(columns=back)),
                lambda rows: "Saved: {} added, {} changed, {} deleted.".format(*db.save_planets(rows.rename(columns=back))),
                height=30 * (len(st.session_state.get("planets_table_working", table)) + 1) + 24,   # every row in view, above the scroll bar
-               column_config={"_sn": None, "Symb": st.column_config.TextColumn(width="small"), "SDesc": st.column_config.TextColumn(width=135),
+               column_config={"_sn": None, "id": st.column_config.NumberColumn("ID", format="%d", disabled=True, width="small", help="The row's number, set by the app (blank on a new row until saved)."), "Symb": st.column_config.TextColumn(width="small"), "SDesc": st.column_config.TextColumn(width=135),
                               "RGB": st.column_config.TextColumn(width=118), "Size_Clock-3D": st.column_config.TextColumn(width=112), "Size_Geo": st.column_config.TextColumn(width=112), "Size_Helio": st.column_config.TextColumn(width=112), "Size_Clock-2D": st.column_config.TextColumn(width=112)}, width="content")
 
 

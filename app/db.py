@@ -283,6 +283,7 @@ DEFAULTS_VERSION = "7"                                        # 7: AstroClock-2D
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
+    sa.Column("id", sa.Integer),                              # the row's number (ID), set by the app
     sa.Column("symbol", sa.String(8)),                        # the conventional symbol, as text, for people; the charts draw their own
     sa.Column("name", sa.String(60)),
     sa.Column("color", sa.String(40)),
@@ -362,6 +363,7 @@ def engine() -> sa.Engine:
     _update_earth_symbol(eng)
     _set_recommended_colours(eng)
     _seed_planets(eng)
+    _number_planets(eng)
     _add_orb_nn_ra(eng)
     _seed_aspect_details(eng)
     _add_orb_dec(eng)
@@ -748,10 +750,11 @@ def help_sorted(rows: pd.DataFrame) -> pd.DataFrame:
 
 
 def help_rows() -> pd.DataFrame:
-    """The Help table: Abbreviation, Description, in the order of Abbreviation (case aside)."""
+    """The Help table: id, Abbreviation, Description, in the order of Abbreviation (case aside)."""
     with engine().connect() as c:
         rows = c.execute(sa.select(help_table).order_by(sa.func.lower(help_table.c.abbreviation))).mappings().all()
-    return pd.DataFrame([{"Abbreviation": r["abbreviation"], "Description": r["description"]} for r in rows], columns=["Abbreviation", "Description"])
+    return pd.DataFrame([{"id": r["id"], "Abbreviation": r["abbreviation"], "Description": r["description"]} for r in rows],
+                        columns=["id", "Abbreviation", "Description"])
 
 
 def help_problems(rows: pd.DataFrame) -> list[str]:
@@ -776,35 +779,55 @@ def help_problems(rows: pd.DataFrame) -> list[str]:
     return out
 
 
-def save_help(rows: pd.DataFrame) -> int:
-    """Makes the Help table these rows (wholly empty ones left out); gives how many it has."""
-    keep = [dict(abbreviation=_cell(r["Abbreviation"]), description=_cell(r["Description"]) or None)
-            for _, r in rows.iterrows() if _cell(r["Abbreviation"]) or _cell(r["Description"])]
+def _row_id(value) -> int | None:
+    """A row's id as the page sent it (blank on a new row)."""
+    try:
+        return int(value) if pd.notna(value) and str(value).strip() != "" else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _save_by_id(table: sa.Table, keep: list[tuple[int | None, dict]]) -> int:
+    """Makes the table these rows, each kept under its id (so a row keeps its ID across saves): rows not among them go,
+    rows with an id are changed in place, new ones (no id, or one no longer there) are added with a new id."""
     with engine().begin() as c:
-        c.execute(sa.delete(help_table))
-        if keep:
-            c.execute(help_table.insert(), keep)
+        there = {i for (i,) in c.execute(sa.select(table.c.id)).all()}
+        ids = {i for i, _ in keep if i in there}
+        gone = there - ids
+        if gone:
+            c.execute(table.delete().where(table.c.id.in_(gone)))
+        for i, values in keep:
+            if i in ids:
+                c.execute(table.update().where(table.c.id == i).values(**values))
+            else:
+                c.execute(table.insert().values(**values))
     return len(keep)
 
 
+def save_help(rows: pd.DataFrame) -> int:
+    """Makes the Help table these rows (wholly empty ones left out), each keeping its ID; gives how many it has."""
+    return _save_by_id(help_table, [(_row_id(r.get("id")), dict(abbreviation=_cell(r["Abbreviation"]), description=_cell(r["Description"]) or None))
+                                    for _, r in rows.iterrows() if _cell(r["Abbreviation"]) or _cell(r["Description"])])
+
+
 # ---------------------------------------------------------------- the Conditions table
-CONDITIONS_COLUMNS = ["Object", "Values", "Condition"]
+CONDITIONS_COLUMNS = ["id", "Object", "Values", "Condition"]
 # The conditions the app follows while their row is in the table (an admin deletes the row and the app stops following it):
 # Table, Login, "Do not track login details for Admin access": no Logins rows for an admin's activity
-NO_ADMIN_LOGINS = ("Table", "Do not track login details for Admin access")   # (its Object and Condition; Values: Login)
+NO_ADMIN_LOGINS = re.compile(r"(?i)\b(do\s*n[o']?t|no)\s+track\b.*\badmin")   # its Condition, however worded (Do not track login
+                                                                               # details for / who have Admin access ..)
 
 
-def _condition_values(c, obj: str, condition: str) -> list[str] | None:
-    """The Values of the Conditions row for this Object and Condition (case aside), comma-separated, as a list; None when
-    there is no such row (the app then does not follow it)."""
+def _no_admin_logins(c) -> bool:
+    """The App Conditions table has a row Object Table, Values Login (or Logins), Condition "Do not track .. Admin ..":
+    while it is there, an admin's activity is not written to the Logins table."""
     if "conditions" not in sa.inspect(c).get_table_names():
-        return None
-    rows = c.execute(sa.select(conditions.c.table_name, conditions.c.value_list).where(
-        sa.func.lower(conditions.c.name) == condition.strip().lower())).all()
-    for o, v in rows:
-        if (o or "").strip().lower() == obj.strip().lower():
-            return [w.strip() for w in (v or "").split(",") if w.strip()]
-    return None
+        return False
+    for obj, values, name in c.execute(sa.select(conditions.c.table_name, conditions.c.value_list, conditions.c.name)).all():
+        if ((obj or "").strip().lower() == "table" and NO_ADMIN_LOGINS.search(name or "")
+                and any(v.strip().lower() in ("login", "logins") for v in (values or "").split(","))):
+            return True
+    return False
 
 
 def _add_conditions_table_name(eng: sa.Engine):
@@ -824,7 +847,7 @@ def conditions_rows() -> pd.DataFrame:
     """The Conditions table: Object, Values, Condition, in the order of Condition (case aside)."""
     with engine().connect() as c:
         rows = c.execute(sa.select(conditions).order_by(sa.func.lower(conditions.c.name))).mappings().all()
-    return pd.DataFrame([{"Condition": r["name"], "Object": r["table_name"], "Values": r["value_list"]} for r in rows],
+    return pd.DataFrame([{"id": r["id"], "Condition": r["name"], "Object": r["table_name"], "Values": r["value_list"]} for r in rows],
                         columns=CONDITIONS_COLUMNS)
 
 
@@ -854,18 +877,14 @@ def conditions_problems(rows: pd.DataFrame) -> list[str]:
 
 
 def save_conditions(rows: pd.DataFrame) -> int:
-    """Makes the Conditions table these rows (wholly empty ones left out); gives how many it has."""
-    keep = [dict(name=_cell(r["Condition"]), table_name=_cell(r.get("Object")) or None, value_list=_cell(r["Values"]) or None)
-            for _, r in rows.iterrows() if _cell(r["Condition"]) or _cell(r.get("Object")) or _cell(r["Values"])]
-    with engine().begin() as c:
-        c.execute(sa.delete(conditions))
-        if keep:
-            c.execute(conditions.insert(), keep)
-    return len(keep)
+    """Makes the Conditions table these rows (wholly empty ones left out), each keeping its ID; gives how many it has."""
+    return _save_by_id(conditions, [(_row_id(r.get("id")), dict(name=_cell(r["Condition"]), table_name=_cell(r.get("Object")) or None,
+                                                              value_list=_cell(r["Values"]) or None))
+                                    for _, r in rows.iterrows() if _cell(r["Condition"]) or _cell(r.get("Object")) or _cell(r["Values"])])
 
 
 # ---------------------------------------------------------------- the Defaults table
-DEFAULTS_COLUMNS = ["Page", "Choice", "Choice Values", "Allowed Values"]
+DEFAULTS_COLUMNS = ["id", "Page", "Choice", "Choice Values", "Allowed Values"]
 
 
 def defaults_table() -> pd.DataFrame:
@@ -874,7 +893,7 @@ def defaults_table() -> pd.DataFrame:
     with engine().connect() as c:
         rows = c.execute(sa.select(defaults).order_by(sa.func.lower(defaults.c.page),
                                                       sa.func.lower(defaults.c.options))).mappings().all()
-    return pd.DataFrame([{"Page": r["page"], "Choice": r["options"], "Choice Values": r["choices"],
+    return pd.DataFrame([{"id": r["id"], "Page": r["page"], "Choice": r["options"], "Choice Values": r["choices"],
                           "Allowed Values": r["allowed_values"]} for r in rows], columns=DEFAULTS_COLUMNS)
 
 
@@ -917,15 +936,12 @@ def defaults_problems(rows: pd.DataFrame) -> list[str]:
 
 
 def save_defaults(rows: pd.DataFrame) -> int:
-    """Makes the Defaults table these rows, as its page shows them (wholly empty ones left out); gives how many it has."""
-    keep = [dict(page=_cell(r["Page"]), options=_cell(r["Choice"]),
-                 choices=_cell(r["Choice Values"]) or None, allowed_values=_cell(r.get("Allowed Values")) or None)
-            for _, r in rows.iterrows() if _cell(r["Page"]) or _cell(r["Choice"]) or _cell(r["Choice Values"])]
-    with engine().begin() as c:
-        c.execute(sa.delete(defaults))
-        if keep:
-            c.execute(defaults.insert(), keep)
-    return len(keep)
+    """Makes the Defaults table these rows, as its page shows them (wholly empty ones left out), each keeping its ID; gives
+    how many it has."""
+    return _save_by_id(defaults, [(_row_id(r.get("id")), dict(page=_cell(r["Page"]), options=_cell(r["Choice"]),
+                                                           choices=_cell(r["Choice Values"]) or None,
+                                                           allowed_values=_cell(r.get("Allowed Values")) or None))
+                                  for _, r in rows.iterrows() if _cell(r["Page"]) or _cell(r["Choice"]) or _cell(r["Choice Values"])])
 
 
 def _add_orb_nn_ra(eng: sa.Engine):
@@ -1122,15 +1138,30 @@ def _seed_planets(eng: sa.Engine):
             c.execute(planets.insert(), new)
 
 
+def _number_planets(eng: sa.Engine):
+    """Every Symbols row gets an ID (a table made before has its id column added): rows with none are numbered after the
+    highest, in the app's order of the planets."""
+    if "id" not in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
+        with eng.begin() as c:
+            c.execute(sa.text("ALTER TABLE naming_conventions ADD COLUMN id INTEGER"))
+    with eng.begin() as c:
+        rows = c.execute(sa.select(planets.c.sn, planets.c.id)).all()
+        top = max([i for _, i in rows if i is not None], default=0)
+        order = {p: n for n, p in enumerate(PLANET_NAMES)}
+        for sn in sorted((s for s, i in rows if i is None), key=lambda s: (order.get(s, len(order)), s)):
+            top += 1
+            c.execute(planets.update().where(planets.c.sn == sn).values(id=top))
+
+
 def all_planets() -> pd.DataFrame:
     """The Symbols table: SN, Symbol, Name, Color, Color_Name, Size_Clock-3D, Size (Size_Geo), Size_Helio, Size_Clock-2D, Sun first."""
     with engine().connect() as c:
         rows = c.execute(sa.select(planets)).mappings().all()
     order = {p: i for i, p in enumerate(PLANET_NAMES)}
     rows = sorted(rows, key=lambda r: order.get(r["sn"], len(order)))
-    return pd.DataFrame([{"SN": r["sn"], "Symbol": r["symbol"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"], "Size_Clock-3D": r["size_clock_3d"],
+    return pd.DataFrame([{"id": r["id"], "SN": r["sn"], "Symbol": r["symbol"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"], "Size_Clock-3D": r["size_clock_3d"],
                           "Size": r["size"], "Size_Helio": r["size_helio"], "Size_Clock-2D": r["size_clock_2d"]}
-                         for r in rows], columns=["SN", "Symbol", "Name", "Color", "Color_Name", "Size_Clock-3D", "Size", "Size_Helio", "Size_Clock-2D"])
+                         for r in rows], columns=["id", "SN", "Symbol", "Name", "Color", "Color_Name", "Size_Clock-3D", "Size", "Size_Helio", "Size_Clock-2D"])
 
 
 def planet_colours() -> dict[str, str]:
@@ -1224,6 +1255,7 @@ def save_planets(rows: pd.DataFrame) -> tuple[int, int, int]:
                 c.execute(planets.insert().values(sn=sn, **values))
                 added += 1
     _seed_planets(engine())                                   # the rows that are always in the table come back if deleted
+    _number_planets(engine())                                 # (and new rows get their IDs)
     return added, changed, len(set(old) - kept)
 
 
@@ -1681,7 +1713,7 @@ def _log(c, email: str | None, activity: str, times: int = 1, details: str | Non
         assert activity in ACTIVITIES
         now = _now()
         access_then = _access_now(c, email, now)
-        if access_then == "Admin" and any(v.lower() in ("login", "logins") for v in (_condition_values(c, *NO_ADMIN_LOGINS) or [])):
+        if access_then == "Admin" and _no_admin_logins(c):
             return
         row = dict(email=email.lower(), activity=activity, date_time=now, device=visitor_device() or None, timezone=visitor_timezone() or None, access=access_then,
                    page=(_visit("_page") or "")[:60] or None, details=(details or "")[:300] or None)
