@@ -344,7 +344,9 @@ def aspect_events(labels: list[str], jd_from: float, jd_to: float, angles: list[
 
 
 # ---------------------------------------------------------------- Predictions: the moving planets against the birth chart
-TRANSIT_KINDS = ("RA", "De")       # RA: the RA between the two is the angle; De: 0 parallel (same De), 180 contra-parallel (mirrored)
+TRANSIT_KINDS = ("RA", "De", "RA+De")   # RA: the RA between the two is the angle; De: 0 parallel (same De), 180 contra-parallel
+                                    # (mirrored); RA+De: in aspect by Aspect Rules (RA within its orb of the angle, De within the De
+                                    # orb, equal or mirrored), its closest moment by RA
 TRANSIT_NEAR = 1.0                  # a pass counts only when the moving planet comes this close to the angle (degrees)
 
 
@@ -371,7 +373,7 @@ def sky_point(name: str, jd_ut: float) -> tuple[float, float]:
 
 def transit_gap(kind: str, angle: int, ra: float, de: float, at_birth: tuple[float, float]) -> float:
     """How far the point at (ra, de) is from the angle with the birth point (degrees, 0 at exact)."""
-    if kind == "RA":
+    if kind in ("RA", "RA+De"):
         sep = abs(ra - at_birth[0]) % 360.0
         return abs(min(sep, 360.0 - sep) - angle)
     return abs(de - at_birth[1]) if angle == 0 else abs(de + at_birth[1])
@@ -390,6 +392,8 @@ def _passes(gap, jds, orb: float, gap_at) -> list[tuple]:
     for i, j in zip(edges[::2], edges[1::2] - 1):             # each run of steps within the orb: i .. j
         def cross(a: int, z: int) -> float:                   # where the gap passes the orb, between two steps
             ga, gz = gap[a] - orb, gap[z] - orb
+            if not np.isfinite(ga) or not np.isfinite(gz):    # (RA+De: the De values only now within, or no longer: that step)
+                return float(jds[z] if not np.isfinite(ga) else jds[a])
             return float(jds[a] + (jds[z] - jds[a]) * (ga / (ga - gz) if ga != gz else 0.5))
         k = i + int(np.argmin(gap[i:j + 1]))
         lo, hi = float(jds[max(k - 1, 0)]), float(jds[min(k + 1, n)])
@@ -415,9 +419,13 @@ def _samples(points, jd_from: float, jd_to: float):
     return jds, {p: np.array([sky_point(p, float(jd)) for jd in jds]) for p in points}
 
 
-def _gap_arrays(kind: str, angle: int, ra1, de1, ra2, de2):
-    """How far from the angle two points are at each step (degrees): RA's angle, or De's parallel / contra-parallel."""
+def _gap_arrays(kind: str, angle: int, ra1, de1, ra2, de2, de_orb: float = 0.0):
+    """How far from the angle two points are at each step (degrees): RA's angle, or De's parallel / contra-parallel; RA+De,
+    RA's, where their De values are within de_orb (equal or mirrored), else out of reach."""
     import numpy as np
+    if kind == "RA+De":
+        de_ok = np.minimum(np.abs(de1 - de2), np.abs(de1 + de2)) <= de_orb
+        return np.where(de_ok, _gap_arrays("RA", angle, ra1, de1, ra2, de2), np.inf)
     if kind == "RA":
         sep = np.abs(ra1 - ra2) % 360.0
         return np.abs(np.minimum(sep, 360.0 - sep) - angle)
@@ -430,14 +438,14 @@ def transit_events(birth: dict[str, tuple[float, float]], rules: list[tuple[str,
     angle) says, across the period: when it comes within the orb (the pair's: the total of the two's, from
     Aspect Rules; RA orbs for RA, De orbs for De), when it is exact and when it leaves the orb; newest last. A planet
     that turns back may come to it more than once. A pass that never comes within TRANSIT_NEAR of the angle does not count."""
-    rules = [r for r in rules if r[1] in birth and r[2] in TRANSIT_KINDS and (r[2] == "RA" or r[3] in (0, 180))]
+    rules = [r for r in rules if r[1] in birth and r[2] in TRANSIT_KINDS and (r[2] != "De" or r[3] in (0, 180))]
     if not rules or jd_to <= jd_from:
         return []
     jds, sky = _samples(sorted({r[0] for r in rules}), jd_from, jd_to)
     out = []
     for m, b, kind, angle in rules:
         bra, bde = birth[b]
-        gap = _gap_arrays(kind, angle, sky[m][:, 0], sky[m][:, 1], bra, bde)
+        gap = _gap_arrays(kind, angle, sky[m][:, 0], sky[m][:, 1], bra, bde, orbs.pair(angle, m, b, is_dec=True))
         at = lambda jd, m=m, b=b, kind=kind, angle=angle: transit_gap(kind, angle, *sky_point(m, jd), birth[b])
         for begins, exact, ends, off in _passes(gap, jds, orbs.pair(angle, m, b, is_dec=kind == "De"), at):
             out.append(TransitEvent(m, b, kind, int(angle), begins, exact, ends, off))
@@ -449,13 +457,13 @@ def sky_events(rules: list[tuple[str, str, str, int]], jd_from: float, jd_to: fl
     """Each time two planets now come to the angle with each other, as each rule (one, other, kind, angle) says, across the
     period, the same for everyone: as transit_events, but both moving (the pair's orb from Aspect Rules); NN with SN never
     (always opposite). As TransitEvents: moving the one, birth the other."""
-    rules = [r for r in rules if r[0] != r[1] and {r[0], r[1]} != {"NN", "SN"} and r[2] in TRANSIT_KINDS and (r[2] == "RA" or r[3] in (0, 180))]
+    rules = [r for r in rules if r[0] != r[1] and {r[0], r[1]} != {"NN", "SN"} and r[2] in TRANSIT_KINDS and (r[2] != "De" or r[3] in (0, 180))]
     if not rules or jd_to <= jd_from:
         return []
     jds, sky = _samples(sorted({p for r in rules for p in r[:2]}), jd_from, jd_to)
     out = []
     for a, b, kind, angle in rules:
-        gap = _gap_arrays(kind, angle, sky[a][:, 0], sky[a][:, 1], sky[b][:, 0], sky[b][:, 1])
+        gap = _gap_arrays(kind, angle, sky[a][:, 0], sky[a][:, 1], sky[b][:, 0], sky[b][:, 1], orbs.pair(angle, a, b, is_dec=True))
         at = lambda jd, a=a, b=b, kind=kind, angle=angle: transit_gap(kind, angle, *sky_point(a, jd), sky_point(b, jd))
         for begins, exact, ends, off in _passes(gap, jds, orbs.pair(angle, a, b, is_dec=kind == "De"), at):
             out.append(TransitEvent(a, b, kind, int(angle), begins, exact, ends, off))

@@ -223,7 +223,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "Predictions": "The Prediction Rules table's readings, in four tables: Birth and Transits for the birth chart of the customer picked, then Sky (the planets now with each other in RA or De, the same for everyone, New and Full Moon among them), Aspects (two planets coming into an aspect by Aspect Rules, RA and De together, by Aspect Rules: Date, Planet, With, Aspect, RAD, DeD) and Distance (each planet at its closest to and farthest from the Earth, with its AU and Distance(%)), over the Start and End dates. Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), closest first: Planet, With, Aspect, Off (degrees from the angle), AR (Aspect Rules: the pair's orb there), Event and Prediction (its reading, from Prediction Rules). "
+    "Predictions": "The Prediction Rules table's readings, in four tables (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together): Birth and Transits for the birth chart of the customer picked, then Sky (the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance (each planet at its closest to and farthest from the Earth, with its AU and Distance(%)), over the Start and End dates. Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), closest first: Planet, With, Aspect, Off (degrees from the angle), AR (Aspect Rules: the pair's orb there), Event and Prediction (its reading, from Prediction Rules). "
                    "Transits: its Transit rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Moving, Birth (the point of the birth chart; CB: house 10 at birth), "
                    "Aspect (RA and its angle, or De parallel / contra-parallel), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, by Aspect Rules; before Start / after End: within it already, or still), "
@@ -1177,13 +1177,6 @@ def page_range():
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
-def _events_cached(dec_on, angles, jd_from, jd_to, orb_csv):
-    import io
-    ev = core.aspect_events(list(dec_on), jd_from, jd_to, list(angles), core.Orbs(pd.read_csv(io.StringIO(orb_csv))))
-    return [(e.jd, e.angle, e.title, e.de1, e.de2, e.ra1, e.ra2) for e in sorted(ev, key=lambda e: e.jd)]
-
-
-@st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
 def _range_cached(dec_on, ea, jd_from, jd_to, orb_csv):
     import io
     return rangechart.range_figure(list(dec_on), list(ea), jd_from, jd_to, core.Orbs(pd.read_csv(io.StringIO(orb_csv))))
@@ -1772,8 +1765,15 @@ def page_predictions():
     orb_csv = db.orb_table().to_csv(index=False)
     passes_table("Transits", [r[1:] for r in every if r[0] == "Transit"], jds, orb_csv, birth)
     passes_table("Sky", [r[1:] for r in every if r[0] == "Sky"], jds, orb_csv)
-    aspect_predictions([r[1:] for r in every if r[0] == "Aspect"], jds, orb_csv)
     distance_predictions([r[1:] for r in every if r[0] == "Distance"], jds)
+
+
+def aspect_label(kind: str, angle: int) -> str:
+    """A rule's aspect as the Predictions tables show it: RA 90° (Square), De parallel, RA+De 90° (Square)."""
+    if kind == "De":
+        return "De parallel" if int(angle) == 0 else "De contra-parallel"
+    name = db.aspect_name(kind, angle)
+    return f"{kind} {int(angle)}°" + (f" ({name})" if name else "")
 
 
 def passes_table(title: str, rules: list, jds: tuple, orb_csv: str, birth: dict | None = None) -> None:
@@ -1793,43 +1793,12 @@ def passes_table(title: str, rules: list, jds: tuple, orb_csv: str, birth: dict 
     at = lambda jd: core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M")
     one, other = ("Moving", "Birth") if birth is not None else ("Planet", "With")
     rows = [{"Exact (UT)": at(exact), one: core.with_symbols(m), other: core.with_symbols(b),
-             "Aspect": f"RA {a}°" if k == "RA" else "De parallel" if a == 0 else "De contra-parallel",
+             "Aspect": aspect_label(k, a),
              "Begins (UT)": at(begins) if begins is not None else "before Start", "Ends (UT)": at(ends) if ends is not None else "after End",
              "Off": off, "Event": texts.get((m, b, k, a), ("", ""))[0], "Prediction": texts.get((m, b, k, a), ("", ""))[1]}
             for m, b, k, a, begins, exact, ends, off in events]
     show_table(pd.DataFrame(rows), hide_index=True, width="content",
                column_config={"Off": st.column_config.NumberColumn(format="%.2f", help="Degrees from the angle at Exact.")})
-
-
-def aspect_predictions(rules: list, jds: tuple, orb_csv: str) -> None:
-    """Aspects: each time two planets now come into an aspect by Aspect Rules (RA within the RA orb of the angle and De
-    within the De orb, equal or mirrored) over the period, for the pairs and angles the
-    Aspect rows name, soonest first, with the rule's Event and Prediction."""
-    st.markdown("**Aspects**")
-    if not rules:
-        st.caption("The Prediction Rules table has no Aspect rows.")
-        return
-    texts = {(frozenset((a, b)), int(angle)): (event, reading) for a, b, _, angle, event, reading in rules}   # (Kind: RA+De)
-    planets = sorted({p for a, b, *_ in rules for p in (a, b)})
-    angles = sorted({int(r[3]) for r in rules})
-    with st.spinner("Finding aspects..."):
-        found = _events_cached(tuple(planets), tuple(angles), *jds, orb_csv)
-    rows = []
-    for jd, angle, title, de1, de2, ra1, ra2 in found:
-        a, b = title.split("-")[-2:]                          # (0-Ju-Sa: the two, in the buttons' order)
-        hit = texts.get((frozenset((a, b)), int(angle)))
-        if hit is None:
-            continue
-        rd = abs(ra1 - ra2)
-        rows.append({"Date (UT)": core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M"), "Planet": core.with_symbols(a),
-                     "With": core.with_symbols(b), "Aspect": f"{db.aspect_name('RA+De', angle)} {int(angle)}°",
-                     "RAD": 360.0 - rd if rd > 180.0 else rd, "DeD": abs(de1 - de2), "Event": hit[0], "Prediction": hit[1]})
-    st.caption(f"{len(rows)} in this period." if rows else "None in this period.")
-    if rows:
-        show_table(pd.DataFrame(rows), hide_index=True, width="content",
-                   column_config={"Date (UT)": st.column_config.TextColumn(help="When the two come into the aspect."),
-                                  "RAD": st.column_config.NumberColumn(format="%.2f", help="Their RA apart then (0-180)."),
-                                  "DeD": st.column_config.NumberColumn(format="%.2f", help="Their De apart then.")})
 
 
 def distance_predictions(rules: list, jds: tuple) -> None:
@@ -1864,9 +1833,9 @@ def birth_predictions(rules: list, birth: dict) -> None:
             continue
         off = core.transit_gap(kind, angle, *birth[a], birth[b])
         orb = o.pair(angle, a, b, is_dec=kind == "De")
-        if off <= orb:
-            rows.append({"Planet": core.with_symbols(a), "With": core.with_symbols(b),
-                         "Aspect": f"RA {angle}°" if kind == "RA" else "De parallel" if angle == 0 else "De contra-parallel",
+        de_apart = min(abs(birth[a][1] - birth[b][1]), abs(birth[a][1] + birth[b][1]))   # (RA+De: equal or mirrored De)
+        if off <= orb and (kind != "RA+De" or de_apart <= o.pair(angle, a, b, is_dec=True)):
+            rows.append({"Planet": core.with_symbols(a), "With": core.with_symbols(b), "Aspect": aspect_label(kind, angle),
                          "Off": off, "AR": orb, "Event": text, "Prediction": reading})
     if not rules:
         st.caption("The Prediction Rules table has no Birth rows.")
@@ -1910,16 +1879,16 @@ def page_prediction_rules():
         return
     crud_table("predictions_table", table, db.predictions_problems, lambda rows: f"Saved: {db.save_predictions(rows)} row(s).",
                on_update=db.predictions_sorted,               # (Update: in the page's order)
-               height=rows_px(len(st.session_state.get("predictions_table_working", table))),   # every row in view
+               height=rows_px(min(30, len(st.session_state.get("predictions_table_working", table)))),   # (thousands of rows: 30 in view, the rest by scrolling)
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved)."),
                               "Chart": st.column_config.SelectboxColumn("Chart *", options=db.PRED_CHARTS,
-                                                                        help="Birth: two points at the angle in the birth chart. Transit: a planet now coming to the angle with a birth point. Sky: two planets now at the angle with each other. Aspect: two planets now in aspect by Aspect Rules (RA and De together, Kind RA+De). Distance: a planet at its closest (Near) or farthest (Far) from the Earth."),
+                                                                        help="Birth: two points at the angle in the birth chart. Transit: a planet now coming to the angle with a birth point. Sky: two planets now at the angle with each other. Distance: a planet at its closest (Near) or farthest (Far) from the Earth."),
                               "Moving": st.column_config.SelectboxColumn("Moving *", options=db.PRED_BIRTH,
                                                                           help="Transit, Sky: a planet now (not CB). Birth: the first point of the birth chart. Distance: the planet (Mo .. Sa)."),
                               "Birth": st.column_config.SelectboxColumn("Birth *", options=db.PRED_BIRTH + ["Ea"],
                                                                         help="Transit, Birth: the point of the birth chart (CB: house 10 at birth). Sky: the other planet now. Distance: Ea (the Earth)."),
                               "Kind": st.column_config.SelectboxColumn("Kind *", options=db.PRED_KINDS,
-                                                                       help="RA: the RA between the two is the Angle. De: Angle 0 parallel, 180 contra-parallel. Aspect rows: RA+De. Distance rows: Near or Far, Angle 0."),
+                                                                       help="RA: the RA between the two is the Angle. De: Angle 0 parallel, 180 contra-parallel. RA+De: in aspect by Aspect Rules (RA within its orb of the Angle, and De within the De orb, equal or mirrored). Distance rows: Near or Far, Angle 0."),
                               "Angle": st.column_config.NumberColumn("Angle *", min_value=0, max_value=180, step=1, format="%d",
                                                                      help="0 to 180 (De: 0 or 180)."),
                               "Aspect": st.column_config.TextColumn(disabled=True, help="The aspect by name, from Kind and Angle (as Aspect Rules names them: Conjunction 0, Opposition 180, Square 90 ..; De: Parallel, Contra-parallel; Distance: Closest, Farthest). Set by the app."),
