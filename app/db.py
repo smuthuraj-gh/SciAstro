@@ -17,7 +17,7 @@ import streamlit as st
 from astro import core
 
 from . import access
-from .location import visitor_device, visitor_location, visitor_timezone
+from .location import visitor_device, visitor_timezone
 
 ROOT = Path(__file__).resolve().parent.parent
 # the customer columns in table order; Email (login) first, as it is the key
@@ -70,7 +70,8 @@ sa.Index("ux_accounts_email", accounts.c.email, unique=True)
 settings = sa.Table("settings", meta, sa.Column("key", sa.String(64), primary_key=True), sa.Column("value", sa.Text))
 # The Logins table: a row each time a signed-in person (Email) opens a customer (View; once per customer per visit),
 # adds, changes or deletes one (Create, Update, Delete: a row per customer), or signs in with no birth details yet (Login;
-# once per visit): the Activity, at Date_Time (UT), from Location (where the visitor was, by IP); seen by admins only
+# once per visit): the Activity, at Date_Time (UT), on which Device; seen by admins only (rows of earlier tables keep the
+# Location and Came from they were written with, no longer shown or written)
 ACTIVITIES = ("View", "Create", "Update", "Delete", "Login")
 logins = sa.Table(
     "logins", meta,
@@ -78,13 +79,11 @@ logins = sa.Table(
     sa.Column("email", sa.String(320), nullable=False),
     sa.Column("activity", sa.String(10), nullable=False),
     sa.Column("date_time", sa.DateTime, nullable=False),
-    sa.Column("location", sa.String(200)),                   # City, State, Country of the visitor's IP ("Local", or blank when unknown)
     sa.Column("device", sa.String(60)),                      # their browser and system (Chrome on Windows ..)
     sa.Column("timezone", sa.String(64)),                    # the time zone their browser is set to (Asia/Kolkata (UTC+5:30))
     sa.Column("access", sa.String(20)),                      # their Access then (DOB .., "DOB ended"; blank: none, or no record)
     sa.Column("page", sa.String(60)),                        # the page they were on (AstroClock-2D, DOB Details ..)
     sa.Column("details", sa.String(300)),                    # what was done (Get more days of access: 7 days, coupon Free ..)
-    sa.Column("came_from", sa.String(200)),                  # the site that brought them to the app (its name only), blank: none known
     sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete', 'Login')", name="ck_logins_activity"),
 )
 sa.Index("ix_logins_date_time", logins.c.date_time)
@@ -122,7 +121,6 @@ HELP_ROWS_3 = [                                               # added later stil
     ("Search Only", "Add a DOB button: that person's DOB charts, not saved (a Search choice in the sidebar)"),
     ("Save and Search", "Add a DOB button: the person saved under your login, then their DOB charts"),
     ("Select all", "Logins button: ticks every row (pressed again, Unselect all: none)"),
-    ("Came from", "Logins column: the site that brought the visitor (its name only); blank: none known"),
 ]
 HELP_OUT_OF_DATE = {                                          # the Help rows' Descriptions the app once wrote, out of date since
     "Defaults": ("Page (admins): what each page's buttons start as (Page, Options, Choices)",
@@ -133,7 +131,8 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
     "Rotate in 1s": ("Title button: how much time passes each second (Manual, 1s to 1y)",),                   # (Manual is gone)
     "Days": ("Customers column: days of DOB access to add (1, 7, 30, 90, 180, 365); End Date is extended by them",),                         # (now DOB Details')
 }
-HELP_GONE = {"Manual": "Time stands still; drag the drawing to turn it", "Planet Path": "Title button: the path of each planet picked"}   # the Help rows for buttons since gone, as the app wrote them
+HELP_GONE = {"Came from": "Logins column: the site that brought the visitor (its name only); blank: none known",
+             "Manual": "Time stands still; drag the drawing to turn it", "Planet Path": "Title button: the path of each planet picked"}   # the Help rows for buttons since gone, as the app wrote them
 HELP_ROWS_4 = [                                               # added later again
     ("PP", "Planet Path: a button under Coordinates (AstroClock-2D, AstroClock-3D, Geo/Helio Model): the path of each planet shown"),
 ]
@@ -382,11 +381,11 @@ def _allow_login_activity(eng: sa.Engine):
 
 
 def _add_logins_columns(eng: sa.Engine):
-    """A Logins table made before the Location, Device, Time zone, Access, Page, Details and Came from columns gets them
-    (its rows kept, blank in them)."""
+    """A Logins table made before the Device, Time zone, Access, Page and Details columns gets them (its rows kept, blank
+    in them)."""
     have = {c["name"] for c in sa.inspect(eng).get_columns("logins")}
     with eng.begin() as c:
-        for col in ("location", "device", "timezone", "access", "page", "details", "came_from"):
+        for col in ("device", "timezone", "access", "page", "details"):
             if col not in have:
                 c.execute(sa.text(f"ALTER TABLE logins ADD COLUMN {col} {logins.c[col].type.compile(dialect=eng.dialect)}"))
 
@@ -1580,7 +1579,7 @@ def customer_problems(rows: pd.DataFrame) -> list[str]:
 
 
 def _visit(name: str) -> str | None:
-    """This visit's page (_page) or the site that brought them (came_from), as the app keeps them; None outside a visit."""
+    """This visit's page (_page), as the app keeps it; None outside a visit."""
     try:
         return st.session_state.get(name) or None
     except Exception:                                         # (no Streamlit session: a script, a test)
@@ -1589,14 +1588,12 @@ def _visit(name: str) -> str | None:
 
 def _log(c, email: str | None, activity: str, times: int = 1, details: str | None = None):
     """Rows in the Logins table: this person did this (details: what), times times (one row per customer), now, on which
-    page, from where they are, on what device, in what time zone, with what Access, brought by which site."""
+    page, on what device, in what time zone, with what Access."""
     if email and times > 0:
         assert activity in ACTIVITIES
         now = _now()
-        row = dict(email=email.lower(), activity=activity, date_time=now, location=visitor_location() or None,
-                   device=visitor_device() or None, timezone=visitor_timezone() or None, access=_access_now(c, email, now),
-                   page=(_visit("_page") or "")[:60] or None, details=(details or "")[:300] or None,
-                   came_from=(_visit("came_from") or "")[:200] or None)
+        row = dict(email=email.lower(), activity=activity, date_time=now, device=visitor_device() or None, timezone=visitor_timezone() or None, access=_access_now(c, email, now),
+                   page=(_visit("_page") or "")[:60] or None, details=(details or "")[:300] or None)
         c.execute(logins.insert(), [row] * times)
 
 
@@ -1633,15 +1630,15 @@ def log_login(email: str | None):
 
 
 def logins_table(limit: int = 5000) -> pd.DataFrame:
-    """The Logins table, newest first (at most limit rows): Id, Email, Activity, Date_Time (UT), Page, Details, Location,
-    Device, Time zone, Access, Came from."""
-    cols = ["Id", "Email", "Activity", "Date_Time", "Page", "Details", "Location", "Device", "Time zone", "Access", "Came from"]
+    """The Logins table, newest first (at most limit rows): Id, Email, Activity, Date_Time (UT), Page, Details, Device,
+    Time zone, Access."""
+    cols = ["Id", "Email", "Activity", "Date_Time", "Page", "Details", "Device", "Time zone", "Access"]
     with engine().connect() as c:
         rows = c.execute(sa.select(logins).order_by(logins.c.date_time.desc(), logins.c.id.desc()).limit(limit)).mappings().all()
     return pd.DataFrame([{"Id": r["id"], "Email": r["email"], "Activity": r["activity"], "Date_Time": r["date_time"],
-                          "Location": r["location"] or "", "Device": r["device"] or "", "Time zone": r["timezone"] or "",
-                          "Access": r["access"] or "", "Page": r["page"] or "", "Details": r["details"] or "",
-                          "Came from": r["came_from"] or ""} for r in rows], columns=cols)
+                          "Device": r["device"] or "", "Time zone": r["timezone"] or "",
+                          "Access": r["access"] or "", "Page": r["page"] or "", "Details": r["details"] or ""} for r in rows],
+                        columns=cols)
 
 
 def delete_logins(ids: list[int] | None = None) -> int:
