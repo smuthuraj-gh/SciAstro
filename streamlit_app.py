@@ -1301,12 +1301,26 @@ def _distance_cached(dist_on, jd_from, jd_to):
 # Customers, DOB, Defaults, Help and Symbols: Insert, Update, Delete and Ignore on the title line. Editable tables sort by their
 # column headers only while they cannot add or delete rows themselves, so these buttons do that. Each saves at once (Update
 # checks what has been typed; Delete takes the rows ticked in the first column); Ignore drops what has not been saved.
-CHAR_PX, CELL_PAD_PX, COLUMN_MOST_PX = 5.6, 18, 420         # a table's text: about this wide a character (as measured on the page)
+# each character's width in a table's text (Source Sans, 14 px, as the tables draw it; measured in the browser); a
+# character not here (a planet's symbol ..) taken as OTHER_CHAR_PX
+CHAR_PX = dict(zip(" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~°…",
+                   [2.8, 4.05, 5.96, 6.96, 6.96, 11.54, 8.53, 3.49, 4.24, 4.24, 5.85, 6.96, 3.49, 4.35, 3.49, 4.9] + [6.96] * 10 +
+                   [3.49, 3.49, 6.96, 6.96, 6.96, 5.95, 11.86, 7.6, 8.23, 7.99, 8.61, 7.38, 6.92, 8.64, 9.13, 3.68, 6.71, 8.11, 6.8,
+                    10.18, 9.06, 9.3, 7.92, 9.3, 7.97, 7.48, 7.5, 9.03, 7.21, 11, 7.18, 6.66, 7.55, 4.24, 4.9, 4.24, 6.96, 7, 7.59,
+                    7.06, 7.74, 6.38, 7.77, 6.94, 4.09, 7.06, 7.62, 3.46, 3.46, 6.93, 3.57, 11.61, 7.66, 7.59, 7.77, 7.77, 4.86, 5.87,
+                    4.73, 7.62, 6.54, 10.07, 6.24, 6.54, 5.95, 4.24, 3.37, 4.24, 6.96, 4.63, 13.27]))
+OTHER_CHAR_PX = 14.0
+CELL_PAD_PX, HEAD_EXTRA_PX = 18, 22                           # a cell's space either side; a heading's icon and bold type
+
+
+def text_px(text: str) -> float:
+    """How wide the text is in a table (px)."""
+    return sum(CHAR_PX.get(ch, OTHER_CHAR_PX) for ch in text)
 
 
 def fitted(df: pd.DataFrame, column_config: dict | None = None) -> dict:
-    """column_config with a width for each column of df that has none: just wide enough for its longest value or its
-    heading (at most COLUMN_MOST_PX, a long text then cut short), so the columns stand close together."""
+    """column_config with a width for each column of df that has none: just wide enough for the longest text the column
+    has, or its heading, so the columns stand close together (the data itself is not changed)."""
     out = dict(column_config or {})
     for col in df.columns:
         cfg = out.get(col)
@@ -1316,11 +1330,9 @@ def fitted(df: pd.DataFrame, column_config: dict | None = None) -> dict:
         if cfg.get("width"):
             out[col] = cfg
             continue
-        head = str(cfg.get("label") or col)
-        values = df[col].dropna()
-        shown = (f"{v:.2f}" if isinstance(v, float) else str(v) for v in values.head(2000))   # (numbers as the tables show them)
-        longest = max([len(head) + 2] + [len(s) for s in shown])
-        cfg["width"] = int(min(COLUMN_MOST_PX, longest * CHAR_PX + CELL_PAD_PX))
+        head = text_px(str(cfg.get("label") or col)) * 1.04 + HEAD_EXTRA_PX
+        shown = (f"{v:.2f}" if isinstance(v, float) else str(v) for v in df[col].dropna())   # (numbers as the tables show them)
+        cfg["width"] = int(max([head] + [text_px(s) for s in shown]) + CELL_PAD_PX)
         out[col] = cfg
     return out
 
