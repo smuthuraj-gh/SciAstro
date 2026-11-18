@@ -290,7 +290,8 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "Aspect Rules": "The orbs: one row, for every aspect (Conjunction 0, Opposition 180, Square 90, Trine 120, Sextile 60, "
                        "Semi-sextile 30, Semi-square 45, Quintile 72, Sesquiquadrate 135, Bi-quintile 144, Quincunx 150): for each "
                        "planet, an RA orb and a Dec orb, how far from exact still counts as the aspect. A pair of planets uses the "
-                       "total of their two orbs (RA and Dec each). Type the changes and press Update; they apply to every chart. Ignore drops changes not updated; Reset to Previous puts back the orbs before the last Update.",
+                       "total of their two orbs (RA and Dec each). 👶 RA, 🏠 RA, 👶 De, 🏠 De: the orbs of CB (house 10 at birth) and CN (house 10 now), "
+                       "0 to start (a pair with one then takes the planet's orb alone). Type the changes and press Update; they apply to every chart. Ignore drops changes not updated; Reset to Previous puts back the orbs before the last Update.",
     "Customers": "One row per login: its Email, its Access, Start Date (UT) and End Date (UT; when DOB runs out). "
                  "Now: the Now charts only. DOB, the paid option: the DOB and Now charts of every DOB record "
                  "under their login, and people they add, or search for without saving, on DOB Details, until End Date. "
@@ -1850,10 +1851,10 @@ def page_aspects():
     table = db.orb_table()
     st.caption("A pair is in aspect when RA is within the RA orb of the angle and the two Decs within the Dec orb of "
                "equal or mirrored, at every angle. One row of orbs for every aspect; a pair uses the total of its two "
-               "planets' orbs (RA and Dec each); CB and CN take the planet's.")
+               "planets' orbs (RA and Dec each); CB and CN have their own (0 to start: the planet's orb alone).")
     show = table[db.ORB_COLUMNS].head(1)
     edited = edit_table(show, hide_index=True, num_rows="fixed", key="orb_editor", width="content",
-                            column_config={c: st.column_config.NumberColumn(core.with_symbols(c[:-3]) + (" RA" if c.endswith("-RA") else " Dec"),
+                            column_config={c: st.column_config.NumberColumn(core.with_symbols(c[:-3]) + (" RA" if c.endswith("-RA") else " De"),
                                                                             min_value=0.0, format="%g")
                                            for c in db.ORB_COLUMNS})   # ☽︎ RA, ☉︎ RA .. ☽︎ Dec ..
     said = st.session_state.pop("orb_said", None)

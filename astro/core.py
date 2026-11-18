@@ -238,7 +238,7 @@ class Orbs:
                 continue
             for col in self.table.columns:
                 c = str(col).strip()
-                if len(c) == 5 and (c[:2] in PLANET_ID or c[:2] in ("NN", "SN")) and c[2:].upper() in ("-RA", "-DE"):
+                if len(c) == 5 and (c[:2] in PLANET_ID or c[:2] in ("NN", "SN", "CB", "CN")) and c[2:].upper() in ("-RA", "-DE"):
                     v = pd.to_numeric(row[col], errors="coerce")
                     if pd.notna(v) and v >= 0:
                         self._lookup[(ang, c[:2], c[2:].upper() == "-DE")] = float(v)

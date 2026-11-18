@@ -419,6 +419,7 @@ def engine() -> sa.Engine:
     _seed_planets(eng)
     _number_planets(eng)
     _add_orb_nn_ra(eng)
+    _add_orb_points(eng)
     _seed_aspect_details(eng)
     _add_orb_dec(eng)
     _one_orb_row(eng)
@@ -1347,6 +1348,20 @@ def _add_orb_nn_ra(eng: sa.Engine):
                 kind = aspect_details.c[col].type.compile(dialect=eng.dialect)
                 c.execute(sa.text(f"ALTER TABLE aspect_details ADD COLUMN {col} {kind}"))
                 c.execute(sa.text(f"UPDATE aspect_details SET {col} = {like}"))
+
+
+POINT_ORB_COLUMNS = ["CB-RA", "CN-RA", "CB-De", "CN-De"]     # the house points' orbs (0 to start: a pair then takes the planet's)
+
+
+def _add_orb_points(eng: sa.Engine):
+    """An Aspect Rules table made before CB's and CN's orb columns (CB-RA, CN-RA, CB-De, CN-De) gets them, each 0, so that
+    a pair with CB or CN keeps the planet's orb alone, as before, until an admin sets them."""
+    have = {c["name"] for c in sa.inspect(eng).get_columns("aspect_details")}
+    with eng.begin() as c:
+        for col in [k.lower().replace("-", "_") for k in POINT_ORB_COLUMNS]:
+            if col not in have:
+                c.execute(sa.text(f"ALTER TABLE aspect_details ADD COLUMN {col} {aspect_details.c[col].type.compile(dialect=eng.dialect)}"))
+                c.execute(sa.text(f"UPDATE aspect_details SET {col} = 0"))
 
 
 def _add_orb_dec(eng: sa.Engine):
@@ -2368,7 +2383,8 @@ def previous_orbs() -> pd.DataFrame | None:
         text = c.execute(sa.select(settings.c.value).where(settings.c.key == PREVIOUS_ORBS)).scalar()
     if not text:
         return None
-    return pd.read_json(io.StringIO(text), orient="records")[ORB_COLUMNS]
+    kept = pd.read_json(io.StringIO(text), orient="records").reindex(columns=ORB_COLUMNS)
+    return kept.fillna({c: 0.0 for c in POINT_ORB_COLUMNS})   # (kept before CB's and CN's orbs: 0, as they started)
 
 
 def save_orb_table(df: pd.DataFrame):
