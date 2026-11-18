@@ -415,7 +415,7 @@ def transit_events(birth: dict[str, tuple[float, float]], rules: list[tuple[str,
                 return float(jds[a] + (jds[z] - jds[a]) * (ga / (ga - gz) if ga != gz else 0.5))
             k = i + int(np.argmin(gap[i:j + 1]))
             lo, hi = float(jds[max(k - 1, 0)]), float(jds[min(k + 1, n)])
-            for _ in range(40):                               # the closest moment, to the minute
+            for _ in range(22):                               # the closest moment, to the minute ((2/3)^22 of 2 steps: under a minute)
                 a, z = lo + (hi - lo) / 3.0, hi - (hi - lo) / 3.0
                 if gap_at(m, kind, angle, b, a) <= gap_at(m, kind, angle, b, z):
                     hi = z

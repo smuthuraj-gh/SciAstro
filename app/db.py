@@ -847,18 +847,23 @@ def _row_id(value) -> int | None:
 
 def _save_by_id(table: sa.Table, keep: list[tuple[int | None, dict]]) -> int:
     """Makes the table these rows, each kept under its id (so a row keeps its ID across saves): rows not among them go,
-    rows with an id are changed in place, new ones (no id, or one no longer there) are added with a new id."""
+    rows with an id are changed in place (only those that differ: a long table saves quickly), new ones (no id, or one no
+    longer there) are added with a new id."""
     with engine().begin() as c:
-        there = {i for (i,) in c.execute(sa.select(table.c.id)).all()}
+        there = {r["id"]: r for r in c.execute(sa.select(table)).mappings().all()}
         ids = {i for i, _ in keep if i in there}
-        gone = there - ids
+        gone = set(there) - ids
         if gone:
             c.execute(table.delete().where(table.c.id.in_(gone)))
+        added = []
         for i, values in keep:
             if i in ids:
-                c.execute(table.update().where(table.c.id == i).values(**values))
+                if any(there[i][k] != v for k, v in values.items()):
+                    c.execute(table.update().where(table.c.id == i).values(**values))
             else:
-                c.execute(table.insert().values(**values))
+                added.append(values)
+        if added:
+            c.execute(table.insert(), added)
     return len(keep)
 
 
@@ -960,26 +965,60 @@ def _add_prediction_chart(eng: sa.Engine):
                 c.execute(sa.text("SELECT setval(pg_get_serial_sequence('predictions', 'id'), (SELECT MAX(id) FROM predictions))"))
 
 
+PRED_ANGLES = [("RA", 0, "conjunct"), ("RA", 60, "sextile"), ("RA", 90, "square"), ("RA", 120, "trine"), ("RA", 180, "opposite"),
+               ("Dec", 0, "parallel"), ("Dec", 180, "contra-parallel")]   # every combination gets each (the major angles; Dec both)
+
+
+def prediction_combinations() -> list[tuple[str, str, str, str, int, str]]:
+    """Every combination, as (chart, moving, birth, kind, angle, prediction): Transit, each planet now (PRED_MOVING) with
+    each point of the birth chart (PRED_BIRTH); Birth, each two points of the birth chart once (not NN with SN, always
+    opposite); at each of PRED_ANGLES, with a plain Prediction naming it, to be replaced with a reading."""
+    def name(p):
+        return "house 10 (CB)" if p == "CB" else PLANET_NAMES.get(p, p)
+    out = []
+    for m in PRED_MOVING:
+        for b in PRED_BIRTH:
+            for kind, angle, word in PRED_ANGLES:
+                out.append(("Transit", m, b, kind, angle, f"{name(m)} {word} your birth {name(b)} in {kind} ({angle}°). Add your reading."))
+    for i, a in enumerate(PRED_BIRTH):
+        for b in PRED_BIRTH[i + 1:]:
+            if {a, b} == {"NN", "SN"}:
+                continue
+            for kind, angle, word in PRED_ANGLES:
+                out.append(("Birth", a, b, kind, angle, f"{name(a)} {word} {name(b)} in {kind} ({angle}°) at birth. Add your reading."))
+    return out
+
+
 def _seed_predictions(eng: sa.Engine):
     """Once per set (a note among the settings says which; a row deleted since stays deleted): the Predictions table gets
-    the Transit sample rows of PREDICTION_ROWS (when it is empty), then the Birth ones of PREDICTION_BIRTH_ROWS."""
+    the Transit sample rows of PREDICTION_ROWS (when it is empty), then the Birth ones of PREDICTION_BIRTH_ROWS, then
+    every combination (prediction_combinations) it lacks (a Birth pair already there either way round counts; rows
+    already there keep their Prediction)."""
     with eng.begin() as c:
         done = c.execute(sa.select(settings.c.value).where(settings.c.key == "predictions_seeded")).scalar()
-        if done == "2":
+        if done == "3":
             return
         new = []
         if done is None and not c.execute(sa.select(predictions.c.id).limit(1)).first():
             new += [dict(chart="Transit", moving=m, birth=b, kind=k, angle=a, prediction=p) for m, b, k, a, p in PREDICTION_ROWS]
-        have = {(m, b, k, a) for m, b, k, a in c.execute(sa.select(predictions.c.moving, predictions.c.birth, predictions.c.kind,
-                                                                   predictions.c.angle).where(predictions.c.chart == "Birth")).all()}
-        new += [dict(chart="Birth", moving=m, birth=b, kind=k, angle=a, prediction=p) for m, b, k, a, p in PREDICTION_BIRTH_ROWS
-                if (m, b, k, a) not in have]
+        if done in (None, "1"):
+            have = {(m, b, k, a) for m, b, k, a in c.execute(sa.select(predictions.c.moving, predictions.c.birth, predictions.c.kind,
+                                                                       predictions.c.angle).where(predictions.c.chart == "Birth")).all()}
+            new += [dict(chart="Birth", moving=m, birth=b, kind=k, angle=a, prediction=p) for m, b, k, a, p in PREDICTION_BIRTH_ROWS
+                    if (m, b, k, a) not in have]
+        have = {(ch, m, b, k, a) for ch, m, b, k, a in c.execute(sa.select(predictions.c.chart, predictions.c.moving, predictions.c.birth,
+                                                                         predictions.c.kind, predictions.c.angle)).all()}
+        have |= {(r["chart"], r["moving"], r["birth"], r["kind"], r["angle"]) for r in new}
+        for ch, m, b, k, a, p in prediction_combinations():
+            if (ch, m, b, k, a) in have or (ch == "Birth" and (ch, b, m, k, a) in have):
+                continue
+            new.append(dict(chart=ch, moving=m, birth=b, kind=k, angle=a, prediction=p))
         if new:
             c.execute(predictions.insert(), new)
         if done is None:
-            c.execute(settings.insert().values(key="predictions_seeded", value="2"))
+            c.execute(settings.insert().values(key="predictions_seeded", value="3"))
         else:
-            c.execute(settings.update().where(settings.c.key == "predictions_seeded").values(value="2"))
+            c.execute(settings.update().where(settings.c.key == "predictions_seeded").values(value="3"))
 
 
 def _pred_key(r) -> tuple:
