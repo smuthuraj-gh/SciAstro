@@ -1371,9 +1371,11 @@ def page_logins():
     # (ticks are kept by row position: a new key when the rows move, so that a tick cannot land on another row)
     edited = st.data_editor(view, hide_index=True, width="content", num_rows="fixed",
                             key=f"logins_table_{len(table)}_{table['Id'].iloc[0] if len(table) else 0}_{int(all_on)}",
-                            height="auto" if len(table) <= 18 else 700, disabled=["Email", "Activity", "Date_Time", "Page", "Details", "Device", "Time zone", "Access"],
+                            height="auto" if len(table) <= 18 else 700, disabled=["Id", "Email", "Activity", "Date_Time", "Page", "Details", "Device", "Time zone", "Access"],
                             column_config={"Del": st.column_config.CheckboxColumn("Del", width="small", help="Tick, then press Delete."),
-                                           "Id": None, "Email": st.column_config.TextColumn(width=260),
+                                           "Id": st.column_config.NumberColumn("ID", format="%d", width="small",
+                                                                               help="The row's number, set by the app."),
+                                           "Email": st.column_config.TextColumn(width=260),
                                            "Activity": st.column_config.TextColumn(width=100),
                                            "Date_Time": st.column_config.DatetimeColumn("Date_Time (UT)", format="YYYY-MM-DD HH:mm:ss",
                                                                                         width=170),
