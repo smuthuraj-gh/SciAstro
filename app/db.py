@@ -865,16 +865,23 @@ def _seed_help(eng: sa.Engine):
 
 
 # ---------------------------------------------------------------- the Help table
+def by_id(rows: pd.DataFrame, column: str = "id") -> pd.DataFrame:
+    """A table's rows by their ID, lowest first, as every table is shown; a new row (no ID yet) at the bottom, in the order
+    it was added."""
+    ids = pd.to_numeric(rows[column], errors="coerce") if column in rows.columns else pd.Series([float("nan")] * len(rows))
+    order = sorted(range(len(rows)), key=lambda i: (pd.isna(ids.iloc[i]), 0 if pd.isna(ids.iloc[i]) else ids.iloc[i], i))
+    return rows.iloc[order].reset_index(drop=True)
+
+
 def help_sorted(rows: pd.DataFrame) -> pd.DataFrame:
-    """The Help rows in the order of Abbreviation (case aside), as the page shows them; rows with no Abbreviation yet at the bottom."""
-    key = rows["Abbreviation"].map(lambda v: (_cell(v) == "", _cell(v).lower()))
-    return rows.iloc[sorted(range(len(rows)), key=lambda i: key.iloc[i])].reset_index(drop=True)
+    """The Help rows by ID, as the page shows them (a new row at the bottom)."""
+    return by_id(rows)
 
 
 def help_rows() -> pd.DataFrame:
-    """The Help table: id, Abbreviation, Description, in the order of Abbreviation (case aside)."""
+    """The Help table: id, Abbreviation, Description, by ID."""
     with engine().connect() as c:
-        rows = c.execute(sa.select(help_table).order_by(sa.func.lower(help_table.c.abbreviation))).mappings().all()
+        rows = c.execute(sa.select(help_table).order_by(help_table.c.id)).mappings().all()
     return pd.DataFrame([{"id": r["id"], "Abbreviation": r["abbreviation"], "Description": r["description"]} for r in rows],
                         columns=["id", "Abbreviation", "Description"])
 
@@ -965,15 +972,14 @@ def _add_conditions_table_name(eng: sa.Engine):
 
 
 def conditions_sorted(rows: pd.DataFrame) -> pd.DataFrame:
-    """The Conditions rows in the order of Condition (case aside), as the page shows them; rows with none yet at the bottom."""
-    key = rows["Condition"].map(lambda v: (_cell(v) == "", _cell(v).lower()))
-    return rows.iloc[sorted(range(len(rows)), key=lambda i: key.iloc[i])].reset_index(drop=True)
+    """The Conditions rows by ID, as the page shows them (a new row at the bottom)."""
+    return by_id(rows)
 
 
 def conditions_rows() -> pd.DataFrame:
     """The Conditions table: Object, Values, Condition, in the order of Condition (case aside)."""
     with engine().connect() as c:
-        rows = c.execute(sa.select(conditions).order_by(sa.func.lower(conditions.c.name))).mappings().all()
+        rows = c.execute(sa.select(conditions).order_by(conditions.c.id)).mappings().all()
     return pd.DataFrame([{"id": r["id"], "Condition": r["name"], "Object": r["table_name"], "Values": r["value_list"]} for r in rows],
                         columns=CONDITIONS_COLUMNS)
 
@@ -1509,17 +1515,6 @@ def row_angle(r):
     return 0 if kind in ("Near", "Far", "House") or _pick(PRED_CHARTS, r.get("Chart")) == "Distance" and pd.isna(value) else value
 
 
-def _pred_key(r) -> tuple:
-    """A Predictions row's place in the table: by Chart (Birth first), Moving, then Birth (in the order the planet buttons
-    are shown), Kind and Angle; rows not filled in at the bottom."""
-    def at(names, v):
-        v = _cell(v)
-        return names.index(v) if v in names else len(names)
-    angle = row_angle(r)
-    return (at(PRED_CHARTS, r.get("Chart")), at(PRED_BIRTH, r.get("Moving")), at(PRED_BIRTH + ["Ea"] + HOUSES, r.get("Birth")), at(PRED_KINDS, r.get("Kind")),
-            999 if pd.isna(angle) else angle)
-
-
 def aspect_name(kind, angle) -> str:
     """A rule's aspect by name: RA+De, the name of its Angle among the aspects (Conjunction 0 .. Quincunx 150, as Aspect Rules
     names them: those names only for RA+De); De, Parallel (0) or Contra-parallel (180); Near, Closest; Far, Farthest ('' for
@@ -1546,10 +1541,9 @@ def _aspect_names() -> dict[float, str]:
 
 
 def predictions_sorted(rows: pd.DataFrame) -> pd.DataFrame:
-    """The Predictions rows in the order the page shows them (see _pred_key), with each one's Kind (not shown) and Aspect by
+    """The Predictions rows by ID, as the page shows them (a new row at the bottom), with each one's Kind (not shown) and Aspect by
     name (after De): an RA+De row's from its RA; a Distance row's Closest or Farthest, as picked."""
-    order = sorted(range(len(rows)), key=lambda i: _pred_key(rows.iloc[i]))
-    rows = rows.iloc[order].reset_index(drop=True)
+    rows = by_id(rows)                                        # (by ID; a new row at the bottom)
     kinds = [row_kind(r) for _, r in rows.iterrows()]
     angles = [row_angle(r) for _, r in rows.iterrows()]
     rows["Kind"] = kinds                                      # (not shown: from Chart and Aspect)
@@ -1665,8 +1659,7 @@ def defaults_table() -> pd.DataFrame:
     """The Defaults table as its page shows it: Page, Choice (the input), Choice Values (what it starts as) and
     Allowed Values, sorted by Page, then Options, then Choice (case aside)."""
     with engine().connect() as c:
-        rows = c.execute(sa.select(defaults).order_by(sa.func.lower(defaults.c.page),
-                                                      sa.func.lower(defaults.c.options))).mappings().all()
+        rows = c.execute(sa.select(defaults).order_by(defaults.c.id)).mappings().all()   # (by ID)
     return pd.DataFrame([{"id": r["id"], "Page": r["page"], "Choice": r["options"], "Choice Values": r["choices"],
                           "Allowed Values": r["allowed_values"]} for r in rows], columns=DEFAULTS_COLUMNS)
 
@@ -1944,9 +1937,7 @@ def _number_planets(eng: sa.Engine):
 def all_planets() -> pd.DataFrame:
     """The Symbols table: SN, Symbol, Name, Color, Color_Name, Size_Clock-3D, Size (Size_Geo), Size_Helio, Size_Clock-2D, Sun first."""
     with engine().connect() as c:
-        rows = c.execute(sa.select(planets)).mappings().all()
-    order = {p: i for i, p in enumerate(PLANET_NAMES)}
-    rows = sorted(rows, key=lambda r: order.get(r["sn"], len(order)))
+        rows = c.execute(sa.select(planets).order_by(planets.c.id)).mappings().all()   # (by ID)
     return pd.DataFrame([{"id": r["id"], "SN": r["sn"], "Symbol": r["symbol"], "Name": r["name"], "Color": r["color"], "Color_Name": r["color_name"], "Size_Clock-3D": r["size_clock_3d"],
                           "Size": r["size"], "Size_Helio": r["size_helio"], "Size_Clock-2D": r["size_clock_2d"]}
                          for r in rows], columns=["id", "SN", "Symbol", "Name", "Color", "Color_Name", "Size_Clock-3D", "Size", "Size_Helio", "Size_Clock-2D"])
@@ -2268,7 +2259,7 @@ def _set_access(c, email: str, value: str):
 def accounts_table() -> pd.DataFrame:
     """The Customers table, by Email: id, email, access, start_date, end_date."""
     with engine().connect() as c:
-        return pd.read_sql(sa.select(accounts).order_by(accounts.c.email), c)
+        return pd.read_sql(sa.select(accounts).order_by(accounts.c.id), c)   # (by ID)
 
 
 def account_problems(rows: pd.DataFrame) -> list[str]:
@@ -2417,7 +2408,7 @@ def is_local_sqlite() -> bool:
 # ---------------------------------------------------------------- customers
 def all_customers() -> pd.DataFrame:
     with engine().connect() as c:
-        df = pd.read_sql(sa.select(customers).order_by(customers.c.name), c)
+        df = pd.read_sql(sa.select(customers).order_by(customers.c.id), c)   # (by ID)
     return df
 
 
@@ -2541,11 +2532,11 @@ def log_login(email: str | None):
 
 
 def logins_table(limit: int = 5000) -> pd.DataFrame:
-    """The Logins table, newest first (at most limit rows): Id, Email, Activity, Access, Date_Time (UT), Page, Details,
-    Device, Time zone."""
+    """The Logins table, its newest limit rows, by Id (oldest first): Id, Email, Activity, Access, Date_Time (UT), Page,
+    Details, Device, Time zone."""
     cols = ["Id", "Email", "Activity", "Access", "Date_Time", "Page", "Details", "Device", "Time zone"]
     with engine().connect() as c:
-        rows = c.execute(sa.select(logins).order_by(logins.c.date_time.desc(), logins.c.id.desc()).limit(limit)).mappings().all()
+        rows = c.execute(sa.select(logins).order_by(logins.c.id.desc()).limit(limit)).mappings().all()[::-1]   # (the newest, by Id)
     return pd.DataFrame([{"Id": r["id"], "Email": r["email"], "Activity": r["activity"], "Date_Time": r["date_time"],
                           "Device": r["device"] or "", "Time zone": r["timezone"] or "",
                           "Access": r["access"] or "", "Page": r["page"] or "", "Details": r["details"] or ""} for r in rows],

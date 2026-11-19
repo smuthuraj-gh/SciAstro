@@ -267,7 +267,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "are the same), at most 60 characters; Object at most 60; Values at most 500. Rows are in Condition order. Seen by admins only, "
                   "who can Insert, Update and Delete rows (each saved at once), Ignore changes not saved yet, and Reset to "
                   "Previous; click a column name to sort.",
-    "Logins": "Count: how many rows the table has (at most the newest 5,000) (edits not saved yet counted too). The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
+    "Logins": "Count: how many rows the table has (at most the newest 5,000) (edits not saved yet counted too). The Logins table, its newest 5,000 rows by ID (oldest first): who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
               "UT). View: opened a customer's charts (once per customer per visit). Create, Update, Delete: added, changed or "
               "deleted a customer (on DOB, by import, or their own DOB Details), a row per customer. Login: signed in with "
               "no birth details yet, seeing the Now charts only (once per visit). Device, Time zone: their "
@@ -1629,7 +1629,7 @@ def page_defaults():
         return f"Saved: {db.save_defaults(keep)} row(s)."
 
     table = shown(db.defaults_table())
-    crud_table("defaults_table", table, problems, commit, on_update=shown,
+    crud_table("defaults_table", table, problems, commit, on_update=lambda rows: db.by_id(shown(rows)),
                height=rows_px(len(st.session_state.get("defaults_table_working", table))),   # every row in view
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved)."), "Choice": st.column_config.TextColumn(help="The input: its name on the page "
                                                                      "(e.g. Days). Each Page has one row per input."),
@@ -1730,7 +1730,7 @@ def page_help_table():
         show_table(table, hide_index=True, width="content", height=rows_px(len(table)),   # every row in view
                      column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved).")})
         return
-    crud_table("help_table", table, db.help_problems, lambda rows: f"Saved: {db.save_help(rows)} row(s).", on_update=db.help_sorted,   # (Update: in Abbreviation order)
+    crud_table("help_table", table, db.help_problems, lambda rows: f"Saved: {db.save_help(rows)} row(s).", on_update=db.help_sorted,   # (Update: by ID)
                height=rows_px(len(st.session_state.get("help_table_working", table))),   # every row in view
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved).")})
 
@@ -1742,7 +1742,7 @@ def page_conditions():
         st.stop()
     table = db.conditions_rows()
     crud_table("conditions_table", table, db.conditions_problems, lambda rows: f"Saved: {db.save_conditions(rows)} row(s).",
-               on_update=db.conditions_sorted,                  # (Update: in Condition order)
+               on_update=db.conditions_sorted,                  # (Update: by ID)
                height=rows_px(len(st.session_state.get("conditions_table_working", table))),   # every row in view
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved)."), "Condition": st.column_config.TextColumn("Condition *", help="Required, unique "
                                                                        "(whatever its case), at most 60 characters."),
@@ -2042,7 +2042,7 @@ def page_prediction_rules():
                       "Kind": None, "De": None, "Event": None}):   # (not shown, as in the table)
         return
     crud_table("predictions_table", table, db.predictions_problems, lambda rows: f"Saved: {db.save_predictions(rows)} row(s).",
-               on_update=db.predictions_sorted,               # (Update: in the page's order)
+               on_update=db.predictions_sorted,               # (Update: by ID)
                height=rows_px(min(30, len(st.session_state.get("predictions_table_working", table)))),   # (thousands of rows: 30 in view, the rest by scrolling)
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved)."),
                               "Chart": st.column_config.SelectboxColumn("Chart *", options=db.PRED_CHARTS,
@@ -2220,8 +2220,7 @@ def page_customers():
     show = show.rename(columns={db.LABELS["hr"]: "Local-Time-24hr"})
     # First Name, A-Z, to begin with; the column headers sort by any column. Saving matches rows by their record, so the
     # order shown does not matter
-    by_name = show[db.LABELS["name"]].map(lambda v: v.strip().lower() if isinstance(v, str) else v)
-    show = show.loc[by_name.sort_values(na_position="last", kind="stable").index].reset_index(drop=True)
+    show = db.by_id(show)                                      # (by ID, as every table)
     def for_store(rows: pd.DataFrame) -> pd.DataFrame:
         back = {**{v: k for k, v in db.LABELS.items()}, **{v: k for k, v in stamps.items()}}
         out = rows.rename(columns={"Local-Time-24hr": db.LABELS["hr"]}).rename(columns=back).drop(columns=["updated_at"], errors="ignore")   # (Last_Updated: the app's)
