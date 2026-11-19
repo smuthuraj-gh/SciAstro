@@ -1901,7 +1901,7 @@ def house_table(title: str, chart: str, rules: list, points: dict, jd: float, cb
                 pct = core.distance_pct(p, core.position(p, jd).dist_au) if p in core.PLANET_ID else None   # (none for the nodes)
                 kind = None if pct is None else "Far" if pct >= FAR_PCT else "Near" if pct <= NEAR_PCT else None
                 second = far_near.get((p, kind), "") if kind else ""
-                more = f"Planet {'Farthest' if kind == 'Far' else 'Closest'}: {second}" if second else ""
+                more = f"Planet at {'Farthest' if kind == 'Far' else 'Closest'}: {second}" if second else ""
                 rows.append({"House": h, "Planet": core.with_symbols(p), "RA": points[p][0], "De": points[p][1], "Distance (%)": pct,
                              "Prediction": texts[(p, h)] + (f"; {more}" if more else ""), "_strong": bool(kind)})
     st.caption(caption)
