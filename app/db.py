@@ -122,7 +122,7 @@ HELP_ROWS_3 = [                                               # added later stil
     ("Select all", "Logins button: ticks every row (pressed again, Unselect all: none)"),
 ]
 HELP_OUT_OF_DATE = {                                          # the Help rows' Descriptions the app once wrote, out of date since
-    "HT": ("Houses Now: Prediction Rules' Chart and its Predictions table: each planet now passing through a house of the birth chart, when it comes in and goes out",),   # (Houses Now taken off Predictions)
+    "HT": ("Houses Now: Prediction Rules' Chart and its Predictions table: the house of the birth chart each planet is in at this moment, with its reading", "Houses Now: Prediction Rules' Chart and its Predictions table: each planet now passing through a house of the birth chart, when it comes in and goes out",),   # (Houses Now taken off Predictions)
     "TfBP": ("Transits from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, then PTfBP) and its Predictions table: a planet now coming to an angle with a point of the birth chart", "Transits from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, then PTfBP) and its Predictions table, Planets Transits from Birth Points: a planet now coming to an angle with a point of the birth chart",),   # (its table is Transits from Birth Points)
     "TEON": ("Transits to Each Other Now: Prediction Rules' Chart (once Sky, then PT) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)", "Planets Transits Now: Prediction Rules' Chart (once Sky, then PT) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)",),   # (its table is Transits to Each Other Now)
     "PTfBP": ("Planets Transit from Birth Points: Prediction Rules' Chart (once Transit, then TfSaB) and its Predictions table: a planet now coming to an angle with a point of the birth chart", "Prediction Rules' Chart (once Transit, then TfSaB) and its Predictions table, Transit from Sun at Birth: a planet now coming to an angle with a point of the birth chart",),   # (PTfBP is Planets Transit from Birth Points)
@@ -203,7 +203,7 @@ HELP_ROWS_17 = []                                             # (was TEON, since
 HELP_ROWS_18 = [("HB", "Houses at Birth: Prediction Rules' Chart and its Predictions table: the house (H01 .. H12) each planet was in at birth, with its reading")]   # (HT: deleted with its rules; see HELP_GONE)
 HELP_ROWS_19 = [("TAEON", "Transit Aspects to Each Others Now: Prediction Rules' Chart (once Sky, PT, then TEON) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)")]
 HELP_ROWS_20 = [("TABP", "Transit Aspects from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, PTfBP, then TfBP) and its Predictions table: a planet now coming to an angle with a point of the birth chart")]
-HELP_ROWS_21 = [("HT", "Houses Now: Prediction Rules' Chart and its Predictions table: the house of the birth chart each planet is in at this moment, with its reading")]   # (HT back)
+HELP_ROWS_21 = [("HT", "Houses at Now: Prediction Rules' Chart and its Predictions table: the house of the birth chart each planet is in at this moment, with its reading")]   # (HT back)
 HELP_VERSION = "21"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
@@ -261,7 +261,7 @@ HELP_ROWS_2 = [                                               # added later: the
 # Birth: when the two (Moving: the first point, Birth: the second) are at that Angle in the birth chart itself
 TRANSIT = "TABP"                                           # Transit Aspects from Birth Points: a planet now coming to a birth point (Transit, TfSaB, then PTfBP once)
 SKY = "TAEON"                                              # Transit Aspects to Each Others Now: two planets now with each other (Chart Sky, then PT, once)
-HOUSE_BIRTH, HOUSE_NOW = "HB", "HT"                         # Houses at Birth: a planet in a house at birth; Houses Now: a planet now in a birth house
+HOUSE_BIRTH, HOUSE_NOW = "HB", "HT"                         # Houses at Birth: a planet in a house at birth; Houses at Now: a planet now in a birth house
 HOUSE_CHARTS = (HOUSE_BIRTH, HOUSE_NOW)
 PRED_CHARTS = ["Birth", HOUSE_BIRTH, TRANSIT, HOUSE_NOW, SKY, "Distance"]   # TAEON: two planets now; Distance: a planet's closest and farthest
 # A row's Kind (not shown; see row_kind): RA, De, RA+De (in aspect by Aspect Rules, RA and De together), Near, Far (Distance
@@ -1465,7 +1465,7 @@ def _drop_ht_rows(eng: sa.Engine):
 
 def _seed_houses_now(eng: sa.Engine):
     """Once (a note among the settings says it is done; a row deleted since stays deleted), after _drop_ht_rows: the
-    Predictions table gets an HT row (Houses Now, back on the Predictions page) for each planet of PRED_MOVING in each house
+    Predictions table gets an HT row (Houses at Now, once Houses Now, back on the Predictions page) for each planet of PRED_MOVING in each house
     H01 .. H12, with its reading (prediction_reading), where it lacks one."""
     if "predictions" not in sa.inspect(eng).get_table_names():
         return
