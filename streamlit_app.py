@@ -1289,7 +1289,7 @@ def table_fit(df: pd.DataFrame, config: dict, kw: dict, name: str | None = None)
 def show_table(df, column_config: dict | None = None, **kw):
     """st.dataframe with its columns close together (fitted), and no space after the last; df a DataFrame, or a pandas
     Styler of one (e.g. some cells bold)."""
-    data = df.data if isinstance(df, pd.io.formats.style.Styler) else df
+    data = df if isinstance(df, pd.DataFrame) else df.data      # (a Styler: its DataFrame)
     config = fitted(data, column_config)
     kw, box, style = table_fit(data, config, kw)
     got = st.container(key=box).dataframe(df, column_config=config, **kw)
