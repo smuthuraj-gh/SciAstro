@@ -228,7 +228,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, by Aspect Rules; before Start / after End: within it already, or still), "
                    "Now (the planet now), Birth (the point of the birth chart; CB: house 10 at birth), Aspect (RA and its angle, or De parallel / contra-parallel), "
                    "RAO and DeO (how far off in RA and in De at Exact), Event and Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details: a member without them is taken to DOB Details, told so, and comes back here once their details are saved.",
-    "Prediction Rules": "The Predictions table: a row per Chart (Birth: the two points at the angle in the birth chart, Moving the first, Birth the second; PTfBP: the planet now coming to the angle with the birth point; PT: two planets now at the angle with each other, either way round; Distance: a planet, Birth Ea, Kind Near or Far, Angle 0), Moving planet (PTfBP: Mo .. Sa, NN, SN; Birth: CB too), Birth point (the same, and CB), Kind (RA: the RA between the two is the Angle; De: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
+    "Prediction Rules": "The Predictions table: a row per Chart (Birth: the two points at the angle in the birth chart, Planet1-Now the first, Planet2-Birth the second; PTfBP: the planet now coming to the angle with the birth point; PT: two planets now at the angle with each other, either way round; Distance: a planet, Planet2-Birth Ea, Kind Near or Far, Angle 0), Planet1-Now (PTfBP: Mo .. Sa, NN, SN; Birth: CB too), Planet2-Birth (the same, and CB), Kind (RA: the RA between the two is the Angle; De: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
                         "unique together (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair), with its Event (required, at most 500 characters: its reading, shown in the Predictions page's Event column) and, last, its Prediction (optional, at most 500 characters; filled once, where empty, with a draft reading from the planets' and angles' usual meanings: a PTfBP row a period, a Birth row a lasting trait). It starts with every combination: PTfBP, each planet now (Mo .. Sa, NN, SN) with each birth point (and CB); Birth, each two birth points once (not NN with SN); each at RA 0, 60, 90, 120, 180 and De 0, 180, with a plain Prediction naming it to replace with your reading (938 rows; a row deleted stays deleted). "
                         "Insert, Update, Delete, each saved at once; Ignore; Reset to Previous.",
     "AstroClock-3D": "Time, with Now and DOB below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the North and South Celestial Poles (NCP, SCP); ECE and WCE are East and West on the Celestial Equator. "
@@ -1879,13 +1879,14 @@ def _closest_farthest_cached(rules, jd_from, jd_to):
 
 
 def page_prediction_rules():
-    """The Predictions table: a row per Chart, Moving, Birth, Kind and Angle (unique together), with its Event;
+    """The Predictions table: a row per Chart, Planet1-Now, Planet2-Birth, Kind and Angle (unique together), with its Event;
     admins only (Insert, Update, Delete, each saved at once; Ignore; Reset to Previous)."""
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     table = db.predictions_rows()
     if searched_rows("predictions", table, search_box("predictions", "Any column (e.g. Sa, square, De)"),
                      {"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app."),
+                      "Moving": st.column_config.TextColumn("Planet1-Now"), "Birth": st.column_config.TextColumn("Planet2-Birth"),   # (as in the table)
                       "Kind": None}):                       # (not shown, as in the table)
         return
     crud_table("predictions_table", table, db.predictions_problems, lambda rows: f"Saved: {db.save_predictions(rows)} row(s).",
@@ -1894,9 +1895,9 @@ def page_prediction_rules():
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved)."),
                               "Chart": st.column_config.SelectboxColumn("Chart *", options=db.PRED_CHARTS,
                                                                         help="Birth: two points at the angle in the birth chart. PTfBP: a planet now coming to the angle with a birth point. PT: two planets now at the angle with each other. Distance: a planet at its closest (Near) or farthest (Far) from the Earth."),
-                              "Moving": st.column_config.SelectboxColumn("Moving *", options=db.PRED_BIRTH,
+                              "Moving": st.column_config.SelectboxColumn("Planet1-Now *", options=db.PRED_BIRTH,
                                                                           help="PTfBP, PT: a planet now (not CB). Birth: the first point of the birth chart. Distance: the planet (Mo .. Sa)."),
-                              "Birth": st.column_config.SelectboxColumn("Birth *", options=db.PRED_BIRTH + ["Ea"],
+                              "Birth": st.column_config.SelectboxColumn("Planet2-Birth *", options=db.PRED_BIRTH + ["Ea"],
                                                                         help="PTfBP, Birth: the point of the birth chart (CB: house 10 at birth). PT: the other planet now. Distance: Ea (the Earth)."),
                               "Kind": None,                              # (not shown: RA+De, or from a Distance row's Aspect)
                               "RA": st.column_config.NumberColumn("RA *", min_value=0, max_value=180, step=1, format="%d",
