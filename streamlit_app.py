@@ -1922,7 +1922,7 @@ def houses_at_birth(rules: list, birth: dict, jd_birth: float, distance_rules: l
                 pct = core.distance_pct(p, core.position(p, jd_birth).dist_au) if p in core.PLANET_ID else None   # (none for the nodes)
                 kind = None if pct is None else "Far" if pct >= FAR_PCT else "Near" if pct <= NEAR_PCT else None
                 second = far_near.get((p, kind), "") if kind else ""
-                more = f"{'Farthest' if kind == 'Far' else 'Closest'}: {second}" if second else ""
+                more = f"Planet {'Farthest' if kind == 'Far' else 'Closest'}: {second}" if second else ""
                 rows.append({"House": h, "Planet": core.with_symbols(p), "RA": birth[p][0], "De": birth[p][1], "Distance (%)": pct,
                              "Prediction": texts[(p, h)] + (f"; {more}" if more else "")})
     st.caption("Each planet's house at birth: twelve spans of 30 degrees of RA, H10 from CB's.")
