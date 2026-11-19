@@ -1929,6 +1929,7 @@ def page_prediction_rules():
     if searched_rows("predictions", table, search_box("predictions", "Any column (e.g. Sa, square, De)"),
                      {"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app."),
                       "Moving": st.column_config.TextColumn("Planet1/Now"), "Birth": st.column_config.TextColumn("Planet2/Birth"),   # (as in the table)
+                      "Aspect": st.column_config.TextColumn("Event"),
                       "Kind": None, "De": None, "Event": None}):   # (not shown, as in the table)
         return
     crud_table("predictions_table", table, db.predictions_problems, lambda rows: f"Saved: {db.save_predictions(rows)} row(s).",
@@ -1945,7 +1946,7 @@ def page_prediction_rules():
                               "RA": st.column_config.NumberColumn("RA *", min_value=0, max_value=180, step=1, format="%d",
                                                                      help="The RA angle, 0 to 180 degrees, for RA and RA+De rows. Blank for Distance rows."),
                               "De": None,                                # (not shown: only an old De row, none now, has one)
-                              "Aspect": st.column_config.SelectboxColumn(options=db.prediction_aspects(), help="Distance rows: Closest or Farthest. Other rows: the aspect by name, as Aspect Rules names it (Conjunction 0, Opposition 180, Square 90 ..), from RA; pick one with RA blank and RA is set from it."),
+                              "Aspect": st.column_config.SelectboxColumn("Event", options=db.prediction_aspects(), help="Distance rows: Closest or Farthest. Other rows: the aspect by name, as Aspect Rules names it (Conjunction 0, Opposition 180, Square 90 ..), from RA; pick one with RA blank and RA is set from it."),
                               "Event": None,                             # (not shown: the app's own sentence naming the row, kept)
                               "Prediction": st.column_config.TextColumn(help="The prediction for the row (optional), at most 500 characters.")})
 

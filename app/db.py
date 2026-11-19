@@ -1561,9 +1561,9 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
         if not birth:
             out.append(f"{label}: Planet2/Birth must be " + ("Ea (the Earth)" if chart == "Distance" else f"one of {', '.join(others)}"))
         if not kind:
-            out.append(f"{label}: a Distance row's Aspect must be Closest or Farthest")
+            out.append(f"{label}: a Distance row's Event must be Closest or Farthest")
         elif kind == "RA+De" and _cell(r.get("Aspect")) and pd.notna(angle) and _cell(r.get("Aspect")) != aspect_name(kind, angle):
-            out.append(f"{label}: Aspect {_cell(r.get('Aspect'))} and RA {int(angle)} disagree (clear one, and the other sets it)")
+            out.append(f"{label}: Event {_cell(r.get('Aspect'))} and RA {int(angle)} disagree (clear one, and the other sets it)")
         column = "De" if kind == "De" else "RA"
         if chart == "Distance":
             if pd.notna(angle) and int(angle) != 0 or pd.notna(pd.to_numeric(r.get("De"), errors="coerce")):
@@ -1582,7 +1582,7 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
             pair = tuple(sorted((moving, birth))) if chart in ("Birth", SKY) else (moving, birth)   # (Su-Mo and Mo-Su are one pair)
             key = (chart, *pair, kind, int(angle))
             if key in seen:
-                out.append(f"{label}: is in the table twice (Chart, Planet1/Now, Planet2/Birth and RA, De or Aspect are unique together"
+                out.append(f"{label}: is in the table twice (Chart, Planet1/Now, Planet2/Birth and RA, De or Event are unique together"
                            + (f"; a {chart} row's two points count either way round)" if chart in ("Birth", SKY) else ")"))
             seen.add(key)
     return out
