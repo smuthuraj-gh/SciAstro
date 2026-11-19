@@ -228,7 +228,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                    "Transit Aspects from Birth Points: its TABP rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, by Aspect Rules; before Start / after End: within it already, or still), "
                    "Now (the planet now), Birth (the point of the birth chart; CB: house 10 at birth), "
-                   "RAO and DeO (how far off in RA and in De at Exact), Event (the aspect: RA and its angle, or De parallel / contra-parallel) and Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Without birth details (or DOB access) only Transit Aspects to Each Others Now is listed, for the Start and End dates, with a note why and a link to DOB Details.",
+                   "RAO and DeO (how far off in RA and in De at Exact), Event (the aspect: RA and its angle, or De parallel / contra-parallel) and Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Time: DOB lists the birth tables (Houses at Birth, Aspects at Birth, Transit Aspects from Birth Points, Distance Average (%)), Now the now tables (Houses at Now, Transit Aspects to Each Others Now), Time off all of them. Without birth details (or DOB access) only Transit Aspects to Each Others Now is listed, for the Start and End dates, with a note why and a link to DOB Details.",
     "Prediction Rules": "Count: how many rows the table has (saved or not), in all and by Chart. The Predictions table: a row per Chart (Birth: the two points at the angle in the birth chart, P1/Now the first, P2/Bth/Ho the second; TABP: the planet now coming to the angle with the birth point; TAEON: two planets now at the angle with each other, either way round; Distance: a planet, P2/Bth/Ho Ea, Kind Near or Far, Angle 0), P1/Now (TABP: Mo .. Sa, NN, SN; Birth: CB too), P2/Bth/Ho (the same, and CB), Kind (RA: the RA between the two is the Angle; De: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
                         "unique together (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair), with its Prediction (optional, at most 500 characters; filled once, where empty, with a draft reading from the planets' and angles' usual meanings: a TABP row a period, a Birth row a lasting trait). It starts with every combination: TABP, each planet now (Mo .. Sa, NN, SN) with each birth point (and CB); Birth, each two birth points once (not NN with SN); each at RA 0, 60, 90, 120, 180 and De 0, 180, with a plain Prediction naming it to replace with your reading (938 rows; a row deleted stays deleted). "
                         "Insert, Update, Delete, each saved at once; Ignore; Reset to Previous.",
@@ -1762,6 +1762,13 @@ def page_predictions():
     _, prep = pick_customer()
     no_birth = prep is None or prep.now_only or prep.jd_birth is None or not prep.birth or not prep.ok   # (no usable birth chart, or DOB not open)
     head = st.container(horizontal=True, vertical_alignment="top", gap="xsmall")
+    # Time, as on the chart pages: DOB, the birth tables; Now, the now tables; off, all of them. With no birth chart, Now (a
+    # member picking DOB is taken to DOB Details, as on the chart pages)
+    if no_birth and not user.is_admin and "me" in PAGE_BY_PATH:
+        dob_asked(st.session_state.get("pred_when") == "DOB", ("pred_when", "Now"), ("_kept_pred_when", "Now"))
+    when = titled(head, "Time", "pred_t_time", list(TIMES), "pred_when", "Now" if no_birth else "DOB")
+    time_on_top_line(when)
+    show_birth, show_now = when in (None, "DOB") and not no_birth, when in (None, "Now") or no_birth
     if no_birth:                                              # only the tables of now: no birth chart is needed for them
         why = (prep.message if prep is not None and prep.message else
                "No customer picked." if user.is_admin and prep is None else "No birth details yet.")
@@ -1777,18 +1784,19 @@ def page_predictions():
         st.info("No prediction rules yet." + (" Add them on the Prediction Rules page." if user.is_admin else ""))
         return
     orb_csv = db.orb_table().to_csv(index=False)
-    if no_birth:
+    distance_rules = [r[1:] for r in every if r[0] == "Distance"]
+    if not no_birth:
+        nn = core.moon_north_node(prep.jd_birth)              # (the birth chart's nodes too)
+        birth = {**prep.birth, "NN": nn, "SN": ((nn[0] + 180.0) % 360.0, -nn[1])}
+    if show_birth:                                            # DOB: the birth chart's tables
+        houses_at_birth([r[1:] for r in every if r[0] == db.HOUSE_BIRTH], birth, prep.jd_birth, distance_rules)   # (first)
+        birth_predictions([r[1:] for r in every if r[0] == "Birth"], birth)
+        passes_table("Transit Aspects from Birth Points", [r[1:] for r in every if r[0] == db.TRANSIT], jds, orb_csv, birth)   # (TABP)
+        distance_average(distance_rules, prep.jd_birth)
+    if show_now:                                              # Now: the tables of now (Houses at Now: in the birth houses)
+        if not no_birth:
+            houses_now([r[1:] for r in every if r[0] == db.HOUSE_NOW], birth, distance_rules)
         passes_table("Transit Aspects to Each Others Now", [r[1:] for r in every if r[0] == db.SKY], jds, orb_csv)   # (TAEON)
-        return
-    nn = core.moon_north_node(prep.jd_birth)                  # (the birth chart's nodes too)
-    birth = {**prep.birth, "NN": nn, "SN": ((nn[0] + 180.0) % 360.0, -nn[1])}
-    houses_at_birth([r[1:] for r in every if r[0] == db.HOUSE_BIRTH], birth, prep.jd_birth,   # (first)
-                    [r[1:] for r in every if r[0] == "Distance"])
-    birth_predictions([r[1:] for r in every if r[0] == "Birth"], birth)
-    passes_table("Transit Aspects from Birth Points", [r[1:] for r in every if r[0] == db.TRANSIT], jds, orb_csv, birth)   # (TABP)
-    distance_average([r[1:] for r in every if r[0] == "Distance"], prep.jd_birth)
-    houses_now([r[1:] for r in every if r[0] == db.HOUSE_NOW], birth, [r[1:] for r in every if r[0] == "Distance"])
-    passes_table("Transit Aspects to Each Others Now", [r[1:] for r in every if r[0] == db.SKY], jds, orb_csv)   # (TAEON)
 
 
 OFF_COLUMNS = {"RAO": st.column_config.NumberColumn(format="%.2f", help="RA off: how far the two's RA is from the angle (degrees; blank for De rows)."),
