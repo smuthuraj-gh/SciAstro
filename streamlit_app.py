@@ -223,11 +223,11 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "Predictions": "The Prediction Rules table's readings, in five tables (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): At Birth, Distance at Birth (as Distance at Now, at the birth time: a planet then Farthest, at 90% or more of its Distance(%), or Closest, at 10% or less) and Transits from Birth Points for the birth chart of the customer picked, then Transits to Each Other Now (its TEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%): only a farthest at 90% or more of its Distance(%), a closest at 10% or less), over the Start and End dates. At Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Aspect and Prediction (its reading, from Prediction Rules). "
+    "Predictions": "The Prediction Rules table's readings, in five tables (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): At Birth, Distance at Birth (as Distance at Now, at the birth time: a planet then Farthest, at 90% or more of its Distance(%), or Closest, at 10% or less) and Transits from Birth Points for the birth chart of the customer picked, then Transits to Each Other Now (its TEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%): only a farthest at 90% or more of its Distance(%), a closest at 10% or less), over the Start and End dates. At Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Event (the aspect) and Prediction (its reading, from Prediction Rules). "
                    "Transits from Birth Points: its TfBP rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, by Aspect Rules; before Start / after End: within it already, or still), "
                    "Now (the planet now), Birth (the point of the birth chart; CB: house 10 at birth), "
-                   "RAO and DeO (how far off in RA and in De at Exact), Aspect (RA and its angle, or De parallel / contra-parallel) and Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details: a member without them is taken to DOB Details, told so, and comes back here once their details are saved.",
+                   "RAO and DeO (how far off in RA and in De at Exact), Event (the aspect: RA and its angle, or De parallel / contra-parallel) and Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details: a member without them is taken to DOB Details, told so, and comes back here once their details are saved.",
     "Prediction Rules": "The Predictions table: a row per Chart (Birth: the two points at the angle in the birth chart, Planet1/Now the first, Planet2/Birth the second; TfBP: the planet now coming to the angle with the birth point; TEON: two planets now at the angle with each other, either way round; Distance: a planet, Planet2/Birth Ea, Kind Near or Far, Angle 0), Planet1/Now (TfBP: Mo .. Sa, NN, SN; Birth: CB too), Planet2/Birth (the same, and CB), Kind (RA: the RA between the two is the Angle; De: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
                         "unique together (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair), with its Prediction (optional, at most 500 characters; filled once, where empty, with a draft reading from the planets' and angles' usual meanings: a TfBP row a period, a Birth row a lasting trait). It starts with every combination: TfBP, each planet now (Mo .. Sa, NN, SN) with each birth point (and CB); Birth, each two birth points once (not NN with SN); each at RA 0, 60, 90, 120, 180 and De 0, 180, with a plain Prediction naming it to replace with your reading (938 rows; a row deleted stays deleted). "
                         "Insert, Update, Delete, each saved at once; Ignore; Reset to Previous.",
@@ -1807,7 +1807,7 @@ def passes_table(title: str, rules: list, jds: tuple, orb_csv: str, birth: dict 
     rows = [{"Exact (UT)": at(exact),
              "Begins (UT)": at(begins) if begins is not None else "before Start", "Ends (UT)": at(ends) if ends is not None else "after End",
              one: core.with_symbols(m), other: core.with_symbols(b),
-             "RAO": rao, "DeO": deo, "Aspect": aspect_label(k, a), "Prediction": texts.get((m, b, k, a), ("", ""))[1]}
+             "RAO": rao, "DeO": deo, "Event": aspect_label(k, a), "Prediction": texts.get((m, b, k, a), ("", ""))[1]}
             for m, b, k, a, begins, exact, ends, rao, deo in events]
     show_table(pd.DataFrame(rows), hide_index=True, width="content",
                column_config=OFF_COLUMNS)
@@ -1820,7 +1820,7 @@ DISTANCE_COLUMNS = {"AU": st.column_config.NumberColumn(format="%.4f", help="Its
 def distance_rows(events: list, texts: dict) -> list[dict]:
     """The Distance tables' rows for events (planet, Near / Far, jd, AU, Distance(%)), each with its rule's Prediction."""
     return [{"Exact (UT)": core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M"),
-             "Planet": core.with_symbols(p), "AU": au, "Distance(%)": pct, "Aspect": "Closest" if kind == "Near" else "Farthest",
+             "Planet": core.with_symbols(p), "AU": au, "Distance(%)": pct, "Event": "Closest" if kind == "Near" else "Farthest",
              "Prediction": texts.get((p, kind), ("", ""))[1]}
             for p, kind, jd, au, pct in events]
 
@@ -1885,7 +1885,7 @@ def birth_predictions(rules: list, birth: dict) -> None:
         if off <= orb and (kind != "RA+De" or de_apart <= o.pair(angle, a, b, is_dec=True)):
             rows.append({"Planet1": core.with_symbols(a), "Planet2": core.with_symbols(b),
                          **dict(zip(("RAO", "DeO"), core.offsets(kind, angle, birth[a], birth[b]))), "_gap": off,
-                         "Aspect": aspect_label(kind, angle), "Prediction": reading})
+                         "Event": aspect_label(kind, angle), "Prediction": reading})
     if not rules:
         st.caption("The Prediction Rules table has no Birth rows.")
         return
