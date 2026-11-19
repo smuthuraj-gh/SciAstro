@@ -223,11 +223,11 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "Predictions": "The Prediction Rules table's readings, in four tables (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together): Birth and Transits for the birth chart of the customer picked, then Sky (the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance (each planet at its closest to and farthest from the Earth, with its AU and Distance(%)), over the Start and End dates. Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), closest first: Planet, With, Aspect, Off (degrees from the angle), Event and Prediction (its reading, from Prediction Rules). "
+    "Predictions": "The Prediction Rules table's readings, in four tables (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together): Birth and Transits for the birth chart of the customer picked, then Sky (the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance (each planet at its closest to and farthest from the Earth, with its AU and Distance(%)), over the Start and End dates. Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), closest first: Planet, With, Aspect, RAO and DeO (how far off in RA and in De), Event and Prediction (its reading, from Prediction Rules). "
                    "Transits: its Transit rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Moving, Birth (the point of the birth chart; CB: house 10 at birth), "
                    "Aspect (RA and its angle, or De parallel / contra-parallel), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, by Aspect Rules; before Start / after End: within it already, or still), "
-                   "Off (degrees from the angle at Exact), Event and Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details: a member without them is taken to DOB Details, told so, and comes back here once their details are saved.",
+                   "RAO and DeO (how far off in RA and in De at Exact), Event and Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details: a member without them is taken to DOB Details, told so, and comes back here once their details are saved.",
     "Prediction Rules": "The Predictions table: a row per Chart (Birth: the two points at the angle in the birth chart, Moving the first, Birth the second; Transit: the planet now coming to the angle with the birth point; Sky: two planets now at the angle with each other, either way round; Distance: a planet, Birth Ea, Kind Near or Far, Angle 0), Moving planet (Transit: Mo .. Sa, NN, SN; Birth: CB too), Birth point (the same, and CB), Kind (RA: the RA between the two is the Angle; De: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
                         "unique together (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair), with its Event (required, at most 500 characters: its reading, shown in the Predictions page's Event column) and, last, its Prediction (optional, at most 500 characters; filled once, where empty, with a draft reading from the planets' and angles' usual meanings: a Transit row a period, a Birth row a lasting trait). It starts with every combination: Transit, each planet now (Mo .. Sa, NN, SN) with each birth point (and CB); Birth, each two birth points once (not NN with SN); each at RA 0, 60, 90, 120, 180 and De 0, 180, with a plain Prediction naming it to replace with your reading (938 rows; a row deleted stays deleted). "
                         "Insert, Update, Delete, each saved at once; Ignore; Reset to Previous.",
@@ -1768,6 +1768,10 @@ def page_predictions():
     distance_predictions([r[1:] for r in every if r[0] == "Distance"], jds)
 
 
+OFF_COLUMNS = {"RAO": st.column_config.NumberColumn(format="%.2f", help="RA off: how far the two's RA is from the angle (degrees; blank for De rows)."),
+               "DeO": st.column_config.NumberColumn(format="%.2f", help="De off: De rows, how far from parallel or contra-parallel; RA and RA+De rows, how far apart the two's De values are (equal or mirrored, whichever is closer).")}
+
+
 def aspect_label(kind: str, angle: int) -> str:
     """A rule's aspect as the Predictions tables show it: RA 90° (Square), De parallel, RA+De 90° (Square)."""
     if kind == "De":
@@ -1795,10 +1799,10 @@ def passes_table(title: str, rules: list, jds: tuple, orb_csv: str, birth: dict 
     rows = [{"Exact (UT)": at(exact), one: core.with_symbols(m), other: core.with_symbols(b),
              "Aspect": aspect_label(k, a),
              "Begins (UT)": at(begins) if begins is not None else "before Start", "Ends (UT)": at(ends) if ends is not None else "after End",
-             "Off": off, "Event": texts.get((m, b, k, a), ("", ""))[0], "Prediction": texts.get((m, b, k, a), ("", ""))[1]}
-            for m, b, k, a, begins, exact, ends, off in events]
+             "RAO": rao, "DeO": deo, "Event": texts.get((m, b, k, a), ("", ""))[0], "Prediction": texts.get((m, b, k, a), ("", ""))[1]}
+            for m, b, k, a, begins, exact, ends, rao, deo in events]
     show_table(pd.DataFrame(rows), hide_index=True, width="content",
-               column_config={"Off": st.column_config.NumberColumn(format="%.2f", help="Degrees from the angle at Exact.")})
+               column_config=OFF_COLUMNS)
 
 
 def distance_predictions(rules: list, jds: tuple) -> None:
@@ -1836,30 +1840,34 @@ def birth_predictions(rules: list, birth: dict) -> None:
         de_apart = min(abs(birth[a][1] - birth[b][1]), abs(birth[a][1] + birth[b][1]))   # (RA+De: equal or mirrored De)
         if off <= orb and (kind != "RA+De" or de_apart <= o.pair(angle, a, b, is_dec=True)):
             rows.append({"Planet": core.with_symbols(a), "With": core.with_symbols(b), "Aspect": aspect_label(kind, angle),
-                         "Off": off, "Event": text, "Prediction": reading})
+                         **dict(zip(("RAO", "DeO"), core.offsets(kind, angle, birth[a], birth[b]))), "_gap": off,
+                         "Event": text, "Prediction": reading})
     if not rules:
         st.caption("The Prediction Rules table has no Birth rows.")
         return
     if not rows:
         st.caption("None of the Birth rows is at its angle in this birth chart.")
         return
-    rows.sort(key=lambda r: r["Off"])
+    rows.sort(key=lambda r: r.pop("_gap"))                   # (closest to its angle first)
     show_table(pd.DataFrame(rows), hide_index=True, width="content",
-                 column_config={"Off": st.column_config.NumberColumn(format="%.2f", help="Degrees from the angle at birth.")})
+                 column_config=OFF_COLUMNS)
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
 def _predictions_cached(birth, rules, jd_from, jd_to, orb_csv):
     import io
-    ev = core.transit_events(dict(birth), list(rules), jd_from, jd_to, core.Orbs(pd.read_csv(io.StringIO(orb_csv))))
-    return [(e.moving, e.birth, e.kind, e.angle, e.begins, e.exact, e.ends, e.off) for e in ev]
+    birth = dict(birth)
+    ev = core.transit_events(birth, list(rules), jd_from, jd_to, core.Orbs(pd.read_csv(io.StringIO(orb_csv))))
+    return [(e.moving, e.birth, e.kind, e.angle, e.begins, e.exact, e.ends,
+             *core.offsets(e.kind, e.angle, core.sky_point(e.moving, e.exact), birth[e.birth])) for e in ev]   # (RAO, DeO at Exact)
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
 def _sky_cached(rules, jd_from, jd_to, orb_csv):
     import io
     ev = core.sky_events(list(rules), jd_from, jd_to, core.Orbs(pd.read_csv(io.StringIO(orb_csv))))
-    return [(e.moving, e.birth, e.kind, e.angle, e.begins, e.exact, e.ends, e.off) for e in ev]
+    return [(e.moving, e.birth, e.kind, e.angle, e.begins, e.exact, e.ends,
+             *core.offsets(e.kind, e.angle, core.sky_point(e.moving, e.exact), core.sky_point(e.birth, e.exact))) for e in ev]
 
 
 @st.cache_data(ttl=3600, max_entries=50, show_spinner=False)

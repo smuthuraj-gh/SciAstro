@@ -379,6 +379,19 @@ def transit_gap(kind: str, angle: int, ra: float, de: float, at_birth: tuple[flo
     return abs(de - at_birth[1]) if angle == 0 else abs(de + at_birth[1])
 
 
+def offsets(kind: str, angle: int, p1: tuple[float, float], p2: tuple[float, float]) -> tuple[float | None, float]:
+    """How far off two points (RA, De) are: RAO, their RA from the angle (RA and RA+De rows; None for De rows); DeO, for De
+    rows their De from parallel (0) or contra-parallel (180), else how far apart their De values are, equal or mirrored,
+    whichever is closer (degrees)."""
+    sep = abs(p1[0] - p2[0]) % 360.0
+    rao = abs(min(sep, 360.0 - sep) - angle) if kind in ("RA", "RA+De") else None
+    if kind == "De":
+        deo = abs(p1[1] - p2[1]) if int(angle) == 0 else abs(p1[1] + p2[1])
+    else:
+        deo = min(abs(p1[1] - p2[1]), abs(p1[1] + p2[1]))
+    return rao, deo
+
+
 def _passes(gap, jds, orb: float, gap_at) -> list[tuple]:
     """The passes in a sampled gap (degrees from the angle at each of jds): each run of steps within the orb that comes
     within TRANSIT_NEAR of the angle, as (begins, exact, ends, off): when it comes within the orb (None: already at the

@@ -151,7 +151,8 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
 HELP_RENAMED = {"Page Defaults": ("Defaults", "Page_Defaults"), "App Conditions": ("Conditions",)}   # pages' Help rows renamed
 HELP_GONE_TOO = {"Box Title": ("Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box",
                               "Page Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box")}   # (the Page Defaults table has no Box Title now)
-HELP_GONE = {"AR": "Aspect Rules: Predictions column (Birth), the pair's orb in the Aspect Rules table",   # (the Predictions column is gone)
+HELP_GONE = {"Off": "Predictions column: how far from the Angle it is at Exact (degrees; 0: exact)",   # (RAO and DeO took its place)
+             "AR": "Aspect Rules: Predictions column (Birth), the pair's orb in the Aspect Rules table",   # (the Predictions column is gone)
              "Aspects": "Page: when the planets are in aspect, between a start and an end date",   # (the page is gone)
              "Came from": "Logins column: the site that brought the visitor (its name only); blank: none known",
              "Manual": "Time stands still; drag the drawing to turn it", "Planet Path": "Title button: the path of each planet picked"}   # the Help rows for buttons since gone, as the app wrote them
@@ -171,7 +172,6 @@ HELP_ROWS_6 = [                                               # and again: Predi
     ("Begins", "Predictions column: when the moving planet comes within the orb (before Start: within it already)"),
     ("Exact", "Predictions column: when it is closest to the Angle"),
     ("Ends", "Predictions column: when it leaves the orb (after End: still within it)"),
-    ("Off", "Predictions column: how far from the Angle it is at Exact (degrees; 0: exact)"),
 ]
 HELP_ROWS_7 = [("Chart", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)")]   # (for a table given set 6 before Chart came in)
 HELP_ROWS_8 = [("Prediction", "Prediction Rules column: the prediction for the row (optional, at most 500 characters); Event: what happens")]
@@ -184,7 +184,11 @@ HELP_ROWS_10 = [
 HELP_ROWS_11 = [
     ("RA+De", "Predictions Kind (Birth, Transit, Sky): in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored"),
 ]
-HELP_VERSION = "11"                                            # the sets of rows the Help table has been given
+HELP_ROWS_12 = [
+    ("RAO", "Predictions column: RA off, how far the two's RA is from the angle at Exact (degrees; 0: exact; blank for De rows)"),
+    ("DeO", "Predictions column: De off; De rows, how far from parallel or contra-parallel; RA and RA+De rows, how far apart the two's De values are (equal or mirrored, whichever is closer)"),
+]
+HELP_VERSION = "12"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
     ("AstroClock-2D", "Page: the Geo drawing seen from above the north celestial pole, each planet at its RA and distance, with the De and Distance(%) graphs"),
@@ -777,7 +781,7 @@ def _rename_help_rows(eng: sa.Engine):
                              .values(abbreviation=new)).rowcount:
                     break
         # (a row still as the app first wrote it, since out of date, gets the one the app has now; one an admin has changed stays)
-        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5 + HELP_ROWS_6 + HELP_ROWS_7 + HELP_ROWS_8 + HELP_ROWS_9 + HELP_ROWS_10 + HELP_ROWS_11)
+        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5 + HELP_ROWS_6 + HELP_ROWS_7 + HELP_ROWS_8 + HELP_ROWS_9 + HELP_ROWS_10 + HELP_ROWS_11 + HELP_ROWS_12)
         for abbreviation, olds in HELP_OUT_OF_DATE.items():
             c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(),
                                                 help_table.c.description.in_(olds)).values(description=now[abbreviation]))
@@ -815,7 +819,7 @@ def _seed_help(eng: sa.Engine):
         done = c.execute(sa.select(settings.c.value).where(settings.c.key == "help_seeded")).scalar()
         if done == HELP_VERSION:
             return
-        later = [HELP_ROWS_2, HELP_ROWS_3, HELP_ROWS_4, HELP_ROWS_5, HELP_ROWS_6, HELP_ROWS_7, HELP_ROWS_8, HELP_ROWS_9, HELP_ROWS_10, HELP_ROWS_11]   # (the sets added since each note: 1 has had HELP_ROWS ..)
+        later = [HELP_ROWS_2, HELP_ROWS_3, HELP_ROWS_4, HELP_ROWS_5, HELP_ROWS_6, HELP_ROWS_7, HELP_ROWS_8, HELP_ROWS_9, HELP_ROWS_10, HELP_ROWS_11, HELP_ROWS_12]   # (the sets added since each note: 1 has had HELP_ROWS ..)
         wanted = sum(later[int(done) - 1:], []) if done and done.isdigit() else HELP_ROWS + sum(later, [])
         have = {a.lower() for (a,) in c.execute(sa.select(help_table.c.abbreviation)).all()}
         new = []
