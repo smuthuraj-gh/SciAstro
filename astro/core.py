@@ -533,17 +533,16 @@ DISTANCE_REACH = 800.0
 
 
 def distance_nearest(rules: list[tuple[str, str]], jd_at: float) -> list[DistanceEvent]:
-    """For each rule (planet, Near or Far): the planet's last closest (Near) or farthest (Far) before jd_at and its first
-    after it (see distance_events), earliest first."""
+    """For each rule (planet, Near or Far): the planet's closest (Near) or farthest (Far) nearest in time to jd_at, before
+    or after it (see distance_events); earliest first."""
     out = []
     for p in sorted({r[0] for r in rules if r[0] in PLANET_ID}):
         reach = NEAREST_REACH.get(p, DISTANCE_REACH)
         events = distance_events([r for r in rules if r[0] == p], jd_at - reach, jd_at + reach)
         for kind in ("Near", "Far"):
             mine = [e for e in events if e.kind == kind]
-            before = [e for e in mine if e.jd <= jd_at]
-            after = [e for e in mine if e.jd > jd_at]
-            out += before[-1:] + after[:1]
+            if mine:
+                out.append(min(mine, key=lambda e: abs(e.jd - jd_at)))
     out.sort(key=lambda e: e.jd)
     return out
 
