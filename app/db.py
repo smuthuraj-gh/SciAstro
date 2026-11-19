@@ -122,13 +122,13 @@ HELP_ROWS_3 = [                                               # added later stil
     ("Select all", "Logins button: ticks every row (pressed again, Unselect all: none)"),
 ]
 HELP_OUT_OF_DATE = {                                          # the Help rows' Descriptions the app once wrote, out of date since
-    "RA+De": ("Predictions (Chart Aspect): two planets in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored",),   # (Aspect rows are Sky's RA+De rows now, and Birth and Transit have RA+De too)
-    "Chart": ("Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other in RA or in De), Aspect (two planets now in aspect by Aspect Rules: RA and De together) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other, the same for everyone) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (the two points at the angle in the birth chart) or Transit (the planet now coming to the angle with the birth point)",), "Kind": ("Predictions column: RA (the two's RA apart is the RA column's degrees), De (RA column 0: parallel, the same De; 180: contra-parallel, mirrored), RA+De (in aspect by Aspect Rules: RA within the RA orb of those degrees and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), RA+De (in aspect by Aspect Rules: RA within the RA orb of the Angle and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), RA+De (Aspect rows: RA within the RA orb of the Angle and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)", "Predictions column: RA (the RA between the two is the Angle) or De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored)", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)"),   # (Sky and Distance rows came in)
+    "RA+De": ("Predictions Kind (Birth, Transit, Sky): in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored", "Predictions (Chart Aspect): two planets in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored",),   # (Aspect rows are Sky's RA+De rows now, and Birth and Transit have RA+De too)
+    "Chart": ("Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other in RA or in De), Aspect (two planets now in aspect by Aspect Rules: RA and De together) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other, the same for everyone) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (the two points at the angle in the birth chart) or Transit (the planet now coming to the angle with the birth point)",), "Kind": ("Predictions column: RA (the two's RA apart is the RA column's degrees), De (RA column 0: parallel, the same De; 180: contra-parallel, mirrored), RA+De (in aspect by Aspect Rules: RA within the RA orb of those degrees and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), RA+De (in aspect by Aspect Rules: RA within the RA orb of the Angle and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), RA+De (Aspect rows: RA within the RA orb of the Angle and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)", "Predictions column: RA (the RA between the two is the Angle) or De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored)", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)"),   # (Sky and Distance rows came in)
     "De": ("Each planet's Dec line on the sphere",   # (Dec is De now, and the Dec row joined it)
            "De: Declination, a planet's angle north (+) or south (-) of the celestial equator; on AstroClock-3D, the Coordinates button for each planet's De line on the sphere"),
-    "Predictions": ("Page: when the planets now come to the angles with the birth chart that the Prediction Rules table names, with its Prediction for each",), "Prediction Rules": ("Page (admins): the Predictions table: a row per Moving planet, Birth point, Kind (RA or Dec) and Angle, with its Prediction", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Prediction", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Events"),
+    "Predictions": ("Page: when the planets now come to the angles with the birth chart that the Prediction Rules table names, with its Prediction for each",), "Prediction Rules": ("Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or De) and Angle, with its Event", "Page (admins): the Predictions table: a row per Moving planet, Birth point, Kind (RA or Dec) and Angle, with its Prediction", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Prediction", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Events"),
     "Prediction": ("Prediction Rules column: the prediction for the row (optional, at most 500 characters); Events: what happens",),   # (Events is Event)   # (Chart: Birth too)
-    "Moving": ("Predictions column: the planet now (Mo .. Sa, NN, SN)",), "Birth": ("Predictions column: the point of the birth chart it comes to (Mo .. Sa, NN, SN, CB)",),
+    "Moving": ("Predictions column: Transit: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart", "Predictions column: the planet now (Mo .. Sa, NN, SN)",), "Birth": ("Predictions column: the point of the birth chart it comes to (Mo .. Sa, NN, SN, CB)",),
     "Page Defaults": ("Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed Values)",   # (no Box Title now)
                       "Page (admins): what each page's buttons start as (Page, Options, Choices)",
                  "Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed_Values)"),
@@ -165,15 +165,15 @@ HELP_ROWS_5 = [                                               # and again
 ]
 HELP_ROWS_6 = [                                               # and again: Predictions
     ("Predictions", "Page: the Prediction Rules readings for the birth chart (its points at those angles at birth) and for transits (when the planets now come to those angles with it)"),
-    ("Prediction Rules", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or De) and Angle, with its Event"),
-    ("Moving", "Predictions column: Transit: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart"),
+    ("Prediction Rules", "Page (admins): the Predictions table: a row per Chart (Birth or TfSaB), Moving, Birth, Kind (RA or De) and Angle, with its Event"),
+    ("Moving", "Predictions column: TfSaB: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart"),
     ("Birth", "Predictions column: the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB)"),
-    ("Chart", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)"),
+    ("Chart", "Predictions column: Birth (two points at the angle in the birth chart), TfSaB (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)"),
     ("Begins", "Predictions column: when the moving planet comes within the orb (before Start: within it already)"),
     ("Exact", "Predictions column: when it is closest to the Angle"),
     ("Ends", "Predictions column: when it leaves the orb (after End: still within it)"),
 ]
-HELP_ROWS_7 = [("Chart", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)")]   # (for a table given set 6 before Chart came in)
+HELP_ROWS_7 = [("Chart", "Predictions column: Birth (two points at the angle in the birth chart), TfSaB (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)")]   # (for a table given set 6 before Chart came in)
 HELP_ROWS_8 = [("Prediction", "Prediction Rules column: the prediction for the row (optional, at most 500 characters); Event: what happens")]
 HELP_ROWS_9 = []                                              # (was AR, a column since gone: see HELP_GONE)
 HELP_ROWS_10 = [
@@ -182,13 +182,14 @@ HELP_ROWS_10 = [
     ("Far", "Predictions (Chart Distance, Kind Far): a planet at its farthest from the Earth"),
 ]
 HELP_ROWS_11 = [
-    ("RA+De", "Predictions Kind (Birth, Transit, Sky): in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored"),
+    ("RA+De", "Predictions Kind (Birth, TfSaB, Sky): in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored"),
 ]
 HELP_ROWS_12 = [
     ("RAO", "Predictions column: RA off, how far the two's RA is from the angle at Exact (degrees; 0: exact; blank for De rows)"),
     ("DeO", "Predictions column: De off; De rows, how far from parallel or contra-parallel; RA and RA+De rows, how far apart the two's De values are (equal or mirrored, whichever is closer)"),
 ]
-HELP_VERSION = "12"                                            # the sets of rows the Help table has been given
+HELP_ROWS_13 = [("TfSaB", "Transit from Sun at Birth: Prediction Rules' Chart (once Transit) and its Predictions table: a planet now coming to an angle with a point of the birth chart")]
+HELP_VERSION = "13"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
     ("AstroClock-2D", "Page: the Geo drawing seen from above the north celestial pole, each planet at its RA and distance, with the De and Distance(%) graphs"),
@@ -243,7 +244,8 @@ HELP_ROWS_2 = [                                               # added later: the
 # The Predictions table (the Prediction Rules page): a row per rule, kept by admins. Chart Transit: when the Moving planet
 # (now) comes to the Angle with the Birth point, in RA or in De (Kind), the Predictions page shows its Prediction; Chart
 # Birth: when the two (Moving: the first point, Birth: the second) are at that Angle in the birth chart itself
-PRED_CHARTS = ["Birth", "Transit", "Sky", "Distance"]      # Sky: two planets now; Distance: a planet's closest and farthest
+TRANSIT = "TfSaB"                                          # the Chart of a planet now coming to a birth point (Transit once)
+PRED_CHARTS = ["Birth", TRANSIT, "Sky", "Distance"]        # Sky: two planets now; Distance: a planet's closest and farthest
 PRED_KINDS = ["RA", "De", "RA+De", "Near", "Far"]            # (RA+De: in aspect by Aspect Rules, RA and De together; Near, Far:
                                                              # Distance rows only)
 DIST_POINTS = ["Mo", "Su", "Me", "Ve", "Ma", "Ju", "Sa"]     # the planets a Distance row may name (their Birth: Ea, the Earth)
@@ -253,7 +255,7 @@ PRED_TEXT_MOST = 500                                          # a Prediction's m
 predictions = sa.Table(
     "predictions", meta,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
-    sa.Column("chart", sa.String(8), nullable=False, server_default="Transit"),   # Chart: Birth or Transit
+    sa.Column("chart", sa.String(8), nullable=False, server_default=TRANSIT),   # Chart: Birth, TfSaB (Transit once), Sky or Distance
     sa.Column("moving", sa.String(8), nullable=False),       # Moving
     sa.Column("birth", sa.String(8), nullable=False),        # Birth
     sa.Column("kind", sa.String(8), nullable=False),         # Kind: RA or De
@@ -459,6 +461,7 @@ def engine() -> sa.Engine:
     _add_prediction_chart(eng)
     _add_prediction_forecast(eng)
     _dec_is_de(eng)                                           # (before new rows come in: they are De already)
+    _transit_is_tfsab(eng)                                    # (and TfSaB)
     _seed_predictions(eng)
     _trim_prediction_texts(eng)
     _drop_prediction_dots(eng)
@@ -784,7 +787,7 @@ def _rename_help_rows(eng: sa.Engine):
                              .values(abbreviation=new)).rowcount:
                     break
         # (a row still as the app first wrote it, since out of date, gets the one the app has now; one an admin has changed stays)
-        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5 + HELP_ROWS_6 + HELP_ROWS_7 + HELP_ROWS_8 + HELP_ROWS_9 + HELP_ROWS_10 + HELP_ROWS_11 + HELP_ROWS_12)
+        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5 + HELP_ROWS_6 + HELP_ROWS_7 + HELP_ROWS_8 + HELP_ROWS_9 + HELP_ROWS_10 + HELP_ROWS_11 + HELP_ROWS_12 + HELP_ROWS_13)
         for abbreviation, olds in HELP_OUT_OF_DATE.items():
             where = (sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(), help_table.c.description.in_(olds))
             if abbreviation in now:
@@ -825,7 +828,7 @@ def _seed_help(eng: sa.Engine):
         done = c.execute(sa.select(settings.c.value).where(settings.c.key == "help_seeded")).scalar()
         if done == HELP_VERSION:
             return
-        later = [HELP_ROWS_2, HELP_ROWS_3, HELP_ROWS_4, HELP_ROWS_5, HELP_ROWS_6, HELP_ROWS_7, HELP_ROWS_8, HELP_ROWS_9, HELP_ROWS_10, HELP_ROWS_11, HELP_ROWS_12]   # (the sets added since each note: 1 has had HELP_ROWS ..)
+        later = [HELP_ROWS_2, HELP_ROWS_3, HELP_ROWS_4, HELP_ROWS_5, HELP_ROWS_6, HELP_ROWS_7, HELP_ROWS_8, HELP_ROWS_9, HELP_ROWS_10, HELP_ROWS_11, HELP_ROWS_12, HELP_ROWS_13]   # (the sets added since each note: 1 has had HELP_ROWS ..)
         wanted = sum(later[int(done) - 1:], []) if done and done.isdigit() else HELP_ROWS + sum(later, [])
         have = {a.lower() for (a,) in c.execute(sa.select(help_table.c.abbreviation)).all()}
         new = []
@@ -1036,7 +1039,7 @@ def prediction_combinations(named_ra: bool = False) -> list[tuple[str, str, str,
     for m in PRED_MOVING:
         for b in PRED_BIRTH:
             for kind, angle, word in PRED_KIND_ANGLES:
-                out.append(("Transit", m, b, kind, angle, f"{name(m)} and your birth {name(b)} {angle}° apart in RA" if plain(kind) else
+                out.append((TRANSIT, m, b, kind, angle, f"{name(m)} and your birth {name(b)} {angle}° apart in RA" if plain(kind) else
                             f"{name(m)} {word} your birth {name(b)} in {kind_words(kind)} ({angle}°)"))
     for i, a in enumerate(PRED_BIRTH):
         for b in PRED_BIRTH[i + 1:]:
@@ -1176,7 +1179,7 @@ def prediction_reading(chart: str, moving: str, birth: str, kind: str, angle: in
         ra = prediction_reading(chart, moving, birth, "RA", angle)
         return "In RA and De both, so stronger: " + ra if ra else ""
     key = (kind, int(angle))
-    if chart == "Transit" and moving in TRANSIT_BRINGS and birth in BIRTH_PART and key in TRANSIT_ANGLE:
+    if chart == TRANSIT and moving in TRANSIT_BRINGS and birth in BIRTH_PART and key in TRANSIT_ANGLE:
         brings, span = TRANSIT_BRINGS[moving]
         easy, hard, other = TRANSIT_ADVICE[moving]
         text = TRANSIT_ANGLE[key].format(brings=brings, part=BIRTH_PART[birth][0], span=span)
@@ -1255,7 +1258,7 @@ def _plain_ra_events(eng: sa.Engine):
             return
         old = {r[:5]: r[5] for r in prediction_combinations(named_ra=True) if r[3] == "RA"}
         new = {r[:5]: r[5] for r in prediction_combinations() if r[3] == "RA"}
-        samples = {("Transit", "Sa", "Su", "RA", 180): ("Saturn opposite your birth Sun in RA", "Saturn and your birth Sun 180° apart in RA"),
+        samples = {(TRANSIT, "Sa", "Su", "RA", 180): ("Saturn opposite your birth Sun in RA", "Saturn and your birth Sun 180° apart in RA"),
                    ("Birth", "Su", "Sa", "RA", 90): ("Sun square Saturn in RA at birth", "Sun and Saturn 90° apart in RA at birth")}
         rows = c.execute(sa.select(predictions.c.id, predictions.c.chart, predictions.c.moving, predictions.c.birth,
                                    predictions.c.kind, predictions.c.angle, predictions.c.prediction)
@@ -1316,6 +1319,17 @@ def _drop_prediction_dots(eng: sa.Engine):
 PRED_SEEDED_KINDS = ("RA+De", "Near", "Far")                # the rows the app adds: RA+De, and Distance's (2026-11-19: RA and De deleted)
 
 
+def _transit_is_tfsab(eng: sa.Engine):
+    """Once (a note among the settings says it is done): the Predictions table's Chart Transit is called TfSaB."""
+    if "predictions" not in sa.inspect(eng).get_table_names():
+        return
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "transit_is_tfsab")).scalar():
+            return
+        c.execute(predictions.update().where(predictions.c.chart == "Transit").values(chart=TRANSIT))
+        c.execute(settings.insert().values(key="transit_is_tfsab", value="1"))
+
+
 def _keep_rade_only(eng: sa.Engine):
     """Once (a note among the settings says it is done): the Predictions table keeps only its RA+De rows (in aspect by
     Aspect Rules) and its Distance rows (Near, Far); its RA and De rows are deleted, and the app adds none again
@@ -1341,7 +1355,7 @@ def _seed_predictions(eng: sa.Engine):
         c.execute(predictions.update().where(predictions.c.chart == "Aspect").values(chart="Sky"))   # (Chart Aspect: Sky, RA+De)
         new = []
         if done is None and not c.execute(sa.select(predictions.c.id).limit(1)).first():
-            new += [dict(chart="Transit", moving=m, birth=b, kind=k, angle=a, prediction=p) for m, b, k, a, p in PREDICTION_ROWS
+            new += [dict(chart=TRANSIT, moving=m, birth=b, kind=k, angle=a, prediction=p) for m, b, k, a, p in PREDICTION_ROWS
                     if k in PRED_SEEDED_KINDS]
         if done in (None, "1"):
             have = {(m, b, k, a) for m, b, k, a in c.execute(sa.select(predictions.c.moving, predictions.c.birth, predictions.c.kind,
@@ -1485,7 +1499,7 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
             continue
         chart = _pick(PRED_CHARTS, r.get("Chart"))
         movers = {"Birth": PRED_BIRTH, "Distance": DIST_POINTS}.get(chart, PRED_MOVING)
-        others = {"Transit": PRED_BIRTH, "Birth": PRED_BIRTH, "Sky": PRED_MOVING, "Distance": ["Ea"]}.get(chart, PRED_BIRTH)
+        others = {TRANSIT: PRED_BIRTH, "Birth": PRED_BIRTH, "Sky": PRED_MOVING, "Distance": ["Ea"]}.get(chart, PRED_BIRTH)
         moving, birth, kind = _pick(movers, r.get("Moving")), _pick(others, r.get("Birth")), row_kind(r)
         angle = row_angle(r)
         other = pd.to_numeric(r.get("RA" if kind == "De" else "De"), errors="coerce")   # (the column a row of its Kind leaves blank)
