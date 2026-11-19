@@ -228,7 +228,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, by Aspect Rules; before Start / after End: within it already, or still), "
                    "Now (the planet now), Birth (the point of the birth chart; CB: house 10 at birth), "
                    "RAO and DeO (how far off in RA and in De at Exact), Event (the aspect: RA and its angle, or De parallel / contra-parallel) and Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details: a member without them is taken to DOB Details, told so, and comes back here once their details are saved.",
-    "Prediction Rules": "The Predictions table: a row per Chart (Birth: the two points at the angle in the birth chart, Planet1/Now the first, P2/Bth/Ho the second; TABP: the planet now coming to the angle with the birth point; TAEON: two planets now at the angle with each other, either way round; Distance: a planet, P2/Bth/Ho Ea, Kind Near or Far, Angle 0), Planet1/Now (TABP: Mo .. Sa, NN, SN; Birth: CB too), P2/Bth/Ho (the same, and CB), Kind (RA: the RA between the two is the Angle; De: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
+    "Prediction Rules": "The Predictions table: a row per Chart (Birth: the two points at the angle in the birth chart, P1/Now the first, P2/Bth/Ho the second; TABP: the planet now coming to the angle with the birth point; TAEON: two planets now at the angle with each other, either way round; Distance: a planet, P2/Bth/Ho Ea, Kind Near or Far, Angle 0), P1/Now (TABP: Mo .. Sa, NN, SN; Birth: CB too), P2/Bth/Ho (the same, and CB), Kind (RA: the RA between the two is the Angle; De: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
                         "unique together (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair), with its Prediction (optional, at most 500 characters; filled once, where empty, with a draft reading from the planets' and angles' usual meanings: a TABP row a period, a Birth row a lasting trait). It starts with every combination: TABP, each planet now (Mo .. Sa, NN, SN) with each birth point (and CB); Birth, each two birth points once (not NN with SN); each at RA 0, 60, 90, 120, 180 and De 0, 180, with a plain Prediction naming it to replace with your reading (938 rows; a row deleted stays deleted). "
                         "Insert, Update, Delete, each saved at once; Ignore; Reset to Previous.",
     "AstroClock-3D": "Time, with Now and DOB below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the North and South Celestial Poles (NCP, SCP); ECE and WCE are East and West on the Celestial Equator. "
@@ -2006,14 +2006,14 @@ def _closest_farthest_cached(rules, jd_from, jd_to):
 
 
 def page_prediction_rules():
-    """The Predictions table: a row per Chart, Planet1/Now, P2/Bth/Ho, Kind and Angle (unique together), with its Prediction;
+    """The Predictions table: a row per Chart, P1/Now, P2/Bth/Ho, Kind and Angle (unique together), with its Prediction;
     admins only (Insert, Update, Delete, each saved at once; Ignore; Reset to Previous)."""
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     table = db.predictions_rows()
     if searched_rows("predictions", table, search_box("predictions", "Any column (e.g. Sa, square, De)"),
                      {"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app."),
-                      "Moving": st.column_config.TextColumn("Planet1/Now"), "Birth": st.column_config.TextColumn("P2/Bth/Ho"),   # (as in the table)
+                      "Moving": st.column_config.TextColumn("P1/Now"), "Birth": st.column_config.TextColumn("P2/Bth/Ho"),   # (as in the table)
                       "Aspect": st.column_config.TextColumn("Event"),
                       "Kind": None, "De": None, "Event": None}):   # (not shown, as in the table)
         return
@@ -2023,7 +2023,7 @@ def page_prediction_rules():
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved)."),
                               "Chart": st.column_config.SelectboxColumn("Chart *", options=db.PRED_CHARTS,
                                                                         help="Birth: two points at the angle in the birth chart. TABP: a planet now coming to the angle with a birth point. TAEON: two planets now at the angle with each other. Distance: a planet at its closest (Near) or farthest (Far) from the Earth. HB: a planet in a house at birth. HT: a planet now in a house of the birth chart."),
-                              "Moving": st.column_config.SelectboxColumn("Planet1/Now *", options=db.PRED_BIRTH,
+                              "Moving": st.column_config.SelectboxColumn("P1/Now *", options=db.PRED_BIRTH,
                                                                           help="TABP, TAEON, HT: a planet now (not CB). Birth: the first point of the birth chart. HB: the planet at birth. Distance: the planet (Mo .. Sa)."),
                               "Birth": st.column_config.SelectboxColumn("P2/Bth/Ho *", options=db.PRED_BIRTH + ["Ea"] + db.HOUSES,
                                                                         help="TABP, Birth: the point of the birth chart (CB: house 10 at birth). TAEON: the other planet now. Distance: Ea (the Earth). HB, HT: the house, H01 .. H12."),
