@@ -123,7 +123,7 @@ HELP_ROWS_3 = [                                               # added later stil
 ]
 HELP_OUT_OF_DATE = {                                          # the Help rows' Descriptions the app once wrote, out of date since
     "RA+De": ("Predictions (Chart Aspect): two planets in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored",),   # (Aspect rows are Sky's RA+De rows now, and Birth and Transit have RA+De too)
-    "Chart": ("Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other in RA or in De), Aspect (two planets now in aspect by Aspect Rules: RA and De together) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other, the same for everyone) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (the two points at the angle in the birth chart) or Transit (the planet now coming to the angle with the birth point)",), "Kind": ("Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), RA+De (Aspect rows: RA within the RA orb of the Angle and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)", "Predictions column: RA (the RA between the two is the Angle) or De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored)", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)"),   # (Sky and Distance rows came in)
+    "Chart": ("Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other in RA or in De), Aspect (two planets now in aspect by Aspect Rules: RA and De together) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other, the same for everyone) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (the two points at the angle in the birth chart) or Transit (the planet now coming to the angle with the birth point)",), "Kind": ("Predictions column: RA (the two's RA apart is the RA column's degrees), De (RA column 0: parallel, the same De; 180: contra-parallel, mirrored), RA+De (in aspect by Aspect Rules: RA within the RA orb of those degrees and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), RA+De (in aspect by Aspect Rules: RA within the RA orb of the Angle and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), RA+De (Aspect rows: RA within the RA orb of the Angle and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)", "Predictions column: RA (the RA between the two is the Angle) or De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored)", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)"),   # (Sky and Distance rows came in)
     "De": ("Each planet's Dec line on the sphere",   # (Dec is De now, and the Dec row joined it)
            "De: Declination, a planet's angle north (+) or south (-) of the celestial equator; on AstroClock-3D, the Coordinates button for each planet's De line on the sphere"),
     "Predictions": ("Page: when the planets now come to the angles with the birth chart that the Prediction Rules table names, with its Prediction for each",), "Prediction Rules": ("Page (admins): the Predictions table: a row per Moving planet, Birth point, Kind (RA or Dec) and Angle, with its Prediction", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Prediction", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Events"),
@@ -168,7 +168,7 @@ HELP_ROWS_6 = [                                               # and again: Predi
     ("Moving", "Predictions column: Transit: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart"),
     ("Birth", "Predictions column: the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB)"),
     ("Chart", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)"),
-    ("Kind", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), RA+De (in aspect by Aspect Rules: RA within the RA orb of the Angle and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)"),
+    ("Kind", "Predictions column: RA (the two's RA apart, at the RA column's degrees), De (the De column: 0 parallel, the same De; 180 contra-parallel, mirrored), RA+De (in aspect by Aspect Rules: RA within the RA orb of the RA column's degrees and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)"),
     ("Begins", "Predictions column: when the moving planet comes within the orb (before Start: within it already)"),
     ("Exact", "Predictions column: when it is closest to the Angle"),
     ("Ends", "Predictions column: when it leaves the orb (after End: still within it)"),
@@ -262,7 +262,8 @@ predictions = sa.Table(
     sa.Column("forecast", sa.String(PRED_TEXT_MOST)),        # Prediction (optional)
     sa.UniqueConstraint("chart", "moving", "birth", "kind", "angle", name="ux_predictions_chart_rule"),
 )
-PREDICTIONS_COLUMNS = ["id", "Chart", "Moving", "Birth", "Kind", "Angle", "Event", "Prediction"]   # (Event: the column prediction; Prediction: forecast)
+PREDICTIONS_COLUMNS = ["id", "Chart", "Moving", "Birth", "Kind", "RA", "De", "Event", "Prediction"]   # (RA or De: the column angle, by Kind;
+                                                             # Event: prediction; Prediction: forecast)
 PREDICTION_ROWS = [                                           # the Transit rows the table starts with, once (samples, to be replaced)
     ("Sa", "Su", "RA", 0, "Sample: Saturn at your birth Sun's RA"),
     ("Sa", "Sa", "RA", 0, "Sample: Saturn back at its birth RA (Saturn return)"),
@@ -1345,13 +1346,21 @@ def _seed_predictions(eng: sa.Engine):
             c.execute(settings.update().where(settings.c.key == "predictions_seeded").values(value="6"))
 
 
+def row_angle(r):
+    """A Predictions row's angle, as the page shows it: in its De column for a De row, else its RA column (a Distance row,
+    both blank: 0); NaN when not a number."""
+    kind = _cell(r.get("Kind"))
+    value = pd.to_numeric(r.get("De" if kind == "De" else "RA"), errors="coerce")
+    return 0 if kind in ("Near", "Far") and pd.isna(value) else value
+
+
 def _pred_key(r) -> tuple:
     """A Predictions row's place in the table: by Chart (Birth first), Moving, then Birth (in the order the planet buttons
     are shown), Kind and Angle; rows not filled in at the bottom."""
     def at(names, v):
         v = _cell(v)
         return names.index(v) if v in names else len(names)
-    angle = pd.to_numeric(r.get("Angle"), errors="coerce")
+    angle = row_angle(r)
     return (at(PRED_CHARTS, r.get("Chart")), at(PRED_BIRTH, r.get("Moving")), at(PRED_BIRTH, r.get("Birth")), at(PRED_KINDS, r.get("Kind")),
             999 if pd.isna(angle) else angle)
 
@@ -1380,11 +1389,11 @@ def _aspect_names() -> dict[float, str]:
 
 
 def predictions_sorted(rows: pd.DataFrame) -> pd.DataFrame:
-    """The Predictions rows in the order the page shows them (see _pred_key), with each one's Aspect by name (after Angle;
-    worked out from Kind and Angle, not kept)."""
+    """The Predictions rows in the order the page shows them (see _pred_key), with each one's Aspect by name (after De;
+    worked out from Kind and its angle, not kept)."""
     order = sorted(range(len(rows)), key=lambda i: _pred_key(rows.iloc[i]))
     rows = rows.iloc[order].reset_index(drop=True).drop(columns="Aspect", errors="ignore")
-    rows.insert(rows.columns.get_loc("Angle") + 1, "Aspect", [aspect_name(k, a) for k, a in zip(rows["Kind"], rows["Angle"])])
+    rows.insert(rows.columns.get_loc("De") + 1, "Aspect", [aspect_name(r["Kind"], row_angle(r)) for _, r in rows.iterrows()])
     return rows
 
 
@@ -1393,7 +1402,8 @@ def predictions_rows() -> pd.DataFrame:
     (its forecast), as the page shows it."""
     with engine().connect() as c:
         rows = c.execute(sa.select(predictions)).mappings().all()
-    df = pd.DataFrame([{"id": r["id"], "Chart": r["chart"], "Moving": r["moving"], "Birth": r["birth"], "Kind": r["kind"], "Angle": r["angle"],
+    df = pd.DataFrame([{"id": r["id"], "Chart": r["chart"], "Moving": r["moving"], "Birth": r["birth"], "Kind": r["kind"],
+                        "RA": r["angle"] if r["kind"] in ("RA", "RA+De") else None, "De": r["angle"] if r["kind"] == "De" else None,
                         "Event": r["prediction"], "Prediction": r["forecast"]} for r in rows], columns=PREDICTIONS_COLUMNS)
     return predictions_sorted(df)
 
@@ -1429,7 +1439,8 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
         others = {"Transit": PRED_BIRTH, "Birth": PRED_BIRTH, "Sky": PRED_MOVING, "Distance": ["Ea"]}.get(chart, PRED_BIRTH)
         kinds = ["Near", "Far"] if chart == "Distance" else ["RA", "De", "RA+De"]
         moving, birth, kind = _pick(movers, r.get("Moving")), _pick(others, r.get("Birth")), _pick(kinds, r.get("Kind"))
-        angle = pd.to_numeric(r.get("Angle"), errors="coerce")
+        angle = row_angle(r)
+        other = pd.to_numeric(r.get("RA" if kind == "De" else "De"), errors="coerce")   # (the column a row of its Kind leaves blank)
         text = _cell(r.get("Event"))
         label = " ".join(c for c in cells[:5] if c) or "New row"
         if not chart:
@@ -1444,12 +1455,16 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
             out.append(f"{label}: Birth must be " + ("Ea (the Earth)" if chart == "Distance" else f"one of {', '.join(others)}"))
         if not kind:
             out.append(f"{label}: Kind must be {' or '.join(kinds)}")
-        if pd.isna(angle) or float(angle) != int(angle) or not 0 <= angle <= 180:
-            out.append(f"{label}: Angle must be a whole number from 0 to 180")
+        column = "De" if kind == "De" else "RA"
+        if chart == "Distance":
+            if pd.notna(angle) and int(angle) != 0 or pd.notna(pd.to_numeric(r.get("De"), errors="coerce")):
+                out.append(f"{label}: a Distance row leaves RA and De blank")
+        elif pd.isna(angle) or float(angle) != int(angle) or not 0 <= angle <= 180:
+            out.append(f"{label}: {column} must be a whole number from 0 to 180" + (" (0 parallel, 180 contra-parallel)" if kind == "De" else ""))
         elif kind == "De" and int(angle) not in (0, 180):
-            out.append(f"{label}: a De Angle is 0 (parallel) or 180 (contra-parallel)")
-        elif chart == "Distance" and int(angle) != 0:
-            out.append(f"{label}: a Distance row's Angle is 0")
+            out.append(f"{label}: De is 0 (parallel) or 180 (contra-parallel)")
+        elif kind and pd.notna(other):
+            out.append(f"{label}: {'an' if kind.startswith('RA') else 'a'} {kind} row leaves {'RA' if kind == 'De' else 'De'} blank")
         if not text:
             out.append(f"{label}: Event is empty")
         elif len(text) > PRED_TEXT_MOST:
@@ -1460,7 +1475,7 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
             pair = tuple(sorted((moving, birth))) if chart in ("Birth", "Sky") else (moving, birth)   # (Su-Mo and Mo-Su are one pair)
             key = (chart, *pair, kind, int(angle))
             if key in seen:
-                out.append(f"{label}: is in the table twice (Chart, Moving, Birth, Kind and Angle are unique together"
+                out.append(f"{label}: is in the table twice (Chart, Moving, Birth, Kind and RA or De are unique together"
                            + (f"; a {chart} row's two points count either way round)" if chart in ("Birth", "Sky") else ")"))
             seen.add(key)
     return out
@@ -1471,7 +1486,7 @@ def save_predictions(rows: pd.DataFrame) -> int:
     return _save_by_id(predictions, [
         (_row_id(r.get("id")), dict(chart=_pick(PRED_CHARTS, r.get("Chart")), moving=_pick(PRED_BIRTH, r.get("Moving")),
                                     birth=_pick(PRED_BIRTH + ["Ea"], r.get("Birth")),
-                                    kind=_pick(PRED_KINDS, r.get("Kind")), angle=int(pd.to_numeric(r.get("Angle"))),
+                                    kind=_pick(PRED_KINDS, r.get("Kind")), angle=int(row_angle(r)),
                                     prediction=_cell(r.get("Event")) or None, forecast=_cell(r.get("Prediction")) or None))
         for _, r in rows.iterrows() if any(_cell(r.get(c)) for c in PREDICTIONS_COLUMNS[1:])])
 
