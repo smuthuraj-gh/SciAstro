@@ -470,7 +470,7 @@ def engine() -> sa.Engine:
     _fill_prediction_readings(eng)
     _plain_ra_events(eng)
     _keep_rade_only(eng)
-    _drop_stronger(eng)                                       # (RA+De Predictions: no "In RA and De both" start)
+    _drop_starts(eng)                                         # (no "In RA and De both" / "At its farthest" start)
     return eng
 
 
@@ -1199,7 +1199,7 @@ def prediction_reading(chart: str, moving: str, birth: str, kind: str, angle: in
     if chart == "Distance" and moving in TRANSIT_BRINGS and kind in ("Near", "Far"):
         brings = TRANSIT_BRINGS[moving][0]
         return (f"At its closest to the Earth: its {brings} are felt more strongly and nearer to hand" if kind == "Near" else
-                f"At its farthest from the Earth: its {brings} feel quieter and more distant")
+                f"Its {brings} feel quieter and more distant")
     return ""
 
 
@@ -1295,22 +1295,24 @@ def _fill_prediction_readings(eng: sa.Engine):
         c.execute(settings.insert().values(key="predictions_readings", value="1"))
 
 
-STRONGER = "In RA and De both, so stronger: "                 # (once at the start of RA+De rows' Predictions)
+DROPPED_STARTS = (("In RA and De both, so stronger:", "no_stronger"),     # (once at the start of RA+De rows' Predictions)
+                  ("At its farthest from the Earth:", "no_farthest"))    # (and of Distance Far rows')
 
 
-def _drop_stronger(eng: sa.Engine):
-    """Once (a note among the settings says it is done): a Prediction starting STRONGER loses it (its first letter made
-    capital); the rest of the text is left as it is."""
+def _drop_starts(eng: sa.Engine):
+    """Once each (a note among the settings says it is done): a Prediction starting with one of DROPPED_STARTS loses it
+    (and the space after it; its first letter made capital); the rest of the text is left as it is."""
     if "predictions" not in sa.inspect(eng).get_table_names():
         return
     with eng.begin() as c:
-        if c.execute(sa.select(settings.c.value).where(settings.c.key == "no_stronger")).scalar():
-            return
-        rows = c.execute(sa.select(predictions.c.id, predictions.c.forecast).where(predictions.c.forecast.startswith(STRONGER))).all()
-        fix = {i: (rest[:1].upper() + rest[1:]) for i, f in rows if (rest := f[len(STRONGER):].lstrip())}
-        if fix:
-            _update_by_id(c, predictions.c.forecast, fix)
-        c.execute(settings.insert().values(key="no_stronger", value="1"))
+        for start, note in DROPPED_STARTS:
+            if c.execute(sa.select(settings.c.value).where(settings.c.key == note)).scalar():
+                continue
+            rows = c.execute(sa.select(predictions.c.id, predictions.c.forecast).where(predictions.c.forecast.startswith(start))).all()
+            fix = {i: (rest[:1].upper() + rest[1:]) for i, f in rows if (rest := f[len(start):].lstrip())}
+            if fix:
+                _update_by_id(c, predictions.c.forecast, fix)
+            c.execute(settings.insert().values(key=note, value="1"))
 
 
 def _add_prediction_forecast(eng: sa.Engine):
