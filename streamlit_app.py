@@ -223,7 +223,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "Predictions": "The Prediction Rules table's readings, in seven tables, Houses at Birth first, by house (as Houses at Now; the two have no Event column), the others by Event, A to Z (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): Aspects at Birth and Transit Aspects from Birth Points for the birth chart of the customer picked, then Houses at Birth (its HB rows: the house, H01 .. H12, each planet was in at birth, with its RA, De and Distance (%) then, and its Prediction followed by the Distance one, on the same line, for a planet then Farthest, 80% or more of its Distance(%), or Closest, 20% or less; twelve spans of 30 degrees of RA, H10 from CB's) and Houses at Now (its HT rows: as Houses at Birth, at this moment: the birth house each planet is in now, with its RA, De and Distance (%) now), Distance Average (%) (a planet Farthest at 70% or more of the Average of its Distance(%) at DOB and now, or Closest at 30% or less), Transit Aspects to Each Others Now (its TAEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance(%) at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%): only a farthest at 80% or more of its Distance(%), a closest at 20% or less), over the Start and End dates. Aspects at Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), by Event, then closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Event (the aspect) and Prediction (its reading, from Prediction Rules). "
+    "Predictions": "The Prediction Rules table's readings, in seven tables, Houses at Birth first, by house (as Houses at Now; the two have no Event column), the others by Event, A to Z (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): Aspects at Birth and Transit Aspects from Birth Points for the birth chart of the customer picked, then Houses at Birth (its HB rows: the house, H01 .. H12, each planet was in at birth, with its RA, De and Distance (%) then, and its Prediction followed by the Distance one, on the same line, its Distance (%) in bold, for a planet then Farthest, 80% or more of its Distance(%), or Closest, 20% or less; twelve spans of 30 degrees of RA, H10 from CB's) and Houses at Now (its HT rows: as Houses at Birth, at this moment: the birth house each planet is in now, with its RA, De and Distance (%) now), Distance Average (%) (a planet Farthest at 70% or more of the Average of its Distance(%) at DOB and now, or Closest at 30% or less), Transit Aspects to Each Others Now (its TAEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance(%) at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%): only a farthest at 80% or more of its Distance(%), a closest at 20% or less), over the Start and End dates. Aspects at Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), by Event, then closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Event (the aspect) and Prediction (its reading, from Prediction Rules). "
                    "Transit Aspects from Birth Points: its TABP rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, by Aspect Rules; before Start / after End: within it already, or still), "
                    "Now (the planet now), Birth (the point of the birth chart; CB: house 10 at birth), "
@@ -1286,10 +1286,12 @@ def table_fit(df: pd.DataFrame, config: dict, kw: dict, name: str | None = None)
     return kw, box, style
 
 
-def show_table(df: pd.DataFrame, column_config: dict | None = None, **kw):
-    """st.dataframe with its columns close together (fitted), and no space after the last."""
-    config = fitted(df, column_config)
-    kw, box, style = table_fit(df, config, kw)
+def show_table(df, column_config: dict | None = None, **kw):
+    """st.dataframe with its columns close together (fitted), and no space after the last; df a DataFrame, or a pandas
+    Styler of one (e.g. some cells bold)."""
+    data = df.data if isinstance(df, pd.io.formats.style.Styler) else df
+    config = fitted(data, column_config)
+    kw, box, style = table_fit(data, config, kw)
     got = st.container(key=box).dataframe(df, column_config=config, **kw)
     st.html(style)
     return got
@@ -1901,11 +1903,15 @@ def houses_at_birth(rules: list, birth: dict, jd_birth: float, distance_rules: l
                 second = far_near.get((p, kind), "") if kind else ""
                 more = f"Planet {'Farthest' if kind == 'Far' else 'Closest'}: {second}" if second else ""
                 rows.append({"House": h, "Planet": core.with_symbols(p), "RA": birth[p][0], "De": birth[p][1], "Distance (%)": pct,
-                             "Prediction": texts[(p, h)] + (f"; {more}" if more else "")})
+                             "Prediction": texts[(p, h)] + (f"; {more}" if more else ""), "_strong": bool(kind)})
     st.caption("Each planet's house at birth: twelve spans of 30 degrees of RA, H10 from CB's.")
     rows.sort(key=lambda r: r["House"])                       # (by house, H01 first; planets in a house in button order)
     if rows:
-        show_table(pd.DataFrame(rows), hide_index=True, width="content",   # (one line a row: Prediction as wide as its text)
+        df = pd.DataFrame(rows)
+        strong = df.pop("_strong").tolist()                   # (a planet then Closest or Farthest: its Distance (%) in bold)
+        styled = (df.style.apply(lambda col: ["font-weight: bold" if s else "" for s in strong], subset=["Distance (%)"])
+                  .format("{:.2f}", subset=["RA", "De", "Distance (%)"], na_rep=""))
+        show_table(styled, hide_index=True, width="content",   # (one line a row: Prediction as wide as its text)
                    column_config={"RA": st.column_config.NumberColumn(format="%.2f", help="Its RA at birth (degrees)."),
                                   "De": st.column_config.NumberColumn(format="%.2f", help="Its De at birth (degrees)."),
                                   "Distance (%)": st.column_config.NumberColumn(format="%.2f", help="Its Distance(%) at birth: 0 its closest, 100 its farthest (1800-2400); none for NN and SN.")})
