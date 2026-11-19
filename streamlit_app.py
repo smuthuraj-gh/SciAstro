@@ -223,7 +223,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "Predictions": "The Prediction Rules table's readings, in eight tables, Houses at Birth first, by house, the others by Event, A to Z (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): Aspects at Birth, Distance at Birth (as Distance at Now, at the birth time: a planet then Farthest, at 90% or more of its Distance(%), or Closest, at 10% or less) and Transit Aspects from Birth Points for the birth chart of the customer picked, then Houses at Birth (its HB rows: the house, H01 .. H12, each planet was in at birth; twelve spans of 30 degrees of RA, H10 from CB's) and Distance Average (%) (as Distance at Birth: a planet Farthest at 70% or more of the Average of its Distance(%) at DOB and now, or Closest at 30% or less), Houses Now (its HT rows: each planet now passing through a birth house, Begins and Ends, by house; over the Start and End dates), Transit Aspects to Each Others Now (its TAEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%): only a farthest at 90% or more of its Distance(%), a closest at 10% or less), over the Start and End dates. Aspects at Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), by Event, then closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Event (the aspect) and Prediction (its reading, from Prediction Rules). "
+    "Predictions": "The Prediction Rules table's readings, in eight tables, Houses at Birth first, by house (as Houses Now; the two have no Event column), the others by Event, A to Z (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): Aspects at Birth, Distance at Birth (as Distance at Now, at the birth time: a planet then Farthest, at 90% or more of its Distance(%), or Closest, at 10% or less) and Transit Aspects from Birth Points for the birth chart of the customer picked, then Houses at Birth (its HB rows: the house, H01 .. H12, each planet was in at birth; twelve spans of 30 degrees of RA, H10 from CB's) and Distance Average (%) (as Distance at Birth: a planet Farthest at 70% or more of the Average of its Distance(%) at DOB and now, or Closest at 30% or less), Houses Now (its HT rows: each planet now passing through a birth house, Begins and Ends, by house; over the Start and End dates), Transit Aspects to Each Others Now (its TAEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%): only a farthest at 90% or more of its Distance(%), a closest at 10% or less), over the Start and End dates. Aspects at Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), by Event, then closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Event (the aspect) and Prediction (its reading, from Prediction Rules). "
                    "Transit Aspects from Birth Points: its TABP rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, by Aspect Rules; before Start / after End: within it already, or still), "
                    "Now (the planet now), Birth (the point of the birth chart; CB: house 10 at birth), "
@@ -1894,7 +1894,7 @@ def houses_at_birth(rules: list, birth: dict) -> None:
         if p in birth:
             h = core.house_of(birth[p][0], cb)
             if (p, h) in texts:
-                rows.append({"Planet": core.with_symbols(p), "House": h, "Event": "In house", "Prediction": texts[(p, h)]})
+                rows.append({"Planet": core.with_symbols(p), "House": h, "Prediction": texts[(p, h)]})
     st.caption("Each planet's house at birth: twelve spans of 30 degrees of RA, H10 from CB's.")
     rows.sort(key=lambda r: r["House"])                       # (by house, H01 first; planets in a house in button order)
     if rows:
@@ -1950,9 +1950,9 @@ def houses_now(rules: list, jds: tuple, cb_ra: float) -> None:
     at = lambda jd: core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M")
     st.caption(f"{len(stays)} in this period." if stays else "None in this period.")
     if stays:
-        show_table(pd.DataFrame(by_event([{"Begins (UT)": at(b) if b is not None else "before Start", "Ends (UT)": at(e) if e is not None else "after End",
-                                  "Now": core.with_symbols(p), "House": h, "Event": "In house", "Prediction": texts[(p, h)]}
-                                          for p, h, b, e in stays])), hide_index=True, width="content")   # (all In house: by house, as sorted)
+        show_table(pd.DataFrame([{"Begins (UT)": at(b) if b is not None else "before Start", "Ends (UT)": at(e) if e is not None else "after End",
+                                  "Now": core.with_symbols(p), "House": h, "Prediction": texts[(p, h)]}
+                                 for p, h, b, e in stays]), hide_index=True, width="content")   # (by house, as sorted)
 
 
 def birth_predictions(rules: list, birth: dict) -> None:
