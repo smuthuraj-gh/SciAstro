@@ -464,6 +464,7 @@ def engine() -> sa.Engine:
     _drop_prediction_dots(eng)
     _fill_prediction_readings(eng)
     _plain_ra_events(eng)
+    _keep_rade_only(eng)
     return eng
 
 
@@ -1309,6 +1310,22 @@ def _drop_prediction_dots(eng: sa.Engine):
         c.execute(settings.insert().values(key="predictions_no_dot", value="1"))
 
 
+PRED_SEEDED_KINDS = ("RA+De", "Near", "Far")                # the rows the app adds: RA+De, and Distance's (2026-11-19: RA and De deleted)
+
+
+def _keep_rade_only(eng: sa.Engine):
+    """Once (a note among the settings says it is done): the Predictions table keeps only its RA+De rows (in aspect by
+    Aspect Rules) and its Distance rows (Near, Far); its RA and De rows are deleted, and the app adds none again
+    (PRED_SEEDED_KINDS). Rows of those kinds an admin adds later stay."""
+    if "predictions" not in sa.inspect(eng).get_table_names():
+        return
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "predictions_rade_only")).scalar():
+            return
+        c.execute(predictions.delete().where(predictions.c.kind.notin_(PRED_SEEDED_KINDS)))
+        c.execute(settings.insert().values(key="predictions_rade_only", value="1"))
+
+
 def _seed_predictions(eng: sa.Engine):
     """Once per set (a note among the settings says which; a row deleted since stays deleted): the Predictions table gets
     the Transit sample rows of PREDICTION_ROWS (when it is empty), then the Birth ones of PREDICTION_BIRTH_ROWS, then
@@ -1321,17 +1338,20 @@ def _seed_predictions(eng: sa.Engine):
         c.execute(predictions.update().where(predictions.c.chart == "Aspect").values(chart="Sky"))   # (Chart Aspect: Sky, RA+De)
         new = []
         if done is None and not c.execute(sa.select(predictions.c.id).limit(1)).first():
-            new += [dict(chart="Transit", moving=m, birth=b, kind=k, angle=a, prediction=p) for m, b, k, a, p in PREDICTION_ROWS]
+            new += [dict(chart="Transit", moving=m, birth=b, kind=k, angle=a, prediction=p) for m, b, k, a, p in PREDICTION_ROWS
+                    if k in PRED_SEEDED_KINDS]
         if done in (None, "1"):
             have = {(m, b, k, a) for m, b, k, a in c.execute(sa.select(predictions.c.moving, predictions.c.birth, predictions.c.kind,
                                                                        predictions.c.angle).where(predictions.c.chart == "Birth")).all()}
             new += [dict(chart="Birth", moving=m, birth=b, kind=k, angle=a, prediction=p) for m, b, k, a, p in PREDICTION_BIRTH_ROWS
-                    if (m, b, k, a) not in have]
+                    if (m, b, k, a) not in have and k in PRED_SEEDED_KINDS]
         have = {(ch, m, b, k, a) for ch, m, b, k, a in c.execute(sa.select(predictions.c.chart, predictions.c.moving, predictions.c.birth,
                                                                          predictions.c.kind, predictions.c.angle)).all()}
         have |= {(r["chart"], r["moving"], r["birth"], r["kind"], r["angle"]) for r in new}
         later = done is not None and done.isdigit() and int(done) >= 3   # (set 3 had the major angles: the new ones get their readings now)
         for ch, m, b, k, a, p in prediction_combinations():
+            if k not in PRED_SEEDED_KINDS:                    # (the rows the app adds: RA+De and Distance's; RA and De deleted for good)
+                continue
             if (ch, m, b, k, a) in have or (ch in ("Birth", "Sky") and (ch, b, m, k, a) in have):
                 continue
             new.append(dict(chart=ch, moving=m, birth=b, kind=k, angle=a, prediction=p,
