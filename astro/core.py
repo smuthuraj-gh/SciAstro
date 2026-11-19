@@ -538,53 +538,6 @@ def house_of(ra: float, cb_ra: float) -> str:
     return HOUSE_NAMES[(9 + k) % 12]
 
 
-def point_ra(label: str, jd_ut: float) -> float:
-    """A planet's RA, or the Moon's north node's (NN) or south node's (SN), at a time."""
-    if label in ("NN", "SN"):
-        ra = moon_north_node(jd_ut)[0]
-        return norm360(ra + 180.0) if label == "SN" else ra
-    return position(label, jd_ut).ra
-
-
-@dataclass
-class HouseStay:
-    planet: str
-    house: str
-    begins: float | None                                     # (None: in it before the period's start)
-    ends: float | None                                       # (None: still in it at the period's end)
-
-
-def house_stays(planets: list[str], cb_ra: float, jd_from: float, jd_to: float) -> list[HouseStay]:
-    """Each planet's stays in the birth houses (house_of, from CB's RA) over the period: the house it is in at the start,
-    then each house it enters (a planet turning back may enter one again), with when it comes in and goes out, to the
-    minute; soonest first."""
-    import numpy as np
-    out = []
-    if jd_to <= jd_from:
-        return out
-    for p in planets:
-        step = MOON_STEP if p == "Mo" else 1.0
-        n = int(math.ceil((jd_to - jd_from) / step))
-        jds = np.minimum(jd_from + np.arange(n + 1) * step, jd_to)
-        houses = [house_of(point_ra(p, float(jd)), cb_ra) for jd in jds]
-        begins = None
-        for k in range(1, len(jds)):
-            if houses[k] == houses[k - 1]:
-                continue
-            lo, hi = float(jds[k - 1]), float(jds[k])       # (the edge crossed between two samples: halved to the minute)
-            for _ in range(30):
-                mid = (lo + hi) / 2.0
-                if house_of(point_ra(p, mid), cb_ra) == houses[k - 1]:
-                    lo = mid
-                else:
-                    hi = mid
-            out.append(HouseStay(p, houses[k - 1], begins, hi))
-            begins = hi
-        out.append(HouseStay(p, houses[-1], begins, None))
-    out.sort(key=lambda s: (s.begins if s.begins is not None else -1e9, s.planet))
-    return out
-
-
 def jd_to_datetime(jd: float) -> datetime:
     """UT datetime of a Julian day (Gregorian), to the nearest second (a Julian day's last digits are rounding error)."""
     return datetime(2000, 1, 1, 12) + timedelta(seconds=round(float(jd - 2451545.0) * 86400.0))

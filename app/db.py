@@ -122,6 +122,7 @@ HELP_ROWS_3 = [                                               # added later stil
     ("Select all", "Logins button: ticks every row (pressed again, Unselect all: none)"),
 ]
 HELP_OUT_OF_DATE = {                                          # the Help rows' Descriptions the app once wrote, out of date since
+    "HT": ("Houses Now: Prediction Rules' Chart and its Predictions table: each planet now passing through a house of the birth chart, when it comes in and goes out",),   # (Houses Now taken off Predictions)
     "TfBP": ("Transits from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, then PTfBP) and its Predictions table: a planet now coming to an angle with a point of the birth chart", "Transits from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, then PTfBP) and its Predictions table, Planets Transits from Birth Points: a planet now coming to an angle with a point of the birth chart",),   # (its table is Transits from Birth Points)
     "TEON": ("Transits to Each Other Now: Prediction Rules' Chart (once Sky, then PT) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)", "Planets Transits Now: Prediction Rules' Chart (once Sky, then PT) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)",),   # (its table is Transits to Each Other Now)
     "PTfBP": ("Planets Transit from Birth Points: Prediction Rules' Chart (once Transit, then TfSaB) and its Predictions table: a planet now coming to an angle with a point of the birth chart", "Prediction Rules' Chart (once Transit, then TfSaB) and its Predictions table, Transit from Sun at Birth: a planet now coming to an angle with a point of the birth chart",),   # (PTfBP is Planets Transit from Birth Points)
@@ -199,7 +200,7 @@ HELP_ROWS_15 = []                                             # (was PTfBP, sinc
 HELP_ROWS_16 = []                                             # (was TfBP, since TABP: see HELP_GONE and HELP_ROWS_20)
 HELP_ROWS_17 = []                                             # (was TEON, since TAEON: see HELP_GONE and HELP_ROWS_19)
 HELP_ROWS_18 = [("HB", "Houses at Birth: Prediction Rules' Chart and its Predictions table: the house (H01 .. H12) each planet was in at birth, with its reading"),
-                ("HT", "Houses Now: Prediction Rules' Chart and its Predictions table: each planet now passing through a house of the birth chart, when it comes in and goes out")]
+                ("HT", "Houses Now: Prediction Rules' Chart, a planet now in a house of the birth chart (its Predictions table, Houses Now, taken off; the rules kept)")]
 HELP_ROWS_19 = [("TAEON", "Transit Aspects to Each Others Now: Prediction Rules' Chart (once Sky, PT, then TEON) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)")]
 HELP_ROWS_20 = [("TABP", "Transit Aspects from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, PTfBP, then TfBP) and its Predictions table: a planet now coming to an angle with a point of the birth chart")]
 HELP_VERSION = "20"                                            # the sets of rows the Help table has been given
