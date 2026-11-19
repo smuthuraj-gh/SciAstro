@@ -484,50 +484,6 @@ def sky_events(rules: list[tuple[str, str, str, int]], jd_from: float, jd_to: fl
     return out
 
 
-@dataclass
-class DistanceEvent:
-    planet: str
-    kind: str               # Near (closest to the Earth) or Far (farthest)
-    jd: float
-    au: float               # its distance from the Earth then (AU)
-    pct: float | None       # and as Distance(%) shows it
-
-
-def distance_events(rules: list[tuple[str, str]], jd_from: float, jd_to: float) -> list[DistanceEvent]:
-    """Each time a planet is at its closest to the Earth (Near) or farthest (Far) within the period, as each rule (planet,
-    Near or Far) says, to the minute; soonest first. (The Sun's: the Earth's nearest and farthest from it; the Moon's: its
-    perigee and apogee.)"""
-    import numpy as np
-    rules = [r for r in rules if r[0] in PLANET_ID and r[1] in ("Near", "Far")]
-    if not rules or jd_to <= jd_from:
-        return []
-    out = []
-    for p in sorted({r[0] for r in rules}):
-        kinds = {r[1] for r in rules if r[0] == p}
-        step = MOON_STEP if p == "Mo" else 1.0
-        n = int(math.ceil((jd_to - jd_from) / step))
-        jds = np.minimum(jd_from + np.arange(n + 1) * step, jd_to)
-        d = np.array([position(p, float(jd)).dist_au for jd in jds])
-        for k in range(1, n):
-            near, far = d[k] < d[k - 1] and d[k] <= d[k + 1], d[k] > d[k - 1] and d[k] >= d[k + 1]
-            kind = "Near" if near else "Far" if far else None
-            if kind not in kinds:
-                continue
-            sign = 1.0 if kind == "Near" else -1.0              # (Far: the least of minus the distance)
-            lo, hi = float(jds[k - 1]), float(jds[k + 1])
-            for _ in range(22):
-                a, z = lo + (hi - lo) / 3.0, hi - (hi - lo) / 3.0
-                if sign * position(p, a).dist_au <= sign * position(p, z).dist_au:
-                    hi = z
-                else:
-                    lo = a
-            jd = (lo + hi) / 2.0
-            au = position(p, jd).dist_au
-            out.append(DistanceEvent(p, kind, jd, au, distance_pct(p, au)))
-    out.sort(key=lambda e: e.jd)
-    return out
-
-
 HOUSE_NAMES = [f"H{n:02d}" for n in range(1, 13)]
 
 
