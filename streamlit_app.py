@@ -1915,7 +1915,7 @@ def houses_at_birth(rules: list, birth: dict, jd_birth: float) -> None:
             h = core.house_of(birth[p][0], cb)
             if (p, h) in texts:
                 pct = core.distance_pct(p, core.position(p, jd_birth).dist_au) if p in core.PLANET_ID else None   # (none for the nodes)
-                rows.append({"Planet": core.with_symbols(p), "House": h, "RA": birth[p][0], "De": birth[p][1],
+                rows.append({"House": h, "Planet": core.with_symbols(p), "RA": birth[p][0], "De": birth[p][1],
                              "Distance (%)": pct, "Prediction": texts[(p, h)]})
     st.caption("Each planet's house at birth: twelve spans of 30 degrees of RA, H10 from CB's.")
     rows.sort(key=lambda r: r["House"])                       # (by house, H01 first; planets in a house in button order)
