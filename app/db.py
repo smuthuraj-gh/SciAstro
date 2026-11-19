@@ -122,6 +122,7 @@ HELP_ROWS_3 = [                                               # added later stil
     ("Select all", "Logins button: ticks every row (pressed again, Unselect all: none)"),
 ]
 HELP_OUT_OF_DATE = {                                          # the Help rows' Descriptions the app once wrote, out of date since
+    "TEON": ("Planets Transits Now: Prediction Rules' Chart (once Sky, then PT) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)",),   # (its table is Transits to Each Other Now)
     "PTfBP": ("Planets Transit from Birth Points: Prediction Rules' Chart (once Transit, then TfSaB) and its Predictions table: a planet now coming to an angle with a point of the birth chart", "Prediction Rules' Chart (once Transit, then TfSaB) and its Predictions table, Transit from Sun at Birth: a planet now coming to an angle with a point of the birth chart",),   # (PTfBP is Planets Transit from Birth Points)
     "Prediction Rules": ("Page (admins): the Predictions table: a row per Chart (Birth or PTfBP), Planet1-Now, Planet2-Birth, Kind (RA or De) and Angle, with its Prediction", "Page (admins): the Predictions table: a row per Chart (Birth or PTfBP), Planet1-Now, Planet2-Birth, Kind (RA or De) and Angle, with its Event", "Page (admins): the Predictions table: a row per Chart (Birth or PTfBP), Moving, Birth, Kind (RA or De) and Angle, with its Event", "Page (admins): the Predictions table: a row per Chart (Birth or TfSaB), Moving, Birth, Kind (RA or De) and Angle, with its Event", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or De) and Angle, with its Event", "Page (admins): the Predictions table: a row per Moving planet, Birth point, Kind (RA or Dec) and Angle, with its Prediction", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Prediction", "Page (admins): the Predictions table: a row per Chart (Birth or Transit), Moving, Birth, Kind (RA or Dec) and Angle, with its Events",),
     "Planet1-Now": ("Prediction Rules column (once Moving): PTfBP: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart", "Predictions column: PTfBP: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart", "Predictions column: TfSaB: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart", "Predictions column: Transit: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart", "Predictions column: the planet now (Mo .. Sa, NN, SN)",),
@@ -193,7 +194,7 @@ HELP_ROWS_13 = []                                             # (was TfSaB, sinc
 HELP_ROWS_14 = []                                             # (was PT, since TEON: see HELP_GONE and HELP_ROWS_17)
 HELP_ROWS_15 = []                                             # (was PTfBP, since TfBP: see HELP_GONE and HELP_ROWS_16)
 HELP_ROWS_16 = [("TfBP", "Transits from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, then PTfBP) and its Predictions table, Planets Transits from Birth Points: a planet now coming to an angle with a point of the birth chart")]
-HELP_ROWS_17 = [("TEON", "Planets Transits Now: Prediction Rules' Chart (once Sky, then PT) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)")]
+HELP_ROWS_17 = [("TEON", "Transits to Each Other Now: Prediction Rules' Chart (once Sky, then PT) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)")]
 HELP_VERSION = "17"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
@@ -250,7 +251,7 @@ HELP_ROWS_2 = [                                               # added later: the
 # (now) comes to the Angle with the Birth point, in RA or in De (Kind), the Predictions page shows its Prediction; Chart
 # Birth: when the two (Moving: the first point, Birth: the second) are at that Angle in the birth chart itself
 TRANSIT = "TfBP"                                           # Transits from Birth Points: a planet now coming to a birth point (Transit, TfSaB, then PTfBP once)
-SKY = "TEON"                                               # Planets Transits Now: two planets now with each other (Chart Sky, then PT, once)
+SKY = "TEON"                                               # Transits to Each Other Now: two planets now with each other (Chart Sky, then PT, once)
 PRED_CHARTS = ["Birth", TRANSIT, SKY, "Distance"]          # TEON: two planets now; Distance: a planet's closest and farthest
 PRED_KINDS = ["RA", "De", "RA+De", "Near", "Far"]            # (RA+De: in aspect by Aspect Rules, RA and De together; Near, Far:
                                                              # Distance rows only)
