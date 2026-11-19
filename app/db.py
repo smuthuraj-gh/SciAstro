@@ -262,8 +262,8 @@ SKY = "TAEON"                                              # Transit Aspects to 
 HOUSE_BIRTH, HOUSE_NOW = "HB", "HT"                         # Houses at Birth: a planet in a house at birth; Houses Now: a planet now in a birth house
 HOUSE_CHARTS = (HOUSE_BIRTH, HOUSE_NOW)
 PRED_CHARTS = ["Birth", HOUSE_BIRTH, TRANSIT, HOUSE_NOW, SKY, "Distance"]   # TAEON: two planets now; Distance: a planet's closest and farthest
-PRED_KINDS = ["RA", "De", "RA+De", "Near", "Far", "House"]   # (RA+De: in aspect by Aspect Rules, RA and De together; Near, Far:
-                                                             # Distance rows only; House: HB and HT rows)
+# A row's Kind (not shown; see row_kind): RA, De, RA+De (in aspect by Aspect Rules, RA and De together), Near, Far (Distance
+# rows only) or House (HB and HT rows)
 HOUSES = core.HOUSE_NAMES                                     # H01 .. H12: an HB or HT row's P2/Bth/Ho
 DIST_POINTS = ["Mo", "Su", "Me", "Ve", "Ma", "Ju", "Sa"]     # the planets a Distance row may name (their Birth: Ea, the Earth)
 PRED_MOVING = ["Mo", "Su", "Me", "Ve", "Ma", "Ju", "Sa", "NN", "SN"]   # the planets now
@@ -865,10 +865,10 @@ def _seed_help(eng: sa.Engine):
 
 
 # ---------------------------------------------------------------- the Help table
-def by_id(rows: pd.DataFrame, column: str = "id") -> pd.DataFrame:
-    """A table's rows by their ID, lowest first, as every table is shown; a new row (no ID yet) at the bottom, in the order
-    it was added."""
-    ids = pd.to_numeric(rows[column], errors="coerce") if column in rows.columns else pd.Series([float("nan")] * len(rows))
+def by_id(rows: pd.DataFrame) -> pd.DataFrame:
+    """A table's rows by their ID (column id), lowest first, as every table is shown; a new row (no ID yet) at the bottom,
+    in the order it was added."""
+    ids = pd.to_numeric(rows["id"], errors="coerce") if "id" in rows.columns else pd.Series([float("nan")] * len(rows))
     order = sorted(range(len(rows)), key=lambda i: (pd.isna(ids.iloc[i]), 0 if pd.isna(ids.iloc[i]) else ids.iloc[i], i))
     return rows.iloc[order].reset_index(drop=True)
 
