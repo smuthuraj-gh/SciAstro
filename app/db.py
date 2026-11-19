@@ -267,12 +267,12 @@ PREDICTION_ROWS = [                                           # the Transit rows
     ("Sa", "Su", "RA", 0, "Sample: Saturn at your birth Sun's RA"),
     ("Sa", "Sa", "RA", 0, "Sample: Saturn back at its birth RA (Saturn return)"),
     ("Ju", "Su", "RA", 0, "Sample: Jupiter at your birth Sun's RA"),
-    ("Sa", "Su", "RA", 180, "Sample: Saturn opposite your birth Sun in RA"),
+    ("Sa", "Su", "RA", 180, "Sample: Saturn and your birth Sun 180° apart in RA"),
     ("Ma", "Mo", "De", 0, "Sample: Mars parallel your birth Moon in De"),
 ]
 PREDICTION_BIRTH_ROWS = [                                     # and the Birth rows, once (added later)
     ("Su", "Mo", "RA", 0, "Sample: Sun with Moon in RA at birth"),
-    ("Su", "Sa", "RA", 90, "Sample: Sun square Saturn in RA at birth"),
+    ("Su", "Sa", "RA", 90, "Sample: Sun and Saturn 90° apart in RA at birth"),
     ("Ve", "Ma", "De", 0, "Sample: Venus parallel Mars in De at birth"),
 ]
 
@@ -462,6 +462,7 @@ def engine() -> sa.Engine:
     _trim_prediction_texts(eng)
     _drop_prediction_dots(eng)
     _fill_prediction_readings(eng)
+    _plain_ra_events(eng)
     return eng
 
 
@@ -1014,25 +1015,31 @@ def kind_words(kind: str) -> str:
     return "RA and De" if kind == "RA+De" else kind
 
 
-def prediction_combinations() -> list[tuple[str, str, str, str, int, str]]:
+def prediction_combinations(named_ra: bool = False) -> list[tuple[str, str, str, str, int, str]]:
     """Every combination, as (chart, moving, birth, kind, angle, event): Transit, each planet now (PRED_MOVING) with each
     point of the birth chart (PRED_BIRTH); Birth, each two points of the birth chart once (not NN with SN, always opposite);
     Sky, each two planets now once (not NN with SN; the Sun with the Moon at RA 0 and 180 named New and Full Moon); each at
     PRED_KIND_ANGLES (RA, De, and RA+De: in aspect by Aspect Rules, RA and De together); and Distance, each of DIST_POINTS
-    at its closest (Near) and farthest (Far) from the Earth (Ea)."""
+    at its closest (Near) and farthest (Far) from the Earth (Ea). The aspects' names (conjunct, square ..) only for RA+De:
+    an RA row in plain words, e.g. Saturn and your birth Sun 90° apart in RA (named_ra: as they once were, by name)."""
     def name(p):
         return "house 10 (CB)" if p == "CB" else PLANET_NAMES.get(p, p)
+
+    def plain(kind):                                          # (an RA row's Event in plain words)
+        return kind == "RA" and not named_ra
     out = []
     for m in PRED_MOVING:
         for b in PRED_BIRTH:
             for kind, angle, word in PRED_KIND_ANGLES:
-                out.append(("Transit", m, b, kind, angle, f"{name(m)} {word} your birth {name(b)} in {kind_words(kind)} ({angle}°)"))
+                out.append(("Transit", m, b, kind, angle, f"{name(m)} and your birth {name(b)} {angle}° apart in RA" if plain(kind) else
+                            f"{name(m)} {word} your birth {name(b)} in {kind_words(kind)} ({angle}°)"))
     for i, a in enumerate(PRED_BIRTH):
         for b in PRED_BIRTH[i + 1:]:
             if {a, b} == {"NN", "SN"}:
                 continue
             for kind, angle, word in PRED_KIND_ANGLES:
-                out.append(("Birth", a, b, kind, angle, f"{name(a)} {word} {name(b)} in {kind_words(kind)} ({angle}°) at birth"))
+                out.append(("Birth", a, b, kind, angle, f"{name(a)} and {name(b)} {angle}° apart in RA at birth" if plain(kind) else
+                            f"{name(a)} {word} {name(b)} in {kind_words(kind)} ({angle}°) at birth"))
     for i, a in enumerate(PRED_MOVING):
         for b in PRED_MOVING[i + 1:]:
             if {a, b} == {"NN", "SN"}:
@@ -1040,7 +1047,8 @@ def prediction_combinations() -> list[tuple[str, str, str, str, int, str]]:
             for kind, angle, word in PRED_KIND_ANGLES:
                 moon = {a, b} == {"Mo", "Su"} and kind == "RA" and angle in (0, 180)
                 lead = ("New Moon: " if angle == 0 else "Full Moon: ") if moon else ""
-                out.append(("Sky", a, b, kind, angle, f"{lead}{name(a)} {word} {name(b)} in {kind_words(kind)} ({angle}°) in the sky"))
+                out.append(("Sky", a, b, kind, angle, f"{lead}{name(a)} and {name(b)} {angle}° apart in RA in the sky" if plain(kind) else
+                            f"{lead}{name(a)} {word} {name(b)} in {kind_words(kind)} ({angle}°) in the sky"))
     for p in DIST_POINTS:
         out.append(("Distance", p, "Ea", "Near", 0, f"{name(p)} at its closest to the Earth"))
         out.append(("Distance", p, "Ea", "Far", 0, f"{name(p)} at its farthest from the Earth"))
@@ -1231,6 +1239,36 @@ def _dec_is_de(eng: sa.Engine):
         c.execute(settings.insert().values(key="dec_is_de", value="1"))
 
 
+def _plain_ra_events(eng: sa.Engine):
+    """Once (a note among the settings says it is done): the RA rows' Events still as the app wrote them, by an aspect's
+    name (Saturn square your birth Sun in RA (90°)), in plain words (Saturn and your birth Sun 90° apart in RA): the names
+    are for RA+De only. An Event changed since is left as it is."""
+    if "predictions" not in sa.inspect(eng).get_table_names():
+        return
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "ra_plain_words2")).scalar():
+            return
+        old = {r[:5]: r[5] for r in prediction_combinations(named_ra=True) if r[3] == "RA"}
+        new = {r[:5]: r[5] for r in prediction_combinations() if r[3] == "RA"}
+        samples = {("Transit", "Sa", "Su", "RA", 180): ("Saturn opposite your birth Sun in RA", "Saturn and your birth Sun 180° apart in RA"),
+                   ("Birth", "Su", "Sa", "RA", 90): ("Sun square Saturn in RA at birth", "Sun and Saturn 90° apart in RA at birth")}
+        rows = c.execute(sa.select(predictions.c.id, predictions.c.chart, predictions.c.moving, predictions.c.birth,
+                                   predictions.c.kind, predictions.c.angle, predictions.c.prediction)
+                         .where(predictions.c.kind == "RA")).all()
+        changed = {}
+        for i, ch, m, b, k, a, text in rows:
+            key = next((x for x in ((ch, m, b, k, a), (ch, b, m, k, a)) if x in old), None)   # (Birth, Sky: either way round)
+            if key and text == old[key]:
+                changed[i] = new[key]
+            elif (ch, m, b, k, a) in samples:                 # the app's sample rows, with or without "Sample: "
+                was, now = samples[(ch, m, b, k, a)]
+                if text in (was, "Sample: " + was):
+                    changed[i] = text.replace(was, now)
+        if changed:
+            _update_by_id(c, predictions.c.prediction, changed)
+        c.execute(settings.insert().values(key="ra_plain_words2", value="1"))
+
+
 def _fill_prediction_readings(eng: sa.Engine):
     """Once (a note among the settings says it is done): every Predictions row with an empty Prediction gets its reading
     (prediction_reading); a Prediction already written is left as it is."""
@@ -1319,8 +1357,9 @@ def _pred_key(r) -> tuple:
 
 
 def aspect_name(kind, angle) -> str:
-    """A rule's aspect by name: RA, the name of its Angle among the aspects (Conjunction 0 .. Quincunx 150, as Aspect Rules
-    names them); De, Parallel (0) or Contra-parallel (180); Near, Closest; Far, Farthest ('' for none of those)."""
+    """A rule's aspect by name: RA+De, the name of its Angle among the aspects (Conjunction 0 .. Quincunx 150, as Aspect Rules
+    names them: those names only for RA+De); De, Parallel (0) or Contra-parallel (180); Near, Closest; Far, Farthest ('' for
+    RA, and for none of those)."""
     kind, a = _cell(kind), pd.to_numeric(angle, errors="coerce")
     if kind in ("Near", "Far"):
         return "Closest" if kind == "Near" else "Farthest"
@@ -1328,7 +1367,7 @@ def aspect_name(kind, angle) -> str:
         return ""
     if kind == "De":
         return {0: "Parallel", 180: "Contra-parallel"}.get(int(a), "")
-    if kind in ("RA", "RA+De"):
+    if kind == "RA+De":
         return _aspect_names().get(float(a), "")
     return ""
 

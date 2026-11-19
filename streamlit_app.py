@@ -1773,7 +1773,7 @@ OFF_COLUMNS = {"RAO": st.column_config.NumberColumn(format="%.2f", help="RA off:
 
 
 def aspect_label(kind: str, angle: int) -> str:
-    """A rule's aspect as the Predictions tables show it: RA 90° (Square), De parallel, RA+De 90° (Square)."""
+    """A rule's aspect as the Predictions tables show it: RA 90°, De parallel, RA+De 90° (Square) (the names for RA+De only)."""
     if kind == "De":
         return "De parallel" if int(angle) == 0 else "De contra-parallel"
     name = db.aspect_name(kind, angle)
@@ -1898,7 +1898,7 @@ def page_prediction_rules():
                                                                        help="RA: the RA between the two is the Angle. De: Angle 0 parallel, 180 contra-parallel. RA+De: in aspect by Aspect Rules (RA within its orb of the Angle, and De within the De orb, equal or mirrored). Distance rows: Near or Far, Angle 0."),
                               "Angle": st.column_config.NumberColumn("Angle *", min_value=0, max_value=180, step=1, format="%d",
                                                                      help="0 to 180 (De: 0 or 180)."),
-                              "Aspect": st.column_config.TextColumn(disabled=True, help="The aspect by name, from Kind and Angle (as Aspect Rules names them: Conjunction 0, Opposition 180, Square 90 ..; De: Parallel, Contra-parallel; Distance: Closest, Farthest). Set by the app."),
+                              "Aspect": st.column_config.TextColumn(disabled=True, help="The aspect by name, from Kind and Angle: for RA+De rows only, as Aspect Rules names them (Conjunction 0, Opposition 180, Square 90 ..); De: Parallel, Contra-parallel; Distance: Closest, Farthest; RA rows: none. Set by the app."),
                               "Event": st.column_config.TextColumn("Event *", help="Its reading, at most 500 characters."),
                               "Prediction": st.column_config.TextColumn(help="The prediction for the row (optional), at most 500 characters.")})
 
