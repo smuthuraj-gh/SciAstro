@@ -470,6 +470,7 @@ def engine() -> sa.Engine:
     _fill_prediction_readings(eng)
     _plain_ra_events(eng)
     _keep_rade_only(eng)
+    _drop_stronger(eng)                                       # (RA+De Predictions: no "In RA and De both" start)
     return eng
 
 
@@ -1178,8 +1179,7 @@ HARD = {("RA", 90), ("RA", 180), ("RA", 45), ("RA", 135), ("RA", 150), ("De", 18
 def prediction_reading(chart: str, moving: str, birth: str, kind: str, angle: int) -> str:
     """The Prediction column's reading for a row (no full stop at the end, as Event), or '' for one it has none for."""
     if kind == "RA+De":                                       # in aspect by Aspect Rules: as the RA one, by RA and De both
-        ra = prediction_reading(chart, moving, birth, "RA", angle)
-        return "In RA and De both, so stronger: " + ra if ra else ""
+        return prediction_reading(chart, moving, birth, "RA", angle)
     key = (kind, int(angle))
     if chart == TRANSIT and moving in TRANSIT_BRINGS and birth in BIRTH_PART and key in TRANSIT_ANGLE:
         brings, span = TRANSIT_BRINGS[moving]
@@ -1293,6 +1293,24 @@ def _fill_prediction_readings(eng: sa.Engine):
         if fill:
             _update_by_id(c, predictions.c.forecast, fill)
         c.execute(settings.insert().values(key="predictions_readings", value="1"))
+
+
+STRONGER = "In RA and De both, so stronger: "                 # (once at the start of RA+De rows' Predictions)
+
+
+def _drop_stronger(eng: sa.Engine):
+    """Once (a note among the settings says it is done): a Prediction starting STRONGER loses it (its first letter made
+    capital); the rest of the text is left as it is."""
+    if "predictions" not in sa.inspect(eng).get_table_names():
+        return
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "no_stronger")).scalar():
+            return
+        rows = c.execute(sa.select(predictions.c.id, predictions.c.forecast).where(predictions.c.forecast.startswith(STRONGER))).all()
+        fix = {i: (rest[:1].upper() + rest[1:]) for i, f in rows if (rest := f[len(STRONGER):].lstrip())}
+        if fix:
+            _update_by_id(c, predictions.c.forecast, fix)
+        c.execute(settings.insert().values(key="no_stronger", value="1"))
 
 
 def _add_prediction_forecast(eng: sa.Engine):
