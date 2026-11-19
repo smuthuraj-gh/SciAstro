@@ -2020,14 +2020,14 @@ def page_prediction_rules():
                height=rows_px(min(30, len(st.session_state.get("predictions_table_working", table)))),   # (thousands of rows: 30 in view, the rest by scrolling)
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved)."),
                               "Chart": st.column_config.SelectboxColumn("Chart *", options=db.PRED_CHARTS,
-                                                                        help="Birth: two points at the angle in the birth chart. TABP: a planet now coming to the angle with a birth point. TAEON: two planets now at the angle with each other. Distance: a planet at its closest (Near) or farthest (Far) from the Earth. HB: a planet in a house at birth. HT: a planet now in a house of the birth chart."),
+                                                                        help="Birth: two points at the angle in the birth chart. TABP: a planet now coming to the angle with a birth point. TAEON: two planets now at the angle with each other. Distance: a planet at its closest (Near) or farthest (Far) from the Earth. HB: a planet in a house at birth."),
                               "Moving": st.column_config.SelectboxColumn("P1/Now *", options=db.PRED_BIRTH,
-                                                                          help="TABP, TAEON, HT: a planet now (not CB). Birth: the first point of the birth chart. HB: the planet at birth. Distance: the planet (Mo .. Sa)."),
+                                                                          help="TABP, TAEON: a planet now (not CB). Birth: the first point of the birth chart. HB: the planet at birth. Distance: the planet (Mo .. Sa)."),
                               "Birth": st.column_config.SelectboxColumn("P2/Bth/Ho *", options=db.PRED_BIRTH + ["Ea"] + db.HOUSES,
-                                                                        help="TABP, Birth: the point of the birth chart (CB: house 10 at birth). TAEON: the other planet now. Distance: Ea (the Earth). HB, HT: the house, H01 .. H12."),
+                                                                        help="TABP, Birth: the point of the birth chart (CB: house 10 at birth). TAEON: the other planet now. Distance: Ea (the Earth). HB: the house, H01 .. H12."),
                               "Kind": None,                              # (not shown: RA+De, or from a Distance row's Aspect)
                               "RA": st.column_config.NumberColumn("Angle *", min_value=0, max_value=180, step=1, format="%d",
-                                                                     help="The angle in RA, 0 to 180 degrees, for RA and RA+De rows. Blank for Distance and house (HB, HT) rows."),
+                                                                     help="The angle in RA, 0 to 180 degrees, for RA and RA+De rows. Blank for Distance and house (HB) rows."),
                               "De": None,                                # (not shown: only an old De row, none now, has one)
                               "Aspect": st.column_config.SelectboxColumn("Event", options=db.prediction_aspects(), help="Distance rows: Closest or Farthest. Other rows: the aspect by name, as Aspect Rules names it (Conjunction 0, Opposition 180, Square 90 ..), from Angle; pick one with Angle blank and Angle is set from it."),
                               "Event": None,                             # (not shown: the app's own sentence naming the row, kept)

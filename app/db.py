@@ -130,12 +130,12 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
     "P1/Now": ("Prediction Rules column (once Moving, then Planet1-Now): TABP: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart", "Prediction Rules column (once Moving, then Planet1-Now): TfBP: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart", "Prediction Rules column (once Moving): TfBP: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart", "Prediction Rules column (once Moving): PTfBP: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart", "Predictions column: PTfBP: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart", "Predictions column: TfSaB: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart", "Predictions column: Transit: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart", "Predictions column: the planet now (Mo .. Sa, NN, SN)",),
     "PT": ("Planets Transits: Prediction Rules' Chart (once Sky) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)", "Prediction Rules' Chart (once Sky): two planets now at an angle with each other, the same for everyone; shown in Predictions' Sky table",),
     "RA+De": ("Predictions Kind (Birth, TfBP, TAEON): in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored", "Predictions Kind (Birth, TfBP, TEON): in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored", "Predictions Kind (Birth, TfBP, PT): in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored", "Predictions Kind (Birth, PTfBP, PT): in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored", "Predictions Kind (Birth, TfSaB, PT): in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored", "Predictions Kind (Birth, TfSaB, Sky): in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored", "Predictions Kind (Birth, Transit, Sky): in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored", "Predictions (Chart Aspect): two planets in aspect by Aspect Rules: RA within the RA orb of the angle and De within the De orb, equal or mirrored",),
-    "Chart": ("Predictions column: Birth (two points at the angle in the birth chart), TfBP (a planet now coming to the angle with a birth point), TAEON (two planets now at the angle with each other), Distance (a planet at its closest to, or farthest from, the Earth), HB (a planet in a house at birth) or HT (a planet now in a house of the birth chart)", "Predictions column: Birth (two points at the angle in the birth chart), TfBP (a planet now coming to the angle with a birth point), TEON (two planets now at the angle with each other), Distance (a planet at its closest to, or farthest from, the Earth), HB (a planet in a house at birth) or HT (a planet now in a house of the birth chart)", "Predictions column: Birth (two points at the angle in the birth chart), TfBP (a planet now coming to the angle with a birth point), TEON (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), TfBP (a planet now coming to the angle with a birth point), PT (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), PTfBP (a planet now coming to the angle with a birth point), PT (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), TfSaB (a planet now coming to the angle with a birth point), PT (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), TfSaB (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other in RA or in De), Aspect (two planets now in aspect by Aspect Rules: RA and De together) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other, the same for everyone) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (the two points at the angle in the birth chart) or Transit (the planet now coming to the angle with the birth point)",),
+    "Chart": ("Predictions column: Birth (two points at the angle in the birth chart), TABP (a planet now coming to the angle with a birth point), TAEON (two planets now at the angle with each other), Distance (a planet at its closest to, or farthest from, the Earth), HB (a planet in a house at birth) or HT (a planet now in a house of the birth chart)", "Predictions column: Birth (two points at the angle in the birth chart), TfBP (a planet now coming to the angle with a birth point), TAEON (two planets now at the angle with each other), Distance (a planet at its closest to, or farthest from, the Earth), HB (a planet in a house at birth) or HT (a planet now in a house of the birth chart)", "Predictions column: Birth (two points at the angle in the birth chart), TfBP (a planet now coming to the angle with a birth point), TEON (two planets now at the angle with each other), Distance (a planet at its closest to, or farthest from, the Earth), HB (a planet in a house at birth) or HT (a planet now in a house of the birth chart)", "Predictions column: Birth (two points at the angle in the birth chart), TfBP (a planet now coming to the angle with a birth point), TEON (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), TfBP (a planet now coming to the angle with a birth point), PT (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), PTfBP (a planet now coming to the angle with a birth point), PT (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), TfSaB (a planet now coming to the angle with a birth point), PT (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), TfSaB (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other in RA or in De), Aspect (two planets now in aspect by Aspect Rules: RA and De together) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other, the same for everyone) or Distance (a planet at its closest to, or farthest from, the Earth)", "Predictions column: Birth (the two points at the angle in the birth chart) or Transit (the planet now coming to the angle with the birth point)",),
     "Kind": ("Predictions column: RA (the two's RA apart is the RA column's degrees), De (RA column 0: parallel, the same De; 180: contra-parallel, mirrored), RA+De (in aspect by Aspect Rules: RA within the RA orb of those degrees and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), RA+De (in aspect by Aspect Rules: RA within the RA orb of the Angle and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), RA+De (Aspect rows: RA within the RA orb of the Angle and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)", "Predictions column: RA (the RA between the two is the Angle) or De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored)", "Predictions column: RA (the RA between the two is the Angle), De (Angle 0: parallel, the same De; 180: contra-parallel, mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)",),
     "De": ("Each planet's Dec line on the sphere", "De: Declination, a planet's angle north (+) or south (-) of the celestial equator; on AstroClock-3D, the Coordinates button for each planet's De line on the sphere",),
     "Predictions": ("Page: when the planets now come to the angles with the birth chart that the Prediction Rules table names, with its Prediction for each",),
     "Prediction": ("Prediction Rules column: the prediction for the row (optional, at most 500 characters); Event: what happens", "Prediction Rules column: the prediction for the row (optional, at most 500 characters); Events: what happens",),
-    "P2/Bth/Ho": ("Prediction Rules column (once Birth, then Planet2-Birth): the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB); HB, HT: the house, H01 .. H12", "Prediction Rules column (once Birth, then Planet2-Birth): the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB)", "Prediction Rules column (once Birth): the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB)", "Predictions column: the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB)", "Predictions column: the point of the birth chart it comes to (Mo .. Sa, NN, SN, CB)",),
+    "P2/Bth/Ho": ("Prediction Rules column (once Birth, Planet2-Birth, then Planet2/Birth): the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB); HB, HT: the house, H01 .. H12", "Prediction Rules column (once Birth, then Planet2-Birth): the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB); HB, HT: the house, H01 .. H12", "Prediction Rules column (once Birth, then Planet2-Birth): the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB)", "Prediction Rules column (once Birth): the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB)", "Predictions column: the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB)", "Predictions column: the point of the birth chart it comes to (Mo .. Sa, NN, SN, CB)",),
     "Page Defaults": ("Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed Values)", "Page (admins): what each page's buttons start as (Page, Options, Choices)", "Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed_Values)",),
     "Customers": ("Page (admins): a row per login: Email, Access, Start Date, Days, End Date",),
     "Access": ("Customers column: Now (the Now charts), DOB (the DOB charts, for Days days) or Admin",),
@@ -153,7 +153,8 @@ HELP_RENAMED = {"Page Defaults": ("Defaults", "Page_Defaults"), "App Conditions"
 HELP_GONE_TOO = {"Sky": ("Predictions (Chart Sky): two planets now at an angle with each other, the same for everyone (with New and Full Moon)", "Predictions table Sky (Chart PT): two planets now at an angle with each other, the same for everyone (with New and Full Moon)"),   # (the Sky table and Chart are Planets Transits, PT, now)
                  "Box Title": ("Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box",
                               "Page Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box")}   # (the Page Defaults table has no Box Title now)
-HELP_GONE = {"TfBP": "Transit Aspects from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, then PTfBP) and its Predictions table: a planet now coming to an angle with a point of the birth chart",   # (the Chart is TABP now)
+HELP_GONE = {"HT": "Houses Now: Prediction Rules' Chart, a planet now in a house of the birth chart (its Predictions table, Houses Now, taken off; the rules kept)",   # (its rules deleted)
+             "TfBP": "Transit Aspects from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, then PTfBP) and its Predictions table: a planet now coming to an angle with a point of the birth chart",   # (the Chart is TABP now)
              "TEON": "Transit Aspects to Each Others Now: Prediction Rules' Chart (once Sky, then PT) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)",   # (the Chart is TAEON now)
              "PT": "Planets Transits Now: Prediction Rules' Chart (once Sky) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)",   # (the Chart is TEON now)
              "PTfBP": "Planets Transits from Birth Points: Prediction Rules' Chart (once Transit, then TfSaB) and its Predictions table: a planet now coming to an angle with a point of the birth chart",   # (the Chart is TfBP now)
@@ -174,13 +175,13 @@ HELP_ROWS_6 = [                                               # and again: Predi
     ("Predictions", "Page: the Prediction Rules readings for the birth chart (its points at those angles at birth) and for transits (when the planets now come to those angles with it)"),
     ("Prediction Rules", "Page (admins): the Predictions table: a row per Chart (Birth or TABP), P1/Now, P2/Bth/Ho, Kind (RA or De) and Angle, with its Prediction"),
     ("P1/Now", "Prediction Rules column (once Moving, Planet1-Now, then Planet1/Now): TABP: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart"),
-    ("P2/Bth/Ho", "Prediction Rules column (once Birth, Planet2-Birth, then Planet2/Birth): the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB); HB, HT: the house, H01 .. H12"),
-    ("Chart", "Predictions column: Birth (two points at the angle in the birth chart), TABP (a planet now coming to the angle with a birth point), TAEON (two planets now at the angle with each other), Distance (a planet at its closest to, or farthest from, the Earth), HB (a planet in a house at birth) or HT (a planet now in a house of the birth chart)"),
+    ("P2/Bth/Ho", "Prediction Rules column (once Birth, Planet2-Birth, then Planet2/Birth): the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB); HB: the house, H01 .. H12"),
+    ("Chart", "Predictions column: Birth (two points at the angle in the birth chart), TABP (a planet now coming to the angle with a birth point), TAEON (two planets now at the angle with each other), Distance (a planet at its closest to, or farthest from, the Earth) or HB (a planet in a house at birth)"),
     ("Begins", "Predictions column: when the moving planet comes within the orb (before Start: within it already)"),
     ("Exact", "Predictions column: when it is closest to the Angle"),
     ("Ends", "Predictions column: when it leaves the orb (after End: still within it)"),
 ]
-HELP_ROWS_7 = [("Chart", "Predictions column: Birth (two points at the angle in the birth chart), TABP (a planet now coming to the angle with a birth point), TAEON (two planets now at the angle with each other), Distance (a planet at its closest to, or farthest from, the Earth), HB (a planet in a house at birth) or HT (a planet now in a house of the birth chart)")]   # (for a table given set 6 before Chart came in)
+HELP_ROWS_7 = [("Chart", "Predictions column: Birth (two points at the angle in the birth chart), TABP (a planet now coming to the angle with a birth point), TAEON (two planets now at the angle with each other), Distance (a planet at its closest to, or farthest from, the Earth) or HB (a planet in a house at birth)")]   # (for a table given set 6 before Chart came in)
 HELP_ROWS_8 = [("Prediction", "Prediction Rules column: the prediction for the row (optional, at most 500 characters)")]
 HELP_ROWS_9 = []                                              # (was AR, a column since gone: see HELP_GONE)
 HELP_ROWS_10 = [
@@ -199,8 +200,7 @@ HELP_ROWS_14 = []                                             # (was PT, since T
 HELP_ROWS_15 = []                                             # (was PTfBP, since TfBP: see HELP_GONE and HELP_ROWS_16)
 HELP_ROWS_16 = []                                             # (was TfBP, since TABP: see HELP_GONE and HELP_ROWS_20)
 HELP_ROWS_17 = []                                             # (was TEON, since TAEON: see HELP_GONE and HELP_ROWS_19)
-HELP_ROWS_18 = [("HB", "Houses at Birth: Prediction Rules' Chart and its Predictions table: the house (H01 .. H12) each planet was in at birth, with its reading"),
-                ("HT", "Houses Now: Prediction Rules' Chart, a planet now in a house of the birth chart (its Predictions table, Houses Now, taken off; the rules kept)")]
+HELP_ROWS_18 = [("HB", "Houses at Birth: Prediction Rules' Chart and its Predictions table: the house (H01 .. H12) each planet was in at birth, with its reading")]   # (HT: deleted with its rules; see HELP_GONE)
 HELP_ROWS_19 = [("TAEON", "Transit Aspects to Each Others Now: Prediction Rules' Chart (once Sky, PT, then TEON) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)")]
 HELP_ROWS_20 = [("TABP", "Transit Aspects from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, PTfBP, then TfBP) and its Predictions table: a planet now coming to an angle with a point of the birth chart")]
 HELP_VERSION = "20"                                            # the sets of rows the Help table has been given
@@ -260,12 +260,12 @@ HELP_ROWS_2 = [                                               # added later: the
 # Birth: when the two (Moving: the first point, Birth: the second) are at that Angle in the birth chart itself
 TRANSIT = "TABP"                                           # Transit Aspects from Birth Points: a planet now coming to a birth point (Transit, TfSaB, then PTfBP once)
 SKY = "TAEON"                                              # Transit Aspects to Each Others Now: two planets now with each other (Chart Sky, then PT, once)
-HOUSE_BIRTH, HOUSE_NOW = "HB", "HT"                         # Houses at Birth: a planet in a house at birth; Houses Now: a planet now in a birth house
-HOUSE_CHARTS = (HOUSE_BIRTH, HOUSE_NOW)
-PRED_CHARTS = ["Birth", HOUSE_BIRTH, TRANSIT, HOUSE_NOW, SKY, "Distance"]   # TAEON: two planets now; Distance: a planet's closest and farthest
+HOUSE_BIRTH = "HB"                                          # Houses at Birth: a planet in a house at birth (HT, Houses Now, deleted 2026-11-19)
+HOUSE_CHARTS = (HOUSE_BIRTH,)
+PRED_CHARTS = ["Birth", HOUSE_BIRTH, TRANSIT, SKY, "Distance"]   # TAEON: two planets now; Distance: a planet's closest and farthest
 # A row's Kind (not shown; see row_kind): RA, De, RA+De (in aspect by Aspect Rules, RA and De together), Near, Far (Distance
-# rows only) or House (HB and HT rows)
-HOUSES = core.HOUSE_NAMES                                     # H01 .. H12: an HB or HT row's P2/Bth/Ho
+# rows only) or House (HB rows)
+HOUSES = core.HOUSE_NAMES                                     # H01 .. H12: an HB row's P2/Bth/Ho
 DIST_POINTS = ["Mo", "Su", "Me", "Ve", "Ma", "Ju", "Sa"]     # the planets a Distance row may name (their Birth: Ea, the Earth)
 PRED_MOVING = ["Mo", "Su", "Me", "Ve", "Ma", "Ju", "Sa", "NN", "SN"]   # the planets now
 PRED_BIRTH = PRED_MOVING + ["CB"]                             # the points of the birth chart (CB: house 10 at birth)
@@ -488,7 +488,8 @@ def engine() -> sa.Engine:
     _plain_ra_events(eng)
     _keep_rade_only(eng)
     _drop_starts(eng)                                         # (no "In RA and De both" / "At its farthest" / "At its closest" start)
-    _seed_houses(eng)                                         # (HB and HT rows: each planet in each house)
+    _seed_houses(eng)                                         # (HB rows: each planet in each house)
+    _drop_ht_rows(eng)                                        # (HT rows: Houses Now taken off, its rules deleted once)
     return eng
 
 
@@ -1200,19 +1201,19 @@ EASY = {("RA", 60), ("RA", 120), ("RA", 30), ("RA", 72), ("RA", 144)}
 HARD = {("RA", 90), ("RA", 180), ("RA", 45), ("RA", 135), ("RA", 150), ("De", 180)}
 
 
-HOUSE_THEMES = {   # house: (its matters, a lasting trait with a planet there at birth, a passing time with a planet now there)
-    1: ("your self, body and the way you come across", "it shows plainly in how you meet the world", "a time to put yourself forward"),
-    2: ("your money, belongings and sense of worth", "it shapes what you value and how you earn", "a time to look after what you have and earn"),
-    3: ("your talks, studies, short trips and siblings", "it colours how you think, speak and learn", "a busy time of messages, errands and learning"),
-    4: ("your home, family and roots", "it runs deep in your home and private life", "a time to tend home and family"),
-    5: ("your creativity, pleasure, romance and children", "it comes out in play, love and what you create", "a time to enjoy, create and take a chance"),
-    6: ("your daily work, routines and health", "it shows in how you work and look after yourself", "a time to sort out work, habits and health"),
-    7: ("your partners, contracts and open dealings", "it is met through partners and the people close to you", "a time when others and agreements take the lead"),
-    8: ("shared money, debts, change and what lies hidden", "it works through deep bonds and shared resources", "a time for joint finances and letting go"),
-    9: ("your beliefs, higher learning, travel and law", "it reaches out through study, faith and far places", "a time to learn, travel or widen your view"),
-    10: ("your career, reputation and public standing", "it is seen in your career and the way the world knows you", "a time when work and standing are in view"),
-    11: ("your friends, groups, hopes and plans", "it works through friends and the causes you join", "a time for friends, networks and future plans"),
-    12: ("your inner life, rest and what is behind the scenes", "it works quietly, out of sight, in solitude and care", "a time to rest, reflect and finish things"),
+HOUSE_THEMES = {   # house: (its matters, a lasting trait with a planet there at birth)
+    1: ("your self, body and the way you come across", "it shows plainly in how you meet the world"),
+    2: ("your money, belongings and sense of worth", "it shapes what you value and how you earn"),
+    3: ("your talks, studies, short trips and siblings", "it colours how you think, speak and learn"),
+    4: ("your home, family and roots", "it runs deep in your home and private life"),
+    5: ("your creativity, pleasure, romance and children", "it comes out in play, love and what you create"),
+    6: ("your daily work, routines and health", "it shows in how you work and look after yourself"),
+    7: ("your partners, contracts and open dealings", "it is met through partners and the people close to you"),
+    8: ("shared money, debts, change and what lies hidden", "it works through deep bonds and shared resources"),
+    9: ("your beliefs, higher learning, travel and law", "it reaches out through study, faith and far places"),
+    10: ("your career, reputation and public standing", "it is seen in your career and the way the world knows you"),
+    11: ("your friends, groups, hopes and plans", "it works through friends and the causes you join"),
+    12: ("your inner life, rest and what is behind the scenes", "it works quietly, out of sight, in solitude and care"),
 }
 
 
@@ -1238,11 +1239,8 @@ def prediction_reading(chart: str, moving: str, birth: str, kind: str, angle: in
         return text[0].upper() + text[1:] + "; " + (easy if key in EASY else hard if key in HARD else other)
     if chart in HOUSE_CHARTS and moving in TRANSIT_BRINGS and birth in HOUSES:
         n = int(birth[1:])
-        theme, lasting, passing = HOUSE_THEMES[n]
-        if chart == HOUSE_BIRTH:
-            return f"Your {BIRTH_PART[moving][1]} works through {theme}: {lasting}"
-        brings, span = TRANSIT_BRINGS[moving]
-        return f"{brings[0].upper() + brings[1:]} move through {theme} {span}: {passing}"
+        theme, lasting = HOUSE_THEMES[n]
+        return f"Your {BIRTH_PART[moving][1]} works through {theme}: {lasting}"
     if chart == "Distance" and moving in TRANSIT_BRINGS and kind in ("Near", "Far"):
         brings = TRANSIT_BRINGS[moving][0]
         return (f"Its {brings} are felt more strongly and nearer to hand" if kind == "Near" else
@@ -1430,8 +1428,8 @@ def _keep_rade_only(eng: sa.Engine):
 
 def _seed_houses(eng: sa.Engine):
     """Once (a note among the settings says it is done; a row deleted since stays deleted): the Predictions table gets an
-    HB row (Houses at Birth) and an HT row (Houses Now) for each planet of PRED_MOVING in each house H01 .. H12, with its
-    reading (prediction_reading), where it lacks one."""
+    HB row (Houses at Birth) for each planet of PRED_MOVING in each house H01 .. H12, with its reading (prediction_reading),
+    where it lacks one."""
     if "predictions" not in sa.inspect(eng).get_table_names():
         return
     with eng.begin() as c:
@@ -1440,12 +1438,24 @@ def _seed_houses(eng: sa.Engine):
         have = {(ch, m, b) for ch, m, b in c.execute(sa.select(predictions.c.chart, predictions.c.moving, predictions.c.birth)
                                                      .where(predictions.c.chart.in_(HOUSE_CHARTS))).all()}
         new = [dict(chart=ch, moving=m, birth=h, kind="House", angle=0,
-                    prediction=f"{PLANET_NAMES[m]} in {h}" + (" at birth" if ch == HOUSE_BIRTH else ", your birth house, now"),
+                    prediction=f"{PLANET_NAMES[m]} in {h} at birth",
                     forecast=prediction_reading(ch, m, h, "House", 0) or None)
                for ch in HOUSE_CHARTS for m in PRED_MOVING for h in HOUSES if (ch, m, h) not in have]
         if new:
             c.execute(predictions.insert(), new)
         c.execute(settings.insert().values(key="houses_seeded", value="1"))
+
+
+def _drop_ht_rows(eng: sa.Engine):
+    """Once (a note among the settings says it is done): the Predictions table's HT rows (Houses Now, taken off the
+    Predictions page) are deleted."""
+    if "predictions" not in sa.inspect(eng).get_table_names():
+        return
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "ht_rows_dropped")).scalar():
+            return
+        c.execute(predictions.delete().where(predictions.c.chart == "HT"))
+        c.execute(settings.insert().values(key="ht_rows_dropped", value="1"))
 
 
 def _seed_predictions(eng: sa.Engine):
@@ -1597,7 +1607,7 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
         chart = _pick(PRED_CHARTS, r.get("Chart"))
         movers = {"Birth": PRED_BIRTH, "Distance": DIST_POINTS}.get(chart, PRED_MOVING)
         others = {TRANSIT: PRED_BIRTH, "Birth": PRED_BIRTH, SKY: PRED_MOVING, "Distance": ["Ea"],
-                  HOUSE_BIRTH: HOUSES, HOUSE_NOW: HOUSES}.get(chart, PRED_BIRTH)
+                  HOUSE_BIRTH: HOUSES}.get(chart, PRED_BIRTH)
         moving, birth, kind = _pick(movers, r.get("Moving")), _pick(others, r.get("Birth")), row_kind(r)
         angle = row_angle(r)
         other = pd.to_numeric(r.get("RA" if kind == "De" else "De"), errors="coerce")   # (the column a row of its Kind leaves blank)
@@ -1621,7 +1631,7 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
         if chart == "Distance" or chart in HOUSE_CHARTS:
             ra = pd.to_numeric(r.get("RA"), errors="coerce")
             if pd.notna(ra) and int(ra) != 0 or pd.notna(pd.to_numeric(r.get("De"), errors="coerce")):
-                out.append(f"{label}: {'an' if chart[:1] in 'AEIOUH' else 'a'} {chart} row leaves Angle blank")   # (an HB, an HT)
+                out.append(f"{label}: {'an' if chart[:1] in 'AEIOUH' else 'a'} {chart} row leaves Angle blank")   # (an HB)
         elif pd.isna(angle) or float(angle) != int(angle) or not 0 <= angle <= 180:
             out.append(f"{label}: {column} must be a whole number from 0 to 180" + (" (0 parallel, 180 contra-parallel)" if kind == "De" else ""))
         elif kind == "De" and int(angle) not in (0, 180):
