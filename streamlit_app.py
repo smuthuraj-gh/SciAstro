@@ -223,7 +223,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "Predictions": "The Prediction Rules table's readings, in five tables (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): At Birth, Distance at Birth (as Distance at Now: each planet at its closest to or farthest from the Earth, on the birth date, UT) and Transits from Birth Points for the birth chart of the customer picked, then Transits to Each Other Now (its TEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%)), over the Start and End dates. At Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Aspect and Prediction (its reading, from Prediction Rules). "
+    "Predictions": "The Prediction Rules table's readings, in five tables (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): At Birth, Distance at Birth (as Distance at Now, at the birth time: a planet then Farthest, at 90% or more of its Distance(%), or Closest, at 10% or less) and Transits from Birth Points for the birth chart of the customer picked, then Transits to Each Other Now (its TEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%)), over the Start and End dates. At Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Aspect and Prediction (its reading, from Prediction Rules). "
                    "Transits from Birth Points: its TfBP rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, by Aspect Rules; before Start / after End: within it already, or still), "
                    "Now (the planet now), Birth (the point of the birth chart; CB: house 10 at birth), "
@@ -1842,19 +1842,27 @@ def distance_predictions(rules: list, jds: tuple) -> None:
         show_table(pd.DataFrame(distance_rows(events, texts)), hide_index=True, width="content", column_config=DISTANCE_COLUMNS)
 
 
+BIRTH_FAR_PCT, BIRTH_NEAR_PCT = 90, 10                         # Distance at Birth: Farthest at 90% or more, Closest at 10% or less
+
+
 def distance_at_birth(rules: list, jd_birth: float) -> None:
-    """Distance at Birth (after At Birth): as Distance at Now, each time a planet is at its closest to (Near) or farthest
-    from (Far) the Earth, on the birth's own date (UT), with its distance and the rule's Prediction."""
+    """Distance at Birth (after At Birth): as Distance at Now, but at the birth time: each planet of the Distance rows
+    then at BIRTH_FAR_PCT or more of its Distance(%) (Farthest) or BIRTH_NEAR_PCT or less (Closest), with its distance and
+    that row's Prediction."""
     st.markdown("**Distance at Birth**")
     if not rules:
         st.caption("The Prediction Rules table has no Distance rows.")
         return
-    born = core.jd_to_datetime(jd_birth)
-    day = core.jd_of_datetime(datetime.combine(born.date(), time(0, 0)))   # (the birth date, midnight to midnight)
-    events = [e for e in _closest_farthest_cached(tuple((r[0], r[2]) for r in rules), day - 2.0, day + 3.0)
-              if day <= e[2] < day + 1.0]                     # (searched a few days round: a turn needs days either side)
     texts = {(r[0], r[2]): r[4:6] for r in rules}            # (planet, Near / Far): (Event, not shown; Prediction)
-    st.caption(f"{len(events) if events else 'None'} on the birth date {born:%Y-%m-%d} (UT).")
+    events = []
+    for p in dict.fromkeys(r[0] for r in rules if r[0] in core.PLANET_ID):   # (each planet once, in the rules' order)
+        au = core.position(p, jd_birth).dist_au
+        pct = core.distance_pct(p, au)
+        kind = None if pct is None else "Far" if pct >= BIRTH_FAR_PCT else "Near" if pct <= BIRTH_NEAR_PCT else None
+        if kind and (p, kind) in texts:
+            events.append((p, kind, jd_birth, au, pct))
+    st.caption(f"{len(events) if events else 'None'} at the birth time {core.jd_to_datetime(jd_birth):%Y-%m-%d %H:%M} (UT): a planet "
+               f"Farthest at {BIRTH_FAR_PCT}% or more of its Distance(%), Closest at {BIRTH_NEAR_PCT}% or less.")
     if events:
         show_table(pd.DataFrame(distance_rows(events, texts)), hide_index=True, width="content", column_config=DISTANCE_COLUMNS)
 
