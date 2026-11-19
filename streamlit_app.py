@@ -223,7 +223,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "Predictions": "The Prediction Rules table's readings, in eight tables, Houses at Birth first, by house (as Houses at Now; the two have no Event column), the others by Event, A to Z (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): Aspects at Birth, Distance(%) at Birth (as Distance(%) at Now, at the birth time: a planet then Farthest, at 80% or more of its Distance(%), or Closest, at 20% or less) and Transit Aspects from Birth Points for the birth chart of the customer picked, then Houses at Birth (its HB rows: the house, H01 .. H12, each planet was in at birth, with its RA, De and Distance (%) then, and a second line of Prediction for a planet then Farthest, 80% or more of its Distance(%), or Closest, 20% or less; twelve spans of 30 degrees of RA, H10 from CB's) and Houses at Now (its HT rows: as Houses at Birth, at this moment: the birth house each planet is in now, with its RA, De and Distance (%) now), Distance Average (%) (as Distance(%) at Birth: a planet Farthest at 70% or more of the Average of its Distance(%) at DOB and now, or Closest at 30% or less), Transit Aspects to Each Others Now (its TAEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance(%) at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%): only a farthest at 80% or more of its Distance(%), a closest at 20% or less), over the Start and End dates. Aspects at Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), by Event, then closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Event (the aspect) and Prediction (its reading, from Prediction Rules). "
+    "Predictions": "The Prediction Rules table's readings, in eight tables, Houses at Birth first, by house (as Houses at Now; the two have no Event column), the others by Event, A to Z (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): Aspects at Birth, Distance(%) at Birth (as Distance(%) at Now, at the birth time: a planet then Farthest, at 80% or more of its Distance(%), or Closest, at 20% or less) and Transit Aspects from Birth Points for the birth chart of the customer picked, then Houses at Birth (its HB rows: the house, H01 .. H12, each planet was in at birth, with its RA, De and Distance (%) then, and its Prediction followed by the Distance one, wrapping, for a planet then Farthest, 80% or more of its Distance(%), or Closest, 20% or less; twelve spans of 30 degrees of RA, H10 from CB's) and Houses at Now (its HT rows: as Houses at Birth, at this moment: the birth house each planet is in now, with its RA, De and Distance (%) now), Distance Average (%) (as Distance(%) at Birth: a planet Farthest at 70% or more of the Average of its Distance(%) at DOB and now, or Closest at 30% or less), Transit Aspects to Each Others Now (its TAEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance(%) at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%): only a farthest at 80% or more of its Distance(%), a closest at 20% or less), over the Start and End dates. Aspects at Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), by Event, then closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Event (the aspect) and Prediction (its reading, from Prediction Rules). "
                    "Transit Aspects from Birth Points: its TABP rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, by Aspect Rules; before Start / after End: within it already, or still), "
                    "Now (the planet now), Birth (the point of the birth chart; CB: house 10 at birth), "
@@ -1902,14 +1902,14 @@ def distance_at_birth(rules: list, jd_birth: float) -> None:
         show_table(pd.DataFrame(by_event(distance_rows(events, texts))), hide_index=True, width="content", column_config=DISTANCE_COLUMNS)
 
 
-TWO_LINE_ROW_PX = 66                                          # a table row tall enough for its text to run to a second line (over 4rem)
+TWO_LINE_ROW_PX = 66                                          # a table row tall enough for its text to wrap (over 4rem, the table's own rule)
 
 
 def houses_at_birth(rules: list, birth: dict, jd_birth: float, distance_rules: list | None = None) -> None:
     """Houses at Birth (HB rows; the page's first table): the house each planet was in at birth (core.house_of, from CB's
     RA), by house, with its RA, De and Distance (%) at birth (none for NN, SN) and its row's Prediction; a planet then
     Farthest (FAR_PCT or more of its Distance(%)) or Closest (NEAR_PCT or less), as Distance(%) at Birth, has that Distance
-    row's Prediction as a second line."""
+    row's Prediction after it, the text wrapping onto a second line (the rows drawn taller)."""
     st.markdown("**Houses at Birth**")
     if not rules:
         st.caption("The Prediction Rules table has no HB rows.")
@@ -1917,7 +1917,7 @@ def houses_at_birth(rules: list, birth: dict, jd_birth: float, distance_rules: l
     texts = {(r[0], r[1]): r[5] for r in rules}              # (planet, house): Prediction
     far_near = {(r[0], r[2]): r[5] for r in distance_rules or []}   # (planet, Near / Far): the Distance row's Prediction
     cb = birth["CB"][0]
-    rows = []
+    rows, widest, wraps = [], 0.0, False
     for p in db.PRED_MOVING:
         if p in birth:
             h = core.house_of(birth[p][0], cb)
@@ -1925,14 +1925,17 @@ def houses_at_birth(rules: list, birth: dict, jd_birth: float, distance_rules: l
                 pct = core.distance_pct(p, core.position(p, jd_birth).dist_au) if p in core.PLANET_ID else None   # (none for the nodes)
                 kind = None if pct is None else "Far" if pct >= FAR_PCT else "Near" if pct <= NEAR_PCT else None
                 second = far_near.get((p, kind), "") if kind else ""
+                more = f"{'Farthest' if kind == 'Far' else 'Closest'}: {second}" if second else ""
+                widest = max(widest, text_px(texts[(p, h)]), text_px(more))   # (the column as wide as its widest part: the rest wraps)
+                wraps = wraps or bool(more)
                 rows.append({"House": h, "Planet": core.with_symbols(p), "RA": birth[p][0], "De": birth[p][1], "Distance (%)": pct,
-                             "Prediction": texts[(p, h)] + (f"\n{'Farthest' if kind == 'Far' else 'Closest'}: {second}" if second else "")})
+                             "Prediction": texts[(p, h)] + (f"; {more}" if more else "")})
     st.caption("Each planet's house at birth: twelve spans of 30 degrees of RA, H10 from CB's.")
     rows.sort(key=lambda r: r["House"])                       # (by house, H01 first; planets in a house in button order)
     if rows:
-        two = any("\n" in r["Prediction"] for r in rows)
-        show_table(pd.DataFrame(rows), hide_index=True, width="content", **({"row_height": TWO_LINE_ROW_PX} if two else {}),
-                   column_config={"RA": st.column_config.NumberColumn(format="%.2f", help="Its RA at birth (degrees)."),
+        show_table(pd.DataFrame(rows), hide_index=True, width="content", **({"row_height": TWO_LINE_ROW_PX} if wraps else {}),
+                   column_config={**({"Prediction": st.column_config.TextColumn(width=int(widest + CELL_PAD_PX))} if wraps else {}),   # (wrapped)
+                                  "RA": st.column_config.NumberColumn(format="%.2f", help="Its RA at birth (degrees)."),
                                   "De": st.column_config.NumberColumn(format="%.2f", help="Its De at birth (degrees)."),
                                   "Distance (%)": st.column_config.NumberColumn(format="%.2f", help="Its Distance(%) at birth: 0 its closest, 100 its farthest (1800-2400); none for NN and SN.")})
 
