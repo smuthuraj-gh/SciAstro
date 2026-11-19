@@ -267,7 +267,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                   "are the same), at most 60 characters; Object at most 60; Values at most 500. Rows are in Condition order. Seen by admins only, "
                   "who can Insert, Update and Delete rows (each saved at once), Ignore changes not saved yet, and Reset to "
                   "Previous; click a column name to sort.",
-    "Logins": "The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
+    "Logins": "Count: how many rows the table has (at most the newest 5,000) (edits not saved yet counted too). The Logins table, newest first: who (Email, the signed-in login) did what (Activity) and when (Date_Time, "
               "UT). View: opened a customer's charts (once per customer per visit). Create, Update, Delete: added, changed or "
               "deleted a customer (on DOB, by import, or their own DOB Details), a row per customer. Login: signed in with "
               "no birth details yet, seeing the Now charts only (once per visit). Device, Time zone: their "
@@ -288,7 +288,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                        "planet, an RA orb and a De orb, how far from exact still counts as the aspect. A pair of planets uses the "
                        "total of their two orbs (RA and De each). 👶 RA, 🏠 RA, 👶 De, 🏠 De: the orbs of CB (house 10 at birth) and CN (house 10 now), "
                        "0 to start (a pair with one then takes the planet's orb alone). Type the changes and press Update; they apply to every chart. Ignore drops changes not updated; Reset to Previous puts back the orbs before the last Update.",
-    "Customers": "One row per login: its Email, its Access, Start Date (UT) and End Date (UT; when DOB runs out). "
+    "Customers": "Count: how many rows the table has, in all and by Access (edits not saved yet counted too). One row per login: its Email, its Access, Start Date (UT) and End Date (UT; when DOB runs out). "
                  "Now: the Now charts only. DOB, the paid option: the DOB and Now charts of every DOB record "
                  "under their login, and people they add, or search for without saving, on DOB Details, until End Date. "
                  "Type a new End Date and press Update to lengthen or shorten DOB (the row becomes DOB); members add days "
@@ -300,7 +300,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email: changing an Email here changes it on them too, and a row whose Email DOB records still use cannot "
                  "be deleted. Insert, Update, Delete, "
                  "Ignore as on DOB.",
-    "DOB": "The customers' birth details. Insert for a new customer, type changes and press Update, tick Del and press Delete: each is saved at once; Ignore drops changes not saved yet. Click a column name to sort. ID is the record's number, and Created and Last_Updated (UT) when it was added and last changed, all set by the app. Required (*): Email (login), First Name, "
+    "DOB": "Count: how many rows the table has (edits not saved yet counted too). The customers' birth details. Insert for a new customer, type changes and press Update, tick Del and press Delete: each is saved at once; Ignore drops changes not saved yet. Click a column name to sort. ID is the record's number, and Created and Last_Updated (UT) when it was added and last changed, all set by the app. Required (*): Email (login), First Name, "
                  "Last Name, Country, State, City, the birth date and time (Date, Local-Time-24hr), and where they "
                  "live now (Country-N, State-N, City-N). "
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
@@ -1304,6 +1304,22 @@ def edit_table(df: pd.DataFrame, column_config: dict | None = None, **kw):
     return got
 
 
+def count_button(key: str) -> bool:
+    """A page's Count button, first in its title line: True when pressed (then show_count gives the rows)."""
+    return TITLE_SLOT.button("Count", key=f"{key}_count")
+
+
+def show_count(rows: pd.DataFrame, by: str | None = None, order: list | None = None) -> None:
+    """How many rows a table has (a blank new row not counted), and, with by, how many of each of that column's values
+    (in order's order, then the rest; (none) for blank)."""
+    rows = rows[[any(db._cell(v) for k, v in r.items() if k not in ("id", "Id", "Del")) for _, r in rows.iterrows()]]
+    text = f"{len(rows):,} row{'' if len(rows) == 1 else 's'}"
+    if by and by in rows.columns and len(rows):
+        n = rows[by].map(lambda v: db._cell(v) or "(none)").value_counts()
+        text += ": " + ", ".join(f"{c} {n[c]:,}" for c in [*(order or []), *(c for c in n.index if c not in (order or []))] if c in n)
+    st.info(text + ".")
+
+
 def crud_table(key: str, show: pd.DataFrame, problems, commit, column_config: dict | None = None, width: str = "content",
                height: int | None = None, on_update=None) -> None:
     """Insert, Update, Delete, Ignore and Reset to Previous, each saving at once (no Commit): Insert saves the edits made,
@@ -1433,6 +1449,7 @@ def _filled(v) -> bool:
 def page_logins():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
+    counting = count_button("logins")                          # (first in the title line)
     all_on = st.session_state.get("logins_all", False)        # Select all: every row ticked (pressed again: none)
     pick = "Unselect all" if all_on else "Select all"
     pressed = next((name for name in (pick, "Delete", "Delete all")
@@ -1442,6 +1459,8 @@ def page_logins():
         st.session_state.pop("logins_ask", None)
         st.rerun()
     table = db.logins_table()
+    if counting:
+        show_count(table)
     view = table.copy()
     view.insert(0, "Del", all_on)
     # (ticks are kept by row position: a new key when the rows move, so that a tick cannot land on another row)
@@ -1702,6 +1721,8 @@ def page_help_table():
     """The abbreviations the pages use: everyone can read them, and search them; admins change them (Insert, Update, Delete,
     each saved at once; Ignore), the whole table, not a search's rows."""
     table = db.help_rows()
+    if count_button("help"):                                   # (an admin's edits not saved yet counted too)
+        show_count(st.session_state.get("help_table_working", table) if user.is_admin else table)
     if searched_rows("help", table, search_box("help", "Abbreviation or description"),
                      {"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app.")}):
         return
@@ -2011,12 +2032,8 @@ def page_prediction_rules():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     table = db.predictions_rows()
-    if TITLE_SLOT.button("Count", key="predictions_count"):  # (the rows on the screen, saved or not: in all, then by Chart)
-        rows = st.session_state.get("predictions_table_working", table)
-        rows = rows[[any(db._cell(r.get(c)) for c in db.PREDICTIONS_COLUMNS[1:]) for _, r in rows.iterrows()]]   # (not a blank new row)
-        by = rows["Chart"].map(lambda v: db._cell(v) or "(none)").value_counts()
-        st.info(f"{len(rows):,} row{'' if len(rows) == 1 else 's'}: "
-                + ", ".join(f"{c} {by[c]:,}" for c in [*db.PRED_CHARTS, *(c for c in by.index if c not in db.PRED_CHARTS)] if c in by))
+    if count_button("predictions"):                            # (the rows on the screen, saved or not: in all, then by Chart)
+        show_count(st.session_state.get("predictions_table_working", table), "Chart", db.PRED_CHARTS)
     if searched_rows("predictions", table, search_box("predictions", "Any column (e.g. Sa, square, De)"),
                      {"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app."),
                       "Moving": st.column_config.TextColumn("P1/Now"), "Birth": st.column_config.TextColumn("P2/Bth/Ho"),   # (as in the table)
@@ -2117,6 +2134,8 @@ def page_accounts():
     names = {"email": "Email", "access": "Access", "start_date": "Start Date", "end_date": "End Date"}
     show = df[["id", "email", "access", "start_date", "end_date"]].rename(columns=names)
     back = {v: k for k, v in names.items()}
+    if count_button("acct"):                                   # (in all, then by Access; edits not saved yet counted too)
+        show_count(st.session_state.get("acct_editor_working", show), "Access")
 
     def commit(rows: pd.DataFrame) -> str:
         base = st.session_state.get("acct_editor_base")
@@ -2219,6 +2238,8 @@ def page_customers():
         return "Saved: {} added, {} changed, {} deleted.".format(
             *db.save_customers(for_store(rows), df if base is None else for_store(base), by=user.email))
 
+    if count_button("cust"):                                   # (edits not saved yet counted too)
+        show_count(st.session_state.get("cust_editor_working", show))
     crud_table("cust_editor", show, lambda rows: db.customer_problems(for_store(rows)), commit,
                height="auto" if len(st.session_state.get("cust_editor_working", show)) <= 18 else 700,   # nothing below it overlapped
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The record's number, set by the app (blank on a new row until saved)."),
