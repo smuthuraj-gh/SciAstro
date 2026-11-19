@@ -1820,7 +1820,7 @@ def distance_predictions(rules: list, jds: tuple) -> None:
     if not events:
         return
     rows = [{"Exact (UT)": core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M"), "Planet": core.with_symbols(p),
-             "Kind": "Closest" if kind == "Near" else "Farthest", "AU": au, "Distance(%)": pct,
+             "Aspect": "Closest" if kind == "Near" else "Farthest", "AU": au, "Distance(%)": pct,
              "Event": texts.get((p, kind), ("", ""))[0], "Prediction": texts.get((p, kind), ("", ""))[1]}
             for p, kind, jd, au, pct in events]
     show_table(pd.DataFrame(rows), hide_index=True, width="content",
