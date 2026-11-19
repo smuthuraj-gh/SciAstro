@@ -223,7 +223,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "Predictions": "The Prediction Rules table's readings, in seven tables, Houses at Birth first, by house (it has no Event column), the others by Event, A to Z (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): Aspects at Birth, Distance(%) at Birth (as Distance(%) at Now, at the birth time: a planet then Farthest, at 80% or more of its Distance(%), or Closest, at 20% or less) and Transit Aspects from Birth Points for the birth chart of the customer picked, then Houses at Birth (its HB rows: the house, H01 .. H12, each planet was in at birth, with its RA, De and Distance (%) then; twelve spans of 30 degrees of RA, H10 from CB's) and Distance Average (%) (as Distance(%) at Birth: a planet Farthest at 70% or more of the Average of its Distance(%) at DOB and now, or Closest at 30% or less), Transit Aspects to Each Others Now (its TAEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance(%) at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%): only a farthest at 80% or more of its Distance(%), a closest at 20% or less), over the Start and End dates. Aspects at Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), by Event, then closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Event (the aspect) and Prediction (its reading, from Prediction Rules). "
+    "Predictions": "The Prediction Rules table's readings, in eight tables, Houses at Birth first, by house (as Houses Now; the two have no Event column), the others by Event, A to Z (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): Aspects at Birth, Distance(%) at Birth (as Distance(%) at Now, at the birth time: a planet then Farthest, at 80% or more of its Distance(%), or Closest, at 20% or less) and Transit Aspects from Birth Points for the birth chart of the customer picked, then Houses at Birth (its HB rows: the house, H01 .. H12, each planet was in at birth, with its RA, De and Distance (%) then; twelve spans of 30 degrees of RA, H10 from CB's) and Houses Now (its HT rows: as Houses at Birth, at this moment: the birth house each planet is in now, with its RA, De and Distance (%) now), Distance Average (%) (as Distance(%) at Birth: a planet Farthest at 70% or more of the Average of its Distance(%) at DOB and now, or Closest at 30% or less), Transit Aspects to Each Others Now (its TAEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance(%) at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%): only a farthest at 80% or more of its Distance(%), a closest at 20% or less), over the Start and End dates. Aspects at Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), by Event, then closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Event (the aspect) and Prediction (its reading, from Prediction Rules). "
                    "Transit Aspects from Birth Points: its TABP rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, by Aspect Rules; before Start / after End: within it already, or still), "
                    "Now (the planet now), Birth (the point of the birth chart; CB: house 10 at birth), "
@@ -1792,6 +1792,7 @@ def page_predictions():
     orb_csv = db.orb_table().to_csv(index=False)
     passes_table("Transit Aspects from Birth Points", [r[1:] for r in every if r[0] == db.TRANSIT], jds, orb_csv, birth)   # (TABP)
     distance_average([r[1:] for r in every if r[0] == "Distance"], prep.jd_birth)
+    houses_now([r[1:] for r in every if r[0] == db.HOUSE_NOW], birth)
     passes_table("Transit Aspects to Each Others Now", [r[1:] for r in every if r[0] == db.SKY], jds, orb_csv)   # (TAEON)
     distance_predictions([r[1:] for r in every if r[0] == "Distance"], jds)
 
@@ -1955,6 +1956,36 @@ def distance_average(rules: list, jd_birth: float) -> None:
                column_config={"DOB (%)": pct, "Now (%)": pct, "Average (%)": st.column_config.NumberColumn(format="%.2f", help="Halfway between DOB and Now (the Ave of AstroClock-3D).")})
 
 
+def houses_now(rules: list, birth: dict) -> None:
+    """Houses Now (HT rows; as Houses at Birth, but at this moment): the house of the birth chart (core.house_of, from CB's
+    RA at birth) each planet is in now, by house, with its RA, De and Distance (%) now (none for NN, SN) and its row's
+    Prediction."""
+    st.markdown("**Houses Now**")
+    if not rules:
+        st.caption("The Prediction Rules table has no HT rows.")
+        return
+    texts = {(r[0], r[1]): r[5] for r in rules}              # (planet, house): Prediction
+    jd_now = core.now_jd()
+    nn = core.moon_north_node(jd_now)
+    now = {p: (core.position(p, jd_now).ra, core.position(p, jd_now).dec) for p in db.PRED_MOVING if p in core.PLANET_ID}
+    now.update({"NN": nn, "SN": ((nn[0] + 180.0) % 360.0, -nn[1])})
+    cb = birth["CB"][0]
+    rows = []
+    for p in db.PRED_MOVING:
+        h = core.house_of(now[p][0], cb)
+        if (p, h) in texts:
+            pct = core.distance_pct(p, core.position(p, jd_now).dist_au) if p in core.PLANET_ID else None   # (none for the nodes)
+            rows.append({"House": h, "Planet": core.with_symbols(p), "RA": round(now[p][0], 2), "De": round(now[p][1], 2),
+                         "Distance (%)": pct, "Prediction": texts[(p, h)]})
+    st.caption(f"Each planet's house of the birth chart now ({core.jd_to_datetime(jd_now):%Y-%m-%d %H:%M} UT).")
+    rows.sort(key=lambda r: r["House"])                       # (by house, H01 first; planets in a house in button order)
+    if rows:
+        show_table(pd.DataFrame(rows), hide_index=True, width="content",
+                   column_config={"RA": st.column_config.NumberColumn(format="%.2f", help="Its RA now (degrees)."),
+                                  "De": st.column_config.NumberColumn(format="%.2f", help="Its De now (degrees)."),
+                                  "Distance (%)": st.column_config.NumberColumn(format="%.2f", help="Its Distance(%) now: 0 its closest, 100 its farthest (1800-2400); none for NN and SN.")})
+
+
 def birth_predictions(rules: list, birth: dict) -> None:
     """Birth: the Birth rows of the Prediction Rules table whose two points are at their angle at birth (within the
     pair's orb in Aspect Rules), closest first, each with its Prediction."""
@@ -2025,14 +2056,14 @@ def page_prediction_rules():
                height=rows_px(min(30, len(st.session_state.get("predictions_table_working", table)))),   # (thousands of rows: 30 in view, the rest by scrolling)
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved)."),
                               "Chart": st.column_config.SelectboxColumn("Chart *", options=db.PRED_CHARTS,
-                                                                        help="Birth: two points at the angle in the birth chart. TABP: a planet now coming to the angle with a birth point. TAEON: two planets now at the angle with each other. Distance: a planet at its closest (Near) or farthest (Far) from the Earth. HB: a planet in a house at birth."),
+                                                                        help="Birth: two points at the angle in the birth chart. TABP: a planet now coming to the angle with a birth point. TAEON: two planets now at the angle with each other. Distance: a planet at its closest (Near) or farthest (Far) from the Earth. HB: a planet in a house at birth. HT: a planet now in a house of the birth chart."),
                               "Moving": st.column_config.SelectboxColumn("P1/Now *", options=db.PRED_BIRTH,
-                                                                          help="TABP, TAEON: a planet now (not CB). Birth: the first point of the birth chart. HB: the planet at birth. Distance: the planet (Mo .. Sa)."),
+                                                                          help="TABP, TAEON, HT: a planet now (not CB). Birth: the first point of the birth chart. HB: the planet at birth. Distance: the planet (Mo .. Sa)."),
                               "Birth": st.column_config.SelectboxColumn("P2/Bth/Ho *", options=db.PRED_BIRTH + ["Ea"] + db.HOUSES,
-                                                                        help="TABP, Birth: the point of the birth chart (CB: house 10 at birth). TAEON: the other planet now. Distance: Ea (the Earth). HB: the house, H01 .. H12."),
+                                                                        help="TABP, Birth: the point of the birth chart (CB: house 10 at birth). TAEON: the other planet now. Distance: Ea (the Earth). HB, HT: the house, H01 .. H12."),
                               "Kind": None,                              # (not shown: RA+De, or from a Distance row's Aspect)
                               "RA": st.column_config.NumberColumn("Angle *", min_value=0, max_value=180, step=1, format="%d",
-                                                                     help="The angle in RA, 0 to 180 degrees, for RA and RA+De rows. Blank for Distance and house (HB) rows."),
+                                                                     help="The angle in RA, 0 to 180 degrees, for RA and RA+De rows. Blank for Distance and house (HB, HT) rows."),
                               "De": None,                                # (not shown: only an old De row, none now, has one)
                               "Aspect": st.column_config.SelectboxColumn("Event", options=db.prediction_aspects(), help="Distance rows: Closest or Farthest. Other rows: the aspect by name, as Aspect Rules names it (Conjunction 0, Opposition 180, Square 90 ..), from Angle; pick one with Angle blank and Angle is set from it."),
                               "Event": None,                             # (not shown: the app's own sentence naming the row, kept)
