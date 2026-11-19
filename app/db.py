@@ -1621,18 +1621,18 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
         if not kind:
             out.append(f"{label}: a Distance row's Event must be Closest or Farthest")
         elif kind == "RA+De" and _cell(r.get("Aspect")) and pd.notna(angle) and _cell(r.get("Aspect")) != aspect_name(kind, angle):
-            out.append(f"{label}: Event {_cell(r.get('Aspect'))} and RA {int(angle)} disagree (clear one, and the other sets it)")
-        column = "De" if kind == "De" else "RA"
+            out.append(f"{label}: Event {_cell(r.get('Aspect'))} and Angle {int(angle)} disagree (clear one, and the other sets it)")
+        column = "De" if kind == "De" else "Angle"                # (the RA column, headed Angle)
         if chart == "Distance" or chart in HOUSE_CHARTS:
             ra = pd.to_numeric(r.get("RA"), errors="coerce")
             if pd.notna(ra) and int(ra) != 0 or pd.notna(pd.to_numeric(r.get("De"), errors="coerce")):
-                out.append(f"{label}: a {chart} row leaves RA and De blank")
+                out.append(f"{label}: {'an' if chart[:1] in 'AEIOUH' else 'a'} {chart} row leaves Angle blank")   # (an HB, an HT)
         elif pd.isna(angle) or float(angle) != int(angle) or not 0 <= angle <= 180:
             out.append(f"{label}: {column} must be a whole number from 0 to 180" + (" (0 parallel, 180 contra-parallel)" if kind == "De" else ""))
         elif kind == "De" and int(angle) not in (0, 180):
             out.append(f"{label}: De is 0 (parallel) or 180 (contra-parallel)")
         elif kind and pd.notna(other):
-            out.append(f"{label}: {'an' if kind.startswith('RA') else 'a'} {kind} row leaves {'RA' if kind == 'De' else 'De'} blank")
+            out.append(f"{label}: {'an' if kind.startswith('RA') else 'a'} {kind} row leaves {'Angle' if kind == 'De' else 'De'} blank")
         if len(text) > PRED_TEXT_MOST:                         # (Event: not shown, nor needed)
             out.append(f"{label}: Event can be at most {PRED_TEXT_MOST} characters")
         if len(_cell(r.get("Prediction"))) > PRED_TEXT_MOST:
@@ -1641,7 +1641,7 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
             pair = tuple(sorted((moving, birth))) if chart in ("Birth", SKY) else (moving, birth)   # (Su-Mo and Mo-Su are one pair)
             key = (chart, *pair, kind, int(angle))
             if key in seen:
-                out.append(f"{label}: is in the table twice (Chart, P1/Now, P2/Bth/Ho and RA, De or Event are unique together"
+                out.append(f"{label}: is in the table twice (Chart, P1/Now, P2/Bth/Ho and Angle, De or Event are unique together"
                            + (f"; a {chart} row's two points count either way round)" if chart in ("Birth", SKY) else ")"))
             seen.add(key)
     return out
