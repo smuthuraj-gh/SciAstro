@@ -528,25 +528,6 @@ def distance_events(rules: list[tuple[str, str]], jd_from: float, jd_to: float) 
     return out
 
 
-NEAREST_REACH = {"Mo": 35.0}                                 # days each way to look (others: DISTANCE_REACH; Mars' closest is ~780 days apart)
-DISTANCE_REACH = 800.0
-
-
-def distance_nearest(rules: list[tuple[str, str]], jd_at: float) -> list[DistanceEvent]:
-    """For each rule (planet, Near or Far): the planet's closest (Near) or farthest (Far) nearest in time to jd_at, before
-    or after it (see distance_events); earliest first."""
-    out = []
-    for p in sorted({r[0] for r in rules if r[0] in PLANET_ID}):
-        reach = NEAREST_REACH.get(p, DISTANCE_REACH)
-        events = distance_events([r for r in rules if r[0] == p], jd_at - reach, jd_at + reach)
-        for kind in ("Near", "Far"):
-            mine = [e for e in events if e.kind == kind]
-            if mine:
-                out.append(min(mine, key=lambda e: abs(e.jd - jd_at)))
-    out.sort(key=lambda e: e.jd)
-    return out
-
-
 def jd_to_datetime(jd: float) -> datetime:
     """UT datetime of a Julian day (Gregorian), to the nearest second (a Julian day's last digits are rounding error)."""
     return datetime(2000, 1, 1, 12) + timedelta(seconds=round(float(jd - 2451545.0) * 86400.0))

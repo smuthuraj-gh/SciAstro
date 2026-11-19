@@ -223,7 +223,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "Predictions": "The Prediction Rules table's readings, in five tables (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): At Birth and Transits from Birth Points for the birth chart of the customer picked, then Transits to Each Other Now (its TEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%)), over the Start and End dates; then Distance at Birth (each planet's closest and its farthest nearest in time to the birth, before or after it). At Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Aspect and Prediction (its reading, from Prediction Rules). "
+    "Predictions": "The Prediction Rules table's readings, in five tables (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): At Birth and Transits from Birth Points for the birth chart of the customer picked, then Transits to Each Other Now (its TEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%)), over the Start and End dates; then Distance at Birth (each planet's distance from the Earth at the birth time: AU and Distance(%)). At Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Aspect and Prediction (its reading, from Prediction Rules). "
                    "Transits from Birth Points: its TfBP rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, by Aspect Rules; before Start / after End: within it already, or still), "
                    "Now (the planet now), Birth (the point of the birth chart; CB: house 10 at birth), "
@@ -1826,8 +1826,8 @@ def distance_rows(events: list, texts: dict) -> list[dict]:
 
 def distance_predictions(rules: list, jds: tuple, jd_birth: float) -> None:
     """Distance at Now: each time a planet is at its closest to (Near) or farthest from (Far) the Earth over the period, soonest
-    first, with its distance (AU, Distance(%)) and the rule's Prediction; then Distance at Birth: those nearest to the
-    birth (each planet's one closest and one farthest nearest in time)."""
+    first, with its distance (AU, Distance(%)) and the rule's Prediction; then Distance at Birth: each planet of the
+    Distance rows at the birth time itself, its AU and Distance(%)."""
     st.markdown("**Distance at Now**")
     if not rules:
         st.caption("The Prediction Rules table has no Distance rows.")
@@ -1835,13 +1835,19 @@ def distance_predictions(rules: list, jds: tuple, jd_birth: float) -> None:
     wanted = tuple((r[0], r[2]) for r in rules)
     events = _closest_farthest_cached(wanted, *jds)
     texts = {(r[0], r[2]): r[4:6] for r in rules}            # (planet, Near / Far): (Event, not shown; Prediction)
-    st.caption(f"{len(events)} in this period." if events else "None in this period.")
+    span = (f"from the Start Date {core.jd_to_datetime(jds[0]):%Y-%m-%d} to the End Date "
+            f"{core.jd_to_datetime(jds[1] - 0.5):%Y-%m-%d} (UT)")   # (the period ends at the End Date's midnight after)
+    st.caption(f"{len(events)} {span}." if events else f"None {span}.")
     if events:
         show_table(pd.DataFrame(distance_rows(events, texts)), hide_index=True, width="content", column_config=DISTANCE_COLUMNS)
     st.markdown("**Distance at Birth**")
-    st.caption("Each planet's closest and its farthest nearest in time to the birth (before or after it).")
-    show_table(pd.DataFrame(distance_rows(_distance_nearest_cached(wanted, jd_birth), texts)), hide_index=True, width="content",
-               column_config=DISTANCE_COLUMNS)
+    st.caption("Each planet's distance from the Earth at the birth time.")
+    at = core.jd_to_datetime(jd_birth).strftime("%Y-%m-%d %H:%M")
+    rows = []
+    for p in dict.fromkeys(r[0] for r in rules if r[0] in core.PLANET_ID):   # (each planet once, in the rules' order)
+        au = core.position(p, jd_birth).dist_au
+        rows.append({"Birth (UT)": at, "Planet": core.with_symbols(p), "AU": au, "Distance(%)": core.distance_pct(p, au)})
+    show_table(pd.DataFrame(rows), hide_index=True, width="content", column_config=DISTANCE_COLUMNS)
 
 
 def birth_predictions(rules: list, birth: dict) -> None:
@@ -1892,10 +1898,6 @@ def _sky_cached(rules, jd_from, jd_to, orb_csv):
 def _closest_farthest_cached(rules, jd_from, jd_to):
     return [(e.planet, e.kind, e.jd, e.au, e.pct) for e in core.distance_events(list(rules), jd_from, jd_to)]
 
-
-@st.cache_data(ttl=3600, max_entries=100, show_spinner=False)
-def _distance_nearest_cached(rules, jd_at):
-    return [(e.planet, e.kind, e.jd, e.au, e.pct) for e in core.distance_nearest(list(rules), jd_at)]
 
 
 def page_prediction_rules():
