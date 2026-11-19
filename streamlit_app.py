@@ -223,13 +223,13 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "Predictions": "The Prediction Rules table's readings, in four tables (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): Birth and Transit from Sun at Birth for the birth chart of the customer picked, then Planets Transits (its PT rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance (each planet at its closest to and farthest from the Earth, with its AU and Distance(%)), over the Start and End dates. Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), closest first: Planet, With, Aspect, RAO and DeO (how far off in RA and in De), Event and Prediction (its reading, from Prediction Rules). "
-                   "Transit from Sun at Birth: its TfSaB rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
+    "Predictions": "The Prediction Rules table's readings, in four tables (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): Birth and Planets Transit from Birth Points for the birth chart of the customer picked, then Planets Transits (its PT rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance (each planet at its closest to and farthest from the Earth, with its AU and Distance(%)), over the Start and End dates. Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), closest first: Planet, With, Aspect, RAO and DeO (how far off in RA and in De), Event and Prediction (its reading, from Prediction Rules). "
+                   "Planets Transit from Birth Points: its PTfBP rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Moving, Birth (the point of the birth chart; CB: house 10 at birth), "
                    "Aspect (RA and its angle, or De parallel / contra-parallel), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, by Aspect Rules; before Start / after End: within it already, or still), "
                    "RAO and DeO (how far off in RA and in De at Exact), Event and Prediction. Only passes that come within 1 degree of the angle count; a planet that turns back may come to it more than once. Needs DOB access and birth details: a member without them is taken to DOB Details, told so, and comes back here once their details are saved.",
-    "Prediction Rules": "The Predictions table: a row per Chart (Birth: the two points at the angle in the birth chart, Moving the first, Birth the second; TfSaB: the planet now coming to the angle with the birth point; PT: two planets now at the angle with each other, either way round; Distance: a planet, Birth Ea, Kind Near or Far, Angle 0), Moving planet (TfSaB: Mo .. Sa, NN, SN; Birth: CB too), Birth point (the same, and CB), Kind (RA: the RA between the two is the Angle; De: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
-                        "unique together (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair), with its Event (required, at most 500 characters: its reading, shown in the Predictions page's Event column) and, last, its Prediction (optional, at most 500 characters; filled once, where empty, with a draft reading from the planets' and angles' usual meanings: a TfSaB row a period, a Birth row a lasting trait). It starts with every combination: TfSaB, each planet now (Mo .. Sa, NN, SN) with each birth point (and CB); Birth, each two birth points once (not NN with SN); each at RA 0, 60, 90, 120, 180 and De 0, 180, with a plain Prediction naming it to replace with your reading (938 rows; a row deleted stays deleted). "
+    "Prediction Rules": "The Predictions table: a row per Chart (Birth: the two points at the angle in the birth chart, Moving the first, Birth the second; PTfBP: the planet now coming to the angle with the birth point; PT: two planets now at the angle with each other, either way round; Distance: a planet, Birth Ea, Kind Near or Far, Angle 0), Moving planet (PTfBP: Mo .. Sa, NN, SN; Birth: CB too), Birth point (the same, and CB), Kind (RA: the RA between the two is the Angle; De: Angle 0 parallel, 180 contra-parallel) and Angle (0 to 180), "
+                        "unique together (a Birth row's two points either way round: Su-Mo and Mo-Su are one pair), with its Event (required, at most 500 characters: its reading, shown in the Predictions page's Event column) and, last, its Prediction (optional, at most 500 characters; filled once, where empty, with a draft reading from the planets' and angles' usual meanings: a PTfBP row a period, a Birth row a lasting trait). It starts with every combination: PTfBP, each planet now (Mo .. Sa, NN, SN) with each birth point (and CB); Birth, each two birth points once (not NN with SN); each at RA 0, 60, 90, 120, 180 and De 0, 180, with a plain Prediction naming it to replace with your reading (938 rows; a row deleted stays deleted). "
                         "Insert, Update, Delete, each saved at once; Ignore; Reset to Previous.",
     "AstroClock-3D": "Time, with Now and DOB below it: which moments to show. The Earth inside the celestial sphere, its axis tilted 23.44 degrees and joining the North and South Celestial Poles (NCP, SCP); ECE and WCE are East and West on the Celestial Equator. "
                   "Rotate in 1s: the Earth turns about that fixed axis, west to east, while the sphere stands still, and time "
@@ -1763,7 +1763,7 @@ def page_predictions():
     birth = {**prep.birth, "NN": nn, "SN": ((nn[0] + 180.0) % 360.0, -nn[1])}
     birth_predictions([r[1:] for r in every if r[0] == "Birth"], birth)
     orb_csv = db.orb_table().to_csv(index=False)
-    passes_table("Transit from Sun at Birth", [r[1:] for r in every if r[0] == db.TRANSIT], jds, orb_csv, birth)   # (TfSaB)
+    passes_table("Planets Transit from Birth Points", [r[1:] for r in every if r[0] == db.TRANSIT], jds, orb_csv, birth)   # (PTfBP)
     passes_table("Planets Transits", [r[1:] for r in every if r[0] == db.SKY], jds, orb_csv)   # (PT)
     distance_predictions([r[1:] for r in every if r[0] == "Distance"], jds)
 
@@ -1783,7 +1783,7 @@ def aspect_label(kind: str, angle: int) -> str:
 
 
 def passes_table(title: str, rules: list, jds: tuple, orb_csv: str, birth: dict | None = None) -> None:
-    """Transit from Sun at Birth (birth given: the planets now with the birth chart) or Planets Transits (the planets now
+    """Planets Transit from Birth Points (birth given: the planets now with the birth chart) or Planets Transits (the planets now
     with each other): each pass
     over the period, soonest first, with the rule's Event and Prediction."""
     st.markdown(f"**{title}**")
@@ -1893,11 +1893,11 @@ def page_prediction_rules():
                height=rows_px(min(30, len(st.session_state.get("predictions_table_working", table)))),   # (thousands of rows: 30 in view, the rest by scrolling)
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved)."),
                               "Chart": st.column_config.SelectboxColumn("Chart *", options=db.PRED_CHARTS,
-                                                                        help="Birth: two points at the angle in the birth chart. TfSaB: a planet now coming to the angle with a birth point. PT: two planets now at the angle with each other. Distance: a planet at its closest (Near) or farthest (Far) from the Earth."),
+                                                                        help="Birth: two points at the angle in the birth chart. PTfBP: a planet now coming to the angle with a birth point. PT: two planets now at the angle with each other. Distance: a planet at its closest (Near) or farthest (Far) from the Earth."),
                               "Moving": st.column_config.SelectboxColumn("Moving *", options=db.PRED_BIRTH,
-                                                                          help="TfSaB, PT: a planet now (not CB). Birth: the first point of the birth chart. Distance: the planet (Mo .. Sa)."),
+                                                                          help="PTfBP, PT: a planet now (not CB). Birth: the first point of the birth chart. Distance: the planet (Mo .. Sa)."),
                               "Birth": st.column_config.SelectboxColumn("Birth *", options=db.PRED_BIRTH + ["Ea"],
-                                                                        help="TfSaB, Birth: the point of the birth chart (CB: house 10 at birth). PT: the other planet now. Distance: Ea (the Earth)."),
+                                                                        help="PTfBP, Birth: the point of the birth chart (CB: house 10 at birth). PT: the other planet now. Distance: Ea (the Earth)."),
                               "Kind": None,                              # (not shown: RA+De, or from a Distance row's Aspect)
                               "RA": st.column_config.NumberColumn("RA *", min_value=0, max_value=180, step=1, format="%d",
                                                                      help="The RA angle, 0 to 180 degrees, for RA and RA+De rows. Blank for De and Distance rows."),
