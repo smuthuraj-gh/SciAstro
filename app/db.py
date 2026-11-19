@@ -470,7 +470,7 @@ def engine() -> sa.Engine:
     _fill_prediction_readings(eng)
     _plain_ra_events(eng)
     _keep_rade_only(eng)
-    _drop_starts(eng)                                         # (no "In RA and De both" / "At its farthest" start)
+    _drop_starts(eng)                                         # (no "In RA and De both" / "At its farthest" / "At its closest" start)
     return eng
 
 
@@ -1198,7 +1198,7 @@ def prediction_reading(chart: str, moving: str, birth: str, kind: str, angle: in
         return text[0].upper() + text[1:] + "; " + (easy if key in EASY else hard if key in HARD else other)
     if chart == "Distance" and moving in TRANSIT_BRINGS and kind in ("Near", "Far"):
         brings = TRANSIT_BRINGS[moving][0]
-        return (f"At its closest to the Earth: its {brings} are felt more strongly and nearer to hand" if kind == "Near" else
+        return (f"Its {brings} are felt more strongly and nearer to hand" if kind == "Near" else
                 f"Its {brings} feel quieter and more distant")
     return ""
 
@@ -1296,7 +1296,8 @@ def _fill_prediction_readings(eng: sa.Engine):
 
 
 DROPPED_STARTS = (("In RA and De both, so stronger:", "no_stronger"),     # (once at the start of RA+De rows' Predictions)
-                  ("At its farthest from the Earth:", "no_farthest"))    # (and of Distance Far rows')
+                  ("At its farthest from the Earth:", "no_farthest"),    # (and of Distance Far rows')
+                  ("At its closest to the Earth:", "no_closest"))        # (and Near rows')
 
 
 def _drop_starts(eng: sa.Engine):
