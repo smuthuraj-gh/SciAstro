@@ -1835,7 +1835,7 @@ def birth_predictions(rules: list, birth: dict) -> None:
     st.markdown("**Birth**")
     o = orbs()
     rows = []
-    for a, b, kind, angle, text, reading in rules:
+    for a, b, kind, angle, _, reading in rules:          # (_: its Event, not shown)
         if a not in birth or b not in birth:
             continue
         off = core.transit_gap(kind, angle, *birth[a], birth[b])
