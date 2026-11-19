@@ -1221,6 +1221,7 @@ CHAR_PX = dict(zip(" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ
                     4.73, 7.62, 6.54, 10.07, 6.24, 6.54, 5.95, 4.24, 3.37, 4.24, 6.96, 4.63, 13.27]))
 OTHER_CHAR_PX = 14.0
 TABLE_FONT_PX = 10.0                                          # the tables' text (the page's script draws their canvas text in 10 px)
+MIN_COLUMN_PX = 50                                            # the narrowest a table draws a column (3.125rem), whatever its width
 CELL_PAD_PX = 14                                              # a cell's space, both sides together (6 px each, and 2 to spare)
 HEAD_ICON_PX = 18                                             # an editable table's heading: the small icon before its name
 
@@ -1232,22 +1233,25 @@ def text_px(text: str) -> float:
 
 def fitted(df: pd.DataFrame, column_config: dict | None = None, icons: bool = False) -> dict:
     """column_config with a width for each column of df that has none: just wide enough for the longest text the column
-    has, or its heading (icons: with its icon, as an editable table shows it), so the columns stand close together with no
-    space to spare (the data itself is not changed)."""
+    has, or its heading (icons: with its icon, as an editable table shows it), at least MIN_COLUMN_PX, so the columns stand
+    close together with no space to spare; every column's text to the left, numbers too (the data itself is not changed)."""
     out = dict(column_config or {})
     for col in df.columns:
         cfg = out.get(col)
         if cfg is None and col in out:                        # (a column hidden)
             continue
         cfg = dict(cfg or {})
+        cfg["alignment"] = cfg.get("alignment") or "left"    # (every table's text top left, numbers too)
         if cfg.get("width"):
             out[col] = cfg
             continue
         head = text_px(str(cfg.get("label") or col)) + (HEAD_ICON_PX if icons else 0)
         values = [] if df[col].dtype == bool else df[col].dropna()   # (a tick box: its heading's width)
-        shown = (f"{v:.2f}" if isinstance(v, float) else v.strftime("%Y-%m-%d %H:%M:%S") if isinstance(v, (datetime, pd.Timestamp))
+        places = re.search(r"%\.(\d+)f", str((cfg.get("type_config") or {}).get("format") or ""))
+        places = int(places.group(1)) if places else 2      # (a number: its column's format's decimals, else 2)
+        shown = (f"{v:.{places}f}" if isinstance(v, float) else v.strftime("%Y-%m-%d %H:%M:%S") if isinstance(v, (datetime, pd.Timestamp))
                  else str(v) for v in values)                 # (numbers and times as the tables show them)
-        cfg["width"] = int(max([head] + [text_px(s) for s in shown]) + CELL_PAD_PX)
+        cfg["width"] = max(MIN_COLUMN_PX, int(max([head] + [text_px(s) for s in shown]) + CELL_PAD_PX))
         out[col] = cfg
     return out
 
