@@ -223,7 +223,7 @@ def pick_customer() -> tuple[pd.Series | None, Prepared | None]:
 
 
 PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
-    "Predictions": "The Prediction Rules table's readings, in five tables (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): At Birth, Distance at Birth (as Distance at Now, at the birth time: a planet then Farthest, at 90% or more of its Distance(%), or Closest, at 10% or less) and Transits from Birth Points for the birth chart of the customer picked, then Transits to Each Other Now (its TEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%): only a farthest at 90% or more of its Distance(%), a closest at 10% or less), over the Start and End dates. At Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Event (the aspect) and Prediction (its reading, from Prediction Rules). "
+    "Predictions": "The Prediction Rules table's readings, in seven tables (each with its RA, De and RA+De rows: RA+De, in aspect by Aspect Rules, RA and De together, shown by the aspect's name alone: Conjunction, Square ..): At Birth, Distance at Birth (as Distance at Now, at the birth time: a planet then Farthest, at 90% or more of its Distance(%), or Closest, at 10% or less) and Transits from Birth Points for the birth chart of the customer picked, then Houses at Birth (its HB rows: the house, H01 .. H12, each planet was in at birth; twelve spans of 30 degrees of RA, H10 from CB's) and Houses Now (its HT rows: each planet now passing through a birth house, Begins and Ends; over the Start and End dates), Transits to Each Other Now (its TEON rows: the planets now with each other in RA or De, the same for everyone, New and Full Moon among them) and Distance at Now (each planet at its closest to and farthest from the Earth, with its AU and Distance(%): only a farthest at 90% or more of its Distance(%), a closest at 10% or less), over the Start and End dates. At Birth: its Birth rows whose two points are at their angle at birth (within the pair's orb in Aspect Rules, by Aspect Rules), closest first: Planet1, Planet2, RAO and DeO (how far off in RA and in De), Event (the aspect) and Prediction (its reading, from Prediction Rules). "
                    "Transits from Birth Points: its TfBP rows, when the planets now come to those angles with the birth chart, between the Start and End dates (dates only, UT: from the start of the Start Date to the end of the End Date), soonest first. "
                    "Every planet (and the Moon's nodes, NN and SN) is looked at: there are no Planets buttons. Each row: Exact (when it is closest to the angle), Begins and Ends (when it comes within the orb and leaves it: the total of the two's orbs in Aspect Rules, by Aspect Rules; before Start / after End: within it already, or still), "
                    "Now (the planet now), Birth (the point of the birth chart; CB: house 10 at birth), "
@@ -1767,8 +1767,10 @@ def page_predictions():
     birth = {**prep.birth, "NN": nn, "SN": ((nn[0] + 180.0) % 360.0, -nn[1])}
     birth_predictions([r[1:] for r in every if r[0] == "Birth"], birth)
     distance_at_birth([r[1:] for r in every if r[0] == "Distance"], prep.jd_birth)
+    houses_at_birth([r[1:] for r in every if r[0] == db.HOUSE_BIRTH], birth)
     orb_csv = db.orb_table().to_csv(index=False)
     passes_table("Transits from Birth Points", [r[1:] for r in every if r[0] == db.TRANSIT], jds, orb_csv, birth)   # (TfBP)
+    houses_now([r[1:] for r in every if r[0] == db.HOUSE_NOW], jds, birth["CB"][0])
     passes_table("Transits to Each Other Now", [r[1:] for r in every if r[0] == db.SKY], jds, orb_csv)   # (TEON)
     distance_predictions([r[1:] for r in every if r[0] == "Distance"], jds)
 
@@ -1870,6 +1872,50 @@ def distance_at_birth(rules: list, jd_birth: float) -> None:
         show_table(pd.DataFrame(distance_rows(events, texts)), hide_index=True, width="content", column_config=DISTANCE_COLUMNS)
 
 
+def houses_at_birth(rules: list, birth: dict) -> None:
+    """Houses at Birth (HB rows): the house each planet was in at birth (core.house_of, from CB's RA), each with its row's
+    Prediction."""
+    st.markdown("**Houses at Birth**")
+    if not rules:
+        st.caption("The Prediction Rules table has no HB rows.")
+        return
+    texts = {(r[0], r[1]): r[5] for r in rules}              # (planet, house): Prediction
+    cb = birth["CB"][0]
+    rows = []
+    for p in db.PRED_MOVING:
+        if p in birth:
+            h = core.house_of(birth[p][0], cb)
+            if (p, h) in texts:
+                rows.append({"Planet": core.with_symbols(p), "House": h, "Event": "In house", "Prediction": texts[(p, h)]})
+    st.caption("Each planet's house at birth: twelve spans of 30 degrees of RA, H10 from CB's.")
+    if rows:
+        show_table(pd.DataFrame(rows), hide_index=True, width="content")
+
+
+@st.cache_data(ttl=3600, max_entries=50, show_spinner=False)
+def _house_stays_cached(planets, cb_ra, jd_from, jd_to):
+    return [(s.planet, s.house, s.begins, s.ends) for s in core.house_stays(list(planets), cb_ra, jd_from, jd_to)]
+
+
+def houses_now(rules: list, jds: tuple, cb_ra: float) -> None:
+    """Houses Now (HT rows): each planet now passing through a house of the birth chart over the period, when it comes in
+    and goes out, soonest first, with its row's Prediction."""
+    st.markdown("**Houses Now**")
+    if not rules:
+        st.caption("The Prediction Rules table has no HT rows.")
+        return
+    texts = {(r[0], r[1]): r[5] for r in rules}              # (planet, house): Prediction
+    planets = tuple(p for p in db.PRED_MOVING if any(k[0] == p for k in texts))
+    with st.spinner("Finding houses now..."):
+        stays = [s for s in _house_stays_cached(planets, cb_ra, *jds) if (s[0], s[1]) in texts]
+    at = lambda jd: core.jd_to_datetime(jd).strftime("%Y-%m-%d %H:%M")
+    st.caption(f"{len(stays)} in this period." if stays else "None in this period.")
+    if stays:
+        show_table(pd.DataFrame([{"Begins (UT)": at(b) if b is not None else "before Start", "Ends (UT)": at(e) if e is not None else "after End",
+                                  "Now": core.with_symbols(p), "House": h, "Event": "In house", "Prediction": texts[(p, h)]}
+                                 for p, h, b, e in stays]), hide_index=True, width="content")
+
+
 def birth_predictions(rules: list, birth: dict) -> None:
     """Birth: the Birth rows of the Prediction Rules table whose two points are at their angle at birth (within the
     pair's orb in Aspect Rules), closest first, each with its Prediction."""
@@ -1937,11 +1983,11 @@ def page_prediction_rules():
                height=rows_px(min(30, len(st.session_state.get("predictions_table_working", table)))),   # (thousands of rows: 30 in view, the rest by scrolling)
                column_config={"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app (blank on a new row until saved)."),
                               "Chart": st.column_config.SelectboxColumn("Chart *", options=db.PRED_CHARTS,
-                                                                        help="Birth: two points at the angle in the birth chart. TfBP: a planet now coming to the angle with a birth point. TEON: two planets now at the angle with each other. Distance: a planet at its closest (Near) or farthest (Far) from the Earth."),
+                                                                        help="Birth: two points at the angle in the birth chart. TfBP: a planet now coming to the angle with a birth point. TEON: two planets now at the angle with each other. Distance: a planet at its closest (Near) or farthest (Far) from the Earth. HB: a planet in a house at birth. HT: a planet now in a house of the birth chart."),
                               "Moving": st.column_config.SelectboxColumn("Planet1/Now *", options=db.PRED_BIRTH,
-                                                                          help="TfBP, TEON: a planet now (not CB). Birth: the first point of the birth chart. Distance: the planet (Mo .. Sa)."),
-                              "Birth": st.column_config.SelectboxColumn("Planet2/Birth *", options=db.PRED_BIRTH + ["Ea"],
-                                                                        help="TfBP, Birth: the point of the birth chart (CB: house 10 at birth). TEON: the other planet now. Distance: Ea (the Earth)."),
+                                                                          help="TfBP, TEON, HT: a planet now (not CB). Birth: the first point of the birth chart. HB: the planet at birth. Distance: the planet (Mo .. Sa)."),
+                              "Birth": st.column_config.SelectboxColumn("Planet2/Birth *", options=db.PRED_BIRTH + ["Ea"] + db.HOUSES,
+                                                                        help="TfBP, Birth: the point of the birth chart (CB: house 10 at birth). TEON: the other planet now. Distance: Ea (the Earth). HB, HT: the house, H01 .. H12."),
                               "Kind": None,                              # (not shown: RA+De, or from a Distance row's Aspect)
                               "RA": st.column_config.NumberColumn("RA *", min_value=0, max_value=180, step=1, format="%d",
                                                                      help="The RA angle, 0 to 180 degrees, for RA and RA+De rows. Blank for Distance rows."),
