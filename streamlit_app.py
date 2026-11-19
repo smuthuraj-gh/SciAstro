@@ -1896,13 +1896,12 @@ def page_prediction_rules():
                                                                           help="Transit, Sky: a planet now (not CB). Birth: the first point of the birth chart. Distance: the planet (Mo .. Sa)."),
                               "Birth": st.column_config.SelectboxColumn("Birth *", options=db.PRED_BIRTH + ["Ea"],
                                                                         help="Transit, Birth: the point of the birth chart (CB: house 10 at birth). Sky: the other planet now. Distance: Ea (the Earth)."),
-                              "Kind": st.column_config.SelectboxColumn("Kind *", options=db.PRED_KINDS,
-                                                                       help="RA: the RA between the two is the RA column. De: the De column, 0 parallel, 180 contra-parallel. RA+De: in aspect by Aspect Rules (RA within its orb of the Angle, and De within the De orb, equal or mirrored). Distance rows: Near or Far, RA and De blank."),
+                              "Kind": None,                              # (not shown: RA+De, or from a Distance row's Aspect)
                               "RA": st.column_config.NumberColumn("RA *", min_value=0, max_value=180, step=1, format="%d",
                                                                      help="The RA angle, 0 to 180 degrees, for RA and RA+De rows. Blank for De and Distance rows."),
                               "De": st.column_config.NumberColumn(min_value=0, max_value=180, step=180, format="%d",
                                                                  help="For De rows: 0 parallel (the same De), 180 contra-parallel (mirrored). Blank for the other rows."),
-                              "Aspect": st.column_config.TextColumn(disabled=True, help="The aspect by name, from Kind and RA: for RA+De rows only, as Aspect Rules names them (Conjunction 0, Opposition 180, Square 90 ..); De: Parallel, Contra-parallel; Distance: Closest, Farthest; RA rows: none. Set by the app."),
+                              "Aspect": st.column_config.SelectboxColumn(options=db.prediction_aspects(), help="Distance rows: Closest or Farthest. Other rows: the aspect by name, as Aspect Rules names it (Conjunction 0, Opposition 180, Square 90 ..), from RA; pick one with RA blank and RA is set from it."),
                               "Event": st.column_config.TextColumn("Event *", help="Its reading, at most 500 characters."),
                               "Prediction": st.column_config.TextColumn(help="The prediction for the row (optional), at most 500 characters.")})
 

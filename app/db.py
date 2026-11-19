@@ -151,7 +151,8 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
 HELP_RENAMED = {"Page Defaults": ("Defaults", "Page_Defaults"), "App Conditions": ("Conditions",)}   # pages' Help rows renamed
 HELP_GONE_TOO = {"Box Title": ("Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box",
                               "Page Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box")}   # (the Page Defaults table has no Box Title now)
-HELP_GONE = {"Off": "Predictions column: how far from the Angle it is at Exact (degrees; 0: exact)",   # (RAO and DeO took its place)
+HELP_GONE = {"Kind": "Predictions column: RA (the two's RA apart, at the RA column's degrees), De (the De column: 0 parallel, the same De; 180 contra-parallel, mirrored), RA+De (in aspect by Aspect Rules: RA within the RA orb of the RA column's degrees and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)",   # (Prediction Rules no longer shows it)
+             "Off": "Predictions column: how far from the Angle it is at Exact (degrees; 0: exact)",   # (RAO and DeO took its place)
              "AR": "Aspect Rules: Predictions column (Birth), the pair's orb in the Aspect Rules table",   # (the Predictions column is gone)
              "Aspects": "Page: when the planets are in aspect, between a start and an end date",   # (the page is gone)
              "Came from": "Logins column: the site that brought the visitor (its name only); blank: none known",
@@ -168,7 +169,6 @@ HELP_ROWS_6 = [                                               # and again: Predi
     ("Moving", "Predictions column: Transit: the planet now (Mo .. Sa, NN, SN); Birth: the first point of the birth chart"),
     ("Birth", "Predictions column: the point of the birth chart it comes to, or is at the angle with (Mo .. Sa, NN, SN, CB)"),
     ("Chart", "Predictions column: Birth (two points at the angle in the birth chart), Transit (a planet now coming to the angle with a birth point), Sky (two planets now at the angle with each other) or Distance (a planet at its closest to, or farthest from, the Earth)"),
-    ("Kind", "Predictions column: RA (the two's RA apart, at the RA column's degrees), De (the De column: 0 parallel, the same De; 180 contra-parallel, mirrored), RA+De (in aspect by Aspect Rules: RA within the RA orb of the RA column's degrees and De within the De orb, equal or mirrored), or for Distance rows Near (closest to the Earth) or Far (farthest)"),
     ("Begins", "Predictions column: when the moving planet comes within the orb (before Start: within it already)"),
     ("Exact", "Predictions column: when it is closest to the Angle"),
     ("Ends", "Predictions column: when it leaves the orb (after End: still within it)"),
@@ -786,8 +786,11 @@ def _rename_help_rows(eng: sa.Engine):
         # (a row still as the app first wrote it, since out of date, gets the one the app has now; one an admin has changed stays)
         now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5 + HELP_ROWS_6 + HELP_ROWS_7 + HELP_ROWS_8 + HELP_ROWS_9 + HELP_ROWS_10 + HELP_ROWS_11 + HELP_ROWS_12)
         for abbreviation, olds in HELP_OUT_OF_DATE.items():
-            c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(),
-                                                help_table.c.description.in_(olds)).values(description=now[abbreviation]))
+            where = (sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(), help_table.c.description.in_(olds))
+            if abbreviation in now:
+                c.execute(help_table.update().where(*where).values(description=now[abbreviation]))
+            else:                                             # (a row the app no longer has, e.g. Kind: its old texts go too)
+                c.execute(help_table.delete().where(*where))
         # (a row for a button since gone, still as the app wrote it, goes)
         for abbreviation, old in [*HELP_GONE.items(), *((a, o) for a, olds in HELP_GONE_TOO.items() for o in olds)]:
             c.execute(help_table.delete().where(sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(),
@@ -1366,12 +1369,30 @@ def _seed_predictions(eng: sa.Engine):
             c.execute(settings.update().where(settings.c.key == "predictions_seeded").values(value="6"))
 
 
+def prediction_aspects() -> list[str]:
+    """What a Prediction Rules row's Aspect may be: the aspects' names (as Aspect Rules names them), Closest and Farthest
+    (Distance rows), Parallel and Contra-parallel (De rows)."""
+    return list(_aspect_names().values()) + ["Closest", "Farthest", "Parallel", "Contra-parallel"]
+
+
+def row_kind(r) -> str:
+    """A Predictions row's kind (its Kind column is not shown): a Distance row's from its Aspect, Closest (Near) or Farthest
+    (Far); any other row's as kept (RA, De or RA+De), a new one's RA+De ('' for a Distance row with neither)."""
+    kept = _cell(r.get("Kind"))
+    if _pick(PRED_CHARTS, r.get("Chart")) == "Distance":
+        aspect = _cell(r.get("Aspect"))
+        return {"Closest": "Near", "Farthest": "Far"}.get(aspect, kept if kept in ("Near", "Far") else "")
+    return kept if kept in ("RA", "De", "RA+De") else "RA+De"
+
+
 def row_angle(r):
-    """A Predictions row's angle, as the page shows it: in its De column for a De row, else its RA column (a Distance row,
-    both blank: 0); NaN when not a number."""
-    kind = _cell(r.get("Kind"))
+    """A Predictions row's angle, as the page shows it: in its De column for a De row, else its RA column (RA blank on an
+    RA+De row: its Aspect's angle, by name; a Distance row: 0); NaN when not a number."""
+    kind = row_kind(r)
     value = pd.to_numeric(r.get("De" if kind == "De" else "RA"), errors="coerce")
-    return 0 if kind in ("Near", "Far") and pd.isna(value) else value
+    if pd.isna(value) and kind == "RA+De":
+        value = next((a for a, n in _aspect_names().items() if n == _cell(r.get("Aspect"))), value)
+    return 0 if kind in ("Near", "Far") or _pick(PRED_CHARTS, r.get("Chart")) == "Distance" and pd.isna(value) else value
 
 
 def _pred_key(r) -> tuple:
@@ -1409,11 +1430,19 @@ def _aspect_names() -> dict[float, str]:
 
 
 def predictions_sorted(rows: pd.DataFrame) -> pd.DataFrame:
-    """The Predictions rows in the order the page shows them (see _pred_key), with each one's Aspect by name (after De;
-    worked out from Kind and its angle, not kept)."""
+    """The Predictions rows in the order the page shows them (see _pred_key), with each one's Kind (not shown) and Aspect by
+    name (after De): an RA+De row's from its RA; a Distance row's Closest or Farthest, as picked."""
     order = sorted(range(len(rows)), key=lambda i: _pred_key(rows.iloc[i]))
-    rows = rows.iloc[order].reset_index(drop=True).drop(columns="Aspect", errors="ignore")
-    rows.insert(rows.columns.get_loc("De") + 1, "Aspect", [aspect_name(r["Kind"], row_angle(r)) for _, r in rows.iterrows()])
+    rows = rows.iloc[order].reset_index(drop=True)
+    kinds = [row_kind(r) for _, r in rows.iterrows()]
+    angles = [row_angle(r) for _, r in rows.iterrows()]
+    rows["Kind"] = kinds                                      # (not shown: from Chart and Aspect)
+    for i, (kind, angle) in enumerate(zip(kinds, angles)):   # (an RA+De row's RA from its Aspect when left blank)
+        if kind == "RA+De" and pd.isna(pd.to_numeric(rows.at[i, "RA"], errors="coerce")) and pd.notna(angle):
+            rows.at[i, "RA"] = angle
+    aspects = [aspect_name(k, a) if k else _cell(r.get("Aspect")) for k, a, (_, r) in zip(kinds, angles, rows.iterrows())]
+    rows = rows.drop(columns="Aspect", errors="ignore")
+    rows.insert(rows.columns.get_loc("De") + 1, "Aspect", aspects)
     return rows
 
 
@@ -1457,8 +1486,7 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
         chart = _pick(PRED_CHARTS, r.get("Chart"))
         movers = {"Birth": PRED_BIRTH, "Distance": DIST_POINTS}.get(chart, PRED_MOVING)
         others = {"Transit": PRED_BIRTH, "Birth": PRED_BIRTH, "Sky": PRED_MOVING, "Distance": ["Ea"]}.get(chart, PRED_BIRTH)
-        kinds = ["Near", "Far"] if chart == "Distance" else ["RA", "De", "RA+De"]
-        moving, birth, kind = _pick(movers, r.get("Moving")), _pick(others, r.get("Birth")), _pick(kinds, r.get("Kind"))
+        moving, birth, kind = _pick(movers, r.get("Moving")), _pick(others, r.get("Birth")), row_kind(r)
         angle = row_angle(r)
         other = pd.to_numeric(r.get("RA" if kind == "De" else "De"), errors="coerce")   # (the column a row of its Kind leaves blank)
         text = _cell(r.get("Event"))
@@ -1474,7 +1502,9 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
         if not birth:
             out.append(f"{label}: Birth must be " + ("Ea (the Earth)" if chart == "Distance" else f"one of {', '.join(others)}"))
         if not kind:
-            out.append(f"{label}: Kind must be {' or '.join(kinds)}")
+            out.append(f"{label}: a Distance row's Aspect must be Closest or Farthest")
+        elif kind == "RA+De" and _cell(r.get("Aspect")) and pd.notna(angle) and _cell(r.get("Aspect")) != aspect_name(kind, angle):
+            out.append(f"{label}: Aspect {_cell(r.get('Aspect'))} and RA {int(angle)} disagree (clear one, and the other sets it)")
         column = "De" if kind == "De" else "RA"
         if chart == "Distance":
             if pd.notna(angle) and int(angle) != 0 or pd.notna(pd.to_numeric(r.get("De"), errors="coerce")):
@@ -1495,7 +1525,7 @@ def predictions_problems(rows: pd.DataFrame) -> list[str]:
             pair = tuple(sorted((moving, birth))) if chart in ("Birth", "Sky") else (moving, birth)   # (Su-Mo and Mo-Su are one pair)
             key = (chart, *pair, kind, int(angle))
             if key in seen:
-                out.append(f"{label}: is in the table twice (Chart, Moving, Birth, Kind and RA or De are unique together"
+                out.append(f"{label}: is in the table twice (Chart, Moving, Birth and RA, De or Aspect are unique together"
                            + (f"; a {chart} row's two points count either way round)" if chart in ("Birth", "Sky") else ")"))
             seen.add(key)
     return out
@@ -1506,7 +1536,7 @@ def save_predictions(rows: pd.DataFrame) -> int:
     return _save_by_id(predictions, [
         (_row_id(r.get("id")), dict(chart=_pick(PRED_CHARTS, r.get("Chart")), moving=_pick(PRED_BIRTH, r.get("Moving")),
                                     birth=_pick(PRED_BIRTH + ["Ea"], r.get("Birth")),
-                                    kind=_pick(PRED_KINDS, r.get("Kind")), angle=int(row_angle(r)),
+                                    kind=row_kind(r), angle=int(row_angle(r)),
                                     prediction=_cell(r.get("Event")) or None, forecast=_cell(r.get("Prediction")) or None))
         for _, r in rows.iterrows() if any(_cell(r.get(c)) for c in PREDICTIONS_COLUMNS[1:])])
 
