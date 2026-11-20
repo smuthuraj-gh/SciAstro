@@ -1836,9 +1836,10 @@ def page_help_table():
     """The abbreviations the pages use: everyone can read them, and search them; admins change them (Insert, Update, Delete,
     each saved at once; Ignore), the whole table, not a search's rows."""
     table = db.help_rows()
+    words = search_box("help", "Abbreviation or description")   # (on the top line: the Search, then Count)
     if count_button("help"):                                   # (an admin's edits not saved yet counted too)
         show_count(st.session_state.get("help_table_working", table) if user.is_admin else table)
-    if searched_rows("help", table, search_box("help", "Abbreviation or description"),
+    if searched_rows("help", table, words,
                      {"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app.")}):
         return
     if not user.is_admin:
@@ -1889,6 +1890,7 @@ def page_predictions():
         if not user.is_admin and "me" in PAGE_BY_PATH:
             st.page_link(PAGE_BY_PATH["me"], label="DOB Details")
     jds = period(prep if prep is not None else SimpleNamespace(jd_birth=None), head, "Predictions", beside=True)   # (no birth: from now)
+    st.html(PRED_TITLE_CSS)
     if jds is None:
         return
     every = db.prediction_rules()
@@ -1924,11 +1926,19 @@ def aspect_label(kind: str, angle: int) -> str:
     return f"{kind} {int(angle)}°"
 
 
+def pred_title(title: str) -> None:
+    """A Predictions table's title, with its text (or table) right below it: no gap between them."""
+    st.markdown(f'<b class="pred-title">{html.escape(title)}</b>', unsafe_allow_html=True)
+
+
+PRED_TITLE_CSS = ('<style>[data-testid="stElementContainer"]:has(.pred-title) { margin-bottom: -12px; }</style>')   # (the page's 12 px gap)
+
+
 def passes_table(title: str, rules: list, jds: tuple, orb_csv: str, birth: dict | None = None) -> None:
     """Transit Aspects from Birth Points (birth given: the planets now with the birth chart) or Transit Aspects Now (Mundane) (the planets now
     with each other): each pass
     over the period, soonest first, with the rule's Prediction."""
-    st.markdown(f"**{title}**")
+    pred_title(title)
     if not rules:
         st.caption(f"The Prediction Rules table has no {db.TRANSIT if birth else db.SKY} rows.")
         return
@@ -1966,7 +1976,7 @@ def house_table(title: str, chart: str, rules: list, points: dict, jd: float, cb
     jd, by house, with its RA, De and Distance (%) then (none for NN, SN) and its row's Prediction; a planet then Farthest
     (FAR_PCT or more of its Distance(%)) or Closest (NEAR_PCT or less) has that Distance row's Prediction after it, on the
     same line, and its Distance (%) in bold. points: each planet's (RA, De) at jd; when: birth or now, for the help."""
-    st.markdown(f"**{title}**")
+    pred_title(title)
     if not rules:
         st.caption(f"The Prediction Rules table has no {chart} rows.")
         return
@@ -2006,7 +2016,7 @@ def distance_average(rules: list, jd_birth: float) -> None:
     """Distance Average (%): each planet of the Distance rows, its Distance(%) at DOB and now and their Average (the Ave
     of AstroClock-3D, halfway between the two): only a planet Farthest, at AVE_FAR_PCT or more of
     the Average, or Closest, at AVE_NEAR_PCT or less, with that row's Prediction; by Event."""
-    st.markdown("**Distance Average (%)**")
+    pred_title("Distance Average (%)")
     if not rules:
         st.caption("The Prediction Rules table has no Distance rows.")
         return
@@ -2047,7 +2057,7 @@ def houses_now(rules: list, cn: tuple[float, float] | None, distance_rules: list
 def birth_predictions(rules: list, birth: dict) -> None:
     """Birth: the Birth rows of the Prediction Rules table whose two points are at their angle at birth (within the
     pair's orb in Aspect Rules), closest first, each with its Prediction."""
-    st.markdown("**Aspects at Birth**")
+    pred_title("Aspects at Birth")
     o = orbs()
     rows = []
     for a, b, kind, angle, _, reading in rules:          # (_: its Event, not shown)
@@ -2095,9 +2105,10 @@ def page_prediction_rules():
     if not user.is_admin:                                     # admins only (not in a user's menu either)
         st.stop()
     table = db.predictions_rows()
+    words = search_box("predictions", "Any column (e.g. Sa, square, De)")   # (on the top line: the Search, then Count)
     if count_button("predictions"):                            # (the rows on the screen, saved or not: in all, then by Chart)
         show_count(st.session_state.get("predictions_table_working", table), "Chart", db.PRED_CHARTS)
-    if searched_rows("predictions", table, search_box("predictions", "Any column (e.g. Sa, square, De)"),
+    if searched_rows("predictions", table, words,
                      {"id": st.column_config.NumberColumn("ID", format="%d", disabled=True, help="The row's number, set by the app."),
                       "Moving": st.column_config.TextColumn("P1/Now"), "Birth": st.column_config.TextColumn("P2/Bth/Ho"),   # (as in the table)
                       "RA": st.column_config.NumberColumn("Angle", format="%d"),
