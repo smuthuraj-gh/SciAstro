@@ -964,27 +964,35 @@ def add_months(when: datetime, months: int) -> datetime:
     return when.replace(year=year, month=month, day=min(when.day, last))
 
 
-def period(prep: Prepared, row=None, page: str = "") -> tuple[float, float] | None:
+def period(prep: Prepared, row=None, page: str = "", beside: bool = False) -> tuple[float, float] | None:
     """The Start Date / End Date inputs (UT, dates only, no times) as Julian days, from the start of the Start Date to the
     end of the End Date, or None (with a warning) if unusable. They start as the Defaults table says for this page
     (Start: DOB or Now; End: Now, or Start Date (UT) + a time, which moves with the Start). With row (a horizontal
-    container) they go into it, each just wide enough; otherwise in two columns."""
+    container) they go into it, each just wide enough; otherwise in two columns. beside (Predictions): each name, Start Date
+    and End Date (no "(UT)"), on its box's line, to the left of it."""
     now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
     birth_dt = core.jd_to_datetime(prep.jd_birth) if prep.jd_birth is not None else now_dt   # (Now charts only: from now)
     c = [row] * 2 if row is not None else st.columns(2)
+    if beside and row is not None:                            # each name to the left of its box, on one line
+        c = []
+        for name in ("Start Date", "End Date"):
+            box = row.container(horizontal=True, vertical_alignment="center", gap="xsmall", width="content")
+            box.html(f'<span style="font-size:12px; white-space:nowrap">{name}</span>')
+            c.append(box)
+    shown = {"label_visibility": "collapsed"} if beside and row is not None else {}
     dw = 125 if row is not None else "stretch"
     start0 = now_dt if default_choice(page, "Start Date (UT)") == "Now" else birth_dt
     start0 = min(max(start0, datetime(1800, 1, 1)), datetime(2399, 12, 31))   # (the dates allowed)
     d0 = c[0].date_input("Start Date (UT)", value=start0.date(), min_value=datetime(1800, 1, 1),
-                         max_value=datetime(2399, 12, 31), width=dw, key=f"start_date_{page}_{prep.jd_birth}_{start0.date()}")
+                         max_value=datetime(2399, 12, 31), width=dw, key=f"start_date_{page}_{prep.jd_birth}_{start0.date()}", **shown)
     after = default_choice(page, "End Date (UT)")             # (months, days) after the Start, or "Now"
     if after != "Now":                                        # the End follows the Start: a changed Start sets it again
         end0 = min(add_months(datetime.combine(d0, time(0, 0)), after[0]) + timedelta(days=after[1]), datetime(2399, 12, 31))
         d1 = c[1].date_input("End Date (UT)", value=end0.date(), min_value=datetime(1800, 1, 1),
-                             max_value=datetime(2399, 12, 31), width=dw, key=f"end_date_{page}_{d0}_{after}")
+                             max_value=datetime(2399, 12, 31), width=dw, key=f"end_date_{page}_{d0}_{after}", **shown)
     else:
         d1 = c[1].date_input("End Date (UT)", value=now_dt.date(), min_value=datetime(1800, 1, 1),
-                             max_value=datetime(2399, 12, 31), width=dw)
+                             max_value=datetime(2399, 12, 31), width=dw, **shown)
     start, end = datetime.combine(d0, time(0, 0)), datetime.combine(d1, time(0, 0)) + timedelta(days=1)   # (to the End Date's end)
     if end <= start:
         st.warning("The end must be after the start.")
@@ -1161,10 +1169,11 @@ def kept_pills(box, label: str, options, key: str, default=None, **kw):
     return value
 
 
-def titled(head, title: str, title_key: str, options, key: str, default=None, **kw):
-    """As AstroClock-3D's: a title button with its choices below it. The choices picked; nothing while the title is off (they
-    come back as they were when it is turned on again)."""
-    box = head.container(width="content", gap="xxsmall")
+def titled(head, title: str, title_key: str, options, key: str, default=None, beside: bool = False, **kw):
+    """As AstroClock-3D's: a title button with its choices below it (beside: on its line, after it). The choices picked;
+    nothing while the title is off (they come back as they were when it is turned on again)."""
+    box = (head.container(width="content", horizontal=True, vertical_alignment="center", gap="xsmall") if beside
+           else head.container(width="content", gap="xxsmall"))
     if not kept_pills(box, title, [title], title_key, title, label_visibility="collapsed"):
         return None
     return kept_pills(box, f"Which {title}", options, key, default, label_visibility="collapsed", **kw)
@@ -1869,7 +1878,7 @@ def page_predictions():
     # member picking DOB is taken to DOB Details, as on the chart pages)
     if no_birth and not user.is_admin and "me" in PAGE_BY_PATH:
         dob_asked(st.session_state.get("pred_when") == "DOB", ("pred_when", "Now"), ("_kept_pred_when", "Now"))
-    when = titled(head, "Time", "pred_t_time", list(TIMES), "pred_when", "Now" if no_birth else "DOB")
+    when = titled(head, "Time", "pred_t_time", list(TIMES), "pred_when", "Now" if no_birth else "DOB", beside=True)   # (Now, DOB on Time's line)
     time_on_top_line(when)
     show_birth, show_now = when in (None, "DOB") and not no_birth, when in (None, "Now") or no_birth
     if no_birth:                                              # only the tables of now: no birth chart is needed for them
@@ -1879,7 +1888,7 @@ def page_predictions():
                    + (", on the DOB page." if user.is_admin else ", on DOB Details."))
         if not user.is_admin and "me" in PAGE_BY_PATH:
             st.page_link(PAGE_BY_PATH["me"], label="DOB Details")
-    jds = period(prep if prep is not None else SimpleNamespace(jd_birth=None), head, "Predictions")   # (no birth: from now)
+    jds = period(prep if prep is not None else SimpleNamespace(jd_birth=None), head, "Predictions", beside=True)   # (no birth: from now)
     if jds is None:
         return
     every = db.prediction_rules()
