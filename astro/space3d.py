@@ -253,7 +253,8 @@ __SYMBOL_JS__
   };
   const showClocks = (t) => {                      // in the page's clock, beside the customer's name
     const box = document.querySelector(".globe-clock");
-    if (box) box.textContent = D.clocks.map((s) => clockLine(s, t)).join("    ");
+    const one = D.clocks.find((s) => s.clock === "Now") || D.clocks[0];   // one Timer: Now if shown, else DOB, in its own zone
+    if (box) box.textContent = one ? clockLine(one, t) : "";
   };
   let X = 0, Y = 0, Z = 0, S = 0, C = 0, s = 0, c = 0;
   const LEAN_S = Math.sin(D.tilt * RAD), LEAN_C = Math.cos(D.tilt * RAD);

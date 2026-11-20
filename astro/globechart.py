@@ -503,7 +503,8 @@ __SYMBOL_JS__
   };
   const showClocks = (t) => {                      // in the page's clock, beside the customer's name
     const box = document.querySelector(".globe-clock");
-    if (box) box.textContent = D.sets.map((s) => clockLine(s, t)).join("    ");
+    const one = D.sets.find((s) => s.clock === "Now") || D.sets[0];   // one Timer: Now if shown, else DOB, in its own zone
+    if (box) box.textContent = one ? clockLine(one, t) : "";
   };
   const boxOf = (x, y, text) => {
     const w = text.length * D.text_w;

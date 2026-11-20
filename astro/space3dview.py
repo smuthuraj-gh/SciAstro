@@ -395,7 +395,8 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
   };
   const showClocks = (t) => {                      // in the page's clock, beside the customer's name
     const box = document.querySelector(".globe-clock");
-    if (box) box.textContent = M.clocks.map((s) => clockLine(s, t)).join("    ");
+    const one = M.clocks.find((s) => s.clock === "Now") || M.clocks[0];   // one Timer: Now if shown, else DOB, in its own zone
+    if (box) box.textContent = one ? clockLine(one, t) : "";
   };
   const started = performance.now();
   const tick = () => {
