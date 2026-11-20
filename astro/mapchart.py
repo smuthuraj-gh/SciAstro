@@ -58,8 +58,8 @@ def _script_safe(text: str) -> str:
 
 def fit_html(fig: go.Figure, after_js: str = "") -> str:
     """The chart as HTML scaled as a whole to the page's zoom, exactly as laid out (so no label can come to overlap
-    another), within the page's margins (the text column's width), so it scales with the page; never below its own size
-    (its text readable): on a narrower window it scrolls sideways in its box. Any chart with a fixed layout width and
+    another), within the page's margins (the text column's width), so it scales with the page; no smaller than the
+    page's smallest zoom (its text readable): on a narrower window it scrolls sideways in its box. Any chart with a fixed layout width and
     height."""
     import uuid
     from plotly.offline import get_plotlyjs_version
@@ -88,10 +88,11 @@ def fit_html(fig: go.Figure, after_js: str = "") -> str:
     const col = (outer.parentElement || outer).getBoundingClientRect().width;     // on screen
     const width = col;                     // (within the margins: the column's width, nothing past it)
     outer.style.width = width + "px";
-    // the column's width, but never smaller than its own size (its text 10 to 12 px, readable): on a narrower window the
-    // chart scrolls sideways in its box (its scroll bar below it)
-    const s = Math.max(1, width / {w});
+    // the column's width, shrinking with the page, but no further than the page does (its 12 px text at 10 px on screen):
+    // on a narrower window the chart scrolls sideways in its box (its scroll bar below it)
+    const s = Math.max((window.__appMinZoom || 1) * (window.__appColumn || {w}) / {w}, width / {w});
     inner.style.transform = "scale(" + s + ")";
+    inner.style.marginRight = ({w} * (s - 1)) + "px";   // (the room it takes is its scaled width: the box scrolls only past that)
     const bar = outer.scrollWidth > outer.clientWidth + 1 ? outer.offsetHeight - outer.clientHeight : 0;
     outer.style.height = (Math.ceil({h} * s) + bar) + "px";
   }}

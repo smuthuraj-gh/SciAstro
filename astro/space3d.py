@@ -212,14 +212,15 @@ _JS = r"""
     parent.appendChild(e);
     return e;
   };
-  // never smaller than its own size (its text 10 to 12 px, readable): on a narrower window the box scrolls sideways (a
-  // finger then swipes it; dragging the drawing moves time only where it all fits)
+  // shrinking with the page, but no further than the page does (its 12 px text at 10 px on screen): on a narrower window
+  // the box scrolls sideways (a finger then swipes it; dragging the drawing moves time only where it all fits)
   const svg = make("svg", box, {viewBox: D.view.join(" "), width: "100%",
                                 style: "display:block; cursor:grab; touch-action:none; user-select:none"});
   box.style.overflowX = "auto";
-  const swipe = () => {                            // (on screen at least 1:1, whatever the page's zoom)
+  const swipe = () => {                            // (on screen at least the page's smallest zoom times the column)
     if (!svg.isConnected) return window.removeEventListener("resize", swipe);
-    svg.style.minWidth = (D.view[2] / Math.max(1, parseFloat(document.documentElement.style.zoom) || 1)) + "px";
+    const z = parseFloat(document.documentElement.style.zoom) || 1;
+    svg.style.minWidth = ((window.__appMinZoom || 1) * (window.__appColumn || D.view[2]) / z) + "px";
     svg.style.touchAction = box.scrollWidth > box.clientWidth + 1 ? "pan-x pan-y" : "none";
   };
   swipe();

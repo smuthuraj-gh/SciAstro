@@ -111,10 +111,9 @@ html, body { -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !
 [data-testid="stExpandSidebarButton"]::after { content: "Menu"; font-size: 12px; font-weight: 600;
   color: rgba(47, 45, 43, 0.8); white-space: nowrap; }
 </style>""")
-# On a wide window everything (text, buttons, tables, charts) grows with it: the whole app is zoomed so that the page's
-# content column is WIDTH (1100) px before zooming, the width the charts are laid out at. On a narrower one (a phone too)
-# the zoom stays at 1, so the text keeps its size (10 to 12 px, readable): the rows wrap, and each chart is scaled down to
-# the column's width.
+# Everything (text, buttons, tables, charts) resizes with the window, as one picture: the whole app is zoomed so that the
+# page's content column is WIDTH px before zooming, the width the charts are laid out at; on a narrow window no smaller
+# than 10/12 (12 px text at 10 px), below which the rows wrap and the charts scroll sideways.
 ZOOM_JS = """<script>
 (() => {
   // once a tab: a tab left open from before an update still runs the old script (its timers and listeners), so a changed
@@ -126,10 +125,12 @@ ZOOM_JS = """<script>
   Object.defineProperty(CanvasRenderingContext2D.prototype, "font", {configurable: true, get() { return canvasFont.get.call(this); },
     set(v) { canvasFont.set.call(this, String(v).replace("10.5px", "10px")); }});
   const WIDTH = """ + str(mapchart.WIDTH - mapchart.INSET_L - mapchart.INSET_R) + """;   // the text column
-  // never below 1, on any screen (a narrow window, a phone): the text stays the size it is written in, 10 to 12 px on
-  // screen, as the tables' (they undo the zoom), all of it readable; the page's rows wrap instead, and each chart is the
-  // column's width
-  const MIN_ZOOM = 1;
+  // on a narrower window (a phone too) the whole page shrinks as one picture, its charts with it, until its 12 px text
+  // is 10 px on screen; below that it shrinks no further: its rows wrap and each chart scrolls sideways in its box
+  // (__appMinZoom, __appColumn: for the charts, mapchart.fit_html and space3d)
+  const MIN_ZOOM = 10 / 12;
+  window.__appMinZoom = MIN_ZOOM;
+  window.__appColumn = WIDTH;
   function zoom() {
     if (window.__appZooming) return;                         // (the resize sent below comes back here)
     const root = document.documentElement, main = document.querySelector('[data-testid="stMain"]');
@@ -140,7 +141,7 @@ ZOOM_JS = """<script>
     const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
     // the main area's width inside its scrollbar (beside any open sidebar), on screen, made WIDTH + padding wide;
     // with the sidebar open its width on screen changes with the zoom, so each check comes a step closer
-    // larger on a wide window; on a narrower one never below MIN_ZOOM (the text readable), the rows wrapping
+    // larger on a wide window, smaller on a narrower one, but never below MIN_ZOOM (the text readable)
     const want = Math.max(MIN_ZOOM, z * main.clientWidth / (WIDTH + pad));
     if (Math.abs(want - z) > 0.001) {
       root.style.zoom = want;
