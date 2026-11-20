@@ -5,7 +5,7 @@ zodiac), with the same rules. Orchestrated by Senthil Muthuraj; built by AI/SI A
 
 Every page grows with a wide window, its charts too, scaled to fit between the left and right margins. On a narrower
 window, a desktop's or a phone's, the page does not shrink: its text keeps its size (10 to 12 px on screen, the tables'
-too), so all of it is readable (the Readme too): its rows of buttons wrap, and the top line too, piece by piece (the name right after the title, a piece on the next line only when there is no room left), and each chart is scaled down to the column (two fingers enlarge it). Each chart is
+too), so all of it is readable (the Readme too; a page left open from before an update reloads itself once, so it gets the new sizing at once): its rows of buttons wrap, and the top line too, piece by piece (the name right after the title, a piece on the next line only when there is no room left), and each chart is scaled down to the column (two fingers enlarge it). Each chart is
 the page's width, scrolled down for the rest. A phone does not enlarge the text by itself, and the Planets choices keep
 to two lines there (five, then four). The Planets box is just wide enough for five a line, so Major Aspects stands close to Planets (AstroClock-2D, AstroClock-3D).
 

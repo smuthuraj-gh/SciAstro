@@ -5,6 +5,7 @@ Aspect Rules, Customers (each login's Access), DOB (the birth details), Symbols,
 """
 from __future__ import annotations
 
+import hashlib
 import html
 import re
 from datetime import date, datetime, time, timedelta, timezone
@@ -112,9 +113,12 @@ html, body { -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !
 # content column is WIDTH (1100) px before zooming, the width the charts are laid out at. On a narrower one (a phone too)
 # the zoom stays at 1, so the text keeps its size (10 to 12 px, readable): the rows wrap, and each chart is scaled down to
 # the column's width.
-st.html("""<script>
+ZOOM_JS = """<script>
 (() => {
-  if (window.__appZoom) { window.__appZoom(); return; }
+  // once a tab: a tab left open from before an update still runs the old script (its timers and listeners), so a changed
+  // script loads the page again, once, to run only the new one
+  if (window.__appZoom) { if (window.__appZoomVersion === "@VERSION@") window.__appZoom(); else location.reload(); return; }
+  window.__appZoomVersion = "@VERSION@";
   // tables are drawn on a canvas in 0.875 of the theme's 12 px, and no setting changes that: they are drawn in 10 px instead
   const canvasFont = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, "font");
   Object.defineProperty(CanvasRenderingContext2D.prototype, "font", {configurable: true, get() { return canvasFont.get.call(this); },
@@ -176,7 +180,8 @@ st.html("""<script>
   };
   watch();
 })();
-</script>""", unsafe_allow_javascript=True)
+</script>"""
+st.html(ZOOM_JS.replace("@VERSION@", hashlib.sha1(ZOOM_JS.encode()).hexdigest()[:10]), unsafe_allow_javascript=True)
 
 user = auth.current_user()
 # what they may use, by their row of the Customers table (made, with Access Now, on their first sign-in; an admin: everything)
