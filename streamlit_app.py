@@ -307,7 +307,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "DOB Details": "Get more days of access (every member): pick 1, 7, 30, 90, 180 or 365 days, apply the coupon Free (for now, free) and press Add days (Days and Pay / Coupon start as the Page Defaults table says); they are added to your End Date while it runs, else from now, and open the DOB charts. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them (Save changes), or Search to see the DOB charts for what is typed there, not saved; your login "
+    "DOB Details": "Get more days of access (every member): pick 1, 7, 30, 90, 180 or 365 days, apply the coupon Free (for now, free) and press Add days (Days and Pay / Coupon start as the Page Defaults table says); they are added to your End Date while it runs, else from now, and open the DOB charts. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them (Save changes), or Search to see the DOB charts for what is typed there, not saved (a new member too: Search beside Save & Search, without signing up); your login "
                   "email stays the same.",
 }
 
@@ -426,6 +426,13 @@ def _pick_customer_box() -> tuple[pd.Series | None, Prepared | None]:
         if not st.session_state.get("login_logged"):
             db.log_login(user.email)
             st.session_state["login_logged"] = True
+        st.session_state.pop("_select_customer", None)
+        if st.session_state.get("_searched"):                 # DOB Details' Search, not saved: that birth, as Search
+            st.sidebar.caption(st.session_state["_searched"])
+            blank = pd.Series({c.name: None for c in db.customers.columns})   # (no record of theirs: a blank one under it)
+            row, prep = quick_birth(blank)
+            mark_accessed()
+            return row, prep
         st.sidebar.caption("Now charts only: pick DOB to add your birth details. " + access.PAID_NOTE)
         return None, NOW_ONLY
     # chosen by record (names need not be unique: the login email is the key), shown as First and Last Name, with the
@@ -642,10 +649,10 @@ def details_form(row: pd.Series | None, person: bool = False):
             c1, c2, _ = st.columns([1, 1, 4])                 # Save and Search: saved, then its DOB charts
             search = c1.form_submit_button("Search Only")
             sent = c2.form_submit_button("Save and Search", type="primary")
-        elif row is not None and GRANT.dob and GRANT.many and not user.is_admin:   # Search: its DOB charts, not saved
+        elif not user.is_admin and (row is None or GRANT.dob and GRANT.many):   # Search: its DOB charts, not saved (a new member too)
             c1, c2, _ = st.columns([1, 1, 4])
             search = c1.form_submit_button("Search")
-            sent = c2.form_submit_button("Save changes", type="primary")
+            sent = c2.form_submit_button("Save & Search" if row is None else "Save changes", type="primary")
         else:
             sent = st.form_submit_button("Save & Search" if row is None else "Save changes", type="primary")
     if not (sent or search):
@@ -687,6 +694,9 @@ def details_form(row: pd.Series | None, person: bool = False):
                                            "quick_state": state.strip(), "quick_country": country.strip(),
                                            "quick_first": first.strip(), "quick_last": last.strip()}
         st.session_state["_select_customer"] = access.QUICK
+        for k in [k for k in st.session_state if isinstance(k, str) and k.startswith("_kept_") and (k.endswith("_when") or k == "_kept_globe_time")]:
+            st.session_state[k] = "DOB"                       # (the chart pages' Time on DOB, kept_pills' store: the birth searched shows)
+            st.session_state.pop(k[len("_kept_"):], None)
         st.session_state["_searched"] = "Search: " + (f"{first.strip()} {last.strip()}".strip() or f"{born} {at:%H:%M}") + " (not saved)"
         st.switch_page(PAGE_BY_PATH[back_page()])
     if person:                                                # Save and Search: saved, chosen, on the chart page
