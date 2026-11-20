@@ -643,7 +643,7 @@ def details_form(row: pd.Series | None, person: bool = False):
             search = c1.form_submit_button("Search Only")
             sent = c2.form_submit_button("Save and Search", type="primary")
         else:
-            sent = st.form_submit_button("Save my details" if row is None else "Save changes", type="primary")
+            sent = st.form_submit_button("Save & Search" if row is None else "Save changes", type="primary")
     if not (sent or search):
         return
     try:
