@@ -338,7 +338,7 @@ def place_label(row: pd.Series | None, suffix: str = "") -> str:
 def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
     """Every page's top line: its title (with its help), then the chosen customer's First and Last Name, their DOB when
     there is one and the Now clock (UT, to the second), each after its place (the birth place, the place now, when known),
-    and a chart's Timer last."""
+    and a chart's Time Travel last."""
     TABLES_DRAWN["n"] = 0                                      # (each run: the same keys for the same tables)
     # one row drawn here (not Streamlit's row, which can wrap the name onto a line of its own): both on one baseline
     name = ""
@@ -361,14 +361,14 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
         f'flex-wrap:nowrap; font-weight:600">'
         f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}'
-        # after the name: the place (birth place with DOB, place now with Now), then the DOB or the Now clock, the Timer last
+        # after the name: the place (birth place with DOB, place now with Now), then the DOB or the Now clock, the Time Travel last
         + (f'<span class="dob-label" style="font-weight:400; margin-left:12px">{html.escape(cb)}</span>'
            if birth_label(row, prep) and (cb := place_label(row)) else "")
         + (f'<span class="now-place" style="font-weight:400; margin-left:12px">{html.escape(cn)}</span>'
            if (cn := place_label(row, "_n")) and prep is not None and getattr(prep, "cn", None) else "")
         + (f'<span class="dob-label" style="font-weight:400; margin-left:12px">{html.escape(dob)}</span>' if (dob := birth_label(row, prep)) else "") +
         '<span class="now-clock" style="font-weight:400; margin-left:12px"></span>'   # (NOW_CLOCK_JS writes it)
-        + ('<span class="globe-clock" style="white-space:pre; font-weight:400; margin-left:12px"></span>'   # the chart's Timer, at the end (its script writes it)
+        + ('<span class="globe-clock" style="white-space:pre; font-weight:400; margin-left:12px"></span>'   # the chart's Time Travel, at the end (its script writes it)
            if title in ("AstroClock-2D", "AstroClock-3D", "Geo/Helio Model") else "") +
         '</span>'
         f'</div>' + NOW_CLOCK_JS, unsafe_allow_javascript=True)
