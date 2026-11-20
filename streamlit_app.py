@@ -370,7 +370,7 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
     # the First Name right after the title (and its help), on the same line; then a slot (TITLE_SLOT) where a page may
     # put more on this line
     global TITLE_SLOT
-    line = st.container(horizontal=True, vertical_alignment="top", gap="large")
+    line = st.container(horizontal=True, vertical_alignment="top", gap="large" if timed else "small")   # (a table page: its buttons close to the name)
     line.container(width="content").html(
         f'<div style="display:flex; align-items:baseline; justify-content:flex-start; column-gap:12px; row-gap:2px; '
         f'flex-wrap:wrap; font-weight:600">'   # (wraps on a narrow screen, as a phone's: nothing cut off)
@@ -1797,15 +1797,15 @@ def readme_lines_with(text: str, words: str, typed: str) -> str:
 
 def search_box(name: str, placeholder: str) -> str:
     """A page's Search: a box and a Search button (or Enter), and Clear once something is searched for. The text searched
-    for, in lower case ('' for none); kept while the page is left and come back to."""
+    for, in lower case ('' for none); kept while the page is left and come back to. On the top line, next to the name."""
     key = f"{name}_search"
-    with st.form(f"{key}_form", border=False, enter_to_submit=True):
-        row = st.container(horizontal=True, vertical_alignment="bottom", gap="small")
+    with TITLE_SLOT.form(f"{key}_form", border=False, enter_to_submit=True, width="content"):
+        row = st.container(horizontal=True, vertical_alignment="center", gap="small")
         text = row.text_input("Search", value=st.session_state.get(key, ""), placeholder=placeholder, max_chars=60, width=260,
                               label_visibility="collapsed")
         if row.form_submit_button("Search"):
             st.session_state[key] = text.strip()
-    if st.session_state.get(key) and st.button("Clear", key=f"{key}_clear"):
+    if st.session_state.get(key) and TITLE_SLOT.button("Clear", key=f"{key}_clear"):
         st.session_state[key] = ""
         st.rerun()
     return (st.session_state.get(key) or "").lower()
