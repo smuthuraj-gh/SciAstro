@@ -82,7 +82,8 @@ body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / va
 [data-testid="stButtonGroup"] button { padding: 0 7px !important; height: 24px !important; min-height: 24px !important; border-radius: 12px !important; }
 /* AstroClock-3D's lists: two a line, the last alone not stretched across */
 .st-key-globe_bodies button, .st-key-globe_coords button, .st-key-globe_speed button,
-.st-key-globe_major button, .st-key-globe_minor button, .st-key-space_speed button, .st-key-globe_time button
+.st-key-globe_major button, .st-key-globe_minor button, .st-key-space_speed button, .st-key-globe_time button,
+.st-key-sci_when button, .st-key-sci_bodies button       /* (AstroClock-2D's Time and Planets: as AstroClock-3D's) */
   { flex: 0 0 auto !important; width: auto !important; }
 /* the circles: every planet, every angle, every speed */
 :is(.st-key-sci_bodies, .st-key-globe_bodies, .st-key-space_bodies, .st-key-helio_bodies,
@@ -1160,15 +1161,18 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     def may(title: str, options: list) -> list:
         """What this input offers (its Defaults row's Allowed Values)."""
         return offered("AstroClock-2D", title, options) if flat else offered("Geo/Helio Model", title, options)
+    def two_lines(width: int) -> dict:
+        """AstroClock-2D: a list in AstroClock-3D's width (Time: Now over DOB; Planets: two lines), not one long line."""
+        return {"width": width} if flat else {}
     if prep.now_only:                                         # no birth details: Now, and DOB opens the form for them
         dob_asked(st.session_state.get(f"{key}_when") == "DOB", (f"{key}_when", "Now"), (f"_kept_{key}_when", "Now"))
-        when = titled(head, "Time", f"{key}_t_time", list(TIMES), f"{key}_when", "Now")
+        when = titled(head, "Time", f"{key}_t_time", list(TIMES), f"{key}_when", "Now", **two_lines(48))
     else:
-        when = titled(head, "Time", f"{key}_t_time", may("Time", list(TIMES)), f"{key}_when", start("Time"))
+        when = titled(head, "Time", f"{key}_t_time", may("Time", list(TIMES)), f"{key}_when", start("Time"), **two_lines(48))
     shown = [when] if when else []                            # Now or DOB, one at a time
     time_on_top_line(when)
     choices = tuple(may("Planets", list(choices)))
-    bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
+    bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi", **two_lines(140),
                                   format_func=core.symbol_of), choices)
     aspects, one_circle = (), False
     with_paths = []                                           # (PP, under Coordinates: the paths of the planets shown)
