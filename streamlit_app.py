@@ -396,7 +396,10 @@ NOW_CLOCK_JS = """<script>
     document.querySelectorAll(".now-clock").forEach((e) => { if (e.textContent !== text) e.textContent = text; });
   };
   tick();
-  if (!window._nowClockTimer) window._nowClockTimer = setInterval(tick, 1000);
+  // one timer for the page: this one, in place of any earlier one (a page left open from before an update kept running
+  // the old one, which wrote the old text, seconds and all, over this one's each second)
+  if (window._nowClockTimer) clearInterval(window._nowClockTimer);
+  window._nowClockTimer = setInterval(tick, 1000);
 })();
 </script>"""
 
