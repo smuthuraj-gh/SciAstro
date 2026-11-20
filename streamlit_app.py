@@ -702,9 +702,9 @@ def details_form(row: pd.Series | None, person: bool = False):
                                            "quick_state": state.strip(), "quick_country": country.strip(),
                                            "quick_first": first.strip(), "quick_last": last.strip()}
         st.session_state["_select_customer"] = access.QUICK
-        for k in [k for k in st.session_state if isinstance(k, str) and k.startswith("_kept_") and (k.endswith("_when") or k == "_kept_globe_time")]:
-            st.session_state[k] = "DOB"                       # (the chart pages' Time on DOB, kept_pills' store: the birth searched shows)
-            st.session_state.pop(k[len("_kept_"):], None)
+        for k in TIME_KEYS:                                   # the chart pages' Time on DOB, opened or not yet: the birth searched shows
+            st.session_state[f"_kept_{k}"] = "DOB"
+            st.session_state.pop(k, None)
         st.session_state["_searched"] = "Search: " + (f"{first.strip()} {last.strip()}".strip() or f"{born} {at:%H:%M}") + " (not saved)"
         st.switch_page(PAGE_BY_PATH[back_page()])
     if person:                                                # Save and Search: saved, chosen, on the chart page
@@ -1009,8 +1009,11 @@ def page_globe():
         box = head.container(width="content", gap="xxsmall")
         if not box.pills("Time", ["Time"], default="Time", key="globe_Time_on", label_visibility="collapsed"):
             return []
-        got = box.pills("Which Time", offered("AstroClock-3D", "Time", list(TIMES)), default=default, key="globe_time",
+        options = offered("AstroClock-3D", "Time", list(TIMES))
+        kept = st.session_state.get("_kept_globe_time", default)    # (kept while away, as the other pages' Time)
+        got = box.pills("Which Time", options, default=kept if kept in options else default, key="globe_time",
                         label_visibility="collapsed", width=48)
+        st.session_state["_kept_globe_time"] = got
         return [got] if got else []
 
     def options_under(title: str, key: str, names: list, default: list, width: int = 84) -> tuple:
@@ -1024,7 +1027,7 @@ def page_globe():
                                    names))
 
     if prep.now_only:                                         # no birth details: DOB opens the form for them
-        dob_asked(st.session_state.get("globe_time") == "DOB", ("globe_time", "Now"))
+        dob_asked(st.session_state.get("globe_time") == "DOB", ("globe_time", "Now"), ("_kept_globe_time", "Now"))
         shown = one_time("Now")
     else:
         shown = one_time(default_choice("AstroClock-3D", "Time"))
@@ -1097,6 +1100,9 @@ def page_centric():
     model = (titled(head, "Centric Model", "t_centric", offered("Geo/Helio Model", "Centric Model", list(CENTRIC_MODELS)), "centric_model", default_choice("Geo/Helio Model", "Centric Model"))
              or st.session_state.get("_kept_centric_model") or "Geo")   # (with the title off, the model last picked)
     space_page(head, prep, *CENTRIC_MODELS[model], model=model)
+
+
+TIME_KEYS = ("sci_when", "space_when", "helio_when", "globe_time", "pred_when")   # each chart page's Time (AstroClock-2D, Geo, Helio, AstroClock-3D, Predictions)
 
 
 def kept_pills(box, label: str, options, key: str, default=None, **kw):
