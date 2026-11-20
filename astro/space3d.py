@@ -220,6 +220,8 @@ __SYMBOL_JS__
   const view = window.space3dView || (window.space3dView = {yaw: 90, pitch: 45});
   if (!window.space3dClock || window.space3dClock.key !== D.key) window.space3dClock = {key: D.key, t: D.reverse ? D.days : 0};
   const clock = window.space3dClock;              // the days run since each moment: kept when a button is pressed
+  if (clock.moving && !D.day_seconds) { clock.t = 0; clock.trailFrom = null; }   // time stopped (no speed, or Rotate in 1s off):
+  clock.moving = !!D.day_seconds;                  // back to the moment, the Timer to 00:00:00:00:00:00
   const sample = (b, t) => {                       // between its two nearest table rows (its exact place at the start)
     if (t === 0 && b.at0) return b.at0;
     const u = (t + (b.shift || 0)) / b.step, i = Math.min(Math.floor(u), b.ra.length - 2), f = u - i;
