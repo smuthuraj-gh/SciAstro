@@ -343,11 +343,17 @@ def place_label(row: pd.Series | None, suffix: str = "") -> str:
     return ", ".join(str(p).strip() for p in parts if p is not None and not (isinstance(p, float) and pd.isna(p)) and str(p).strip())
 
 
+# the pages with a chart of the customer's DOB or Now: their top line shows the places, the DOB and the Now clock (the
+# table pages show only their title and the customer's name)
+CHART_PAGES = ("AstroClock-2D", "AstroClock-3D", "Predictions", "Geo/Helio Model", "Planets Cycles", "Planets Distance(%)")
+
+
 def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
     """Every page's top line: its title (with its help), then the chosen customer's First and Last Name, their DOB when
     there is one and the Now clock (in CN's time zone, else UT, to the minute), each after its place (the birth place, the place now, when known),
-    and a chart's Timer last."""
-    TABLES_DRAWN["n"] = 0                                      # (each run: the same keys for the same tables)
+    and a chart's Timer last. The places, DOB and Now only on the chart pages (CHART_PAGES), not on the table pages."""
+    TABLES_DRAWN["n"] = 0
+    timed = title in CHART_PAGES                              # (a table page: the title and the name only)                                      # (each run: the same keys for the same tables)
     now_tz = (getattr(prep, "cn_tz", None) or "") if prep is not None else ""   # the Now clock's zone: CN's (none: UT)
     # one row drawn here (not Streamlit's row, which can wrap the name onto a line of its own): both on one baseline
     name = ""
@@ -375,11 +381,13 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
         f'<span style="white-space:nowrap">{html.escape(name)}</span>'
         # after the name: the place (birth place with DOB, place now with Now), then the DOB or the Now clock, the Timer last
         + (f'<span class="dob-label" style="font-weight:400; white-space:nowrap">{html.escape(cb)}</span>'
-           if birth_label(row, prep) and (cb := place_label(row)) else "")
+           if timed and birth_label(row, prep) and (cb := place_label(row)) else "")
         + (f'<span class="now-place" style="font-weight:400; white-space:nowrap">{html.escape(cn)}</span>'
-           if (cn := place_label(row, "_n")) and prep is not None and getattr(prep, "cn", None) else "")
-        + (f'<span class="dob-label" style="font-weight:400; white-space:nowrap">{html.escape(dob)}</span>' if (dob := birth_label(row, prep)) else "") +
-        f'<span class="now-clock" data-tz="{html.escape(now_tz)}" style="font-weight:400; white-space:nowrap"></span>'   # (NOW_CLOCK_JS writes it)
+           if timed and (cn := place_label(row, "_n")) and prep is not None and getattr(prep, "cn", None) else "")
+        + (f'<span class="dob-label" style="font-weight:400; white-space:nowrap">{html.escape(dob)}</span>'
+           if timed and (dob := birth_label(row, prep)) else "")
+        + (f'<span class="now-clock" data-tz="{html.escape(now_tz)}" style="font-weight:400; white-space:nowrap"></span>'   # (NOW_CLOCK_JS writes it)
+           if timed else "")
         + ('<span class="globe-clock" style="white-space:pre; font-weight:400"></span>'   # the chart's Timer, at the end (its script writes it)
            if title in ("AstroClock-2D", "AstroClock-3D", "Geo/Helio Model") else "") +
         '</span>'
