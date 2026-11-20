@@ -496,10 +496,12 @@ __SYMBOL_JS__
     if (sep > 180) sep = 360 - sep;
     return Math.abs(sep - angle) <= orb && (Math.abs(a.dec - b.dec) <= decOrb || Math.abs(a.dec + b.dec) <= decOrb);
   };
-  const clockLine = (t) => {                      // Timer: the time run from the moment (the chart's own time), -hh:mm:ss
+  const clockLine = (t) => {                      // Timer: the time run from the moment (the chart's own time), -YY:MM:DD:HH:MM:SS
     const secs = Math.round((t - (D.reverse ? D.days : 0)) * 86400), a = Math.abs(secs);   // backwards with R; 00:00:00 until it runs
-    const two = (n) => String(n).padStart(2, "0");   // (hours past 24 go on counting)
-    return "Timer " + (secs < 0 ? "-" : "") + two(Math.floor(a / 3600)) + ":" + two(Math.floor(a / 60) % 60) + ":" + two(a % 60);
+    const two = (n) => String(n).padStart(2, "0");
+    const YEAR = 31557600, MONTH = YEAR / 12;     // seconds: a year of 365.25 days, a month a twelfth of it (30.44 days)
+    const y = Math.floor(a / YEAR), mo = Math.floor((a - y * YEAR) / MONTH), r = Math.floor(a - y * YEAR - mo * MONTH);
+    return "Timer " + (secs < 0 ? "-" : "") + [y, mo, Math.floor(r / 86400), Math.floor(r / 3600) % 24, Math.floor(r / 60) % 60, r % 60].map(two).join(":");
   };
   const showClocks = (t) => {                      // in the page's clock, beside the customer's name
     const box = document.querySelector(".globe-clock");
