@@ -244,14 +244,14 @@ __SYMBOL_JS__
   };
   const fromWord = (body) => (D.around && body === "Mo" ? "earth" : D.centre_word);   // the Moon's distance is from the Earth
   const signed = (v) => (v >= 0 ? "+" : "") + v.toFixed(2);
-  const clockLine = (s, t) => {                    // its date and time, at its place's UTC offset
-    const known = s.offset !== null && s.offset !== undefined, off = known ? s.offset : 0;
-    const ms = (s.jd + t - 2440587.5) * 86400000 + off * 3600000 + 500;       // to the nearest second
-    return "Timer " + new Date(ms).toISOString().slice(11, 19);   // HH:MM:SS only (local time at its place's UTC offset, else UT; the zone and the date not written)   // (the moment the chart shows, from Now or DOB: Timer)
+  const clockLine = (t) => {                      // Timer: the time run from the moment (the chart's own time), -hh:mm:ss
+    const secs = Math.round((t - (D.reverse ? D.days : 0)) * 86400), a = Math.abs(secs);   // backwards with R; 00:00:00 until it runs
+    const two = (n) => String(n).padStart(2, "0");   // (hours past 24 go on counting)
+    return "Timer " + (secs < 0 ? "-" : "") + two(Math.floor(a / 3600)) + ":" + two(Math.floor(a / 60) % 60) + ":" + two(a % 60);
   };
   const showClocks = (t) => {                      // in the page's clock, beside the customer's name
     const box = document.querySelector(".globe-clock");
-    if (box) box.textContent = D.clocks.map((s) => clockLine(s, t)).join("    ");
+    if (box) box.textContent = clockLine(t);       // (one Timer: the same for DOB and Now)
   };
   let X = 0, Y = 0, Z = 0, S = 0, C = 0, s = 0, c = 0;
   const LEAN_S = Math.sin(D.tilt * RAD), LEAN_C = Math.cos(D.tilt * RAD);

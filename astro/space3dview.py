@@ -388,14 +388,14 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     const k = d.name && d.name.startsWith("Sp ") ? keys.indexOf(d.name.slice(3)) : -1;
     if (k >= 0) spokes.push({i, k, len: Math.hypot(d.x[1], d.y[1], d.z[1])});
   });
-  const clockLine = (s, t) => {                    // as the drawing's: its date and time, at its place's UTC offset
-    const known = s.offset !== null && s.offset !== undefined, off = known ? s.offset : 0;
-    const ms = (s.jd + t - 2440587.5) * 86400000 + off * 3600000 + 500;       // to the nearest second
-    return "Timer " + new Date(ms).toISOString().slice(11, 19);   // HH:MM:SS only (local time at its place's UTC offset, else UT; the zone and the date not written)   // (the moment the chart shows, from Now or DOB: Timer)
+  const clockLine = (t) => {                      // Timer: the time run from the moment (the chart's own time), -hh:mm:ss
+    const secs = Math.round((t - (M.reverse ? M.days : 0)) * 86400), a = Math.abs(secs);   // backwards with R; 00:00:00 until it runs
+    const two = (n) => String(n).padStart(2, "0");   // (hours past 24 go on counting)
+    return "Timer " + (secs < 0 ? "-" : "") + two(Math.floor(a / 3600)) + ":" + two(Math.floor(a / 60) % 60) + ":" + two(a % 60);
   };
   const showClocks = (t) => {                      // in the page's clock, beside the customer's name
     const box = document.querySelector(".globe-clock");
-    if (box) box.textContent = M.clocks.map((s) => clockLine(s, t)).join("    ");
+    if (box) box.textContent = clockLine(t);       // (one Timer: the same for DOB and Now)
   };
   const started = performance.now();
   const tick = () => {
