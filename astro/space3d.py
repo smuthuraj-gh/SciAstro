@@ -468,7 +468,7 @@ __SYMBOL_JS__
     const distTag = words("rgb(90,90,90)");
     distTag.setAttribute("text-anchor", "start");   // (above its columns' names: from DOB's or Now's front to Ave's back)
     distTag.setAttribute("y", (cy + R + 39).toFixed(1)); distTag.textContent = "Distance(%)";
-    distTag.setAttribute("x", DIST_X + DIST_FIRST - 15);
+    distTag.setAttribute("x", DIST_X + 12);         // (the bar's numbers' left, as its 0)
     if (distMarks.length) {                        // the AU scale, left of the bar: a tick at each mark, numbered left of the planets
       let auTicks = "";
       AU_MARKS.forEach((v) => {
@@ -482,9 +482,10 @@ __SYMBOL_JS__
       const auName = words("rgb(90,90,90)");
       auName.setAttribute("x", DIST_X - DIST_AU / 2); auName.setAttribute("y", (cy + R + 56).toFixed(1)); auName.textContent = "AU";   // (on the line of De and RA)
     }
-    const sides = [...distClocks, "Ave"].filter((name) => name !== "Ave" || aveMarks.length).map((name) => {   // which column is which, below that tag
-      const x = distCol(name);
+    const sides = [...distClocks, "Ave"].filter((name) => name !== "Ave" || aveMarks.length).map((name, i) => {   // which column is which, below that tag
+      const x = i === 0 ? DIST_X + 12 : distCol(name);   // (the first, DOB or Now, and so Distance(%) above it: from the bar's numbers' left, as its 0)
       const side = words("rgb(90,90,90)");
+      if (i === 0) side.setAttribute("text-anchor", "start");
       side.setAttribute("x", x); side.setAttribute("y", (cy + R + 56).toFixed(1)); side.textContent = name === "Ave" ? "Average" : name;   // (on the line of De and RA)
       return side;
     });
