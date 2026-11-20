@@ -5,7 +5,8 @@ zodiac), with the same rules. Orchestrated by Senthil Muthuraj; built by AI/SI A
 
 Every page resizes with the window as one picture, its charts too: the same layout at every width, scaled to fit
 between the left and right margins (on a phone or a narrow window its text is then smaller than 10 px on screen; two
-fingers enlarge it). Each chart is the page's width, scrolled down for the rest.
+fingers enlarge it). Each chart is the page's width, scrolled down for the rest. A phone does not enlarge the text by itself, and the Planets
+choices keep to two lines there (five, then four).
 
 Every page's top line (it wraps onto more lines on a narrow screen, as a phone's: nothing is cut off):  its name (with its help, ?), the chosen customer's First and Last Name (on AstroClock-2D, AstroClock-3D and Geo/Helio Model the chart's Timer at the end of the line) and, beside it, their DOB (DOB yyyy-mm-dd hh:mm; no time when it is not known) when there is one and the DOB charts are open to them. Next to the name, the place (the birth place with the DOB, the place now with the Now clock: City, State, Country, the parts kept), then the DOB or the Now clock, and a chart page's Timer last. The Now clock ticks each second: Now yyyy-mm-dd hh:mm:ss (UT, the zone not written). On a page with DOB and Now buttons (AstroClock-2D, AstroClock-3D, Geo/Helio Model) only the one picked shows: DOB (the birth) or Now (the clock); neither with Time off (on AstroClock-2D, AstroClock-3D and Geo/Helio Model the chart's own clock follows it: Timer yyyy-mm-dd hh:mm:ss (at the place's UTC offset, else UT; the zone not written), the moment the chart shows, started from Now or DOB, whichever is picked, and running on with Rotate in 1s, at the place's UTC offset).
 

@@ -78,6 +78,8 @@ st.html("""<style>
    its holder undoes the zoom, and its text is sized to match the page's */
 body > div:has(> [data-testid="stSelectboxVirtualDropdown"]) { zoom: calc(1 / var(--app-zoom, 1)); }
 [data-testid="stSelectboxVirtualDropdown"] * { font-size: calc(12px * var(--app-zoom, 1)) !important; }
+/* a phone does not enlarge the text by itself (its own text boosting made the Planets choices take a third line) */
+html, body { -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important; }
 /* one set of shapes on every page, all 24px high: a word is a small pill; a planet, an angle or a speed is a small circle */
 [data-testid="stButtonGroup"] button { padding: 0 7px !important; height: 24px !important; min-height: 24px !important; border-radius: 12px !important; }
 /* AstroClock-3D's lists: two a line, the last alone not stretched across */
@@ -1000,6 +1002,11 @@ def page_astroclock():
     space_page(head, prep, "sci", "Ea", globechart.BODY_CHOICES + globechart.NODE_CHOICES, model="Geo", flat=True)
 
 
+# the Planets choices (AstroClock-3D, AstroClock-2D): room for five 24 px circles a line and their gaps, with some to spare
+# (a phone's slightly wider gaps pushed one to a third line), never six: so two lines, Mo Su Me Ve Ma over Ju Sa NN SN
+PLANETS_WIDTH = 156
+
+
 def page_globe():
     """The Earth turning inside the celestial sphere: the planets and their RA and De lines on the sphere, CB, CN on it."""
     _, prep = pick_customer()
@@ -1037,7 +1044,7 @@ def page_globe():
     time_on_top_line(shown[0] if shown else None)
     all_bodies = list(globechart.BODY_CHOICES)
     with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # shown in two rows: Mo Su Me Ve Ma, Ju Sa NN SN
-    bodies = options_under("Planets", "bodies", offered("AstroClock-3D", "Planets", with_nodes), default_choice("AstroClock-3D", "Planets"), width=140)
+    bodies = options_under("Planets", "bodies", offered("AstroClock-3D", "Planets", with_nodes), default_choice("AstroClock-3D", "Planets"), width=PLANETS_WIDTH)
     major = options_under("Major Aspects", "major", offered("AstroClock-3D", "Major Aspects", GLOBE_MAJOR), default_choice("AstroClock-3D", "Major Aspects"), width=90)
     minor = options_under("Minor Aspects", "minor", offered("AstroClock-3D", "Minor Aspects", GLOBE_MINOR), default_choice("AstroClock-3D", "Minor Aspects"), width=90)
     coords_on = default_choice("AstroClock-3D", "Coordinates")
@@ -1177,7 +1184,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     shown = [when] if when else []                            # Now or DOB, one at a time
     time_on_top_line(when)
     choices = tuple(may("Planets", list(choices)))
-    bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi", **two_lines(140),
+    bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi", **two_lines(PLANETS_WIDTH),
                                   format_func=core.symbol_of), choices)
     aspects, one_circle = (), False
     with_paths = []                                           # (PP, under Coordinates: the paths of the planets shown)
