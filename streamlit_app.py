@@ -108,9 +108,10 @@ html, body { -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !
 [data-testid="stExpandSidebarButton"]::after { content: "Menu"; font-size: 12px; font-weight: 600;
   color: rgba(47, 45, 43, 0.8); white-space: nowrap; }
 </style>""")
-# Everything (text, buttons, tables, charts, map) resizes with the window, as one picture: the whole app is zoomed so
-# that the page's content column is always WIDTH (1100) px before zooming, the width the charts are laid out at. So the
-# charts are never scaled on their own and all text, chart text too, is always the same size (12 px x the zoom).
+# On a wide window everything (text, buttons, tables, charts) grows with it: the whole app is zoomed so that the page's
+# content column is WIDTH (1100) px before zooming, the width the charts are laid out at. On a narrower one (a phone too)
+# the zoom stays at 1, so the text keeps its size (10 to 12 px, readable): the rows wrap, and each chart is scaled down to
+# the column's width.
 st.html("""<script>
 (() => {
   if (window.__appZoom) { window.__appZoom(); return; }
@@ -119,11 +120,10 @@ st.html("""<script>
   Object.defineProperty(CanvasRenderingContext2D.prototype, "font", {configurable: true, get() { return canvasFont.get.call(this); },
     set(v) { canvasFont.set.call(this, String(v).replace("10.5px", "10px")); }});
   const WIDTH = """ + str(mapchart.WIDTH - mapchart.INSET_L - mapchart.INSET_R) + """;   // the text column
-  const MIN_ZOOM = 0.2;                                     // (only so a page never shrinks to nothing: the whole page scales as one picture)
-  // a phone (a touch screen with a small screen): never below this, so that 12 px text is 10 px on screen, as the tables
-  // are (they undo the zoom: at a third, the rest was 4 px beside them); its rows wrap and each chart is the column's width
-  const PHONE_ZOOM = 10 / 12;
-  const phone = () => window.matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) < 768;
+  // never below 1, on any screen (a narrow window, a phone): the text stays the size it is written in, 10 to 12 px on
+  // screen, as the tables' (they undo the zoom), all of it readable; the page's rows wrap instead, and each chart is the
+  // column's width
+  const MIN_ZOOM = 1;
   function zoom() {
     if (window.__appZooming) return;                         // (the resize sent below comes back here)
     const root = document.documentElement, main = document.querySelector('[data-testid="stMain"]');
@@ -134,9 +134,8 @@ st.html("""<script>
     const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
     // the main area's width inside its scrollbar (beside any open sidebar), on screen, made WIDTH + padding wide;
     // with the sidebar open its width on screen changes with the zoom, so each check comes a step closer
-    // at any width (MIN_ZOOM only a floor against nothing): the whole page shrinks as one picture, the same layout at every
-    // width; but on a phone no smaller than PHONE_ZOOM, all its text readable
-    const want = Math.max(phone() ? PHONE_ZOOM : MIN_ZOOM, z * main.clientWidth / (WIDTH + pad));
+    // larger on a wide window; on a narrower one never below MIN_ZOOM (the text readable), the rows wrapping
+    const want = Math.max(MIN_ZOOM, z * main.clientWidth / (WIDTH + pad));
     if (Math.abs(want - z) > 0.001) {
       root.style.zoom = want;
       root.style.setProperty("--app-zoom", want);
