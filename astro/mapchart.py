@@ -58,7 +58,7 @@ def _script_safe(text: str) -> str:
 
 def fit_html(fig: go.Figure, after_js: str = "", fit_height: bool = True) -> str:
     """The chart as HTML scaled as a whole to the page's zoom, exactly as laid out (so no label can come to overlap
-    another), reaching INSET_L / INSET_R past the text column. Any chart with a fixed layout width and height. fit_height:
+    another), within the page's margins (the text column's width). Any chart with a fixed layout width and height. fit_height:
     no taller than the window below its top (else the column's width, scrolled down to see the rest)."""
     import uuid
     from plotly.offline import get_plotlyjs_version
@@ -81,13 +81,12 @@ def fit_html(fig: go.Figure, after_js: str = "", fit_height: bool = True) -> str
     }}
     // The page is zoomed (CSS zoom) to the window, but Plotly cannot follow the pointer through a CSS zoom (pointing
     // at a planet showed nothing or another planet): so the chart undoes the page zoom and is scaled by a transform
-    // instead, which Plotly allows for. Same size on screen: the column's width plus the insets, in screen pixels.
+    // instead, which Plotly allows for. Same size on screen: the column's width, in screen pixels.
     const z = parseFloat(document.documentElement.style.zoom) || 1;
     outer.style.zoom = 1 / z;
     const col = (outer.parentElement || outer).getBoundingClientRect().width;     // on screen
-    const width = col + ({INSET_L + INSET_R}) * z;
+    const width = col;                     // (within the margins: the column's width, nothing past it)
     outer.style.width = width + "px";
-    outer.style.marginLeft = (-{INSET_L} * z) + "px";
     // the column's width, but no taller than the window below the chart's top (the whole chart in view, its top left kept)
     const main = document.querySelector('[data-testid="stMain"]');
     const top = outer.getBoundingClientRect().top + (main ? main.scrollTop * z : 0) + window.scrollY;
