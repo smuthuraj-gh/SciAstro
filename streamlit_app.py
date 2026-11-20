@@ -307,7 +307,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
                  "Email (login) is the Google account each customer signs in with (one customer per email; they see "
                  "only their own). Other and Other-N: anything else to keep about the birth place and the place now "
                  "(not used in the charts). The UTC offset is looked up from the birth place and date. Import adds customers from the workbook's Customers CSV.",
-    "DOB Details": "Get more days of access (every member): pick 1, 7, 30, 90, 180 or 365 days, apply the coupon Free (for now, free) and press Add days (Days and Pay / Coupon start as the Page Defaults table says); they are added to your End Date while it runs, else from now, and open the DOB charts. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them; your login "
+    "DOB Details": "Get more days of access (every member): pick 1, 7, 30, 90, 180 or 365 days, apply the coupon Free (for now, free) and press Add days (Days and Pay / Coupon start as the Page Defaults table says); they are added to your End Date while it runs, else from now, and open the DOB charts. With DOB access, Add a DOB (at the top): a person to add under your login, with Search Only (their DOB charts, not saved, as a Search choice in the sidebar) or Save and Search (saved, then their charts). Your own birth details, used for the DOB charts (without them, the Now charts only). Edit a DOB to change them (Save changes), or Search to see the DOB charts for what is typed there, not saved; your login "
                   "email stays the same.",
 }
 
@@ -642,6 +642,10 @@ def details_form(row: pd.Series | None, person: bool = False):
             c1, c2, _ = st.columns([1, 1, 4])                 # Save and Search: saved, then its DOB charts
             search = c1.form_submit_button("Search Only")
             sent = c2.form_submit_button("Save and Search", type="primary")
+        elif row is not None and GRANT.dob and GRANT.many and not user.is_admin:   # Search: its DOB charts, not saved
+            c1, c2, _ = st.columns([1, 1, 4])
+            search = c1.form_submit_button("Search")
+            sent = c2.form_submit_button("Save changes", type="primary")
         else:
             sent = st.form_submit_button("Save & Search" if row is None else "Save changes", type="primary")
     if not (sent or search):
