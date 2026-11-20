@@ -969,7 +969,7 @@ def period(prep: Prepared, row=None, page: str = "", beside: bool = False) -> tu
     end of the End Date, or None (with a warning) if unusable. They start as the Defaults table says for this page
     (Start: DOB or Now; End: Now, or Start Date (UT) + a time, which moves with the Start). With row (a horizontal
     container) they go into it, each just wide enough; otherwise in two columns. beside (Predictions): each name, Start Date
-    and End Date (no "(UT)"), on its box's line, to the left of it."""
+    and End Date (no "(UT)"), on its box's line, to the left of it (Predictions, Planets Distance(%)). The names never say "(UT)" (the dates are UT)."""
     now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
     birth_dt = core.jd_to_datetime(prep.jd_birth) if prep.jd_birth is not None else now_dt   # (Now charts only: from now)
     c = [row] * 2 if row is not None else st.columns(2)
@@ -983,15 +983,15 @@ def period(prep: Prepared, row=None, page: str = "", beside: bool = False) -> tu
     dw = 125 if row is not None else "stretch"
     start0 = now_dt if default_choice(page, "Start Date (UT)") == "Now" else birth_dt
     start0 = min(max(start0, datetime(1800, 1, 1)), datetime(2399, 12, 31))   # (the dates allowed)
-    d0 = c[0].date_input("Start Date (UT)", value=start0.date(), min_value=datetime(1800, 1, 1),
+    d0 = c[0].date_input("Start Date", value=start0.date(), min_value=datetime(1800, 1, 1),
                          max_value=datetime(2399, 12, 31), width=dw, key=f"start_date_{page}_{prep.jd_birth}_{start0.date()}", **shown)
     after = default_choice(page, "End Date (UT)")             # (months, days) after the Start, or "Now"
     if after != "Now":                                        # the End follows the Start: a changed Start sets it again
         end0 = min(add_months(datetime.combine(d0, time(0, 0)), after[0]) + timedelta(days=after[1]), datetime(2399, 12, 31))
-        d1 = c[1].date_input("End Date (UT)", value=end0.date(), min_value=datetime(1800, 1, 1),
+        d1 = c[1].date_input("End Date", value=end0.date(), min_value=datetime(1800, 1, 1),
                              max_value=datetime(2399, 12, 31), width=dw, key=f"end_date_{page}_{d0}_{after}", **shown)
     else:
-        d1 = c[1].date_input("End Date (UT)", value=now_dt.date(), min_value=datetime(1800, 1, 1),
+        d1 = c[1].date_input("End Date", value=now_dt.date(), min_value=datetime(1800, 1, 1),
                              max_value=datetime(2399, 12, 31), width=dw, **shown)
     start, end = datetime.combine(d0, time(0, 0)), datetime.combine(d1, time(0, 0)) + timedelta(days=1)   # (to the End Date's end)
     if end <= start:
@@ -1300,11 +1300,11 @@ def page_distance():
     head = st.container(horizontal=True, vertical_alignment="top", gap="xsmall")   # the inputs (title: top line)
     if not need_chart(prep):
         return
-    jds = period(prep, head, "Planets Distance(%)")
+    jds = period(prep, head, "Planets Distance(%)", beside=True)   # (each date's name beside its box, no "(UT)"; as Predictions)
     # on / off buttons: all seven planets always in view (a selection box would hide some, or not fit on the line)
     dist_names = offered("Planets Distance(%)", "Planets", core.BUTTON_ORDER)
     dist_on = core.in_order(titled(head, "Planets", "t_dist", core.shown_order(dist_names), "dist_on_v2", default_choice("Planets Distance(%)", "Planets"),
-                                   selection_mode="multi", format_func=core.symbol_of), dist_names)
+                                   selection_mode="multi", format_func=core.symbol_of, beside=True), dist_names)   # (on the dates' line)
     if jds is None:
         return
     with st.spinner("Drawing..."):
@@ -1801,7 +1801,7 @@ def search_box(name: str, placeholder: str) -> str:
     key = f"{name}_search"
     with TITLE_SLOT.form(f"{key}_form", border=False, enter_to_submit=True, width="content"):
         row = st.container(horizontal=True, vertical_alignment="center", gap="small")
-        text = row.text_input("Search", value=st.session_state.get(key, ""), placeholder=placeholder, max_chars=60, width=260,
+        text = row.text_input("Search", value=st.session_state.get(key, ""), placeholder=placeholder, max_chars=60, width=200,   # (medium: its placeholder fits)
                               label_visibility="collapsed")
         if row.form_submit_button("Search"):
             st.session_state[key] = text.strip()
