@@ -365,10 +365,12 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
     global TITLE_SLOT
     line = st.container(horizontal=True, vertical_alignment="top", gap="large")
     line.container(width="content").html(
-        f'<div style="display:flex; align-items:baseline; justify-content:flex-start; column-gap:24px; row-gap:2px; '
+        f'<div style="display:flex; align-items:baseline; justify-content:flex-start; column-gap:12px; row-gap:2px; '
         f'flex-wrap:wrap; font-weight:600">'   # (wraps on a narrow screen, as a phone's: nothing cut off)
-        f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
-        f'<span class="top-line-rest" style="display:inline-flex; flex-wrap:wrap; align-items:baseline; column-gap:12px; row-gap:2px">'
+        f'<span style="white-space:nowrap; margin-right:12px">{html.escape(title)}{help_mark}</span>'   # (24 px to the name)
+        # each piece after the title its own item of the line: the name follows the title, and a piece goes to the next
+        # line only when there is no room left on this one
+        f'<span class="top-line-rest" style="display:contents">'
         f'<span style="white-space:nowrap">{html.escape(name)}</span>'
         # after the name: the place (birth place with DOB, place now with Now), then the DOB or the Now clock, the Timer last
         + (f'<span class="dob-label" style="font-weight:400; white-space:nowrap">{html.escape(cb)}</span>'

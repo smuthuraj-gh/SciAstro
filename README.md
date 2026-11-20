@@ -6,7 +6,7 @@ zodiac), with the same rules. Orchestrated by Senthil Muthuraj; built by AI/SI A
 Every page resizes with the window as one picture, its charts too: the same layout at every width, scaled to fit
 between the left and right margins (on a narrow desktop window its text is then smaller than 10 px on screen). On a
 phone (a small touch screen) the page shrinks no further than text at 10 px, the tables' size too, so all of it is
-readable: its rows of buttons wrap, and each chart is scaled down to the column (two fingers enlarge it). Each chart is
+readable: its rows of buttons wrap, and the top line too, piece by piece (the name right after the title, a piece on the next line only when there is no room left), and each chart is scaled down to the column (two fingers enlarge it). Each chart is
 the page's width, scrolled down for the rest. A phone does not enlarge the text by itself, and the Planets choices keep
 to two lines there (five, then four).
 
