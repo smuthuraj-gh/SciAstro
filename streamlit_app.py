@@ -1031,9 +1031,10 @@ def page_astroclock():
     space_page(head, prep, "sci", "Ea", globechart.BODY_CHOICES + globechart.NODE_CHOICES, model="Geo", flat=True)
 
 
-# the Planets choices (AstroClock-3D, AstroClock-2D): room for five 24 px circles a line and their gaps, with some to spare
-# (a phone's slightly wider gaps pushed one to a third line), never six: so two lines, Mo Su Me Ve Ma over Ju Sa NN SN
-PLANETS_WIDTH = 156
+# the Planets choices (AstroClock-3D, AstroClock-2D): room for five 24 px circles a line and their gaps (3 px; a little
+# spare for a phone's slightly wider gaps, which pushed one to a third line), never six: so two lines, Mo Su Me Ve Ma over
+# Ju Sa NN SN; no wider, so that Major Aspects stands close to Planets
+PLANETS_WIDTH = 140
 
 
 def page_globe():
