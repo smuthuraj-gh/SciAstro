@@ -87,7 +87,11 @@ def fit_html(fig: go.Figure, after_js: str = "") -> str:
     const width = col + ({INSET_L + INSET_R}) * z;
     outer.style.width = width + "px";
     outer.style.marginLeft = (-{INSET_L} * z) + "px";
-    const s = width / {w};                 // the page zoom: the column is laid out so that this is it exactly
+    // the column's width, but no taller than the window below the chart's top (the whole chart in view, its top left kept)
+    const main = document.querySelector('[data-testid="stMain"]');
+    const top = outer.getBoundingClientRect().top + (main ? main.scrollTop * z : 0) + window.scrollY;
+    const room = Math.max(300, window.innerHeight - top - 12);
+    const s = Math.min(width / {w}, room / {h});
     inner.style.transform = "scale(" + s + ")";
     outer.style.height = Math.ceil({h} * s) + "px";
   }}

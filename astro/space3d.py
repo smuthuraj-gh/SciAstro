@@ -214,7 +214,7 @@ _JS = r"""
   };
   const svg = make("svg", box, {viewBox: D.view.join(" "), width: "100%",
                                 style: "display:block; cursor:grab; touch-action:none; user-select:none"});
-  if (D.flat) {                                    // AstroClock-2D: the whole circle in the window, below what is above it (its top
+  {                                                // the whole drawing in the window, below what is above it (its top
     svg.setAttribute("preserveAspectRatio", "xMinYMin meet");   // left kept there), at any window size, again when it is resized
     const main = document.querySelector('[data-testid="stMain"]');
     const fitHeight = () => {

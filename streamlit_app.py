@@ -358,18 +358,19 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
     global TITLE_SLOT
     line = st.container(horizontal=True, vertical_alignment="top", gap="large")
     line.container(width="content").html(
-        f'<div style="display:flex; align-items:baseline; justify-content:flex-start; gap:24px; '
-        f'flex-wrap:nowrap; font-weight:600">'
+        f'<div style="display:flex; align-items:baseline; justify-content:flex-start; column-gap:24px; row-gap:2px; '
+        f'flex-wrap:wrap; font-weight:600">'   # (wraps on a narrow screen, as a phone's: nothing cut off)
         f'<span style="white-space:nowrap">{html.escape(title)}{help_mark}</span>'
-        f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}'
+        f'<span class="top-line-rest" style="display:inline-flex; flex-wrap:wrap; align-items:baseline; column-gap:12px; row-gap:2px">'
+        f'<span style="white-space:nowrap">{html.escape(name)}</span>'
         # after the name: the place (birth place with DOB, place now with Now), then the DOB or the Now clock, the Time Travel last
-        + (f'<span class="dob-label" style="font-weight:400; margin-left:12px">{html.escape(cb)}</span>'
+        + (f'<span class="dob-label" style="font-weight:400; white-space:nowrap">{html.escape(cb)}</span>'
            if birth_label(row, prep) and (cb := place_label(row)) else "")
-        + (f'<span class="now-place" style="font-weight:400; margin-left:12px">{html.escape(cn)}</span>'
+        + (f'<span class="now-place" style="font-weight:400; white-space:nowrap">{html.escape(cn)}</span>'
            if (cn := place_label(row, "_n")) and prep is not None and getattr(prep, "cn", None) else "")
-        + (f'<span class="dob-label" style="font-weight:400; margin-left:12px">{html.escape(dob)}</span>' if (dob := birth_label(row, prep)) else "") +
-        '<span class="now-clock" style="font-weight:400; margin-left:12px"></span>'   # (NOW_CLOCK_JS writes it)
-        + ('<span class="globe-clock" style="white-space:pre; font-weight:400; margin-left:12px"></span>'   # the chart's Time Travel, at the end (its script writes it)
+        + (f'<span class="dob-label" style="font-weight:400; white-space:nowrap">{html.escape(dob)}</span>' if (dob := birth_label(row, prep)) else "") +
+        '<span class="now-clock" style="font-weight:400; white-space:nowrap"></span>'   # (NOW_CLOCK_JS writes it)
+        + ('<span class="globe-clock" style="white-space:pre; font-weight:400"></span>'   # the chart's Time Travel, at the end (its script writes it)
            if title in ("AstroClock-2D", "AstroClock-3D", "Geo/Helio Model") else "") +
         '</span>'
         f'</div>' + NOW_CLOCK_JS, unsafe_allow_javascript=True)
