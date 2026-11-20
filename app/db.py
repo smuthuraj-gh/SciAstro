@@ -122,6 +122,7 @@ HELP_ROWS_3 = [                                               # added later stil
     ("Select all", "Logins button: ticks every row (pressed again, Unselect all: none)"),
 ]
 HELP_OUT_OF_DATE = {                                          # the Help rows' Descriptions the app once wrote, out of date since
+    "Mundane": ("Transit Aspects to Each Others Now: Prediction Rules' Chart (once Sky, PT, then TEON) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)",),   # (its table is Transit Aspects (Mundane))
     "HT": ("Houses at Now: Prediction Rules' Chart and its Predictions table: the house of the birth chart each planet is in at this moment, with its reading", "Houses Now: Prediction Rules' Chart and its Predictions table: the house of the birth chart each planet is in at this moment, with its reading", "Houses Now: Prediction Rules' Chart and its Predictions table: each planet now passing through a house of the birth chart, when it comes in and goes out",),   # (Houses Now taken off Predictions)
     "TfBP": ("Transits from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, then PTfBP) and its Predictions table: a planet now coming to an angle with a point of the birth chart", "Transits from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, then PTfBP) and its Predictions table, Planets Transits from Birth Points: a planet now coming to an angle with a point of the birth chart",),   # (its table is Transits from Birth Points)
     "TEON": ("Transits to Each Other Now: Prediction Rules' Chart (once Sky, then PT) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)", "Planets Transits Now: Prediction Rules' Chart (once Sky, then PT) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)",),   # (its table is Transits to Each Other Now)
@@ -205,7 +206,7 @@ HELP_ROWS_18 = [("HB", "Houses at Birth: Prediction Rules' Chart and its Predict
 HELP_ROWS_19 = []                                             # (was TAEON, since Mundane: see HELP_GONE and HELP_ROWS_22)
 HELP_ROWS_20 = [("TABP", "Transit Aspects from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, PTfBP, then TfBP) and its Predictions table: a planet now coming to an angle with a point of the birth chart")]
 HELP_ROWS_21 = [("HT", "Houses at Now: Prediction Rules' Chart and its Predictions table: the house each planet is in at this moment, the houses from CN, the place now (or Greenwich when none is known), with its reading")]   # (HT back)
-HELP_ROWS_22 = [("Mundane", "Transit Aspects to Each Others Now: Prediction Rules' Chart (once Sky, PT, then TEON) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)")]
+HELP_ROWS_22 = [("Mundane", "Transit Aspects (Mundane): Prediction Rules' Chart (once Sky, PT, then TEON) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)")]
 HELP_VERSION = "22"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
@@ -262,7 +263,7 @@ HELP_ROWS_2 = [                                               # added later: the
 # (now) comes to the Angle with the Birth point, in RA or in De (Kind), the Predictions page shows its Prediction; Chart
 # Birth: when the two (Moving: the first point, Birth: the second) are at that Angle in the birth chart itself
 TRANSIT = "TABP"                                           # Transit Aspects from Birth Points: a planet now coming to a birth point (Transit, TfSaB, then PTfBP once)
-SKY = "Mundane"                                              # Transit Aspects to Each Others Now: two planets now with each other (Chart Sky, PT, TEON, then TAEON, once)
+SKY = "Mundane"                                              # Transit Aspects (Mundane): two planets now with each other (Chart Sky, PT, TEON, then TAEON, once)
 HOUSE_BIRTH, HOUSE_NOW = "HB", "HT"                         # Houses at Birth: a planet in a house at birth; Houses at Now: a planet now in a house of the place now (CN)
 HOUSE_CHARTS = (HOUSE_BIRTH, HOUSE_NOW)
 PRED_CHARTS = ["Birth", HOUSE_BIRTH, TRANSIT, HOUSE_NOW, SKY, "Distance"]   # Mundane: two planets now; Distance: a planet's closest and farthest
