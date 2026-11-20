@@ -45,7 +45,7 @@ Drawing rule: wherever planets are drawn, on every page and graph, a smaller pla
 
 Layout rule: everything on all pages stays aligned to the top left.
 
-Font rule: on all pages, text is at most 12 px and at least 10 px as written; on screen the page shrinks with a narrow window until its 12 px text is 10 px (the 10 px text, as the speed buttons' and the charts' smallest, then 8 px), and no further: below that the rows wrap and each chart scrolls sideways in its box.
+Font rule: on all pages, text is at most 12 px and at least 10 px as written; on screen the page shrinks with a narrow window until its 12 px text is 10 px, and no further (all text, charts' too, is written at 12 px, so none is smaller than 10 px on screen: the angle and speed circles are 28 px for their 12 px labels): below that the rows wrap and each chart scrolls sideways in its box.
 
 Now rule: anyone signed in can always see the Now charts, on every chart page: with no birth details, with Access Now or a DOB past its End Date, or with birth details that cannot be worked out (picking DOB then says why it is not open). The Time buttons show DOB first to someone whose Access is DOB, 1Day, DOBT or DOBGT, and Now first to anyone else, DOB still there (a new member picks it to reach the form for their birth details).
 

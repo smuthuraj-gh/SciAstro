@@ -24,7 +24,7 @@ STARS = 450                                # fixed stars in the background (the 
 MARK_SCALE = 2.0                           # a mark's diameter: its Size radius times this, as on AstroClock-3D (twice the radius)
 SYMBOL_PX = 12 / 9.5                       # the symbol inside it: its font size for each pixel of the mark's radius, as AstroClock-3D
 SYMBOL_LEAST = 5                           # scales its symbols (9.5 px radius: 12 px); a mark of a smaller radius shows no symbol
-SYMBOL_FONT = (10, 12)                     # but kept within the pages' text sizes (10 to 12 px): still inside the smallest mark (14 px)
+SYMBOL_FONT = (12, 12)                     # but kept within the pages' text sizes (10 to 12 px): still inside the smallest mark (14 px)
 # the body at the centre: its colour, its radius (in Fit units: each tenfold distance one unit; not to scale); the Fit scale's distance drawn at it and space taken out; AU rings on Fit and on True; the paths' spans
 CENTRE = {"Ea": dict(colour="rgb(220,232,245)", fit_r=1.4, log_from=space3d.LOG_FROM_AU, gap=space3d.GAP,   # (a big globe, as on
                                                                                                    # AstroClock-3D: distances count from its surface)
@@ -176,7 +176,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
             fig.add_trace(go.Scatter3d(x=[px], y=[py], z=[pz], mode="markers+text", text=[label], textposition="bottom center",
                                        marker=dict(size=6, color=core.colour(label), line=dict(color="white", width=1)),   # (on the pale
                                        showlegend=False, name=f"{label} on the Earth",                # globe, as AstroClock-3D)
-                                       textfont=dict(size=11, color=core.colour(label)), hovertemplate=f"{label} ({clock})<extra></extra>"))
+                                       textfont=dict(size=12, color=core.colour(label)), hovertemplate=f"{label} ({clock})<extra></extra>"))
     span = max(outer, _reach(FAR_AU, c) if moving else 0) * 1.08
     for clock, name, ra, dec in spokes if show_spokes else ():   # Sp: from the centre through the body to the view's edge
         ex, ey, ez = _xyz(ra, dec, span)
@@ -207,7 +207,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
         for ra in (0, 90, 180, 270):
             x, y, _ = _xyz(ra, 0, span * 1.06)
             fig.add_trace(go.Scatter3d(x=[x], y=[y], z=[0], mode="text", text=[f"RA {ra}"], hoverinfo="skip", showlegend=False,
-                                       textfont=dict(size=10, color=TEXT_COLOUR)))
+                                       textfont=dict(size=12, color=TEXT_COLOUR)))
     if show_au:                                               # AU: the rings of distance, on the plane of the equator
         for au in c["rings"]:                                  # distance rings on the equator plane (AU)
             r = _reach(au, c)
@@ -217,12 +217,12 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
             fig.add_trace(go.Scatter3d(x=[q[0] for q in ring], y=[q[1] for q in ring], z=[0] * 97, mode="lines", hoverinfo="skip",
                                        line=dict(color=RING_COLOUR, width=1.5, dash="dot"), showlegend=False))
             fig.add_trace(go.Scatter3d(x=[r], y=[0], z=[0], mode="text", text=[f"{au:g} AU"], hoverinfo="skip", showlegend=False,
-                                       textfont=dict(size=10, color=TEXT_COLOUR)))
+                                       textfont=dict(size=12, color=TEXT_COLOUR)))
     axis = dict(visible=False, range=[-span, span])
     fig.update_layout(width=WIDTH, height=HEIGHT, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor=SKY, autosize=False,
                       scene=dict(xaxis=axis, yaxis=axis, zaxis=axis, aspectmode="cube", bgcolor=SKY, dragmode="turntable",
                                  camera=dict(eye=dict(x=0.85, y=0.85, z=0.55))),   # close, a little from above: north above the plane
-                      hoverlabel=dict(font=dict(size=11)), font=dict(family=CHART_FONT_FAMILY, size=11, color=TEXT_COLOUR))
+                      hoverlabel=dict(font=dict(size=12)), font=dict(family=CHART_FONT_FAMILY, size=12, color=TEXT_COLOUR))
     return fig
 
 

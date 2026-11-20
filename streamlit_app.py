@@ -96,10 +96,13 @@ html, body { -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !
 :is(.st-key-globe_reverse, .st-key-sci_reverse, .st-key-space_reverse, .st-key-helio_reverse) button
   { border-radius: 50% !important; width: 24px !important; min-width: 24px !important; height: 24px !important; min-height: 24px !important;
     padding: 0 !important; justify-content: center !important; flex: 0 0 auto !important; }
-/* angles and speeds in a smaller type, so that 120 and 1mo fit the same circle as 0 and 1s */
+/* angles and speeds: in 12 px as all text (readable at the page's smallest zoom), in a 28 px circle, so that 120 and 1mo fit */
+:is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, .st-key-sci_major, .st-key-sci_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button,
+:is(.st-key-helio_speed, .st-key-space_speed, .st-key-globe_speed) button:not(:first-child), .st-key-sci_speed button
+  { width: 28px !important; min-width: 28px !important; height: 28px !important; min-height: 28px !important; }
 .stApp :is(.st-key-globe_major, .st-key-globe_minor, .st-key-asp_major, .st-key-asp_minor, .st-key-sci_major, .st-key-sci_minor, [class*="ea_on_v5"], [class*="minor_on_v1"]) button :is(p, span, div),
 .stApp :is(.st-key-helio_speed, .st-key-space_speed, .st-key-globe_speed) button:not(:first-child) :is(p, span, div), .stApp .st-key-sci_speed button :is(p, span, div)
-  { font-size: 10px !important; }
+  { font-size: 12px !important; }
 /* every action button (Insert, Update, Delete, Ignore, Yes, Sign out ..): the same small pill */
 :is([data-testid="stBaseButton-primary"], [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-primaryFormSubmit"], [data-testid="stBaseButton-secondaryFormSubmit"])
   { padding: 0 7px !important; height: 24px !important; min-height: 24px !important; border-radius: 12px !important; }
@@ -127,10 +130,9 @@ ZOOM_JS = """<script>
   const WIDTH = """ + str(mapchart.WIDTH - mapchart.INSET_L - mapchart.INSET_R) + """;   // the text column
   // on a narrower window (a phone too) the whole page shrinks as one picture, its charts with it, until its 12 px text
   // is 10 px on screen; below that it shrinks no further: its rows wrap and each chart scrolls sideways in its box
-  // (__appMinZoom, __appColumn: for the charts, mapchart.fit_html and space3d)
+  // (__appMinZoom: for the charts, mapchart.fit_html and space3d)
   const MIN_ZOOM = 10 / 12;
   window.__appMinZoom = MIN_ZOOM;
-  window.__appColumn = WIDTH;
   function zoom() {
     if (window.__appZooming) return;                         // (the resize sent below comes back here)
     const root = document.documentElement, main = document.querySelector('[data-testid="stMain"]');
@@ -372,7 +374,7 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
     help_mark = (f'<span title="{html.escape(help_text)}" aria-label="Help: {html.escape(help_text)}" '
                  f'style="cursor:help; display:inline-flex; align-items:center; justify-content:center; '
                  f'width:1.15em; height:1.15em; margin-left:6px; border:1px solid currentColor; border-radius:50%; '
-                 f'opacity:0.55; font-weight:600; font-size:0.85em; line-height:1; vertical-align:middle">?</span>'
+                 f'opacity:0.55; font-weight:600; font-size:12px; line-height:1; vertical-align:middle">?</span>'
                  ) if help_text else ""
     # the First Name right after the title (and its help), on the same line; then a slot (TITLE_SLOT) where a page may
     # put more on this line
@@ -1093,8 +1095,8 @@ def page_globe():
     all_bodies = list(globechart.BODY_CHOICES)
     with_nodes = all_bodies + list(globechart.NODE_CHOICES)   # shown in two rows: Mo Su Me Ve Ma, Ju Sa NN SN
     bodies = options_under("Planets", "bodies", offered("AstroClock-3D", "Planets", with_nodes), default_choice("AstroClock-3D", "Planets"), width=PLANETS_WIDTH)
-    major = options_under("Major Aspects", "major", offered("AstroClock-3D", "Major Aspects", GLOBE_MAJOR), default_choice("AstroClock-3D", "Major Aspects"), width=90)
-    minor = options_under("Minor Aspects", "minor", offered("AstroClock-3D", "Minor Aspects", GLOBE_MINOR), default_choice("AstroClock-3D", "Minor Aspects"), width=90)
+    major = options_under("Major Aspects", "major", offered("AstroClock-3D", "Major Aspects", GLOBE_MAJOR), default_choice("AstroClock-3D", "Major Aspects"), width=94)
+    minor = options_under("Minor Aspects", "minor", offered("AstroClock-3D", "Minor Aspects", GLOBE_MINOR), default_choice("AstroClock-3D", "Minor Aspects"), width=94)
     coords_on = default_choice("AstroClock-3D", "Coordinates")
     coords = head.container(width="content", gap="xxsmall")   # Coordinates, with its options below it in fixed rows
     if coords.pills("Coordinates", ["Coordinates"], default="Coordinates", key="globe_coords_on", label_visibility="collapsed"):
@@ -1113,7 +1115,7 @@ def page_globe():
                               help="R: time runs backwards (the planets and the Earth's turn reversed), with a speed picked."))
     if rotate_on:
         speed = spin.pills("Rotate speed", offered("AstroClock-3D", "Rotate in 1s", SPEED_CHOICES), default=default_choice("AstroClock-3D", "Rotate in 1s"), key="globe_speed",
-                           label_visibility="collapsed", width=124)   # (two rows: 1s, 1m, 1h, 1d; then 1w, 1mo, 1y)
+                           label_visibility="collapsed", width=128)   # (two rows: 1s, 1m, 1h, 1d; then 1w, 1mo, 1y: 28 px circles)
         day_seconds = globechart.SPEEDS.get(speed)
     reverse = reverse and bool(day_seconds)
     manual = day_seconds is None                              # no speed: time stands still, and the Earth is dragged round by hand
@@ -1239,8 +1241,8 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     with_paths = []                                           # (PP, under Coordinates: the paths of the planets shown)
     if flat:      # always Fit
         major_names, minor_names = may("Major Aspects", GLOBE_MAJOR), may("Minor Aspects", GLOBE_MINOR)
-        major = core.in_order(titled(head, "Major Aspects", f"{key}_t_major", major_names, f"{key}_major", start("Major Aspects"), selection_mode="multi", **two_lines(90)), major_names)
-        minor = core.in_order(titled(head, "Minor Aspects", f"{key}_t_minor", minor_names, f"{key}_minor", start("Minor Aspects"), selection_mode="multi", **two_lines(90)), minor_names)
+        major = core.in_order(titled(head, "Major Aspects", f"{key}_t_major", major_names, f"{key}_major", start("Major Aspects"), selection_mode="multi", **two_lines(94)), major_names)
+        minor = core.in_order(titled(head, "Minor Aspects", f"{key}_t_minor", minor_names, f"{key}_minor", start("Minor Aspects"), selection_mode="multi", **two_lines(94)), minor_names)
         aspects = tuple(int(a) for a in major + minor)
         show_au, show_celes = True, True
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ho, PP, 1C and DA below it (the title off: none)
@@ -1262,7 +1264,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     reverse = bool(kept_pills(rotate_top, "Reverse", ["R"], f"{key}_reverse", None, label_visibility="collapsed",
                               help="R: time runs backwards, with a speed picked."))
     speed = (kept_pills(rotate, "Which Rotate in 1s", may("Rotate in 1s", SPEED_CHOICES), f"{key}_speed", start("Rotate in 1s"),
-                        label_visibility="collapsed", **two_lines(124)) if rotate_on else None)   # (AstroClock-2D: 1s .. 1d, then 1w .. 1y)
+                        label_visibility="collapsed", **two_lines(128)) if rotate_on else None)   # (AstroClock-2D: 1s .. 1d, then 1w .. 1y)
     day_seconds = globechart.SPEEDS.get(speed)
     reverse = reverse and bool(day_seconds)
     manual = day_seconds is None and not flat                 # no speed: time stands still, and the drawing is dragged round (the flat

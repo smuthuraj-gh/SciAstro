@@ -27,8 +27,8 @@ RINGS_SHOWN = 6                   # at most this many rings, the outermost ones
 RA_MARKS = (0, 90, 180, 270)
 RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroClock-3D) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
-SMALL_FONT = 10                   # the rings' AU tags, in pixels
-POLE_FONT = 10                    # NCP, SCP and the RA names, in pixels
+SMALL_FONT = 12                   # the rings' AU tags, in pixels
+POLE_FONT = 12                    # NCP, SCP and the RA names, in pixels
 SCP_BEYOND_AU = 20.0              # the axis reaches, both ways on the page, past where a ring this far out would be drawn ...
 SCP_PAST_PX = 22                  # ... by this many pixels, NCP and SCP at its ends
 SIDES = 96                        # a ring is drawn with this many straight pieces
@@ -40,7 +40,7 @@ OUTER_RING_AU = 20.0              # Geo and Helio: a circle beyond the planets, 
 FLAT_RADIUS = 360.0               # pixels from the Earth to that circle
 ONE_CIRCLE_AT = 0.72                # AstroClock-2D's Aspect: every body this far out, of the way to the 12 AU circle
 FLAT_DRAG_DAYS = 0.25             # the flat page with no speed picked: how many days a pixel of dragging moves time
-FLAT_FONT = 10                    # the RA numbers, in pixels
+FLAT_FONT = 12                    # the RA numbers, in pixels
 FLAT_DEC = (30.0, -30.0)          # the Declination graph left of the circle, as tall as it: its top and bottom, in degrees
 
 # HelioCentric: the Sun at the centre, the planets and the Earth round it, and the Moon round the Earth (seen from the Sun it is
@@ -217,10 +217,10 @@ _JS = r"""
   const svg = make("svg", box, {viewBox: D.view.join(" "), width: "100%",
                                 style: "display:block; cursor:grab; touch-action:none; user-select:none"});
   box.style.overflowX = "auto";
-  const swipe = () => {                            // (on screen at least the page's smallest zoom times the column)
+  const swipe = () => {                            // (on screen at least the page's smallest zoom)
     if (!svg.isConnected) return window.removeEventListener("resize", swipe);
     const z = parseFloat(document.documentElement.style.zoom) || 1;
-    svg.style.minWidth = ((window.__appMinZoom || 1) * (window.__appColumn || D.view[2]) / z) + "px";
+    svg.style.minWidth = ((window.__appMinZoom || 1) * D.view[2] / z) + "px";   // (12 px text at 10 px at the least)
     svg.style.touchAction = box.scrollWidth > box.clientWidth + 1 ? "pan-x pan-y" : "none";
   };
   swipe();

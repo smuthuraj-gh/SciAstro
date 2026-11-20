@@ -90,7 +90,7 @@ def fit_html(fig: go.Figure, after_js: str = "") -> str:
     outer.style.width = width + "px";
     // the column's width, shrinking with the page, but no further than the page does (its 12 px text at 10 px on screen):
     // on a narrower window the chart scrolls sideways in its box (its scroll bar below it)
-    const s = Math.max((window.__appMinZoom || 1) * (window.__appColumn || {w}) / {w}, width / {w});
+    const s = Math.max(window.__appMinZoom || 1, width / {w});   // (12 px text at 10 px at the least)
     inner.style.transform = "scale(" + s + ")";
     inner.style.marginRight = ({w} * (s - 1)) + "px";   // (the room it takes is its scaled width: the box scrolls only past that)
     const bar = outer.scrollWidth > outer.clientWidth + 1 ? outer.offsetHeight - outer.clientHeight : 0;
