@@ -790,7 +790,7 @@ __SYMBOL_JS__
   if (!window.globeClock || window.globeClock.key !== D.key) window.globeClock = {key: D.key, t: D.reverse ? D.days : 0, view: 0};
   const clock = window.globeClock;
   if (clock.moving && !D.day_seconds) { clock.t = 0; clock.trailFrom = null; }   // time stopped (no speed, or Rotate in 1s off):
-  clock.moving = !!D.day_seconds;                  // back to the moment, the Timer to 00:00:00:00:00:00
+  clock.moving = !!D.day_seconds;                  // back to the moment, the Timer back at the DOB or Now
   // trails only while time runs: from where it started running, kept across the page's redraws while it runs (so pressing
   // another button does not clear them); none while it stands still, and each start begins new ones
   if (!D.day_seconds) clock.trailFrom = null;

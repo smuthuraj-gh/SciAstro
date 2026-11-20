@@ -392,14 +392,18 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
 # across reruns; built from no user input, so safe to run)
 NOW_CLOCK_JS = """<script>
 (() => {
+  const formats = {};                              // one formatter for each time zone, made once
+  const inZone = (tz, now) => {                    // yyyy-mm-dd hh:mm in that zone (null: a zone the browser does not know)
+    if (!(tz in formats)) try {
+      formats[tz] = new Intl.DateTimeFormat("sv-SE", {timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+                                                      hour: "2-digit", minute: "2-digit", hourCycle: "h23"});
+    } catch (err) { formats[tz] = null; }
+    return formats[tz] ? formats[tz].format(now) : null;
+  };
   const tick = () => {
-    const ut = "Now " + new Date().toISOString().slice(0, 16).replace("T", " ");   // to the minute, no seconds, the zone not written
+    const now = new Date(), ut = now.toISOString().slice(0, 16).replace("T", " ");   // to the minute, no seconds, the zone not written
     document.querySelectorAll(".now-clock").forEach((e) => {
-      let text = ut;                                 // in CN's time zone (its data-tz) when the customer has a CN, else UT
-      if (e.dataset.tz) try {
-        text = "Now " + new Intl.DateTimeFormat("sv-SE", {timeZone: e.dataset.tz, year: "numeric", month: "2-digit", day: "2-digit",
-                                                         hour: "2-digit", minute: "2-digit", hourCycle: "h23"}).format(new Date());
-      } catch (err) { text = ut; }                   // (a zone the browser does not know: UT)
+      const text = "Now " + ((e.dataset.tz && inZone(e.dataset.tz, now)) || ut);   // CN's time zone (its data-tz), else UT
       if (e.textContent !== text) e.textContent = text;
     });
   };
