@@ -337,7 +337,7 @@ def place_label(row: pd.Series | None, suffix: str = "") -> str:
 
 def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
     """Every page's top line: its title (with its help), then the chosen customer's First and Last Name, their DOB when
-    there is one with CB, the birth place, and the Now clock (UT, to the second) with CN, the place now, when known."""
+    there is one with the birth place, and the Now clock (UT, to the second) with the place now, when known."""
     TABLES_DRAWN["n"] = 0                                      # (each run: the same keys for the same tables)
     # one row drawn here (not Streamlit's row, which can wrap the name onto a line of its own): both on one baseline
     name = ""
@@ -363,9 +363,9 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
         + ('<span class="globe-clock" style="white-space:pre; font-weight:400; margin-left:12px"></span>'   # the chart's Timer, next to the name (its script writes it)
            if title in ("AstroClock-2D", "AstroClock-3D", "Geo/Helio Model") else "")
         + (f'<span class="dob-label" style="font-weight:400; margin-left:12px">{html.escape(dob)}'
-           + (f' CB {html.escape(cb)}' if (cb := place_label(row)) else "") + '</span>' if (dob := birth_label(row, prep)) else "") +
+           + (f' {html.escape(cb)}' if (cb := place_label(row)) else "") + '</span>' if (dob := birth_label(row, prep)) else "") +
         '<span class="now-clock" style="font-weight:400; margin-left:12px"></span>'   # (NOW_CLOCK_JS writes it)
-        + (f'<span class="now-place" style="font-weight:400; margin-left:6px">CN {html.escape(cn)}</span>'
+        + (f'<span class="now-place" style="font-weight:400; margin-left:6px">{html.escape(cn)}</span>'
            if (cn := place_label(row, "_n")) and prep is not None and getattr(prep, "cn", None) else "") +
         '</span>'
         f'</div>' + NOW_CLOCK_JS, unsafe_allow_javascript=True)
