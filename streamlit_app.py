@@ -120,6 +120,10 @@ st.html("""<script>
     set(v) { canvasFont.set.call(this, String(v).replace("10.5px", "10px")); }});
   const WIDTH = """ + str(mapchart.WIDTH - mapchart.INSET_L - mapchart.INSET_R) + """;   // the text column
   const MIN_ZOOM = 0.2;                                     // (only so a page never shrinks to nothing: the whole page scales as one picture)
+  // a phone (a touch screen with a small screen): never below this, so that 12 px text is 10 px on screen, as the tables
+  // are (they undo the zoom: at a third, the rest was 4 px beside them); its rows wrap and each chart is the column's width
+  const PHONE_ZOOM = 10 / 12;
+  const phone = () => window.matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) < 768;
   function zoom() {
     if (window.__appZooming) return;                         // (the resize sent below comes back here)
     const root = document.documentElement, main = document.querySelector('[data-testid="stMain"]');
@@ -131,8 +135,8 @@ st.html("""<script>
     // the main area's width inside its scrollbar (beside any open sidebar), on screen, made WIDTH + padding wide;
     // with the sidebar open its width on screen changes with the zoom, so each check comes a step closer
     // at any width (MIN_ZOOM only a floor against nothing): the whole page shrinks as one picture, the same layout at every
-    // width, a phone's too (its text then smaller than 10 px on screen; two fingers enlarge it)
-    const want = Math.max(MIN_ZOOM, z * main.clientWidth / (WIDTH + pad));
+    // width; but on a phone no smaller than PHONE_ZOOM, all its text readable
+    const want = Math.max(phone() ? PHONE_ZOOM : MIN_ZOOM, z * main.clientWidth / (WIDTH + pad));
     if (Math.abs(want - z) > 0.001) {
       root.style.zoom = want;
       root.style.setProperty("--app-zoom", want);
