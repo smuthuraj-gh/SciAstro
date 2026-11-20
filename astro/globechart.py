@@ -499,7 +499,7 @@ __SYMBOL_JS__
   const clockLine = (s, t) => {                    // its date and time, at its place's UTC offset
     const known = s.offset !== null && s.offset !== undefined, off = known ? s.offset : 0;
     const ms = (s.jd + t - 2440587.5) * 86400000 + off * 3600000 + 500;       // to the nearest second
-    return "Timer " + new Date(ms).toISOString().slice(0, 19).replace("T", " ");   // (local time at its place's UTC offset, else UT; the zone not written)   // (the moment the chart shows, from Now or DOB: Timer)
+    return "Timer " + new Date(ms).toISOString().slice(11, 19);   // HH:MM:SS only (local time at its place's UTC offset, else UT; the zone and the date not written)   // (the moment the chart shows, from Now or DOB: Timer)
   };
   const showClocks = (t) => {                      // in the page's clock, beside the customer's name
     const box = document.querySelector(".globe-clock");
