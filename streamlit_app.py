@@ -117,7 +117,7 @@ st.html("""<script>
   Object.defineProperty(CanvasRenderingContext2D.prototype, "font", {configurable: true, get() { return canvasFont.get.call(this); },
     set(v) { canvasFont.set.call(this, String(v).replace("10.5px", "10px")); }});
   const WIDTH = """ + str(mapchart.WIDTH - mapchart.INSET_L - mapchart.INSET_R) + """;   // the text column
-  const MIN_ZOOM = 10 / 12;
+  const MIN_ZOOM = 0.2;                                     // (only so a page never shrinks to nothing: the whole page scales as one picture)
   function zoom() {
     if (window.__appZooming) return;                         // (the resize sent below comes back here)
     const root = document.documentElement, main = document.querySelector('[data-testid="stMain"]');
@@ -128,8 +128,8 @@ st.html("""<script>
     const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
     // the main area's width inside its scrollbar (beside any open sidebar), on screen, made WIDTH + padding wide;
     // with the sidebar open its width on screen changes with the zoom, so each check comes a step closer
-    // but never below MIN_ZOOM, so that 12 px text stays at least 10 px on screen: on a phone the column is then narrower
-    // than WIDTH, the page's rows wrap, and each chart is scaled down as a picture to the column (two fingers enlarge it)
+    // at any width (MIN_ZOOM only a floor against nothing): the whole page shrinks as one picture, the same layout at every
+    // width, a phone's too (its text then smaller than 10 px on screen; two fingers enlarge it)
     const want = Math.max(MIN_ZOOM, z * main.clientWidth / (WIDTH + pad));
     if (Math.abs(want - z) > 0.001) {
       root.style.zoom = want;
@@ -1079,8 +1079,7 @@ def page_globe():
         # (the HTML is built only from the chart and the tables, never from what a user typed: safe to run) the script draws
         # the Earth as a globe, and with a speed picked moves the planets and turns the Earth
         st.html(mapchart.fit_html(fig, after_js=space3dview.space_js("Ea", bodies, at, day_seconds if moving else None, spots,
-                                                                     {m[0]: m[2] for m in moments}, "SpC" in shown, reverse),
-                                  fit_height=False),   # (AstroClock-3D: the page's width, scrolled down for the rest)
+                                                                     {m[0]: m[2] for m in moments}, "SpC" in shown, reverse)),
                 unsafe_allow_javascript=True)
         return
     g = globechart.GlobeInput(
@@ -1092,7 +1091,7 @@ def page_globe():
         utc_birth=prep.utc, utc_now=utc_now)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
-                              after_js=globechart.globe_js(g, day_seconds, manual, reverse), fit_height=False),   # (the page's width)
+                              after_js=globechart.globe_js(g, day_seconds, manual, reverse)),
             unsafe_allow_javascript=True)
 
 

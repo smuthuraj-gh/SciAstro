@@ -214,20 +214,6 @@ _JS = r"""
   };
   const svg = make("svg", box, {viewBox: D.view.join(" "), width: "100%",
                                 style: "display:block; cursor:grab; touch-action:none; user-select:none"});
-  {                                                // the whole drawing in the window, below what is above it (its top
-    svg.setAttribute("preserveAspectRatio", "xMinYMin meet");   // left kept there), at any window size, again when it is resized
-    const main = document.querySelector('[data-testid="stMain"]');
-    const fitHeight = () => {
-      if (!svg.isConnected) return window.removeEventListener("resize", fitHeight);
-      const z = parseFloat(document.documentElement.style.zoom) || 1;   // (the page's zoom: sizes measured zoomed, set unzoomed)
-      const top = svg.getBoundingClientRect().top + (main ? main.scrollTop : 0) * z + window.scrollY;
-      svg.style.height = Math.max(240, (window.innerHeight - top - 12) / z) + "px";
-    };
-    if (window._fit2d) window.removeEventListener("resize", window._fit2d);
-    window._fit2d = fitHeight;
-    window.addEventListener("resize", fitHeight);
-    fitHeight(); setTimeout(fitHeight, 300);       // (at once, and again once the rest of the page has settled)
-  }
   const words = (fill, size) => make("text", svg, {"font-weight": "bold", "font-size": size || D.font, "font-family": D.family, stroke: "white",
                                              "stroke-width": 3, "paint-order": "stroke", "text-anchor": "middle", fill});
 __SYMBOL_JS__
