@@ -1133,13 +1133,18 @@ def titled(head, title: str, title_key: str, options, key: str, default=None, **
     return kept_pills(box, f"Which {title}", options, key, default, label_visibility="collapsed", **kw)
 
 
-def coords_below(coords, keys: dict, names: list, on: list, title_key: str) -> list:
+def coords_below(coords, keys: dict, names: list, on: list, title_key: str, rows: int = 1) -> list:
     """The Coordinates title button and, below it, an on / off button for each of names (keys: each one's key): those on
-    (none while the title is off). Each starts on when on (the Defaults row Coordinates) names it."""
+    (none while the title is off). Each starts on when on (the Defaults row Coordinates) names it. rows: on that many lines
+    (as AstroClock-3D's two), else one."""
     if not kept_pills(coords, "Coordinates", ["Coordinates"], title_key, "Coordinates", label_visibility="collapsed"):
         return []
-    below = coords.container(horizontal=True, width="content", gap="xxsmall")
-    return [n for n in names if kept_pills(below, n, [n], keys[n], n if n in (on or []) else None, label_visibility="collapsed")]
+    per = -(-len(names) // max(1, rows))                      # (so many a line, the first lines full)
+    out = []
+    for i in range(0, len(names), per or 1):
+        below = coords.container(horizontal=True, width="content", gap="xxsmall")
+        out += [n for n in names[i:i + per] if kept_pills(below, n, [n], keys[n], n if n in (on or []) else None, label_visibility="collapsed")]
+    return out
 
 
 def time_on_top_line(when: str | None) -> None:
@@ -1178,14 +1183,14 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     with_paths = []                                           # (PP, under Coordinates: the paths of the planets shown)
     if flat:      # always Fit
         major_names, minor_names = may("Major Aspects", GLOBE_MAJOR), may("Minor Aspects", GLOBE_MINOR)
-        major = core.in_order(titled(head, "Major Aspects", f"{key}_t_major", major_names, f"{key}_major", start("Major Aspects"), selection_mode="multi"), major_names)
-        minor = core.in_order(titled(head, "Minor Aspects", f"{key}_t_minor", minor_names, f"{key}_minor", start("Minor Aspects"), selection_mode="multi"), minor_names)
+        major = core.in_order(titled(head, "Major Aspects", f"{key}_t_major", major_names, f"{key}_major", start("Major Aspects"), selection_mode="multi", **two_lines(90)), major_names)
+        minor = core.in_order(titled(head, "Minor Aspects", f"{key}_t_minor", minor_names, f"{key}_minor", start("Minor Aspects"), selection_mode="multi", **two_lines(90)), minor_names)
         aspects = tuple(int(a) for a in major + minor)
         show_au, show_celes = True, True
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ho, PP, 1C and DA below it (the title off: none)
         # (DA: the Ave planets on the Distance(%) graph; which start on, and which are there: the Defaults row Coordinates)
         on = coords_below(coords, {"Ho": f"{key}_houses", "PP": f"{key}_pp", "1C": f"{key}_one_circle", "DA": f"{key}_dav"},
-                          may("Coordinates", ["Ho", "PP", "1C", "DA"]), start("Coordinates"), f"{key}_t_coords")
+                          may("Coordinates", ["Ho", "PP", "1C", "DA"]), start("Coordinates"), f"{key}_t_coords", rows=2)   # (two lines, as AstroClock-3D's)
         show_houses, one_circle, show_ave = "Ho" in on, "1C" in on, "DA" in on
         with_paths = list(bodies) if "PP" in on else []
     else:
@@ -1201,7 +1206,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     reverse = bool(kept_pills(rotate_top, "Reverse", ["R"], f"{key}_reverse", None, label_visibility="collapsed",
                               help="R: time runs backwards, with a speed picked."))
     speed = (kept_pills(rotate, "Which Rotate in 1s", may("Rotate in 1s", SPEED_CHOICES), f"{key}_speed", start("Rotate in 1s"),
-                        label_visibility="collapsed") if rotate_on else None)
+                        label_visibility="collapsed", **two_lines(124)) if rotate_on else None)   # (AstroClock-2D: 1s .. 1d, then 1w .. 1y)
     day_seconds = globechart.SPEEDS.get(speed)
     reverse = reverse and bool(day_seconds)
     manual = day_seconds is None and not flat                 # no speed: time stands still, and the drawing is dragged round (the flat
