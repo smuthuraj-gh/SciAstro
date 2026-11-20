@@ -345,9 +345,10 @@ def place_label(row: pd.Series | None, suffix: str = "") -> str:
 
 def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
     """Every page's top line: its title (with its help), then the chosen customer's First and Last Name, their DOB when
-    there is one and the Now clock (UT, to the minute), each after its place (the birth place, the place now, when known),
+    there is one and the Now clock (in CN's time zone, else UT, to the minute), each after its place (the birth place, the place now, when known),
     and a chart's Timer last."""
     TABLES_DRAWN["n"] = 0                                      # (each run: the same keys for the same tables)
+    now_tz = (getattr(prep, "cn_tz", None) or "") if prep is not None else ""   # the Now clock's zone: CN's (none: UT)
     # one row drawn here (not Streamlit's row, which can wrap the name onto a line of its own): both on one baseline
     name = ""
     if row is not None:                                       # First Name and Last Name (blank parts left out)
@@ -378,7 +379,7 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
         + (f'<span class="now-place" style="font-weight:400; white-space:nowrap">{html.escape(cn)}</span>'
            if (cn := place_label(row, "_n")) and prep is not None and getattr(prep, "cn", None) else "")
         + (f'<span class="dob-label" style="font-weight:400; white-space:nowrap">{html.escape(dob)}</span>' if (dob := birth_label(row, prep)) else "") +
-        '<span class="now-clock" style="font-weight:400; white-space:nowrap"></span>'   # (NOW_CLOCK_JS writes it)
+        f'<span class="now-clock" data-tz="{html.escape(now_tz)}" style="font-weight:400; white-space:nowrap"></span>'   # (NOW_CLOCK_JS writes it)
         + ('<span class="globe-clock" style="white-space:pre; font-weight:400"></span>'   # the chart's Timer, at the end (its script writes it)
            if title in ("AstroClock-2D", "AstroClock-3D", "Geo/Helio Model") else "") +
         '</span>'
@@ -387,13 +388,20 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
     TITLE_SLOT = line.container(width="stretch", horizontal=True, gap="small")
 
 
-# the Now clock beside the name on every page's top line: the time now, UT, to the minute (one timer for the page, kept
+# the Now clock beside the name on every page's top line: the time now, in CN's time zone (else UT), to the minute (one timer for the page, kept
 # across reruns; built from no user input, so safe to run)
 NOW_CLOCK_JS = """<script>
 (() => {
   const tick = () => {
-    const text = "Now " + new Date().toISOString().slice(0, 16).replace("T", " ");   // to the minute, no seconds (UT, not written)
-    document.querySelectorAll(".now-clock").forEach((e) => { if (e.textContent !== text) e.textContent = text; });
+    const ut = "Now " + new Date().toISOString().slice(0, 16).replace("T", " ");   // to the minute, no seconds, the zone not written
+    document.querySelectorAll(".now-clock").forEach((e) => {
+      let text = ut;                                 // in CN's time zone (its data-tz) when the customer has a CN, else UT
+      if (e.dataset.tz) try {
+        text = "Now " + new Intl.DateTimeFormat("sv-SE", {timeZone: e.dataset.tz, year: "numeric", month: "2-digit", day: "2-digit",
+                                                         hour: "2-digit", minute: "2-digit", hourCycle: "h23"}).format(new Date());
+      } catch (err) { text = ut; }                   // (a zone the browser does not know: UT)
+      if (e.textContent !== text) e.textContent = text;
+    });
   };
   tick();
   // one timer for the page: this one, in place of any earlier one (a page left open from before an update kept running
