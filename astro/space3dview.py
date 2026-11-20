@@ -232,7 +232,7 @@ def globe_moment(moments) -> float | None:
 
 
 def space_js(centre: str, bodies, moments, day_seconds: float | None, places: dict | None = None,
-             offsets: dict | None = None, show_links: bool = False) -> str:
+             offsets: dict | None = None, show_links: bool = False, reverse: bool = False) -> str:
     """Rotate in 1s, for the 3D view: time runs from each moment, day_seconds a day of it (the speed picked), and each body's
     marker moves to where it really was then, its hover box with it; the clock of each moment at the top. The tables are
     the same as the other pages' (72 years of RA, De and distance), and the markers are found by their names. Geo: the
@@ -242,6 +242,8 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     from . import globechart, space3d
     c = CENTRE[centre]
     tables = {}
+    if reverse and day_seconds:                               # R: the tables from RUN_DAYS before each moment, run backwards from its end
+        moments = [(k, jd - space3d.RUN_DAYS) for k, jd in moments]
     for clock, jd in moments:
         for name in bodies:
             if name in ("NN", "SN"):
@@ -280,7 +282,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
                                                  km=BODY_RADIUS_KM[rule["of"]])
     # the clock beside the customer's name, as the drawing's: each moment's date and time at its place's UTC offset
     clocks = [dict(clock=clock, jd=jd, offset=(offsets or {}).get(clock)) for clock, jd in moments]
-    data = dict(tables=tables, day_seconds=day_seconds, days=space3d.RUN_DAYS, clocks=clocks,
+    data = dict(tables=tables, day_seconds=day_seconds, days=space3d.RUN_DAYS, clocks=clocks, reverse=bool(reverse and day_seconds),
                 fit_r=c["fit_r"], log_from=c["log_from"], gap=list(c["gap"]), word=c["name"].lower(), globe=globe,
                 rules=rules, sizing=sizing, mark_scale=MARK_SCALE, symbol_px=SYMBOL_PX, symbol_least=SYMBOL_LEAST, symbol_font=list(SYMBOL_FONT), au_km=core.AU_KM, arcsec=list(SIZE_RANGE_ARCSEC), radii=list(MARKER_RANGE))
     return ("const M = " + json.dumps(data, separators=(",", ":")).replace("<", "\\u003c") + ";\n" + """
@@ -399,7 +401,8 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
   const started = performance.now();
   const tick = () => {
     if (!gd.isConnected) return;                   // (a newer drawing has replaced this one)
-    const t = ((performance.now() - started) / 1000 / M.day_seconds) % M.days;   // days on from each moment
+    const run = ((performance.now() - started) / 1000 / M.day_seconds) % M.days;
+    const t = M.reverse ? M.days - run : run;      // days on from each moment (R: back from the tables' end, the moment)
     const xs = [], ys = [], zs = [], tips = [];
     keys.forEach((k) => {
       const tb = M.tables[k], s = sample(tb, t), r = reach(s.dist), cd = Math.cos(s.dec * RAD);

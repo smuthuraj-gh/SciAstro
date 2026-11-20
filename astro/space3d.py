@@ -119,7 +119,8 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
 def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
                centre: str = "Ea", flat: bool = False, places: dict | None = None, ave_jds: dict | None = None,
-               aspects: tuple = (), orbs: core.Orbs | None = None, one_circle: bool = False, show_celes: bool = True) -> dict:
+               aspects: tuple = (), orbs: core.Orbs | None = None, one_circle: bool = False, show_celes: bool = True,
+               reverse: bool = False) -> dict:
     """For each moment and body: its table to move it by, and (those in with_paths; all with None) its path, which the page draws
     as a trail behind it, where it has really been since the moment, kept for the whole run (72 years).
     moments: (Now or DOB, Julian day, UTC offset). centre: Ea (GeoCentric) or Su (HelioCentric). The drawing's size does not
@@ -197,7 +198,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, show_celes=show_celes, log_from=at["log_from"], gap=at["gap"],
                 scp_ring=reach(SCP_BEYOND_AU), scp_past=SCP_PAST_PX, sides=SIDES, small_font=SMALL_FONT, pole_font=POLE_FONT, key=("flat" if flat else "") + centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
-                step_ms=max(40, min(1000, int((day_seconds or 60.0) * 2.5))), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
+                reverse=bool(reverse and day_seconds), step_ms=max(40, min(1000, int((day_seconds or 60.0) * 2.5))), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=SYMBOL_FONT_FAMILY, one_circle=bool(flat and one_circle), one_circle_at=ONE_CIRCLE_AT, ra_marks=[] if flat else [dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
 
@@ -217,7 +218,7 @@ _JS = r"""
                                              "stroke-width": 3, "paint-order": "stroke", "text-anchor": "middle", fill});
 __SYMBOL_JS__
   const view = window.space3dView || (window.space3dView = {yaw: 90, pitch: 45});
-  if (!window.space3dClock || window.space3dClock.key !== D.key) window.space3dClock = {key: D.key, t: 0};
+  if (!window.space3dClock || window.space3dClock.key !== D.key) window.space3dClock = {key: D.key, t: D.reverse ? D.days : 0};
   const clock = window.space3dClock;              // the days run since each moment: kept when a button is pressed
   const sample = (b, t) => {                       // between its two nearest table rows (its exact place at the start)
     if (t === 0 && b.at0) return b.at0;
@@ -524,13 +525,13 @@ __SYMBOL_JS__
   // a trail is drawn only while time runs: from where the body was when it started running (each start clears the last one)
   // (kept across the page's redraws while time runs, so pressing another button does not clear them)
   if (!D.day_seconds) clock.trailFrom = null;
-  else if (clock.trailFrom === null || clock.trailFrom === undefined || clock.trailFrom > clock.t) clock.trailFrom = clock.t;
+  else if (clock.trailFrom === null || clock.trailFrom === undefined || (D.reverse ? clock.trailFrom < clock.t : clock.trailFrom > clock.t)) clock.trailFrom = clock.t;
   let trailFrom = D.day_seconds ? clock.trailFrom : null;
   const trail = (p, t) => {                        // where the body has really been since time started running
-    const times = [], run = trailFrom === null ? 0 : t - trailFrom;
+    const times = [], run = trailFrom === null ? 0 : Math.abs(t - trailFrom), way = t >= (trailFrom || 0) ? 1 : -1;   // (R: back in time)
     let gap = p.days / p.steps;
     while (run / gap > TRAIL_MOST) gap *= 2;         // (by doubling, so that the points stay where they were as it grows)
-    for (let n = 0; n * gap < run; n++) times.push(trailFrom + n * gap);
+    for (let n = 0; n * gap < run; n++) times.push(trailFrom + way * n * gap);
     if (run > 0) times.push(t);                     // to the body itself
     const got = times.map((u) => posAt(p.clock, p.body, u)), samples = got.map((g) => g.s);
     p.pts = got.map((g) => g.p);
@@ -753,9 +754,10 @@ __SYMBOL_JS__
     const timer = setInterval(() => {
       if (!document.body.contains(svg)) return clearInterval(timer);
       const now = performance.now();
-      clock.t += (now - last) / 1000 / D.day_seconds;
+      clock.t += (D.reverse ? -1 : 1) * (now - last) / 1000 / D.day_seconds;   // (R: back in time)
       last = now;
-      if (clock.t >= D.days) { clock.t = 0; trailFrom = clock.trailFrom = 0; }   // the end of the tables: from the start again, the trails too
+      if (!D.reverse && clock.t >= D.days) { clock.t = 0; trailFrom = clock.trailFrom = 0; }   // the end of the tables: from the start again, the trails too
+      if (D.reverse && clock.t <= 0) { clock.t = D.days; trailFrom = clock.trailFrom = D.days; }   // (R: at their start, from the end again)
       draw();
     }, D.step_ms);
   }
@@ -791,9 +793,15 @@ __SYMBOL_JS__
 def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
                centre: str = "Ea", flat: bool = False, places: dict | None = None, ave_jds: dict | None = None,
-               aspects: tuple = (), orbs: core.Orbs | None = None, one_circle: bool = False, show_celes: bool = True) -> str:
+               aspects: tuple = (), orbs: core.Orbs | None = None, one_circle: bool = False, show_celes: bool = True,
+               reverse: bool = False) -> str:
     """show_au (AU): the rings of distance and their AU tags; show_celes (Ce): the celestial coordinates, the axis with NCP
     and SCP and the RA spokes with their names."""
     uid = "space-" + uuid.uuid4().hex[:8]
-    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places, ave_jds, aspects, orbs, one_circle, show_celes)).replace("<", chr(92) + "u003c")
+    if reverse and day_seconds:                               # R: the tables from RUN_DAYS before each moment, run backwards from its end
+        moments = [(c, jd - RUN_DAYS, o) for c, jd, o in moments]
+        ave_jds = {c: jd - RUN_DAYS for c, jd in ave_jds.items()} if ave_jds else ave_jds
+        key += "|R"
+    data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places, ave_jds,
+                                 aspects, orbs, one_circle, show_celes, reverse)).replace("<", chr(92) + "u003c")
     return f'<div id="{uid}"></div><script>{_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data).replace("__ID__", uid)}</script>'

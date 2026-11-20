@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 
 import plotly.graph_objects as go
@@ -303,7 +303,7 @@ def _paths(g: GlobeInput) -> list[dict]:
     return out
 
 
-def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False) -> dict:
+def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False, reverse: bool = False) -> dict:
     """All the page needs to place the bodies at any moment after the start."""
     jd, facing = _start(g)
     lat0, roll0 = _view()
@@ -332,7 +332,8 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False)
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
                 node_names=[n for n in NODE_CHOICES if n in g.bodies], name_order=ASPECT_NAMES, shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, place_apart=PLACE_APART, size_rules={p: core.size_rule(p, texts=core.SIZE_TEXTS_GLOBE) for p in core.BUTTON_ORDER + ["NN", "SN", "CB", "CN"]}, family=SYMBOL_FONT_FAMILY, node_colours={n: core.colour(n) for n in ("NN", "SN")}, manual=manual, show_houses=g.show_houses, house_colour=HOUSE_COLOUR,
                 by_distance=g.show_distance, show_links=g.show_links, show_spokes=g.show_spokes, dist_au=DIST_AU, dist_inner=DIST_INNER,
-                house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, min(1000, int((day_seconds or 60.0) * 2.5))))
+                house_dec=HOUSE_LABEL_DEC, house_value_dec=HOUSE_VALUE_DEC, step_ms=max(40, min(1000, int((day_seconds or 60.0) * 2.5))),
+                reverse=bool(reverse and day_seconds))   # R: time runs back (the tables then end at the moments: see globe_js)
 
 
 def globe_figure(g: GlobeInput) -> go.Figure:
@@ -573,11 +574,11 @@ __SYMBOL_JS__
     return [(ra + p.turn + 720) % 360, p.sign * dec];
   };
   const trail = (p, t) => {                        // where the body has really been since time started running
-    const run = trailFrom === null ? 0 : t - trailFrom;
+    const run = trailFrom === null ? 0 : Math.abs(t - trailFrom), way = t >= (trailFrom || 0) ? 1 : -1;   // (R: back in time)
     let gap = p.days / p.steps;
     while (run / gap > TRAIL_MOST) gap *= 2;         // (by doubling, so that the points stay where they were as it grows)
     p.pts = [];
-    for (let n = 0; n * gap < run; n++) p.pts.push(trailAt(p, trailFrom + n * gap));
+    for (let n = 0; n * gap < run; n++) p.pts.push(trailAt(p, trailFrom + way * n * gap));
     if (run > 0) p.pts.push(trailAt(p, t));         // to the body itself
     const decs = p.pts.map((q) => q[1]), show = (v) => (v >= 0 ? "+" : "") + v.toFixed(2), days = Math.round(run);
     const aus = p.pts.filter((q) => q.length > 3).map((q) => q[3]);
@@ -785,12 +786,12 @@ __SYMBOL_JS__
     } else Plotly.relayout(gd, turn).then(done);
   };
   const facing = (t) => (((D.lon0 - D.spin * t - clock.view + 540) % 360) + 360) % 360 - 180;
-  if (!window.globeClock || window.globeClock.key !== D.key) window.globeClock = {key: D.key, t: 0, view: 0};
+  if (!window.globeClock || window.globeClock.key !== D.key) window.globeClock = {key: D.key, t: D.reverse ? D.days : 0, view: 0};
   const clock = window.globeClock;
   // trails only while time runs: from where it started running, kept across the page's redraws while it runs (so pressing
   // another button does not clear them); none while it stands still, and each start begins new ones
   if (!D.day_seconds) clock.trailFrom = null;
-  else if (clock.trailFrom === null || clock.trailFrom === undefined || clock.trailFrom > clock.t) clock.trailFrom = clock.t;
+  else if (clock.trailFrom === null || clock.trailFrom === undefined || (D.reverse ? clock.trailFrom < clock.t : clock.trailFrom > clock.t)) clock.trailFrom = clock.t;
   trailFrom = D.day_seconds ? clock.trailFrom : null;
   place(clock.t);
   let busy = false;
@@ -801,9 +802,10 @@ __SYMBOL_JS__
       if (!document.body.contains(gd)) return clearInterval(timer);
       if (busy) return;
       const now = performance.now();
-      clock.t += (now - last) / 1000 / D.day_seconds;
+      clock.t += (D.reverse ? -1 : 1) * (now - last) / 1000 / D.day_seconds;   // (R: back in time)
       last = now;
-      if (clock.t >= D.days) { clock.t = 0; trailFrom = clock.trailFrom = 0; }   // the end of the tables: from the start again, the trails too
+      if (!D.reverse && clock.t >= D.days) { clock.t = 0; trailFrom = clock.trailFrom = 0; }   // the end of the tables: from the start again, the trails too
+      if (D.reverse && clock.t <= 0) { clock.t = D.days; trailFrom = clock.trailFrom = D.days; }   // (R: at their start, from the end again)
       place(clock.t);
       redraw(clock.t);
     }, D.step_ms);
@@ -852,8 +854,11 @@ __SYMBOL_JS__
 """
 
 
-def globe_js(g: GlobeInput, day_seconds: float | None, manual: bool = False) -> str:
+def globe_js(g: GlobeInput, day_seconds: float | None, manual: bool = False, reverse: bool = False) -> str:
     """Puts the celestial sphere over the chart, under Plotly's hover boxes, and moves what is on it; day_seconds is how many
     seconds a day takes, None with no speed picked; with manual, dragging the chart turns the view, time standing still."""
-    data = json.dumps(_motion_data(g, day_seconds, manual)).replace("<", chr(92) + "u003c")
+    if reverse and day_seconds:                               # R: the tables from MOTION_DAYS before each moment, run backwards from its end
+        g = replace(g, jd_birth=None if g.jd_birth is None else g.jd_birth - MOTION_DAYS,
+                    jd_now=None if g.jd_now is None else g.jd_now - MOTION_DAYS)
+    data = json.dumps(_motion_data(g, day_seconds, manual, reverse)).replace("<", chr(92) + "u003c")
     return _MOTION_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data)
