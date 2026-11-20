@@ -1079,7 +1079,8 @@ def page_globe():
         # (the HTML is built only from the chart and the tables, never from what a user typed: safe to run) the script draws
         # the Earth as a globe, and with a speed picked moves the planets and turns the Earth
         st.html(mapchart.fit_html(fig, after_js=space3dview.space_js("Ea", bodies, at, day_seconds if moving else None, spots,
-                                                                     {m[0]: m[2] for m in moments}, "SpC" in shown, reverse)),
+                                                                     {m[0]: m[2] for m in moments}, "SpC" in shown, reverse),
+                                  fit_height=False),   # (AstroClock-3D: the page's width, scrolled down for the rest)
                 unsafe_allow_javascript=True)
         return
     g = globechart.GlobeInput(
@@ -1091,7 +1092,7 @@ def page_globe():
         utc_birth=prep.utc, utc_now=utc_now)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
-                              after_js=globechart.globe_js(g, day_seconds, manual, reverse)),
+                              after_js=globechart.globe_js(g, day_seconds, manual, reverse), fit_height=False),   # (the page's width)
             unsafe_allow_javascript=True)
 
 
