@@ -326,9 +326,18 @@ def birth_label(row: pd.Series | None, prep: Prepared | None) -> str:
     return f"DOB {y}-{m:02d}-{d:02d}" + (f" {hr:02d}:{mn or 0:02d}" if hr is not None else "")
 
 
+def place_label(row: pd.Series | None, suffix: str = "") -> str:
+    """A customer's place as City, State, Country (blank parts left out): the birth place (suffix ''), or the place now
+    (suffix '_n'); blank when none is kept."""
+    if row is None:
+        return ""
+    parts = [row.get(f + suffix) for f in ("city", "state", "country")]
+    return ", ".join(str(p).strip() for p in parts if p is not None and not (isinstance(p, float) and pd.isna(p)) and str(p).strip())
+
+
 def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
     """Every page's top line: its title (with its help), then the chosen customer's First and Last Name, their DOB when
-    there is one, and the Now clock (UT, to the second)."""
+    there is one with CB, the birth place, and the Now clock (UT, to the second) with CN, the place now, when known."""
     TABLES_DRAWN["n"] = 0                                      # (each run: the same keys for the same tables)
     # one row drawn here (not Streamlit's row, which can wrap the name onto a line of its own): both on one baseline
     name = ""
@@ -353,8 +362,11 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
         f'<span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{html.escape(name)}'
         + ('<span class="globe-clock" style="white-space:pre; font-weight:400; margin-left:12px"></span>'   # the chart's Timer, next to the name (its script writes it)
            if title in ("AstroClock-2D", "AstroClock-3D", "Geo/Helio Model") else "")
-        + (f'<span class="dob-label" style="font-weight:400; margin-left:12px">{html.escape(dob)}</span>' if (dob := birth_label(row, prep)) else "") +
+        + (f'<span class="dob-label" style="font-weight:400; margin-left:12px">{html.escape(dob)}'
+           + (f' CB {html.escape(cb)}' if (cb := place_label(row)) else "") + '</span>' if (dob := birth_label(row, prep)) else "") +
         '<span class="now-clock" style="font-weight:400; margin-left:12px"></span>'   # (NOW_CLOCK_JS writes it)
+        + (f'<span class="now-place" style="font-weight:400; margin-left:6px">CN {html.escape(cn)}</span>'
+           if (cn := place_label(row, "_n")) and prep is not None and getattr(prep, "cn", None) else "") +
         '</span>'
         f'</div>' + NOW_CLOCK_JS, unsafe_allow_javascript=True)
     # the slot fills the rest of the line
@@ -1094,7 +1106,7 @@ def coords_below(coords, keys: dict, names: list, on: list, title_key: str) -> l
 def time_on_top_line(when: str | None) -> None:
     """A page with DOB and Now buttons shows on its top line only the one picked: DOB (the birth) or Now (the clock); neither
     with Time off."""
-    hide = {"DOB": [".now-clock"], "Now": [".dob-label"]}.get(when, [".now-clock", ".dob-label"])
+    hide = {"DOB": [".now-clock", ".now-place"], "Now": [".dob-label"]}.get(when, [".now-clock", ".now-place", ".dob-label"])
     st.html(f"<style>{', '.join(hide)} {{ display: none; }}</style>")
 
 
