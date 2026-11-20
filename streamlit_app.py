@@ -345,7 +345,7 @@ def place_label(row: pd.Series | None, suffix: str = "") -> str:
 
 def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
     """Every page's top line: its title (with its help), then the chosen customer's First and Last Name, their DOB when
-    there is one and the Now clock (UT, to the second), each after its place (the birth place, the place now, when known),
+    there is one and the Now clock (UT, to the minute), each after its place (the birth place, the place now, when known),
     and a chart's Timer last."""
     TABLES_DRAWN["n"] = 0                                      # (each run: the same keys for the same tables)
     # one row drawn here (not Streamlit's row, which can wrap the name onto a line of its own): both on one baseline
@@ -387,12 +387,12 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
     TITLE_SLOT = line.container(width="stretch", horizontal=True, gap="small")
 
 
-# the Now clock beside the name on every page's top line: the time now, UT, to the second (one timer for the page, kept
+# the Now clock beside the name on every page's top line: the time now, UT, to the minute (one timer for the page, kept
 # across reruns; built from no user input, so safe to run)
 NOW_CLOCK_JS = """<script>
 (() => {
   const tick = () => {
-    const text = "Now " + new Date().toISOString().slice(0, 19).replace("T", " ");   // (UT, not written)
+    const text = "Now " + new Date().toISOString().slice(0, 16).replace("T", " ");   // to the minute, no seconds (UT, not written)
     document.querySelectorAll(".now-clock").forEach((e) => { if (e.textContent !== text) e.textContent = text; });
   };
   tick();
