@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 from . import core, space3d
 from .mapchart import CHART_FONT_FAMILY, SYMBOL_FONT_FAMILY
 
-WIDTH, HEIGHT = 820, 720           # a fixed size, shown at the top left of the page (not stretched to its width)
+WIDTH, HEIGHT = 1100, 966          # the page's width (as the sphere it stands for), its text 10 to 12 px there; the same shape as before (820 x 720)
 # the look: a night sky with fixed stars; soft lines and rings, so that the planets stand out; text 10 to 12 px
 SKY = "rgb(8,12,28)"
 LINE_COLOUR = "rgba(190,200,225,0.75)"     # the axis, the equator, NCP / SCP and the RA names
