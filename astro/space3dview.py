@@ -388,16 +388,14 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     const k = d.name && d.name.startsWith("Sp ") ? keys.indexOf(d.name.slice(3)) : -1;
     if (k >= 0) spokes.push({i, k, len: Math.hypot(d.x[1], d.y[1], d.z[1])});
   });
-  const clockLine = (t) => {                      // Timer: the time run from the moment (the chart's own time), -YY:MM:DD:HH:MM:SS
-    const secs = Math.round((t - (M.reverse ? M.days : 0)) * 86400), a = Math.abs(secs);   // backwards with R; 00:00:00 until it runs
-    const two = (n) => String(n).padStart(2, "0");
-    const YEAR = 31557600, MONTH = YEAR / 12;     // seconds: a year of 365.25 days, a month a twelfth of it (30.44 days)
-    const y = Math.floor(a / YEAR), mo = Math.floor((a - y * YEAR) / MONTH), r = Math.floor(a - y * YEAR - mo * MONTH);
-    return "Timer " + (secs < 0 ? "-" : "") + [y, mo, Math.floor(r / 86400), Math.floor(r / 3600) % 24, Math.floor(r / 60) % 60, r % 60].map(two).join(":");
+  const clockLine = (s, t) => {                   // Timer: the date and time the chart shows, from DOB or Now, as
+    const known = s.offset !== null && s.offset !== undefined, off = known ? s.offset : 0;   // 1968-05-29 08:45:00
+    const ms = (s.jd + t - 2440587.5) * 86400000 + off * 3600000 + 500;       // (at its place's UTC offset, else UT;
+    return "Timer " + new Date(ms).toISOString().slice(0, 19).replace("T", " ");   // to the nearest second; no zone written)
   };
   const showClocks = (t) => {                      // in the page's clock, beside the customer's name
     const box = document.querySelector(".globe-clock");
-    if (box) box.textContent = clockLine(t);       // (one Timer: the same for DOB and Now)
+    if (box) box.textContent = M.clocks.map((s) => clockLine(s, t)).join("    ");
   };
   const started = performance.now();
   const tick = () => {
