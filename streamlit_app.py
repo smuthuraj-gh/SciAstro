@@ -264,7 +264,7 @@ PAGE_HELP = {   # shown on pointing at the (?) beside each page's name
     "AstroClock-2D": "Coordinates: Ho (the house lines of CB and CN), 1C (every planet on one circle at its RA, whatever its distance, so that planets in conjunction sit together) DA (the Ave planets on the Distance(%) graph, on to start) and PP (the Planet Path of each planet shown: a trail behind it while time runs). Left of the clock, De: each planet's Declination on a scale from +30 to -30 degrees, moving as time runs, all on lines of one length, so that planets at the same Declination overlap (point at one for its value). Right of the clock, a Distance(%) graph the same way, from 0 (nearest) to 100 (farthest): the planets at DOB and at Now to the left of its line, and at Ave (the average of the two, moving as time runs) to the right. Major Aspects and Minor Aspects: the angles to draw; two planets at the same time in one of them, by the orbs in Aspect Rules, are joined by a line tagged as 0-Ma-Ju. Rotate in 1s: pick a speed for time to run; with none picked it stands still, and dragging the drawing moves it by hand: right is later, left is back, as far as where it started, 6 hours a pixel.",
     "Planets Distance(%)": "Each chosen planet's distance from the Earth (-D lines) over the period, as D: the % "
                            "between its nearest (0) and farthest (100) over 1800 to 2400. Dates and times are UT.",
-    "App Conditions": "The App Conditions table: a row per Object, its Values and its Condition. The app follows a row while it is there (delete it and the app stops following it): Table, Login, Do not track login details for Admin access: an admin's activity is not written to the Logins table. Condition is required and unique (Abc and abc "
+    "App Conditions": "The App Conditions table: a row per Object, its Values and its Condition. The app follows a row while it is there (delete it and the app stops following it): Table, Login, Do not track login details for Admin access: an admin's activity is not written to the Logins table. Table, Login, Do not track login details for <email> login: that login's activity is not written there. Table, Customers, Do not delete customers who have Admin access: a Customers row with Access Admin cannot be deleted. Search, 1, Searches a day for those without DOB access: one without DOB access may make that many searches a day (UT) on DOB Details without saving (Values: how many, a whole number; delete the row for no limit). Every row is read each time it is needed: a change here applies at once. Condition is required and unique (Abc and abc "
                   "are the same), at most 60 characters; Object at most 60; Values at most 500. Rows are in Condition order. Seen by admins only, "
                   "who can Insert, Update and Delete rows (each saved at once), Ignore changes not saved yet, and Reset to "
                   "Previous; click a column name to sort.",
@@ -504,13 +504,14 @@ def quick_birth(base: pd.Series) -> tuple[pd.Series, Prepared]:
         for k in ("quick_date", "quick_time", "quick_city", "quick_state", "quick_country", "quick_first", "quick_last"):
             st.session_state.pop(k, None)
     st.session_state.update(st.session_state.pop("_quick_fill", {}))   # (DOB Details' Search Only: its birth, typed in)
+    fixed = not user.is_admin and not GRANT.dob              # (no DOB access: the birth searched, not changed here; App Conditions counts searches)
     box = st.sidebar.container(border=True)
     born = box.date_input("Birth date", value=None, min_value=datetime(1800, 1, 1).date(), max_value=datetime(2399, 12, 31).date(),
-                          format="YYYY-MM-DD", key="quick_date")
-    at_txt = box.text_input("Birth time (local, 24 h)", placeholder="hh:mm", max_chars=5, key="quick_time")
-    city = box.text_input("City", key="quick_city")
-    state = box.text_input("State/Region", key="quick_state")
-    country = box.text_input("Country", key="quick_country")
+                          format="YYYY-MM-DD", key="quick_date", disabled=fixed)
+    at_txt = box.text_input("Birth time (local, 24 h)", placeholder="hh:mm", max_chars=5, key="quick_time", disabled=fixed)
+    city = box.text_input("City", key="quick_city", disabled=fixed)
+    state = box.text_input("State/Region", key="quick_state", disabled=fixed)
+    country = box.text_input("Country", key="quick_country", disabled=fixed)
     row = pd.Series({**base.to_dict(), "id": access.QUICK, "name": "Search", "last_name": "", "other": None,
                      "utc": None, "city": city.strip(), "state": state.strip(), "country": country.strip()})
     try:
@@ -657,6 +658,11 @@ def details_form(row: pd.Series | None, person: bool = False):
             sent = st.form_submit_button("Save & Search" if row is None else "Save changes", type="primary")
     if not (sent or search):
         return
+    limited = search and not user.is_admin and not GRANT.dob   # (App Conditions: unsaved searches a day without DOB access)
+    if limited and (most := db.searches_a_day()) is not None and db.searches_today(user.email) >= most:
+        st.error(f"You have made today's {most} search{'' if most == 1 else 'es'} without saving (UT day). Save & Search "
+                 "to keep your details and see your DOB charts, or Get more days of access below.")
+        return
     try:
         at = birth_time(at_txt)
     except ValueError:
@@ -690,6 +696,8 @@ def details_form(row: pd.Series | None, person: bool = False):
            "hr": at.hour if at else None, "mn": at.minute if at else None,     # blank time: none kept (12:00 used)
            "country_n": country_n, "state_n": state_n, "city_n": city_n}
     if search:                                                # Search Only: this birth, not saved, on the chart page
+        if limited:
+            db.count_search(user.email)
         st.session_state["_quick_fill"] = {"quick_date": born, "quick_time": f"{at:%H:%M}", "quick_city": city.strip(),
                                            "quick_state": state.strip(), "quick_country": country.strip(),
                                            "quick_first": first.strip(), "quick_last": last.strip()}
@@ -2276,7 +2284,12 @@ def page_my_details():
     if GRANT.many and not user.is_admin:                      # DOB members: a person to add, at the top
         with st.expander("Add a DOB"):
             add_person_form()
-    if int(row["id"]) == access.QUICK:
+    if int(row["id"]) == access.QUICK and OWN_ID is None:      # a new member's search, not saved: the form again
+        st.info("This search is not saved. Save & Search to keep your details.")
+        new_member_form()
+        more_days_box()
+        page_notes()
+    elif int(row["id"]) == access.QUICK:
         st.info("This search is not saved. Pick a saved person in the sidebar to see or change their details.")
         more_days_box()
         page_notes()

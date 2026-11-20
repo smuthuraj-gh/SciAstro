@@ -8,7 +8,7 @@ from __future__ import annotations
 import functools
 import io
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -476,6 +476,7 @@ def engine() -> sa.Engine:
     _rename_help_rows(eng)
     _widen_help_abbreviation(eng)
     _add_conditions_table_name(eng)
+    _seed_search_limit(eng)                                   # (App Conditions: 1 unsaved search a day without DOB access)
     _seed_help(eng)
     _add_prediction_chart(eng)
     _add_prediction_forecast(eng)
@@ -968,6 +969,88 @@ def _no_admin_logins(c) -> bool:
     return False
 
 
+SEARCHES_A_DAY = re.compile(r"(?i)\bsearch(es)?\b.*\bday\b")   # its Condition: Searches a day for those without DOB access ..
+SEARCH_LIMIT_ROW = dict(name="Searches a day for those without DOB access", value_list="1", table_name="Search")
+
+
+def searches_a_day() -> int | None:
+    """The App Conditions table's row Object Search, Condition "Searches a day ..", Values a whole number: while it is
+    there, how many unsaved searches a day (UT) one without DOB access may make on DOB Details; None (no limit) without it."""
+    with engine().connect() as c:
+        for obj, values, name in c.execute(sa.select(conditions.c.table_name, conditions.c.value_list, conditions.c.name)).all():
+            if (obj or "").strip().lower() in ("search", "searches") and SEARCHES_A_DAY.search(name or ""):
+                try:
+                    return max(0, int(str(values or "").strip()))
+                except ValueError:
+                    return None
+    return None
+
+
+def _search_key(email: str) -> str:
+    """The settings row counting a login's unsaved searches today (by a hash of the email: no email kept there)."""
+    import hashlib
+    return "searches:" + hashlib.sha256(email.strip().lower().encode()).hexdigest()[:32]
+
+
+def searches_today(email: str) -> int:
+    """How many unsaved searches this login has made today (UT)."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    with engine().connect() as c:
+        kept = c.execute(sa.select(settings.c.value).where(settings.c.key == _search_key(email))).scalar() or ""
+    day, _, n = kept.partition(" ")
+    return int(n) if day == today and n.isdigit() else 0
+
+
+def count_search(email: str) -> None:
+    """One more unsaved search for this login today (UT)."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    value = f"{today} {searches_today(email) + 1}"
+    with engine().begin() as c:
+        if c.execute(sa.update(settings).where(settings.c.key == _search_key(email)).values(value=value)).rowcount == 0:
+            c.execute(settings.insert().values(key=_search_key(email), value=value))
+
+
+def _seed_search_limit(eng: sa.Engine):
+    """Once (a note among the settings says it is done; deleted since, it stays deleted): the App Conditions table gets the
+    row Object Search, Values 1, Condition Searches a day for those without DOB access (see searches_a_day)."""
+    if "conditions" not in sa.inspect(eng).get_table_names():
+        return
+    with eng.begin() as c:
+        if c.execute(sa.select(settings.c.value).where(settings.c.key == "search_limit_seeded")).scalar():
+            return
+        if not c.execute(sa.select(conditions.c.id).where(sa.func.lower(conditions.c.name) == SEARCH_LIMIT_ROW["name"].lower())).first():
+            c.execute(conditions.insert().values(**SEARCH_LIMIT_ROW))
+        c.execute(settings.insert().values(key="search_limit_seeded", value="1"))
+
+
+NO_TRACK = re.compile(r"(?i)\b(do\s*n[o']?t|no)\s+track\b")   # Do not track login details ..
+NO_ADMIN_DELETE = re.compile(r"(?i)\b(do\s*n[o']?t|no)\s+delete\b.*\badmin")   # Do not delete customers who have Admin access
+EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+
+
+def _condition_rows(c) -> list[tuple[str, list[str], str]]:
+    """The App Conditions table's rows as (Object, Values, Condition), Object and Values in lower case (read each time: a
+    row changed applies at once)."""
+    if "conditions" not in sa.inspect(c).get_table_names():
+        return []
+    return [((o or "").strip().lower(), [v.strip().lower() for v in (vs or "").split(",") if v.strip()], n or "")
+            for o, vs, n in c.execute(sa.select(conditions.c.table_name, conditions.c.value_list, conditions.c.name)).all()]
+
+
+def _no_track_emails(c) -> set[str]:
+    """The logins named in an App Conditions row Object Table, Values Login, Condition "Do not track .. for <email> ..":
+    their activity is not written to the Logins table."""
+    return {e.lower() for o, vs, n in _condition_rows(c) if o == "table" and {"login", "logins"} & set(vs) and NO_TRACK.search(n)
+            for e in EMAIL.findall(n)}
+
+
+def no_admin_delete() -> bool:
+    """The App Conditions table has a row Object Table, Values Customers, Condition "Do not delete customers who have Admin
+    access": while it is there, a Customers row with Access Admin cannot be deleted."""
+    with engine().connect() as c:
+        return any(o == "table" and {"customer", "customers"} & set(vs) and NO_ADMIN_DELETE.search(n) for o, vs, n in _condition_rows(c))
+
+
 def _add_conditions_table_name(eng: sa.Engine):
     """A Conditions table made before its Object column gets it (its rows kept, blank in it)."""
     if "table_name" not in {c["name"] for c in sa.inspect(eng).get_columns("conditions")}:
@@ -1006,6 +1089,8 @@ def conditions_problems(rows: pd.DataFrame) -> list[str]:
             out.append(f"{label}: Object can be at most {COND_NAME_MOST} characters")
         if len(values) > COND_VALUES_MOST:
             out.append(f"{label}: Values can be at most {COND_VALUES_MOST} characters")
+        if table.lower() in ("search", "searches") and SEARCHES_A_DAY.search(name) and not values.isdigit():
+            out.append(f"{label}: Values is how many searches a day, a whole number (e.g. 1)")
         if name:
             if name.lower() in seen:
                 out.append(f"{label}: is in the table twice (a Condition is unique)")
@@ -2334,6 +2419,11 @@ def save_accounts(edited: pd.DataFrame, original: pd.DataFrame, by: str | None =
     still = {str(e).strip().lower() for e in edited.get("email", pd.Series(dtype=object)) if isinstance(e, str)}
     gone = [str(r["email"]).strip().lower() for _, r in original.iterrows()
             if pd.notna(r["id"]) and int(r["id"]) not in kept_ids and str(r["email"]).strip().lower() not in still]
+    admins_gone = [str(r["email"]).strip() for _, r in original.iterrows() if pd.notna(r["id"]) and int(r["id"]) not in kept_ids
+                   and str(r.get("access") or "").strip().lower() == "admin"]
+    if admins_gone and no_admin_delete():                     # (App Conditions: Do not delete customers who have Admin access)
+        problems.append("Not deleted: " + ", ".join(admins_gone) + " (Access Admin; App Conditions: Do not delete customers who "
+                        "have Admin access).")
     used = dob_emails_in_use(gone)
     if used:
         problems.append("Not deleted: DOB records still use " + ", ".join(f"{e} ({n} record{'s' if n != 1 else ''})" for e, n in sorted(used.items()))
@@ -2527,8 +2617,8 @@ def _log(c, email: str | None, activity: str, times: int = 1, details: str | Non
         assert activity in ACTIVITIES
         now = _now()
         access_then = _access_now(c, email, now)
-        if access_then == "Admin" and _no_admin_logins(c):
-            return
+        if access_then == "Admin" and _no_admin_logins(c) or email.lower() in _no_track_emails(c):
+            return                                            # (App Conditions: not tracked)
         row = dict(email=email.lower(), activity=activity, date_time=now, device=visitor_device() or None, timezone=visitor_timezone() or None, access=access_then,
                    page=(_visit("_page") or "")[:60] or None, details=(details or "")[:300] or None)
         c.execute(logins.insert(), [row] * times)
