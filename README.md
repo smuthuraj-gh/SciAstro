@@ -5,7 +5,7 @@ zodiac), with the same rules. Orchestrated by Senthil Muthuraj; built by AI/SI A
 
 Every page grows with a wide window, its charts too, scaled to fit between the left and right margins. On a narrower
 window, a desktop's or a phone's, the page does not shrink: its text keeps its size (10 to 12 px on screen, the tables'
-too), so all of it is readable (the Readme too; a page left open from before an update reloads itself once, so it gets the new sizing at once): its rows of buttons wrap, and the top line too, piece by piece (the name right after the title, a piece on the next line only when there is no room left), and each chart is scaled down to the column (two fingers enlarge it). Each chart is
+too), so all of it is readable (the Readme too; a page left open from before an update reloads itself once, so it gets the new sizing at once): its rows of buttons wrap, and the top line too, piece by piece (the name right after the title, a piece on the next line only when there is no room left), and each chart keeps its own size (its text 10 to 12 px too), scrolling sideways in its own box (a finger swipes it; the page itself never scrolls sideways); a table page's buttons (Search, Count, Insert ..) follow the name and wrap from the left edge, all together. Each chart is
 the page's width, scrolled down for the rest. A phone does not enlarge the text by itself, and the Planets choices keep
 to two lines there (five, then four). The Planets box is just wide enough for five a line, so Major Aspects stands close to Planets (AstroClock-2D, AstroClock-3D).
 
@@ -45,7 +45,7 @@ Drawing rule: wherever planets are drawn, on every page and graph, a smaller pla
 
 Layout rule: everything on all pages stays aligned to the top left.
 
-Font rule: on all pages, text is at most 12 px and at least 10 px on screen too, on any window (a narrower one wraps the page instead of shrinking it); only a chart's own text shrinks with the chart on a narrow window or a phone (two fingers enlarge it).
+Font rule: on all pages, text is at most 12 px and at least 10 px on screen too, on any window (a narrower one wraps the page instead of shrinking it); a chart's text too: on a narrow window or a phone a chart keeps its size and scrolls sideways in its box.
 
 Now rule: anyone signed in can always see the Now charts, on every chart page: with no birth details, with Access Now or a DOB past its End Date, or with birth details that cannot be worked out (picking DOB then says why it is not open). The Time buttons show DOB first to someone whose Access is DOB, 1Day, DOBT or DOBGT, and Now first to anyone else, DOB still there (a new member picks it to reach the form for their birth details).
 

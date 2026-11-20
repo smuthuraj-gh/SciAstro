@@ -104,6 +104,8 @@ html, body { -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !
 :is([data-testid="stBaseButton-primary"], [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-primaryFormSubmit"], [data-testid="stBaseButton-secondaryFormSubmit"])
   { padding: 0 7px !important; height: 24px !important; min-height: 24px !important; border-radius: 12px !important; }
 /* the button that opens the sidebar (pages, customer) is titled Menu, so it is clear what it opens */
+/* a table page's top line: its wrapped rows of buttons close together */
+.st-key-table_top_line { row-gap: 4px !important; }
 [data-testid="stExpandSidebarButton"] { width: auto !important; padding: 0 6px !important; gap: 4px;
   display: inline-flex !important; align-items: center; }
 [data-testid="stExpandSidebarButton"]::after { content: "Menu"; font-size: 12px; font-weight: 600;
@@ -374,7 +376,8 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
     # the First Name right after the title (and its help), on the same line; then a slot (TITLE_SLOT) where a page may
     # put more on this line
     global TITLE_SLOT
-    line = st.container(horizontal=True, vertical_alignment="top", gap="large" if timed else "small")   # (a table page: its buttons close to the name)
+    line = st.container(horizontal=True, vertical_alignment="top" if timed else "center", gap="large" if timed else "small",
+                        key=None if timed else "table_top_line")   # (a table page: its buttons close to the name)
     line.container(width="content").html(
         f'<div style="display:flex; align-items:baseline; justify-content:flex-start; column-gap:12px; row-gap:2px; '
         f'flex-wrap:wrap; font-weight:600">'   # (wraps on a narrow screen, as a phone's: nothing cut off)
@@ -397,7 +400,9 @@ def top_line(title: str, row: pd.Series | None, prep: Prepared | None = None):
         '</span>'
         f'</div>' + NOW_CLOCK_JS, unsafe_allow_javascript=True)
     # the slot fills the rest of the line
-    TITLE_SLOT = line.container(width="stretch", horizontal=True, gap="small")
+    # (a table page: the line itself, so that its buttons follow the name and, on a narrow window, wrap from the left edge,
+    # all together)
+    TITLE_SLOT = line.container(width="stretch", horizontal=True, gap="small") if timed else line
 
 
 # the Now clock beside the name on every page's top line: the time now, in CN's time zone (else UT), to the minute (one timer for the page, kept
