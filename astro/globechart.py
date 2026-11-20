@@ -15,14 +15,15 @@ import plotly.graph_objects as go
 from . import core
 from .mapchart import CHART_FONT_FAMILY, CHART_TEXT, FONT, SYMBOL_FONT_FAMILY
 
-WIDTH, HEIGHT = 1100, 720
+WIDTH, HEIGHT = 1100, 1074       # the sphere across the chart's width, as AstroClock-2D's circle (the page scrolled for the rest)
 MARGIN = 10
 TILT = 23.44                      # degrees the Earth's axis leans from upright (its obliquity)
 LEAN_TOWARD = 45.0                # the way the axis leans: 0 = toward the viewer, 90 = to the right; here between them
 # the seconds one day of the clock takes: an hour, a day, a week, a month (30.44 days) or a year (365.25 days) to a second
 SPEEDS = {"1s": 86400.0, "1m": 1440.0, "1h": 24.0, "1d": 1.0, "1w": 1.0 / 7.0, "1mo": 1.0 / 30.44, "1y": 1.0 / 365.25}   # 1m a minute, 1mo a month
-EARTH_RADIUS = 165.0              # pixels, in the chart's own layout
-SKY_RADIUS = 315.0                # the celestial sphere, pixels (it fits the chart's height with its pole labels)
+EARTH_RADIUS = 258.0              # pixels, in the chart's own layout (about half the sphere's, as it was)
+SKY_RADIUS = 492.0                # the celestial sphere, pixels: the chart's width but room for WCE and ECE either side (its
+                                  # height fits it with its pole labels)
 AXIS_COLOUR = "rgb(60,60,60)"
 GRID_DEGREES = 30                 # between the Earth's lines of latitude, and of longitude
 GRID_COLOUR = "rgb(120,120,120)"
