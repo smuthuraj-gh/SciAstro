@@ -557,7 +557,7 @@ __SYMBOL_JS__
   const draw = () => {
     angles();
     rings.forEach((g) => g.draw(g.r.pts));
-    spokes.forEach((g) => g.draw(D.show_celes ? [[0, 0, 0], g.m.at] : []));   // Ce: the RA spokes
+    spokes.forEach((g) => g.draw(D.show_celes ? [[0, 0, 0], g.m.at] : []));   // CM: the RA spokes
     // the axis reaches, both ways, past where a 20 AU ring would be drawn on the page (round the centre, on the plane of the
     // equator), so that NCP and SCP are out beyond the planets; both halves as long on the page (the one leaning away from the
     // viewer would look shorter), found by halving for the way the drawing is turned now
@@ -586,7 +586,7 @@ __SYMBOL_JS__
       const length = Math.max(pageLength(1, 1), ringAcross(1) + D.scp_past, ringAcross(-1) + D.scp_past);
       poles[0].at = [0, 0, reachFor(1, length) * D.outer];
       poles[1].at = [0, 0, -reachFor(-1, length) * D.outer];
-      axis(D.show_celes ? [poles[1].at, poles[0].at] : []);   // Ce: the axis
+      axis(D.show_celes ? [poles[1].at, poles[0].at] : []);   // CM: the axis
     }
     const t = clock.t;
     paths.forEach((g) => {
@@ -733,7 +733,7 @@ __SYMBOL_JS__
         taken.push(box);
       }
     });
-    if (!D.show_celes) poles.concat(spokes).forEach((g) => { g.label.style.display = "none"; });   // Ce off: no NCP, SCP, RA names
+    if (!D.show_celes) poles.concat(spokes).forEach((g) => { g.label.style.display = "none"; });   // CM off: no NCP, SCP, RA names
     else {
       poles.forEach((g) => {
         const [x, y] = point(g.at);
@@ -799,7 +799,7 @@ def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]]
                centre: str = "Ea", flat: bool = False, places: dict | None = None, ave_jds: dict | None = None,
                aspects: tuple = (), orbs: core.Orbs | None = None, one_circle: bool = False, show_celes: bool = True,
                reverse: bool = False) -> str:
-    """show_au (AU): the rings of distance and their AU tags; show_celes (Ce): the celestial coordinates, the axis with NCP
+    """show_au (AU): the rings of distance and their AU tags; show_celes (CM): the celestial coordinates, the axis with NCP
     and SCP and the RA spokes with their names."""
     uid = "space-" + uuid.uuid4().hex[:8]
     if reverse and day_seconds:                               # R: the tables from RUN_DAYS before each moment, run backwards from its end

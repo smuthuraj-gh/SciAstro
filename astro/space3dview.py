@@ -86,7 +86,7 @@ def _xyz(ra: float, dec: float, r: float) -> tuple[float, float, float]:
 
 def _tilted(x, y, z):
     """A point (or nested lists of them; None kept) turned TILT degrees about the line to RA 0, so that the ecliptic's
-    north pole (RA 270, De 90 - TILT) is straight up: the Earth's axis then leans TILT degrees (Ce, as in the page's
+    north pole (RA 270, De 90 - TILT) is straight up: the Earth's axis then leans TILT degrees (CM, as in the page's
     script)."""
     c, s = math.cos(math.radians(globechart.TILT)), math.sin(math.radians(globechart.TILT))
     if isinstance(y, (list, tuple)):
@@ -143,7 +143,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
     the equator plane, and (Geo) CB and CN on the Earth (places: {clock: (label, lat, lon)}). On Geo/Helio Model's Fit
     scale. moving: time will run (space_js), so the view reaches far enough for all, with room for the clock.
     show_au: the rings of distance on the plane of the equator (the page's AU button); show_celes: the celestial
-    coordinates as Geo/Helio Model's, the axis with NCP and SCP and the RA lines with their names (its Ce button); with
+    coordinates as Geo/Helio Model's, the axis with NCP and SCP and the RA lines with their names (its CM button); with
     them the whole view is turned so that the ecliptic's pole is up: the Earth's axis leans its 23.44 degrees (as on the
     sphere) and keeps that tilt while the view is turned (it turns round the upright). show_links (SpC, Geo): a line from CB (DOB) or CN (Now) on the Earth
     to each body of its moment. show_spokes (Sp): a dashed line from the centre through each body out to the edge of the
@@ -218,7 +218,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
         sx.append(r * math.sqrt(1 - u * u) * math.cos(v)); sy.append(r * math.sqrt(1 - u * u) * math.sin(v)); sz.append(r * u)
     fig.add_trace(go.Scatter3d(x=sx, y=sy, z=sz, mode="markers", hoverinfo="skip", showlegend=False, name="stars",
                                marker=dict(size=[stars.choice((1.2, 1.6, 2.2)) for _ in range(STARS)], color="white", opacity=0.6)))
-    if show_celes:                                            # Ce: the celestial coordinates as Geo/Helio Model draws them: the
+    if show_celes:                                            # CM: the celestial coordinates as Geo/Helio Model draws them: the
                                                               # axis with NCP and SCP, and the RA lines across the equator's plane
                                                               # with their names (no plane, no outer circle)
         pole = span * 0.95                                        # the celestial axis: long, well clear of the globe (inside the view's box)
@@ -244,7 +244,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
             fig.add_trace(go.Scatter3d(x=[r], y=[0], z=[0], mode="text", text=[f"{au:g} AU"], hoverinfo="skip", showlegend=False,
                                        textfont=dict(size=12, color=TEXT_COLOUR)))
     axis = dict(visible=False, range=[-span, span])
-    if show_celes:                                            # Ce: the whole view tilted, the Earth's axis leaning TILT degrees
+    if show_celes:                                            # CM: the whole view tilted, the Earth's axis leaning TILT degrees
         _tilt_figure(fig)
     fig.update_layout(width=WIDTH, height=HEIGHT, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor=SKY, autosize=False,
                       scene=dict(xaxis=axis, yaxis=axis, zaxis=axis, aspectmode="cube", bgcolor=SKY, dragmode="turntable",
@@ -266,7 +266,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     the same as the other pages' (72 years of RA, De and distance), and the markers are found by their names. Geo: the
     Earth drawn as a globe, land and sea from Plotly's own world map (the one its map charts load, from cdn.plot.ly), with
     coastlines, lines of latitude and longitude every 30 degrees, and CB and CN at their places, turned as at the globe's
-    moment and turning with time. tilt (Ce): every point turned as _tilted, as the figure is. resets: Reset's count (a
+    moment and turning with time. tilt (CM): every point turned as _tilted, as the figure is. resets: Reset's count (a
     new one draws the view again, its Timer back at the moment)."""
     from . import space3d
     c = CENTRE[centre]
@@ -317,7 +317,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
                 rules=rules, sizing=sizing, mark_scale=MARK_SCALE, symbol_px=SYMBOL_PX, symbol_least=SYMBOL_LEAST, symbol_font=list(SYMBOL_FONT), au_km=core.AU_KM, arcsec=list(SIZE_RANGE_ARCSEC), radii=list(MARKER_RANGE))
     return ("const M = " + json.dumps(data, separators=(",", ":")).replace("<", "\\u003c") + ";\n" + """
   const RAD = Math.PI / 180;
-  // Ce: a point turned as the figure's (space3dview._tilted): the Earth's axis leaning, the ecliptic's pole up
+  // CM: a point turned as the figure's (space3dview._tilted): the Earth's axis leaning, the ecliptic's pole up
   const tilted = (p) => M.tilt ? [p[0], p[1] * M.tilt[0] + p[2] * M.tilt[1], -p[1] * M.tilt[1] + p[2] * M.tilt[0]] : p;
   const reach = (au) => {                          // as space3dview._reach
     const log = Math.max(Math.log10(Math.max(au, 1e-9) / M.log_from), 0);

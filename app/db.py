@@ -141,7 +141,7 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
     "Page Defaults": ("Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed Values)", "Page (admins): what each page's buttons start as (Page, Options, Choices)", "Page (admins): what each page's inputs start as (Page, Box Title, Choice, Choice Values, Allowed_Values)",),
     "Customers": ("Page (admins): a row per login: Email, Access, Start Date, Days, End Date",),
     "Access": ("Customers column: Now (the Now charts), DOB (the DOB charts, for Days days) or Admin",),
-    "Coordinates": ("Title button: which lines and tags to show (Ho, Ce, AU, 3D, Sp, SpC, RA, De, La, Lg, 1C, DA)",),
+    "Coordinates": ("Title button: which lines and tags to show (Ho, Ce, AU, 3D, Sp, SpC, RA, De, La, Lg, 1C, DA)", "Title button: which lines and tags to show (Ho, Ce, AU, 3D, Sp, SpC, PP, RA, De, La, Lg, 1C, DA)",),
     "Rotate in 1s": ("Title button: how much time passes each second (Manual, 1s to 1y)",),
     "App Conditions": ("Page (admins): the Conditions table: a row per Condition (unique) and its Values", "Page (admins): the Conditions table: a row per Condition (unique), its Table Name and its Values", "Page (admins): the App Conditions table: a row per Condition (unique), its Table Name and its Values", "Page (admins): the App Conditions table: a row per Condition (unique), its Object and its Values", "Page (admins): the App Conditions table: a row per Object, Condition (unique) and its Desc",),
     "Choice": ("Defaults column: the input, by its name on the page (e.g. Days); one row per Page and Choice",),
@@ -150,7 +150,7 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
     "Get more days of access": ("DOB Details box (its title as the Defaults table's Box Title says): add days of DOB access with Days and Pay / Coupon", "DOB Details box (its title as the Page Defaults table's Box Title says): add days of DOB access with Days and Pay / Coupon",),
     "Days": ("Customers column: days of DOB access to add (1, 7, 30, 90, 180, 365); End Date is extended by them",),
 }
-HELP_RENAMED = {"Page Defaults": ("Defaults", "Page_Defaults"), "App Conditions": ("Conditions",),
+HELP_RENAMED = {"CM": ("Ce",), "Page Defaults": ("Defaults", "Page_Defaults"), "App Conditions": ("Conditions",),
                 "P1/Now": ("Planet1/Now", "Planet1-Now", "Moving"), "P2/Bth/Ho": ("Planet2/Birth", "Planet2-Birth", "Birth")}   # pages' Help rows renamed
 HELP_GONE_TOO = {"Sky": ("Predictions (Chart Sky): two planets now at an angle with each other, the same for everyone (with New and Full Moon)", "Predictions table Sky (Chart PT): two planets now at an angle with each other, the same for everyone (with New and Full Moon)"),   # (the Sky table and Chart are Planets Transits, PT, now)
                  "Box Title": ("Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box",
@@ -229,7 +229,7 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Planets", "Title button: which planets (and NN, SN) to show"),
     ("Major Aspects", "Title button: the major aspect angles to draw: 0, 60, 90, 120, 180"),
     ("Minor Aspects", "Title button: the minor aspect angles to draw: 30, 45, 72, 135, 144, 150"),
-    ("Coordinates", "Title button: which lines and tags to show (Ho, Ce, AU, 3D, Sp, SpC, PP, RA, De, La, Lg, 1C, DA)"),
+    ("Coordinates", "Title button: which lines and tags to show (Ho, CM, AU, 3D, Sp, SpC, PP, RA, De, La, Lg, 1C, DA); Re beside it: the Timer back at the DOB or Now"),
     ("Rotate in 1s", "Title button: how much time passes each second (1s to 1y); none picked: time stands still, and dragging the drawing turns it"),
     ("Centric Model", "Title button: Geo (the Earth at the centre) or Helio (the Sun at the centre)"),
     ("Start Date (UT)", "When a chart over time starts: DOB or Now"),
@@ -327,7 +327,7 @@ HELP_ROWS = [                                                 # the abbreviation
     ("AU", "Astronomical unit: the Earth's average distance from the Sun, about 150 million km"),
     ("Distance(%)", "A planet's distance from the Earth between its nearest (0) and farthest (100)"),
     ("Ho", "House lines: twelve, 30 degrees apart from the RA of CB and of CN"),
-    ("Ce", "Celestial coordinates: the axis with NCP and SCP, and the celestial equator"),
+    ("CM", "Celestial coordinates: the axis with NCP and SCP, and the celestial equator"),
     ("NCP", "North celestial pole"), ("SCP", "South celestial pole"),
     ("WCE", "West end of the celestial equator, as drawn"), ("ECE", "East end of the celestial equator, as drawn"),
     ("Sp", "Spokes: a line from the Earth's centre through each planet to the sphere (in 3D, to the edge of the view)"),
@@ -353,12 +353,12 @@ DEFAULT_ROWS = [                                              # the app's own de
     ("AstroClock-3D", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
     ("AstroClock-3D", "Major Aspects", ""),
     ("AstroClock-3D", "Minor Aspects", ""),
-    ("AstroClock-3D", "Coordinates", "Ce"),
+    ("AstroClock-3D", "Coordinates", "CM"),
     ("AstroClock-3D", "Rotate in 1s", ""),                    # (no speed: time stands still, the drawing dragged round)
     ("Geo/Helio Model", "Centric Model", "Geo"),
     ("Geo/Helio Model", "Time", "Now"),                       # (one row each for both models: Geo takes Su, Helio Ea)
     ("Geo/Helio Model", "Planets", "Mo, Su, Ea, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio Model", "Coordinates", "Ce, AU"),            # and here (Ce, AU)
+    ("Geo/Helio Model", "Coordinates", "CM, AU"),            # and here (CM, AU)
     ("Geo/Helio Model", "Rotate in 1s", ""),
     ("Planets Cycles", "Start Date (UT)", "DOB"),
     ("Planets Cycles", "End Date (UT)", "Start Date (UT) + 30 years"),
@@ -473,6 +473,7 @@ def engine() -> sa.Engine:
     _set_time_now(eng)
     _rename_dec_button(eng)
     _merge_coordinates(eng)                                   # (again: a button row an earlier name has just given back)
+    _rename_ce_button(eng)                                    # (Ce, the celestial coordinates' button, is CM)
     _drop_manual(eng)
     _drop_planet_path(eng)
     _rename_help_abbre(eng)
@@ -705,6 +706,20 @@ def _merge_geo_helio(eng: sa.Engine):
             c.execute(defaults.update().where(defaults.c.id == keep.id).values(
                 options=title, choices=both("choices", lists), allowed_values=both("allowed_values", lists)))
 
+
+
+def _rename_ce_button(eng: sa.Engine):
+    """The celestial coordinates' button, Ce (once Celes), is called CM: a Coordinates row of AstroClock-3D or Geo/Helio
+    Model that names it, in Choice Values or Allowed Values, gets the new name."""
+    with eng.begin() as c:
+        rows = c.execute(sa.select(defaults.c.id, defaults.c.choices, defaults.c.allowed_values).where(
+            sa.func.lower(defaults.c.page).in_(["astroclock-3d", "geo/helio model"]), sa.func.lower(defaults.c.options) == "coordinates")).all()
+        for rid, choices, allowed in rows:
+            def renamed(text):
+                parts = [p.strip() for p in (text or "").split(",") if p.strip()]
+                return ", ".join("CM" if p.lower() in ("ce", "celes") else p for p in parts) if parts else text
+            if renamed(choices) != choices or renamed(allowed) != allowed:
+                c.execute(defaults.update().where(defaults.c.id == rid).values(choices=renamed(choices), allowed_values=renamed(allowed)))
 
 
 COORD_BUTTONS_RENAMED = {"dec": "De", "lati": "La", "long": "Lg", "lat": "La", "lon": "Lg", "house": "Ho", "celes": "Ce", "true": "Tru", "co": "SpC"}   # AstroClock-3D's Coordinates buttons' earlier names
