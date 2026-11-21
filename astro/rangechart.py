@@ -1,4 +1,4 @@
-"""The Planets Cycles chart (the workbook's Range tab; the page was called Range): each chosen planet's De (-M) from the start (birth) to the end (now),
+"""The Cycles chart (the workbook's Range tab; the page was called Range): each chosen planet's De (-M) from the start (birth) to the end (now),
 with dots where two -M planets come into an aspect (major or minor) joined pair by pair and tagged.
 The distance lines (-D) have their own chart (distancechart.py)."""
 from __future__ import annotations

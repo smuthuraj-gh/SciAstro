@@ -18,6 +18,8 @@ FLG_SWIEPH = 2
 FLG_SPEED = 256
 FLG_EQUATORIAL = 2048
 FLG_HELCTR = 8                    # positions as seen from the Sun
+SIDM_LAHIRI = 1                   # the Lahiri ayanamsa (Systems' Sidereal signs)
+SIDM_KRISHNAMURTI = 5             # the KP (Krishnamurti) ayanamsa (Systems' KP)
 CALC_FLAGS = FLG_SWIEPH | FLG_EQUATORIAL | FLG_SPEED
 # The Swiss Ephemeris keeps its state in globals: two page loads calling it at once can crash the server (an access
 # violation), so one call at a time
@@ -47,6 +49,12 @@ try:
         with _ONE_AT_A_TIME:
             return _swe.sidtime(jd_ut)
 
+    def ayanamsa_ut(jd_ut: float, mode: int = SIDM_LAHIRI) -> float:
+        """The ayanamsa then (mode: Lahiri, or SIDM_KRISHNAMURTI), degrees: how far the Sidereal zodiac's start is behind the Tropical one's."""
+        with _ONE_AT_A_TIME:
+            _swe.set_sid_mode(mode, 0, 0)
+            return _swe.get_ayanamsa_ut(jd_ut)
+
 except ImportError:
     _dll = ctypes.CDLL(os.environ.get("SWE_DLL", r"C:\sweph\bin\swedll64.dll"))
     _dll.swe_set_ephe_path.argtypes = [ctypes.c_char_p]
@@ -58,6 +66,10 @@ except ImportError:
     _dll.swe_julday.restype = ctypes.c_double
     _dll.swe_sidtime.argtypes = [ctypes.c_double]
     _dll.swe_sidtime.restype = ctypes.c_double
+    _dll.swe_set_sid_mode.argtypes = [ctypes.c_int32, ctypes.c_double, ctypes.c_double]
+    _dll.swe_set_sid_mode.restype = None
+    _dll.swe_get_ayanamsa_ut.argtypes = [ctypes.c_double]
+    _dll.swe_get_ayanamsa_ut.restype = ctypes.c_double
     _dll.swe_set_ephe_path(EPHE_PATH.encode("mbcs"))
     BACKEND = "swedll64 (ctypes)"
 
@@ -77,3 +89,9 @@ except ImportError:
     def sidtime(jd_ut: float) -> float:
         with _ONE_AT_A_TIME:
             return _dll.swe_sidtime(jd_ut)
+
+    def ayanamsa_ut(jd_ut: float, mode: int = SIDM_LAHIRI) -> float:
+        """The ayanamsa then (mode: Lahiri, or SIDM_KRISHNAMURTI), degrees: how far the Sidereal zodiac's start is behind the Tropical one's."""
+        with _ONE_AT_A_TIME:
+            _dll.swe_set_sid_mode(mode, 0, 0)
+            return _dll.swe_get_ayanamsa_ut(jd_ut)

@@ -1,4 +1,4 @@
-"""The AstroClock-3D page: the Earth turning inside the celestial sphere. The sphere stands still, with the celestial equator
+"""The Equatorial-3D page: the Earth turning inside the celestial sphere. The sphere stands still, with the celestial equator
 and the celestial poles; the Earth inside it, with CB and CN on it, turns about the axis that joins those poles. As it turns,
 time runs, and each planet moves over the sphere as it really did, with its RA line (the circle of RA through it), De line
 (the circle of De through it) and size. At the start the Earth is set as it was at that moment, so a planet is straight
@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 from . import core
 from .mapchart import CHART_FONT_FAMILY, CHART_TEXT, FONT, SYMBOL_FONT_FAMILY
 
-WIDTH, HEIGHT = 1100, 1074       # the sphere across the chart's width, as AstroClock-2D's circle (the page scrolled for the rest)
+WIDTH, HEIGHT = 1100, 1074       # the sphere across the chart's width, as Equatorial-2D's circle (the page scrolled for the rest)
 MARGIN = 10
 TILT = 23.44                      # degrees the Earth's axis leans from upright (its obliquity)
 LEAN_TOWARD = 45.0                # the way the axis leans: 0 = toward the viewer, 90 = to the right; here between them
@@ -52,7 +52,7 @@ NODE_STEP_DAYS = 2.0              # the Moon's true node wobbles over days
 MOTION_STEP_DAYS = {"Mo": 0.5, "Me": 2.0, "Ve": 4.0, "Su": 5.0, "Ma": 5.0, "Ju": 20.0, "Sa": 20.0}    # ... and their steps
 CX, CY = SKY_RADIUS + 58.0, HEIGHT / 2.0   # at the left, room left for the name WCE
 # AU (Coordinates): each planet inside the sphere, along its RA and De, at a radius by its distance from the Earth, from
-# the Earth's surface out to DIST_AU[1] at the sphere (past Saturn), to scale, or with Fit (Coordinates) on Geo/Helio Model's
+# the Earth's surface out to DIST_AU[1] at the sphere (past Saturn), to scale, or with Fit (Coordinates) on Geo/Helio's
 # Fit scale (space3d: each tenfold distance the same room, the empty space between the Moon and the planets taken out)
 DIST_AU = (0.0013, 11.0)
 DIST_INNER = (EARTH_RADIUS + 16.0) / SKY_RADIUS   # where DIST_AU[0] is drawn, as a part of the sphere's radius

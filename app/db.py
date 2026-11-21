@@ -83,7 +83,7 @@ logins = sa.Table(
     sa.Column("device", sa.String(60)),                      # their browser and system (Chrome on Windows ..)
     sa.Column("timezone", sa.String(64)),                    # the time zone their browser is set to (Asia/Kolkata (UTC+5:30))
     sa.Column("access", sa.String(20)),                      # their Access then (DOB .., "DOB ended"; blank: none, or no record)
-    sa.Column("page", sa.String(60)),                        # the page they were on (AstroClock-2D, DOB Details ..)
+    sa.Column("page", sa.String(60)),                        # the page they were on (Equatorial-2D, DOB Details ..)
     sa.Column("details", sa.String(300)),                    # what was done (Get more days of access: 7 days, coupon Free ..)
     sa.CheckConstraint("activity IN ('View', 'Create', 'Update', 'Delete', 'Login')", name="ck_logins_activity"),
 )
@@ -121,7 +121,18 @@ HELP_ROWS_3 = [                                               # added later stil
     ("Save and Search", "Add a DOB button: the person saved under your login, then their DOB charts"),
     ("Select all", "Logins button: ticks every row (pressed again, Unselect all: none)"),
 ]
-HELP_OUT_OF_DATE = {                                          # the Help rows' Descriptions the app once wrote, out of date since
+HELP_OUT_OF_DATE = {
+    "As": ("Ascendant: a Systems button under System (on or off): each place's Ascendant, the ecliptic rising in the east there (the first house's start), a line across the rings with its value on each: Ec its longitude, Tr, Si and Op its sign and degree, Na its star and quarter", "Ascendant: a System button on Systems (on or off): each place's Ascendant (the ecliptic rising in the east there, the first house's start), a red arrow from Ea out past the rings (dashed for the DOB) with its value on each: Ec its longitude; Tr, Si and Op its sign and degree; Na its star and quarter; KP star lord / sub lord"),   # (Systems' Help, brought up to date)
+    "Eq": ("Systems button under System (on or off; once Ho, under Coordinates): the house lines of CB and CN",),   # (Systems' Help, brought up to date)
+    "Ec": ("Ecliptic: a Systems button beside Tr and Si (on or off): a ring of ecliptic longitude, 0 to 360 (Tropical), round the circle, each degree at the RA it falls at",),   # (Systems' Help, brought up to date)
+    "Si": ("Sidereal: System on Systems: the signs further on by the Lahiri ayanamsa at the time shown (about 24 degrees now)",),   # (Systems' Help, brought up to date)
+    "Tr": ("Tropical: System on Systems: the signs from the March equinox (Aries at 0 degrees of the ecliptic)",),   # (Systems' Help, brought up to date)                                          # the Help rows' Descriptions the app once wrote, out of date since
+    "Systems": ("Page: a copy of Equatorial-2D (the Geo drawing seen from above the north celestial pole, with the De and Distance(%) graphs), with its own choices and Page Defaults rows", "Page: a copy of Equatorial-2D (the Geo drawing seen from above the north celestial pole, with the De graph) without its Distance(%) graph, with its own choices and Page Defaults rows",),   # (Systems has no Distance(%) graph now)
+    "System": ("Systems button, before Time: Tropical or Sidereal, one at a time", "Systems button, before Time: Tropical or Sidereal, one at a time; Tropical: a ring of the Tropical signs round the circle, each over its RA span", "Systems button, before Time: Tr (Tropical) or Si (Sidereal), one at a time: a ring of the twelve signs round the circle, each over its RA span", "Systems button, before Time: Tr (Tropical) or Si (Sidereal), one at a time: a ring of the twelve signs round the circle, each over its RA span; beside them, Ei (Ecliptic, on or off): a ring of ecliptic longitude, between the circle and the signs", "Systems button, before Time: Tr (Tropical) or Si (Sidereal), one at a time: a ring of the twelve signs round the circle, each over its RA span; beside them, Ei (Ecliptic, on or off): a ring of ecliptic longitude, between the circle and the signs; below them, Eq (on or off): the house lines of CB and CN", "Systems button, before Time: Tr (Tropical) or Si (Sidereal), one at a time: a ring of the twelve signs round the circle, each over its RA span; beside them, Ec (Ecliptic, on or off): a ring of ecliptic longitude, between the circle and the signs; below them, Eq (on or off): the house lines of CB and CN", "Systems button, before Time: Tr (Tropical) or Si (Sidereal), one at a time: a ring of the twelve signs round the circle, each over its RA span; after them, Ec (Ecliptic, on or off): a ring of ecliptic longitude, between the circle and the signs; before them, Eq (on or off): the house lines of CB and CN", "Systems buttons, before Time: Eq, Tr, Si and Ec, each on or off, their rings one on another: Eq, the house lines of CB and CN; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs round the circle, each over its RA span (Si's outside Tr's); Ec (Ecliptic), a ring of ecliptic longitude, between the circle and the signs", "Systems buttons, before Time: Eq, Ec, Tr and Si, each on or off, their rings one on another: Eq, the house lines of CB and CN; Ec (Ecliptic), a ring of ecliptic longitude, between the circle and the signs; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs round the circle, each over its RA span (Si's outside Tr's)", "Systems buttons, before Time: Eq, Ec, Tr, Si and Vd, each on or off, their rings one on another: Eq, the house lines of CB and CN; Ec (Ecliptic), a ring of ecliptic longitude, between the circle and the signs; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs round the circle, each over its RA span (Si's outside Tr's); Vd (Vedic), a ring of the 27 stars (nakshatras) outside them", "Systems buttons, before Time: Eq, Ec, Tr, Si and Na, each on or off, their rings one on another: Eq, the house lines of CB and CN; Ec (Ecliptic), a ring of ecliptic longitude, between the circle and the signs; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs round the circle, each over its RA span (Si's outside Tr's); Na (Nakshatra, Vedic), a ring of the 27 stars (nakshatras) outside them, each in four quarters", "Systems buttons, before Time: Eq, Ec, Tr, Si, Na and 13, each on or off, their rings one on another: Eq, the house lines of CB and CN; Ec (Ecliptic), a ring of ecliptic longitude, between the circle and the signs; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs round the circle, each over its RA span (Si's outside Tr's); 13, a ring of the 13 constellations on the ecliptic (Ophiuchus among them) at their IAU boundaries; Na (Nakshatra, Vedic), a ring of the 27 stars (nakshatras) outside them, each in four quarters", "Systems buttons, before Time: Eq, Ec, Tr, Si, 13 and Na, each on or off, their rings one on another: Eq, the house lines of CB and CN; Ec (Ecliptic), a ring of ecliptic longitude, between the circle and the signs; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs round the circle, each over its RA span (Si's outside Tr's); 13, a ring of the 13 constellations on the ecliptic (Ophiuchus among them) at their IAU boundaries; Na (Nakshatra, Vedic), a ring of the 27 stars (nakshatras) outside them, each in four quarters", "Systems buttons, before Time: Eq, Ec, Tr, Si, 13, Op and Na, each on or off, their rings one on another: Eq, the house lines of CB and CN; Ec (Ecliptic), a ring of ecliptic longitude, between the circle and the signs; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs round the circle, each over its RA span (Si's outside Tr's); 13, a ring of the 13 constellations on the ecliptic (Ophiuchus among them) at their IAU boundaries; Op, a ring of thirteen equal signs (Ophiuchus among them) from the March equinox; Na (Nakshatra, Vedic), a ring of the 27 stars (nakshatras) outside them, each in four quarters", "Systems buttons, before Time: Eq, Ec, Tr, Si, Op and Na, each on or off, their rings one on another: Eq, the house lines of CB and CN; Ec (Ecliptic), a ring of ecliptic longitude, between the circle and the signs; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs round the circle, each over its RA span (Si's outside Tr's); Op (Ophiuchus), a ring of the 13 constellations on the ecliptic (Ophiuchus among them) at their IAU boundaries; Na (Nakshatra, Vedic), a ring of the 27 stars (nakshatras) outside them, each in four quarters", "Systems buttons, before Time: Eq, Ec, Tr, Si, Op, Na and As, each on or off, their rings one on another: Eq, the house lines of CB and CN; Ec (Ecliptic), a ring of ecliptic longitude, between the circle and the signs; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs round the circle, each over its RA span (Si's outside Tr's); Op (Ophiuchus), a ring of the 13 constellations on the ecliptic (Ophiuchus among them) at their IAU boundaries; Na (Nakshatra, Vedic), a ring of the 27 stars (nakshatras) outside them, each in four quarters; As, each place's Ascendant (the first house's start), a line across the rings with its value on each", "Systems buttons, before Time: Eq, Ec, As, Tr, Si, Op and Na, each on or off, their rings one on another: Eq, the house lines of CB and CN; Ec (Ecliptic), a ring of ecliptic longitude, between the circle and the signs; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs round the circle, each over its RA span (Si's outside Tr's); Op (Ophiuchus), a ring of the 13 constellations on the ecliptic (Ophiuchus among them) at their IAU boundaries; Na (Nakshatra, Vedic), a ring of the 27 stars (nakshatras) outside them, each in four quarters; As, each place's Ascendant (the first house's start), a line across the rings with its value on each", "Systems buttons, before Time: Eq, Ec, As, Tr, Si, Op, Na and KP, each on or off, their rings one on another: Eq, the house lines of CB and CN; Ec (Ecliptic), a ring of ecliptic longitude, between the circle and the signs; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs round the circle, each over its RA span (Si's outside Tr's); Op (Ophiuchus), a ring of the 13 constellations on the ecliptic (Ophiuchus among them) at their IAU boundaries; Na (Nakshatra, Vedic), a ring of the 27 stars (nakshatras) outside them, each in four quarters; As, each place's Ascendant (the first house's start), a line across the rings with its value on each; KP (Krishnamurti), a ring of the 27 stars with their star lords and their 243 subs by sub lord, outside all the others", "Systems buttons, after Time: Eq, Ec, As, Tr, Si, Op, Na and KP, each on or off, their rings one on another: Eq, the house lines of CB and CN; Ec (Ecliptic), a ring of ecliptic longitude, between the circle and the signs; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs round the circle, each over its RA span (Si's outside Tr's); Op (Ophiuchus), a ring of the 13 constellations on the ecliptic (Ophiuchus among them) at their IAU boundaries; Na (Nakshatra, Vedic), a ring of the 27 stars (nakshatras) outside them, each in four quarters; As, each place's Ascendant (the first house's start), a line across the rings with its value on each; KP (Krishnamurti), a ring of the 27 stars with their star lords and their 243 subs by sub lord, outside all the others", "Systems buttons, after Time: Eq, Ec, As, Tr, Si, Op, Na and KP, each on or off, their rings one on another: Eq, the house lines of CB and CN; Ec (Ecliptic), a ring of ecliptic longitude, between the circle and the signs; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs round the circle, each over its RA span (Si's outside Tr's); Op (Ophiuchus), a ring of the 13 constellations on the ecliptic (Ophiuchus among them) at their IAU boundaries; Na (Nakshatra, Vedic), a ring of the 27 stars (nakshatras) outside them, each in four quarters; As, each place's Ascendant (the first house's start), a line across the rings with its value on each; KP (Krishnamurti), a ring of the 27 stars' 243 subs by sub lord, outside all the others", "Systems buttons, after Time, each on or off, their rings one on another round the circle, inner first: Eq, the house lines of CB and CN; Ec (Ecliptic), a ring of ecliptic longitude; As, each place's Ascendant, a red arrow from Ea across the rings with its value on each; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs with their lords; Op (Ophiuchus), the 13 constellations at their IAU boundaries, with their lords; Na (Nakshatra), the 27 stars, named, with their star lords and four quarters; KP (Krishnamurti), the 27 stars' 243 subs, each in its sub lord's colour with its symbol"),   # (Tropical, then Tr, draws the signs; Sidereal, then Si, too)
+    "Na": ("Vedic: a Systems button under System (on or off): a ring of the 27 stars (nakshatras), each 13 degrees 20 minutes of the Sidereal ecliptic (Lahiri ayanamsa) from Ashwini, named", "Nakshatra (Vedic): a Systems button under System (on or off; once Vd): a ring of the 27 stars (nakshatras), each 13 degrees 20 minutes of the Sidereal ecliptic (Lahiri ayanamsa) from Ashwini, named, with a tick at each of its four quarters",),   # (once Vd, then Na)
+    "Op": ("Systems button under System (on or off): a ring of thirteen equal signs, about 27.69 degrees of the ecliptic each, Ophiuchus between Scorpio and Sagittarius, Aries from the March equinox (Tropical)", "Ophiuchus: Systems button under System (on or off; once 13): a ring of the 13 constellations the ecliptic passes through, Ophiuchus among them, at their IAU boundaries (so not all the same width), moved on by the precession to the time shown",),   # (Op was thirteen equal signs; then 13 was renamed Op)
+    "KP": ("Krishnamurti Paddhati: a Systems button under System (on or off): a ring of the 27 stars (nakshatras) by the KP ayanamsa, each with its star lord, and inside them their 243 subs, each in its sub lord's colour, its share of the star as its lord's Vimshottari years of 120", "Krishnamurti Paddhati: a Systems button under System (on or off): a ring of the 27 stars' (nakshatras') 243 subs by the KP ayanamsa, each in its sub lord's colour (a line at each star's start), its share of the star as its lord's Vimshottari years of 120",),   # (KP's ring has its subs alone now)
+    "Distance(%)": ("A planet's distance from the Earth between its nearest (0) and farthest (100)",),   # (the Distance(%) page, once Planets Distance(%), has its Help here now)
     "TABP": ("Transit Aspects Now from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, PTfBP, then TfBP) and its Predictions table: a planet now coming to an angle with a point of the birth chart",),   # (its table was Transit Aspects Now from Birth Points for a while)
     "Mundane": ("Transit Aspects (Mundane): Prediction Rules' Chart (once Sky, PT, then TEON) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)", "Transit Aspects to Each Others Now: Prediction Rules' Chart (once Sky, PT, then TEON) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)",),   # (its table is Transit Aspects (Mundane))
     "HT": ("Houses at Now: Prediction Rules' Chart and its Predictions table: the house of the birth chart each planet is in at this moment, with its reading", "Houses Now: Prediction Rules' Chart and its Predictions table: the house of the birth chart each planet is in at this moment, with its reading", "Houses Now: Prediction Rules' Chart and its Predictions table: each planet now passing through a house of the birth chart, when it comes in and goes out",),   # (Houses Now taken off Predictions)
@@ -151,11 +162,14 @@ HELP_OUT_OF_DATE = {                                          # the Help rows' D
     "Days": ("Customers column: days of DOB access to add (1, 7, 30, 90, 180, 365); End Date is extended by them",),
 }
 HELP_RENAMED = {"CM": ("Ce",), "Page Defaults": ("Defaults", "Page_Defaults"), "App Conditions": ("Conditions",),
-                "P1/Now": ("Planet1/Now", "Planet1-Now", "Moving"), "P2/Bth/Ho": ("Planet2/Birth", "Planet2-Birth", "Birth")}   # pages' Help rows renamed
+                "P1/Now": ("Planet1/Now", "Planet1-Now", "Moving"), "P2/Bth/Ho": ("Planet2/Birth", "Planet2-Birth", "Birth"),
+                "Equatorial-2D": ("AstroClock-2D",), "Equatorial-3D": ("AstroClock-3D",), "Cycles": ("Planets Cycles",), "Geo/Helio": ("Geo/Helio Model",), "Ec": ("Ei",), "Na": ("Vd",)}   # pages' Help rows renamed
 HELP_GONE_TOO = {"Sky": ("Predictions (Chart Sky): two planets now at an angle with each other, the same for everyone (with New and Full Moon)", "Predictions table Sky (Chart PT): two planets now at an angle with each other, the same for everyone (with New and Full Moon)"),   # (the Sky table and Chart are Planets Transits, PT, now)
                  "Box Title": ("Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box",
                               "Page Defaults column: the title of the box the input is in on its page (e.g. Get more days of access); None: no box")}   # (the Page Defaults table has no Box Title now)
-HELP_GONE = {"TAEON": "Transit Aspects to Each Others Now: Prediction Rules' Chart (once Sky, PT, then TEON) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)",   # (the Chart is Mundane now)
+HELP_GONE = {"13": "Systems button under System (on or off): a ring of the 13 constellations the ecliptic passes through, Ophiuchus among them, at their IAU boundaries (so not all the same width), moved on by the precession to the time shown",   # (Systems' 13 is Op)
+             "Planets Distance(%)": "Page: each planet's Distance(%) from the Earth over time",   # (the page is Distance(%) now: its Help is that row's)
+             "TAEON": "Transit Aspects to Each Others Now: Prediction Rules' Chart (once Sky, PT, then TEON) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)",   # (the Chart is Mundane now)
              "HT": "Houses Now: Prediction Rules' Chart, a planet now in a house of the birth chart (its Predictions table, Houses Now, taken off; the rules kept)",   # (its rules deleted)
              "TfBP": "Transit Aspects from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, then PTfBP) and its Predictions table: a planet now coming to an angle with a point of the birth chart",   # (the Chart is TABP now)
              "TEON": "Transit Aspects to Each Others Now: Prediction Rules' Chart (once Sky, then PT) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)",   # (the Chart is TAEON now)
@@ -169,7 +183,7 @@ HELP_GONE = {"TAEON": "Transit Aspects to Each Others Now: Prediction Rules' Cha
              "Came from": "Logins column: the site that brought the visitor (its name only); blank: none known",
              "Manual": "Time stands still; drag the drawing to turn it", "Planet Path": "Title button: the path of each planet picked"}   # the Help rows for buttons since gone, as the app wrote them
 HELP_ROWS_4 = [                                               # added later again
-    ("PP", "Planet Path: a button under Coordinates (AstroClock-2D, AstroClock-3D, Geo/Helio Model): the path of each planet shown"),
+    ("PP", "Planet Path: a button under Coordinates (Equatorial-2D, Equatorial-3D, Geo/Helio): the path of each planet shown"),
 ]
 HELP_ROWS_5 = [                                               # and again
     ("App Conditions", "Page (admins): the App Conditions table: a row per Object, its Values and Condition (unique)"),
@@ -208,14 +222,25 @@ HELP_ROWS_19 = []                                             # (was TAEON, sinc
 HELP_ROWS_20 = [("TABP", "Transit Aspects from Birth Points: Prediction Rules' Chart (once Transit, TfSaB, PTfBP, then TfBP) and its Predictions table: a planet now coming to an angle with a point of the birth chart")]
 HELP_ROWS_21 = [("HT", "Houses at Now: Prediction Rules' Chart and its Predictions table: the house each planet is in at this moment, the houses from CN, the place now (or Greenwich when none is known), with its reading")]   # (HT back)
 HELP_ROWS_22 = [("Mundane", "Transit Aspects Now (Mundane): Prediction Rules' Chart (once Sky, PT, then TEON) and its Predictions table: two planets now at an angle with each other, the same for everyone (with New and Full Moon)")]
-HELP_VERSION = "22"                                            # the sets of rows the Help table has been given
+HELP_ROWS_23 = [("Systems", "Page: like Equatorial-2D (the Geo drawing seen from above the north celestial pole, every planet on one circle at its RA), with rings of the zodiacs round it (System: Eq, Ec, As, Tr, Si, Op, Na, KP), the De graph left of it and an Ecliptic latitude graph right of it; no aspects and no Rotate in 1s (time dragged sideways)")]
+HELP_ROWS_24 = [("System", "Systems buttons, after Time, each on or off, their rings one on another round the circle, inner first: Eq, the house lines of CB and CN; Ec (Ecliptic), a ring of ecliptic longitude; Tr (Tropical) and Si (Sidereal), each a ring of the twelve signs with their lords; Op (Ophiuchus), the 13 constellations at their IAU boundaries, with their lords; Na (Nakshatra), the 27 stars, named, with their star lords and four quarters; KP (Krishnamurti), the 27 stars' 243 subs, each in its sub lord's colour with its symbol")]
+HELP_ROWS_25 = [("Tr", "Tropical: a System button on Systems (on or off): a ring of the twelve signs from the March equinox (Aries at 0 degrees of the ecliptic), each with its lord (Ma, Ve, Me, Mo, Su, Me, Ve, Ma, Ju, Sa, Sa, Ju), Tr at Aries' start"),
+                ("Si", "Sidereal: a System button on Systems (on or off): a ring of the twelve signs, each further on by the Lahiri ayanamsa at the time shown (about 24 degrees now), each with its lord, Si at Aries' start")]
+HELP_ROWS_26 = [("Ec", "Ecliptic: a System button on Systems (on or off): a ring of ecliptic longitude, 0 to 360 (Tropical), just outside the circle, each degree at the RA it falls at; Ec above its 0, Lg below")]
+HELP_ROWS_27 = [("Eq", "Equator: a System button on Systems (on or off; once Ho, under Coordinates): the house lines of CB and CN")]
+HELP_ROWS_28 = [("Na", "Nakshatra (Vedic): a System button on Systems (on or off; once Vd): a ring of the 27 stars, each 13 degrees 20 minutes of the Sidereal ecliptic (Lahiri ayanamsa) from Ashwini, named (at most 9 letters) with its star lord's symbol, a tick at each of its four quarters")]
+HELP_ROWS_29 = [("Op", "Ophiuchus: a System button on Systems (on or off; once 13): a ring of the 13 constellations the ecliptic passes through, Ophiuchus among them, at their IAU boundaries (so not all the same width), moved on by the precession to the time shown, each with its lord (Ophiuchus: none)")]
+HELP_ROWS_30 = []                                             # (was Op, thirteen equal signs, since gone: Op is the 13 constellations)
+HELP_ROWS_31 = [("As", "Ascendant: a Systems button after the Planets (on or off): each place's Ascendant (the ecliptic rising in the east there, the first house's start), a red arrow from Ea out past the rings (dashed for the DOB) with its value on each: Ec its longitude; Tr, Si and Op its sign and degree; Na its star and quarter; KP star lord / sub lord")]
+HELP_ROWS_32 = [("KP", "Krishnamurti Paddhati: a System button on Systems (on or off): a ring of the 27 stars' 243 subs (KP ayanamsa), each its share of the star as its lord's Vimshottari years of 120, from the star's lord on: inside, each in its sub lord's colour; outside, its sub lord's symbol; a line at each star's start")]
+HELP_ROWS_33 = [("Ecliptic latitude", "Systems graph right of the clock: each planet's latitude north (+) or south (-) of the ecliptic, -10 to +10 degrees, moving as time moves")]
+HELP_VERSION = "33"                                            # the sets of rows the Help table has been given
 HELP_ROWS_2 = [                                               # added later: the app's own names (pages, titles, tags, columns ..)
     # the pages
-    ("AstroClock-2D", "Page: the Geo drawing seen from above the north celestial pole, each planet at its RA and distance, with the De and Distance(%) graphs"),
-    ("AstroClock-3D", "Page: the Earth turning inside the celestial sphere, the planets on it at their RA and De (3D: a true 3D view)"),
-    ("Geo/Helio Model", "Page: the planets' paths at their real distances round the Earth (Geo) or the Sun (Helio)"),
-    ("Planets Cycles", "Page: each planet's RA and De over time, between a start and an end date"),
-    ("Planets Distance(%)", "Page: each planet's Distance(%) from the Earth over time"),
+    ("Equatorial-2D", "Page: the Geo drawing seen from above the north celestial pole, each planet at its RA and distance, with the De and Distance(%) graphs"),
+    ("Equatorial-3D", "Page: the Earth turning inside the celestial sphere, the planets on it at their RA and De (3D: a true 3D view)"),
+    ("Geo/Helio", "Page: the planets' paths at their real distances round the Earth (Geo) or the Sun (Helio)"),
+    ("Cycles", "Page: each planet's RA and De over time, between a start and an end date"),
     ("DOB Details", "Page (members): their birth details, and people added under their login"),
     ("Help", "Page: this table of the app's names and what they mean (admins change it)"),
     ("Aspect Rules", "Page (admins): the orbs, RA and De, a pair of planets must be within to be in aspect"),
@@ -256,8 +281,8 @@ HELP_ROWS_2 = [                                               # added later: the
     ("Days", "DOB Details (Get more days of access): days of DOB access to add (1, 7, 30, 90, 180, 365); End Date is extended by them"),
     ("SAbr", "Symbols column: a planet's short name (Su, Mo ..)"), ("Symb", "Symbols column: a planet's symbol"),
     ("SDesc", "Symbols column: a planet's name"), ("RGB", "Symbols column: a planet's colour, rgb(r,g,b)"),
-    ("Size_Clock-2D", "Symbols column: a planet's mark size on AstroClock-2D"),
-    ("Size_Clock-3D", "Symbols column: a planet's mark size on AstroClock-3D"),
+    ("Size_Clock-2D", "Symbols column: a planet's mark size on Equatorial-2D"),
+    ("Size_Clock-3D", "Symbols column: a planet's mark size on Equatorial-3D"),
     ("Size_Geo", "Symbols column: a planet's mark size on Geo"), ("Size_Helio", "Symbols column: a planet's mark size on Helio"),
 ]
 # The Predictions table (the Prediction Rules page): a row per rule, kept by admins. Chart Transit: when the Moving planet
@@ -325,14 +350,14 @@ HELP_ROWS = [                                                 # the abbreviation
     ("Ave", "Average: each planet's Distance(%) halfway between DOB and Now"),
     ("RA", "Right Ascension: a planet's position along the celestial equator, 0 to 360 degrees"),
     ("AU", "Astronomical unit: the Earth's average distance from the Sun, about 150 million km"),
-    ("Distance(%)", "A planet's distance from the Earth between its nearest (0) and farthest (100)"),
+    ("Distance(%)", "Page, and its measure: a planet's distance from the Earth between its nearest (0) and farthest (100), each chosen planet's over time"),
     ("Ho", "House lines: twelve, 30 degrees apart from the RA of CB and of CN"),
     ("CM", "Celestial coordinates: the axis with NCP and SCP, and the celestial equator"),
     ("NCP", "North celestial pole"), ("SCP", "South celestial pole"),
     ("WCE", "West end of the celestial equator, as drawn"), ("ECE", "East end of the celestial equator, as drawn"),
     ("Sp", "Spokes: a line from the Earth's centre through each planet to the sphere (in 3D, to the edge of the view)"),
     ("SpC", "Lines from CB (DOB) or CN (Now) on the Earth to each planet"),
-    ("De", "Declination, a planet's angle north (+) or south (-) of the celestial equator; on AstroClock-3D, the Coordinates button for each planet's De line on the sphere"), ("La", "The Earth's lines of latitude, every 30 degrees"),
+    ("De", "Declination, a planet's angle north (+) or south (-) of the celestial equator; on Equatorial-3D, the Coordinates button for each planet's De line on the sphere"), ("La", "The Earth's lines of latitude, every 30 degrees"),
     ("Lg", "The Earth's lines of longitude, every 30 degrees"),
     ("3D", "A true 3D view round the Earth, to turn and zoom with the mouse"),
     ("1C", "One circle: every planet on one circle at its RA, whatever its distance, to see conjunctions"),
@@ -343,37 +368,43 @@ HELP_ROWS = [                                                 # the abbreviation
 DEFAULTS_INDEX = "ux_defaults_page_options"                   # one row per Page and Options
 sa.Index(DEFAULTS_INDEX, defaults.c.page, defaults.c.options, unique=True)
 DEFAULT_ROWS = [                                              # the app's own defaults: the rows the table starts with
-    ("AstroClock-2D", "Time", "Now"),
-    ("AstroClock-2D", "Planets", "Su, Mo, Me, Ve, Ma, Ju, Sa, NN, SN"),
-    ("AstroClock-2D", "Major Aspects", ""),
-    ("AstroClock-2D", "Minor Aspects", ""),
-    ("AstroClock-2D", "Coordinates", "Ho, DA"),              # the buttons below Coordinates that start on (Ho, 1C, DA)
-    ("AstroClock-2D", "Rotate in 1s", ""),
-    ("AstroClock-3D", "Time", "Now"),
-    ("AstroClock-3D", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
-    ("AstroClock-3D", "Major Aspects", ""),
-    ("AstroClock-3D", "Minor Aspects", ""),
-    ("AstroClock-3D", "Coordinates", "CM"),
-    ("AstroClock-3D", "Rotate in 1s", ""),                    # (no speed: time stands still, the drawing dragged round)
-    ("Geo/Helio Model", "Centric Model", "Geo"),
-    ("Geo/Helio Model", "Time", "Now"),                       # (one row each for both models: Geo takes Su, Helio Ea)
-    ("Geo/Helio Model", "Planets", "Mo, Su, Ea, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio Model", "Coordinates", "CM, AU"),            # and here (CM, AU)
-    ("Geo/Helio Model", "Rotate in 1s", ""),
-    ("Planets Cycles", "Start Date (UT)", "DOB"),
-    ("Planets Cycles", "End Date (UT)", "Start Date (UT) + 30 years"),
-    ("Planets Cycles", "Planets", "Ju, Sa"),
-    ("Planets Cycles", "Major Aspects", "0, 180"),
-    ("Planets Cycles", "Minor Aspects", ""),
-    ("Planets Distance(%)", "Start Date (UT)", "DOB"),
-    ("Planets Distance(%)", "End Date (UT)", "Start Date (UT) + 2 years"),
-    ("Planets Distance(%)", "Planets", "Ju, Sa"),
+    ("Equatorial-2D", "Time", "Now"),
+    ("Equatorial-2D", "Planets", "Su, Mo, Me, Ve, Ma, Ju, Sa, NN, SN"),
+    ("Equatorial-2D", "Major Aspects", ""),
+    ("Equatorial-2D", "Minor Aspects", ""),
+    ("Equatorial-2D", "Coordinates", "Ho, DA"),              # the buttons below Coordinates that start on (Ho, 1C, DA)
+    ("Equatorial-2D", "Rotate in 1s", ""),
+    ("Systems", "System", "Tr"),                              # Systems: a copy of Equatorial-2D, its own rows (and System)
+    ("Systems", "Ec", "Ec"),                                  # (Ec, beside Tr and Si: on; once Ei)
+    ("Systems", "As", "As"),                                  # (As, after Ec: the Ascendant on every ring, on)
+    ("Systems", "Eq", "Eq"),                                  # (Eq, under System: the house lines, on; once Ho, under Coordinates)
+    ("Systems", "Time", "Now"),
+    ("Systems", "Planets", "Su, Mo, Me, Ve, Ma, Ju, Sa, NN, SN"),
+    ("Equatorial-3D", "Time", "Now"),
+    ("Equatorial-3D", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
+    ("Equatorial-3D", "Major Aspects", ""),
+    ("Equatorial-3D", "Minor Aspects", ""),
+    ("Equatorial-3D", "Coordinates", "CM"),
+    ("Equatorial-3D", "Rotate in 1s", ""),                    # (no speed: time stands still, the drawing dragged round)
+    ("Geo/Helio", "Centric Model", "Geo"),
+    ("Geo/Helio", "Time", "Now"),                       # (one row each for both models: Geo takes Su, Helio Ea)
+    ("Geo/Helio", "Planets", "Mo, Su, Ea, Me, Ve, Ma, Ju, Sa"),
+    ("Geo/Helio", "Coordinates", "CM, AU"),            # and here (CM, AU)
+    ("Geo/Helio", "Rotate in 1s", ""),
+    ("Cycles", "Start Date (UT)", "DOB"),
+    ("Cycles", "End Date (UT)", "Start Date (UT) + 30 years"),
+    ("Cycles", "Planets", "Ju, Sa"),
+    ("Cycles", "Major Aspects", "0, 180"),
+    ("Cycles", "Minor Aspects", ""),
+    ("Distance(%)", "Start Date (UT)", "DOB"),
+    ("Distance(%)", "End Date (UT)", "Start Date (UT) + 2 years"),
+    ("Distance(%)", "Planets", "Ju, Sa"),
     ("DOB Details", "Days", "7"),                             # Get more days of access: the days picked to start
     ("DOB Details", "Pay / Coupon", ""),                     # and the coupon filled in to start (blank: none; Free: free)
     ("Predictions", "Start Date (UT)", "Now"),
     ("Predictions", "End Date (UT)", "Start Date (UT) + 1 year"),
 ]
-DEFAULTS_VERSION = "8"                                        # 8: Predictions; 7: AstroClock-2D's and Geo/Helio Model's Coordinates (one row for the buttons below it; Geo/Helio Model's rows one per input since); 6: DOB Details' Days and Pay / Coupon; 5: AstroClock-2D's aspects; 4: Aspects' angles; 3: AstroClock-2D's rows; 2: rows for every input; 1: the End Dates only
+DEFAULTS_VERSION = "13"                                       # 13: Systems' As; 12: Systems' Eq; 11: Systems' Ec (once Ei); 10: Systems' System; 9: Systems; 8: Predictions; 7: Equatorial-2D's and Geo/Helio's Coordinates (one row for the buttons below it; Geo/Helio's rows one per input since); 6: DOB Details' Days and Pay / Coupon; 5: Equatorial-2D's aspects; 4: Aspects' angles; 3: Equatorial-2D's rows; 2: rows for every input; 1: the End Dates only
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
@@ -382,10 +413,10 @@ planets = sa.Table(                                           # seen by admins o
     sa.Column("name", sa.String(60)),
     sa.Column("color", sa.String(40)),
     sa.Column("color_name", sa.String(40)),                   # free text, for people; the charts use color
-    sa.Column("size_clock_3d", sa.String(40)),                   # how the AstroClock-3D chart sizes it: Size_Clock-3D
+    sa.Column("size_clock_3d", sa.String(40)),                   # how the Equatorial-3D chart sizes it: Size_Clock-3D
     sa.Column("size", sa.String(40)),                         # how the GeoCentric chart sizes it: Size_Geo
     sa.Column("size_helio", sa.String(40)),                   # how the HelioCentric chart sizes it: Size_Helio
-    sa.Column("size_clock_2d", sa.String(40)),                   # how the AstroClock-2D chart sizes it: Size_Clock-2D
+    sa.Column("size_clock_2d", sa.String(40)),                   # how the Equatorial-2D chart sizes it: Size_Clock-2D
 )
 # The Aspect Rules table: one row, ALL_ASPECTS, with an RA orb and a De orb per planet (-RA, -De), for every angle (kept
 # under angle 0; pos 0)
@@ -470,6 +501,7 @@ def engine() -> sa.Engine:
     _merge_coordinates(eng)
     _seed_defaults(eng)
     _drop_gone_inputs(eng)
+    _systems_no_da(eng)
     _set_time_now(eng)
     _rename_dec_button(eng)
     _merge_coordinates(eng)                                   # (again: a button row an earlier name has just given back)
@@ -569,31 +601,74 @@ def _add_defaults_index(eng: sa.Engine):
 def _rename_defaults_page(eng: sa.Engine):
     """The Defaults rows of pages since renamed get the new names (their Choices kept)."""
     with eng.begin() as c:
-        for old, new in (("astroglobe", "AstroClock-3D"), ("geo/helio", "Geo/Helio Model"), ("aspects", "Aspects"), ("aspects table", "Aspects")):
+        for old, new in (("astroglobe", "Equatorial-3D"), ("astroclock-3d", "Equatorial-3D"), ("astroclock-2d", "Equatorial-2D"), ("planets distance(%)", "Distance(%)"), ("planets cycles", "Cycles"),
+                         ("geo/helio", "Geo/Helio"), ("geo/helio model", "Geo/Helio"), ("aspects", "Aspects"), ("aspects table", "Aspects")):
             if old != new.lower():                            # a row the new name already has wins (Page and Options are unique)
                 taken = sa.select(sa.func.lower(defaults.c.options)).where(sa.func.lower(defaults.c.page) == new.lower())
                 c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == old, sa.func.lower(defaults.c.options).in_(taken)))
             c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == old).values(page=new))
-        c.execute(defaults.update().where(defaults.c.page == "Planets Cycles", defaults.c.options == "Major Aspects")   # its buttons have no degree sign now
+        c.execute(defaults.update().where(defaults.c.page == "Cycles", defaults.c.options == "Major Aspects")   # its buttons have no degree sign now
                   .values(choices=sa.func.replace(defaults.c.choices, "\u00b0", "")))
         for old, new in (("maj aspects", "Major Aspects"), ("min aspects", "Minor Aspects")):   # and the inputs since renamed
-            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-3d", sa.func.lower(defaults.c.options) == old).values(options=new))
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "rotate in 1s",
-                                          sa.func.lower(defaults.c.choices) == "manual").values(choices=None))   # AstroClock-2D has no Manual now
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "houses")
+            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-3d", sa.func.lower(defaults.c.options) == old).values(options=new))
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options) == "rotate in 1s",
+                                          sa.func.lower(defaults.c.choices) == "manual").values(choices=None))   # Equatorial-2D has no Manual now
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options) == "houses")
                   .values(options="House"))                   # its button is House now
+        # Systems' Ei button is Ec: its row (and its choice) gets the new name
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "systems", sa.func.lower(defaults.c.options) == "ei",
+                                          sa.func.lower(sa.func.trim(defaults.c.choices)) == "ei").values(choices="Ec"))
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "systems", sa.func.lower(defaults.c.options) == "ei").values(options="Ec"))
         for old, new in (("geo scale", "Geo Coordinates"), ("helio scale", "Helio Coordinates")):
-            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio model", sa.func.lower(defaults.c.options) == old).values(options=new))
+            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio", sa.func.lower(defaults.c.options) == old).values(options=new))
 
 
-NEW_IN_4 = (("Aspects", "Major Aspects"), ("Aspects", "Minor Aspects"), ("Planets Cycles", "Minor Aspects"))
-NEW_IN_5 = (("AstroClock-2D", "Major Aspects"), ("AstroClock-2D", "Minor Aspects"))
+NEW_IN_4 = (("Aspects", "Major Aspects"), ("Aspects", "Minor Aspects"), ("Cycles", "Minor Aspects"))
+NEW_IN_5 = (("Equatorial-2D", "Major Aspects"), ("Equatorial-2D", "Minor Aspects"))
 NEW_IN_6 = (("DOB Details", "Days"), ("DOB Details", "Pay / Coupon"))
-NEW_IN_7 = (("AstroClock-2D", "Coordinates"), ("Geo/Helio Model", "Coordinates"))
+NEW_IN_7 = (("Equatorial-2D", "Coordinates"), ("Geo/Helio", "Coordinates"))
 NEW_IN_8 = (("Predictions", "Start Date (UT)"), ("Predictions", "End Date (UT)"))
+NEW_IN_9 = tuple(("Systems", t) for t in ("Time", "Planets", "Major Aspects", "Minor Aspects", "Coordinates", "Rotate in 1s"))
+NEW_IN_10 = (("Systems", "System"),)
+NEW_IN_11 = (("Systems", "Ec"),)
+NEW_IN_12 = (("Systems", "Eq"),)
+NEW_IN_13 = (("Systems", "As"),)
 GONE_INPUTS = (("predictions", "planets"),                   # inputs since taken off their page (or the page gone): their Defaults rows go
                ("aspects", "start date (ut)"), ("aspects", "end date (ut)"), ("aspects", "planets"), ("aspects", "aspects"),
-               ("aspects", "major aspects"), ("aspects", "minor aspects"))   # (the Aspects page is gone; Predictions has its Aspects)
+               ("aspects", "major aspects"), ("aspects", "minor aspects"),   # (the Aspects page is gone; Predictions has its Aspects)
+               ("systems", "major aspects"), ("systems", "minor aspects"), ("systems", "rotate in 1s"))   # (Systems has none of these)
+
+
+def _systems_no_da(eng: sa.Engine):
+    """Systems has no Distance(%) graph, so no DA button: its Coordinates row (seeded at first as Equatorial-2D's, Ho, DA)
+    no longer names DA (then, its Ho, its only button, is Eq, under System: its row is Eq's); and its System row names Tr or
+    Si (once Tropical or Sidereal)."""
+    with eng.begin() as c:
+        for rid, choices in c.execute(sa.select(defaults.c.id, defaults.c.choices).where(
+                sa.func.lower(defaults.c.page) == "systems", sa.func.lower(defaults.c.options) == "coordinates")).all():
+            kept = [p.strip() for p in (choices or "").split(",") if p.strip() and p.strip().lower() != "da"]
+            if ", ".join(kept) != (choices or ""):
+                c.execute(defaults.update().where(defaults.c.id == rid).values(choices=", ".join(kept) or None))
+        # its Ho button (under Coordinates, its only one) is Eq, under System: the Eq row takes the Coordinates row's choice
+        # (when the seeding has not given it one already), and the Coordinates row goes
+        coords = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(
+            sa.func.lower(defaults.c.page) == "systems", sa.func.lower(defaults.c.options) == "coordinates")).first()
+        if coords:
+            if not c.execute(sa.select(defaults.c.id).where(sa.func.lower(defaults.c.page) == "systems", sa.func.lower(defaults.c.options) == "eq")).first():
+                ho = "ho" in [p.strip().lower() for p in (coords.choices or "").split(",")]
+                c.execute(defaults.update().where(defaults.c.id == coords.id).values(options="Eq", choices="Eq" if ho else None))
+            else:
+                c.execute(defaults.delete().where(defaults.c.id == coords.id))
+        # its System's Vd is Na, and 13 is Op
+        for rid, choices in c.execute(sa.select(defaults.c.id, defaults.c.choices).where(
+                sa.func.lower(defaults.c.page) == "systems", sa.func.lower(defaults.c.options) == "system")).all():
+            parts = [{"vd": "Na", "13": "Op"}.get(p.strip().lower(), p.strip()) for p in (choices or "").split(",") if p.strip()]
+            if ", ".join(parts) != (choices or ""):
+                c.execute(defaults.update().where(defaults.c.id == rid).values(choices=", ".join(parts) or None))
+        # its System's choices, once Tropical and Sidereal, are Tr and Si
+        for old, new in (("tropical", "Tr"), ("sidereal", "Si")):
+            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "systems", sa.func.lower(defaults.c.options) == "system",
+                                              sa.func.lower(sa.func.trim(defaults.c.choices)) == old).values(choices=new))
 
 
 def _drop_gone_inputs(eng: sa.Engine):
@@ -604,16 +679,16 @@ def _drop_gone_inputs(eng: sa.Engine):
             c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == page, sa.func.lower(defaults.c.options) == title))
 
 
-TIME_ROWS = (("astroclock-2d", "time"), ("astroclock-3d", "time"), ("geo/helio model", "geo time"), ("geo/helio model", "helio time"),
-             ("geo/helio model", "time"))
-COORD_ROWS = {"AstroClock-2D": (("Ho", True), ("1C", False), ("DA", True)), "Geo/Helio Model": (("Ce", True), ("AU", True))}   # the buttons
+TIME_ROWS = (("equatorial-2d", "time"), ("equatorial-3d", "time"), ("geo/helio", "geo time"), ("geo/helio", "helio time"),
+             ("geo/helio", "time"))
+COORD_ROWS = {"Equatorial-2D": (("Ho", True), ("1C", False), ("DA", True)), "Geo/Helio": (("Ce", True), ("AU", True))}   # the buttons
 # below Coordinates, once a row each, and whether each starts on with no row
 
 
 def _drop_planet_path(eng: sa.Engine):
-    """AstroClock-3D's and Geo/Helio Model's Planet Path is the PP button under Coordinates now: each page's Defaults row for
+    """Equatorial-3D's and Geo/Helio's Planet Path is the PP button under Coordinates now: each page's Defaults row for
     it goes, PP joining the page's Coordinates row's Choice Values when it started with any paths."""
-    for page in ("astroclock-3d", "geo/helio model"):
+    for page in ("equatorial-3d", "geo/helio"):
         _path_to_pp(eng, page)
 
 
@@ -644,7 +719,7 @@ def _drop_manual(eng: sa.Engine):
 
 
 def _merge_coordinates(eng: sa.Engine):
-    """AstroClock-2D's Ho, 1C and DA rows and Geo/Helio Model's Ce and AU rows, once one per button (On or Off), become one
+    """Equatorial-2D's Ho, 1C and DA rows and Geo/Helio's Ce and AU rows, once one per button (On or Off), become one
     row Coordinates: its Choice Values the buttons that start on (a button with no row: as the app starts it), its Box Title
     the first row's. A Coordinates row already there stays, and the button rows go."""
     with eng.begin() as c:
@@ -668,11 +743,11 @@ def _merge_coordinates(eng: sa.Engine):
                                                                                 allowed_values=None))
 
 
-GEO_HELIO_INPUTS = ("Time", "Planets", "Planet Path", "AU", "Ce", "Rotate in 1s")   # Geo/Helio Model's, one row each for both models
+GEO_HELIO_INPUTS = ("Time", "Planets", "Planet Path", "AU", "Ce", "Rotate in 1s")   # Geo/Helio's, one row each for both models
 
 
 def _merge_geo_helio(eng: sa.Engine):
-    """Geo/Helio Model's rows, once one per model (Geo Time, Helio Time ..), become one per input (Time ..) for both: its
+    """Geo/Helio's rows, once one per model (Geo Time, Helio Time ..), become one per input (Time ..) for both: its
     Choice Values both models' (the planets of both; else Geo's), its Allowed Values both models' (blank, all, when either is),
     its Box Title Geo's. A row for the input already there stays, and the per-model rows go."""
     with eng.begin() as c:
@@ -680,11 +755,11 @@ def _merge_geo_helio(eng: sa.Engine):
             names = [f"geo {title.lower()}", f"helio {title.lower()}"]
             rows = {r.options.lower(): r for r in c.execute(sa.select(defaults.c.id, defaults.c.options, defaults.c.choices,
                                                                         defaults.c.allowed_values).where(
-                sa.func.lower(defaults.c.page) == "geo/helio model", sa.func.lower(defaults.c.options).in_(names))).all()}
+                sa.func.lower(defaults.c.page) == "geo/helio", sa.func.lower(defaults.c.options).in_(names))).all()}
             if not rows:
                 continue
             geo, helio = rows.get(names[0]), rows.get(names[1])
-            there = c.execute(sa.select(defaults.c.id).where(sa.func.lower(defaults.c.page) == "geo/helio model",
+            there = c.execute(sa.select(defaults.c.id).where(sa.func.lower(defaults.c.page) == "geo/helio",
                                                              sa.func.lower(defaults.c.options) == title.lower())).first()
             keep = None if there else (geo or helio)
             for r in rows.values():
@@ -709,11 +784,11 @@ def _merge_geo_helio(eng: sa.Engine):
 
 
 def _rename_ce_button(eng: sa.Engine):
-    """The celestial coordinates' button, Ce (once Celes), is called CM: a Coordinates row of AstroClock-3D or Geo/Helio
+    """The celestial coordinates' button, Ce (once Celes), is called CM: a Coordinates row of Equatorial-3D or Geo/Helio
     Model that names it, in Choice Values or Allowed Values, gets the new name."""
     with eng.begin() as c:
         rows = c.execute(sa.select(defaults.c.id, defaults.c.choices, defaults.c.allowed_values).where(
-            sa.func.lower(defaults.c.page).in_(["astroclock-3d", "geo/helio model"]), sa.func.lower(defaults.c.options) == "coordinates")).all()
+            sa.func.lower(defaults.c.page).in_(["equatorial-3d", "geo/helio"]), sa.func.lower(defaults.c.options) == "coordinates")).all()
         for rid, choices, allowed in rows:
             def renamed(text):
                 parts = [p.strip() for p in (text or "").split(",") if p.strip()]
@@ -722,40 +797,40 @@ def _rename_ce_button(eng: sa.Engine):
                 c.execute(defaults.update().where(defaults.c.id == rid).values(choices=renamed(choices), allowed_values=renamed(allowed)))
 
 
-COORD_BUTTONS_RENAMED = {"dec": "De", "lati": "La", "long": "Lg", "lat": "La", "lon": "Lg", "house": "Ho", "celes": "Ce", "true": "Tru", "co": "SpC"}   # AstroClock-3D's Coordinates buttons' earlier names
+COORD_BUTTONS_RENAMED = {"dec": "De", "lati": "La", "long": "Lg", "lat": "La", "lon": "Lg", "house": "Ho", "celes": "Ce", "true": "Tru", "co": "SpC"}   # Equatorial-3D's Coordinates buttons' earlier names
 
 
 def _rename_dec_button(eng: sa.Engine):
-    """AstroClock-3D's Coordinates buttons De, Lati, Long (then Lat, Lon), House, Celes, True and Co are called De, La, Lg, Ho, Ce, Tru and SpC: a
+    """Equatorial-3D's Coordinates buttons De, Lati, Long (then Lat, Lon), House, Celes, True and Co are called De, La, Lg, Ho, Ce, Tru and SpC: a
     Defaults row that names them gets the new names."""
     with eng.begin() as c:
         rows = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(
-            sa.func.lower(defaults.c.page) == "astroclock-3d", sa.func.lower(defaults.c.options).in_(["coordinates", "scale"]))).all()
+            sa.func.lower(defaults.c.page) == "equatorial-3d", sa.func.lower(defaults.c.options).in_(["coordinates", "scale"]))).all()
         for rid, choices in rows:
             parts = [p.strip() for p in (choices or "").split(",")]
             if any(p.lower() in COORD_BUTTONS_RENAMED for p in parts):
                 new = ", ".join(COORD_BUTTONS_RENAMED.get(p.lower(), p) for p in parts if p)
                 c.execute(defaults.update().where(defaults.c.id == rid).values(choices=new))
-        # AstroClock-2D's House button (once Houses) is called Ho: a Defaults row for it (and a choice of it) gets the new name
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options).in_(["house", "houses"]))
+        # Equatorial-2D's House button (once Houses) is called Ho: a Defaults row for it (and a choice of it) gets the new name
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options).in_(["house", "houses"]))
                   .values(options="Ho"))
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "ho",
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options) == "ho",
                                           sa.func.lower(sa.func.trim(defaults.c.choices)).in_(["house", "houses"])).values(choices="Ho"))
-        # AstroClock-2D's Ave button, then DAv, is called DA: a Defaults row for it (and a choice of it) gets the new name
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options).in_(["ave", "dav"]))
+        # Equatorial-2D's Ave button, then DAv, is called DA: a Defaults row for it (and a choice of it) gets the new name
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options).in_(["ave", "dav"]))
                   .values(options="DA"))
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "da",
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options) == "da",
                                           sa.func.lower(sa.func.trim(defaults.c.choices)).in_(["ave", "dav"])).values(choices="DA"))
-        # AstroClock-2D's Aspect button, then 1circle, is called 1C: a Defaults row for it (and a choice of it) gets the new name
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options).in_(["aspect", "1circle"]))
+        # Equatorial-2D's Aspect button, then 1circle, is called 1C: a Defaults row for it (and a choice of it) gets the new name
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options).in_(["aspect", "1circle"]))
                   .values(options="1C"))
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "astroclock-2d", sa.func.lower(defaults.c.options) == "1c",
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options) == "1c",
                                           sa.func.lower(sa.func.trim(defaults.c.choices)).in_(["aspect", "1circle"])).values(choices="1C"))
-        # Geo/Helio Model's Co button is called SpC: its rows (Geo Co, Helio Co) and a choice of it get the new name
+        # Geo/Helio's Co button is called SpC: its rows (Geo Co, Helio Co) and a choice of it get the new name
         for model in ("geo", "helio"):
-            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio model",
+            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio",
                                               sa.func.lower(defaults.c.options) == model + " co").values(options=model.title() + " SpC"))
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio model",
+        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio",
                                           sa.func.lower(defaults.c.options).in_(["geo spc", "helio spc"]),
                                           sa.func.lower(sa.func.trim(defaults.c.choices)) == "co").values(choices="SpC"))
         # Time is Now or DOB, one at a time: a Time row naming both keeps the first
@@ -765,11 +840,11 @@ def _rename_dec_button(eng: sa.Engine):
                 parts = [p.strip() for p in (choices or "").split(",") if p.strip()]
                 if len(parts) > 1:
                     c.execute(defaults.update().where(defaults.c.id == rid).values(choices=parts[0]))
-        # Geo/Helio Model's 3D, Sp and SpC buttons have moved to AstroClock-3D (its Coordinates): their rows go
-        c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == "geo/helio model", sa.func.lower(defaults.c.options).in_(
+        # Geo/Helio's 3D, Sp and SpC buttons have moved to Equatorial-3D (its Coordinates): their rows go
+        c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == "geo/helio", sa.func.lower(defaults.c.options).in_(
             [f"{m} {b}" for m in ("geo", "helio") for b in ("3d", "sp", "spc")])))
-        # Geo/Helio Model's Fit and True buttons are gone (always Fit): its Coordinates rows go
-        c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == "geo/helio model",
+        # Geo/Helio's Fit and True buttons are gone (always Fit): its Coordinates rows go
+        c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == "geo/helio",
                                           sa.func.lower(defaults.c.options).in_(["geo coordinates", "helio coordinates"])))
 
 
@@ -793,10 +868,15 @@ def _seed_defaults(eng: sa.Engine):
         if done == DEFAULTS_VERSION:
             return
         have = {(p.lower(), t.lower()) for p, t in c.execute(sa.select(defaults.c.page, defaults.c.options)).all()}
-        added_since = {"2": lambda r: r[0] == "AstroClock-2D" or r[:2] in NEW_IN_4 + NEW_IN_6 + NEW_IN_7 + NEW_IN_8,
-                       "3": lambda r: r[:2] in NEW_IN_4 + NEW_IN_5 + NEW_IN_6 + NEW_IN_7 + NEW_IN_8,
-                       "4": lambda r: r[:2] in NEW_IN_5 + NEW_IN_6 + NEW_IN_7 + NEW_IN_8, "5": lambda r: r[:2] in NEW_IN_6 + NEW_IN_7 + NEW_IN_8,
-                       "6": lambda r: r[:2] in NEW_IN_7 + NEW_IN_8, "7": lambda r: r[:2] in NEW_IN_8}
+        added_since = {"2": lambda r: r[0] == "Equatorial-2D" or r[:2] in NEW_IN_4 + NEW_IN_6 + NEW_IN_7 + NEW_IN_8 + NEW_IN_9 + NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13,
+                       "3": lambda r: r[:2] in NEW_IN_4 + NEW_IN_5 + NEW_IN_6 + NEW_IN_7 + NEW_IN_8 + NEW_IN_9 + NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13,
+                       "4": lambda r: r[:2] in NEW_IN_5 + NEW_IN_6 + NEW_IN_7 + NEW_IN_8 + NEW_IN_9 + NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13, "5": lambda r: r[:2] in NEW_IN_6 + NEW_IN_7 + NEW_IN_8 + NEW_IN_9 + NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13,
+                       "6": lambda r: r[:2] in NEW_IN_7 + NEW_IN_8 + NEW_IN_9 + NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13, "7": lambda r: r[:2] in NEW_IN_8 + NEW_IN_9 + NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13,
+                       "8": lambda r: r[:2] in NEW_IN_9 + NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13,
+                       "9": lambda r: r[:2] in NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13,
+                       "10": lambda r: r[:2] in NEW_IN_11 + NEW_IN_12 + NEW_IN_13,
+                       "11": lambda r: r[:2] in NEW_IN_12 + NEW_IN_13,
+                       "12": lambda r: r[:2] in NEW_IN_13}
         wanted = [r for r in DEFAULT_ROWS if added_since[done](r)] if done in added_since else DEFAULT_ROWS   # (a row deleted before stays deleted)
         new = [dict(page=p, options=t, choices=o or None) for p, t, o in wanted if (p.lower(), t.lower()) not in have]
         if new:
@@ -831,7 +911,12 @@ def _rename_help_rows(eng: sa.Engine):
                              .values(abbreviation=new)).rowcount:
                     break
         # (a row still as the app first wrote it, since out of date, gets the one the app has now; one an admin has changed stays)
-        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5 + HELP_ROWS_6 + HELP_ROWS_7 + HELP_ROWS_8 + HELP_ROWS_9 + HELP_ROWS_10 + HELP_ROWS_11 + HELP_ROWS_12 + HELP_ROWS_13 + HELP_ROWS_14 + HELP_ROWS_15 + HELP_ROWS_16 + HELP_ROWS_17 + HELP_ROWS_18 + HELP_ROWS_19 + HELP_ROWS_20 + HELP_ROWS_21 + HELP_ROWS_22)
+        now = dict(HELP_ROWS + HELP_ROWS_2 + HELP_ROWS_3 + HELP_ROWS_4 + HELP_ROWS_5 + HELP_ROWS_6 + HELP_ROWS_7 + HELP_ROWS_8 + HELP_ROWS_9 + HELP_ROWS_10 + HELP_ROWS_11 + HELP_ROWS_12 + HELP_ROWS_13 + HELP_ROWS_14 + HELP_ROWS_15 + HELP_ROWS_16 + HELP_ROWS_17 + HELP_ROWS_18 + HELP_ROWS_19 + HELP_ROWS_20 + HELP_ROWS_21 + HELP_ROWS_22 + HELP_ROWS_23 + HELP_ROWS_24 + HELP_ROWS_25 + HELP_ROWS_26 + HELP_ROWS_27 + HELP_ROWS_28 + HELP_ROWS_29 + HELP_ROWS_30 + HELP_ROWS_31 + HELP_ROWS_32 + HELP_ROWS_33)
+        for abbreviation, text in now.items():               # (pages renamed, AstroClock-2D, -3D and Geo/Helio Model: a row as the app wrote it with the old names gets the new)
+            old = text.replace("Equatorial-2D", "AstroClock-2D").replace("Equatorial-3D", "AstroClock-3D").replace("Geo/Helio", "Geo/Helio Model")
+            if old != text:
+                c.execute(help_table.update().where(sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(),
+                                                    help_table.c.description == old).values(description=text))
         for abbreviation, olds in HELP_OUT_OF_DATE.items():
             where = (sa.func.lower(help_table.c.abbreviation) == abbreviation.lower(), help_table.c.description.in_(olds))
             if abbreviation in now:
@@ -872,7 +957,7 @@ def _seed_help(eng: sa.Engine):
         done = c.execute(sa.select(settings.c.value).where(settings.c.key == "help_seeded")).scalar()
         if done == HELP_VERSION:
             return
-        later = [HELP_ROWS_2, HELP_ROWS_3, HELP_ROWS_4, HELP_ROWS_5, HELP_ROWS_6, HELP_ROWS_7, HELP_ROWS_8, HELP_ROWS_9, HELP_ROWS_10, HELP_ROWS_11, HELP_ROWS_12, HELP_ROWS_13, HELP_ROWS_14, HELP_ROWS_15, HELP_ROWS_16, HELP_ROWS_17, HELP_ROWS_18, HELP_ROWS_19, HELP_ROWS_20, HELP_ROWS_21, HELP_ROWS_22]   # (the sets added since each note: 1 has had HELP_ROWS ..)
+        later = [HELP_ROWS_2, HELP_ROWS_3, HELP_ROWS_4, HELP_ROWS_5, HELP_ROWS_6, HELP_ROWS_7, HELP_ROWS_8, HELP_ROWS_9, HELP_ROWS_10, HELP_ROWS_11, HELP_ROWS_12, HELP_ROWS_13, HELP_ROWS_14, HELP_ROWS_15, HELP_ROWS_16, HELP_ROWS_17, HELP_ROWS_18, HELP_ROWS_19, HELP_ROWS_20, HELP_ROWS_21, HELP_ROWS_22, HELP_ROWS_23, HELP_ROWS_24, HELP_ROWS_25, HELP_ROWS_26, HELP_ROWS_27, HELP_ROWS_28, HELP_ROWS_29, HELP_ROWS_30, HELP_ROWS_31, HELP_ROWS_32, HELP_ROWS_33]   # (the sets added since each note: 1 has had HELP_ROWS ..)
         wanted = sum(later[int(done) - 1:], []) if done and done.isdigit() else HELP_ROWS + sum(later, [])
         have = {a.lower() for (a,) in c.execute(sa.select(help_table.c.abbreviation)).all()}
         new = []
@@ -1992,7 +2077,7 @@ def _add_planet_size_helio(eng: sa.Engine):
 
 
 def _add_planet_size_globe(eng: sa.Engine):
-    """A table made before Size_Clock-3D gets it, each row as its Size_Geo (as AstroClock-3D drew them then)."""
+    """A table made before Size_Clock-3D gets it, each row as its Size_Geo (as Equatorial-3D drew them then)."""
     if "size_clock_3d" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
         return
     kind = planets.c.size_clock_3d.type.compile(dialect=eng.dialect)
@@ -2002,7 +2087,7 @@ def _add_planet_size_globe(eng: sa.Engine):
 
 
 def _add_planet_size_clock(eng: sa.Engine):
-    """A table made before Size_Clock-2D gets it, each row as its Size_Geo (as AstroClock-2D drew them then)."""
+    """A table made before Size_Clock-2D gets it, each row as its Size_Geo (as Equatorial-2D drew them then)."""
     if "size_clock_2d" in {c["name"] for c in sa.inspect(eng).get_columns("naming_conventions")}:
         return
     kind = planets.c.size_clock_2d.type.compile(dialect=eng.dialect)

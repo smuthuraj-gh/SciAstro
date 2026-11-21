@@ -1,4 +1,4 @@
-"""Geo/Helio Model's 3D view (its 3D button): the Earth (Geo) or the Sun (Helio) in the middle with the bodies around it in
+"""Geo/Helio's 3D view (its 3D button): the Earth (Geo) or the Sun (Helio) in the middle with the bodies around it in
 their real directions (RA, De) and distances, drawn in true 3D that can be turned and zoomed with the mouse (Plotly's 3D
 scene). Equatorial only: x toward RA 0, y toward RA 90, z toward the north celestial pole. One moment each for Now and DOB."""
 from __future__ import annotations
@@ -20,13 +20,13 @@ LINE_COLOUR = "rgba(190,200,225,0.75)"     # the axis, the equator, NCP / SCP an
 RING_COLOUR = "rgba(150,165,205,0.45)"     # the AU rings
 TEXT_COLOUR = "rgb(220,226,240)"
 STARS = 450                                # fixed stars in the background (the same every time)
-MARK_SCALE = 2.0                           # a mark's diameter: its Size radius times this, as on AstroClock-3D (twice the radius)
-SYMBOL_PX = 12 / 9.5                       # the symbol inside it: its font size for each pixel of the mark's radius, as AstroClock-3D
+MARK_SCALE = 2.0                           # a mark's diameter: its Size radius times this, as on Equatorial-3D (twice the radius)
+SYMBOL_PX = 12 / 9.5                       # the symbol inside it: its font size for each pixel of the mark's radius, as Equatorial-3D
 SYMBOL_LEAST = 5                           # scales its symbols (9.5 px radius: 12 px); a mark of a smaller radius shows no symbol
 SYMBOL_FONT = (12, 12)                     # but kept within the pages' text sizes (10 to 12 px): still inside the smallest mark (14 px)
 # the body at the centre: its colour, its radius (in Fit units: each tenfold distance one unit; not to scale); the Fit scale's distance drawn at it and space taken out; AU rings on Fit and on True; the paths' spans
 CENTRE = {"Ea": dict(colour="rgb(220,232,245)", fit_r=1.4, log_from=space3d.LOG_FROM_AU, gap=space3d.GAP,   # (a big globe, as on
-                                                                                                   # AstroClock-3D: distances count from its surface)
+                                                                                                   # Equatorial-3D: distances count from its surface)
                      rings=(0.01, 1.0, 5.0, 10.0), spans=space3d.SPANS, name="Earth"),
           "Su": dict(colour="rgb(250,190,40)", fit_r=0.15, log_from=space3d.HELIO_LOG_FROM_AU, gap=space3d.NO_GAP,
                      rings=(0.5, 1.0, 5.0, 10.0), spans=space3d.HELIO_SPANS, name="Sun")}
@@ -65,7 +65,7 @@ def _light(colour: str, share: float = 0.55) -> str:
 
 
 def _ink(colour: str) -> str:
-    """The symbol's colour on a filled mark of this colour: black on a light one, white on a dark one (AstroClock-3D's inkOn)."""
+    """The symbol's colour on a filled mark of this colour: black on a light one, white on a dark one (Equatorial-3D's inkOn)."""
     m = re.fullmatch(r"\s*rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+).*\)\s*", colour or "")
     m2 = None if m else re.fullmatch(r"\s*#([0-9a-fA-F]{6})\s*", colour or "")
     if not (m or m2):
@@ -75,7 +75,7 @@ def _ink(colour: str) -> str:
 
 
 def _reach(au: float, c: dict) -> float:
-    """How far from the centre a distance is drawn: Fit as Geo/Helio Model's Fit scale (past the centre body), else in AU."""
+    """How far from the centre a distance is drawn: Fit as Geo/Helio's Fit scale (past the centre body), else in AU."""
     return c["fit_r"] + space3d._reach(au, space3d.FIT, c["log_from"], c["gap"])
 
 
@@ -140,10 +140,10 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
                  show_au: bool = True, show_links: bool = False, show_celes: bool = True, show_spokes: bool = False) -> go.Figure:
     """The 3D view round centre (Ea or Su): bodies at each of moments ((clock, Julian day), DOB hollow), the Planet Paths of
     paths over one trip from that moment (DOB dashed), the celestial axis and equator with RA 0..270, rings of distance on
-    the equator plane, and (Geo) CB and CN on the Earth (places: {clock: (label, lat, lon)}). On Geo/Helio Model's Fit
+    the equator plane, and (Geo) CB and CN on the Earth (places: {clock: (label, lat, lon)}). On Geo/Helio's Fit
     scale. moving: time will run (space_js), so the view reaches far enough for all, with room for the clock.
     show_au: the rings of distance on the plane of the equator (the page's AU button); show_celes: the celestial
-    coordinates as Geo/Helio Model's, the axis with NCP and SCP and the RA lines with their names (its CM button); with
+    coordinates as Geo/Helio's, the axis with NCP and SCP and the RA lines with their names (its CM button); with
     them the whole view is turned so that the ecliptic's pole is up: the Earth's axis leans its 23.44 degrees (as on the
     sphere) and keeps that tilt while the view is turned (it turns round the upright). show_links (SpC, Geo): a line from CB (DOB) or CN (Now) on the Earth
     to each body of its moment. show_spokes (Sp): a dashed line from the centre through each body out to the edge of the
@@ -166,13 +166,13 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
             spokes.append((clock, name, ra, dec))
             colour, sym = core.colour(name), core.symbol_of(name)
             radius = marker_radius(core.size_rule(name, texts=size_texts(centre)), jd)
-            fig.add_trace(go.Scatter3d(     # its symbol inside it, as on AstroClock-3D: in its colour on a hollow DOB mark
+            fig.add_trace(go.Scatter3d(     # its symbol inside it, as on Equatorial-3D: in its colour on a hollow DOB mark
                 x=[x], y=[y], z=[z], mode="markers+text", text=[sym if radius >= SYMBOL_LEAST else ""], textposition="middle center",
                 showlegend=False, name=f"{sym} {clock}",
                 textfont=dict(size=min(max(SYMBOL_PX * radius, SYMBOL_FONT[0]), SYMBOL_FONT[1]), color=colour if hollow else _ink(colour), family=SYMBOL_FONT_FAMILY),
                 marker=dict(size=MARK_SCALE * radius,   # (a diameter)
                             # DOB: a light shade of its colour, its rim and symbol in its colour (a white mark lost its colour: the
-                            # 3D chart draws a mark's rim too thin to show it, so not white as AstroClock-3D's)
+                            # 3D chart draws a mark's rim too thin to show it, so not white as Equatorial-3D's)
                             color=_light(colour, 0.6) if hollow else colour,
                             line=dict(color=colour, width=2),
                             symbol="circle", opacity=1),
@@ -203,7 +203,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
                                            line=dict(color=_light(core.colour(label)), width=2)))
             fig.add_trace(go.Scatter3d(x=[px], y=[py], z=[pz], mode="markers+text", text=[label], textposition="bottom center",
                                        marker=dict(size=6, color=core.colour(label), line=dict(color="white", width=1)),   # (on the pale
-                                       showlegend=False, name=f"{label} on the Earth",                # globe, as AstroClock-3D)
+                                       showlegend=False, name=f"{label} on the Earth",                # globe, as Equatorial-3D)
                                        textfont=dict(size=12, color=core.colour(label)), hovertemplate=f"{label} ({clock})<extra></extra>"))
     span = max(outer, _reach(FAR_AU, c) if moving else 0) * 1.08
     for clock, name, ra, dec in spokes if show_spokes else ():   # Sp: from the centre through the body to the view's edge
@@ -218,7 +218,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
         sx.append(r * math.sqrt(1 - u * u) * math.cos(v)); sy.append(r * math.sqrt(1 - u * u) * math.sin(v)); sz.append(r * u)
     fig.add_trace(go.Scatter3d(x=sx, y=sy, z=sz, mode="markers", hoverinfo="skip", showlegend=False, name="stars",
                                marker=dict(size=[stars.choice((1.2, 1.6, 2.2)) for _ in range(STARS)], color="white", opacity=0.6)))
-    if show_celes:                                            # CM: the celestial coordinates as Geo/Helio Model draws them: the
+    if show_celes:                                            # CM: the celestial coordinates as Geo/Helio draws them: the
                                                               # axis with NCP and SCP, and the RA lines across the equator's plane
                                                               # with their names (no plane, no outer circle)
         pole = span * 0.95                                        # the celestial axis: long, well clear of the globe (inside the view's box)
@@ -341,7 +341,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
             dist: tb.dist[i] + (tb.dist[i + 1] - tb.dist[i]) * f};
   };
   // Geo: the Earth as a globe (land and sea, coastlines, a 30-degree grid, CB and CN), turned as at the globe's moment
-  const G = M.globe, STEP = 3, OCEAN = "rgb(220,232,245)", LAND = "rgb(236,236,230)";   // AstroClock-3D's land and sea
+  const G = M.globe, STEP = 3, OCEAN = "rgb(220,232,245)", LAND = "rgb(236,236,230)";   // Equatorial-3D's land and sea
   let globe = null;
   const lonLatXYZ = (lon, lat, r, gst) => {        // a place on the Earth, in the sky's frame: RA = sidereal time + longitude
     const ra = (gst + lon) * RAD, la = lat * RAD;
@@ -401,7 +401,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     topo.objects.coastlines.geometries.forEach((g) => {
       (g.type === "LineString" ? [g.arcs] : g.type === "MultiLineString" ? g.arcs : []).forEach((ids) => coast.push(join(ids)));
     });
-    (topo.objects.countries ? topo.objects.countries.geometries : []).forEach((g) => {   // and the countries' borders, as AstroClock-3D
+    (topo.objects.countries ? topo.objects.countries.geometries : []).forEach((g) => {   // and the countries' borders, as Equatorial-3D
       (g.type === "Polygon" ? [g.arcs] : g.type === "MultiPolygon" ? g.arcs : []).forEach((poly) => poly.forEach((ids) => coast.push(join(ids))));
     });
     const grid = [];
@@ -409,7 +409,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     for (let lo = -180; lo < 180; lo += 30) { const ln = []; for (let la = -90; la <= 90; la += 5) ln.push([lo, la]); grid.push(ln); }
     const earth = gd.data.findIndex((d) => d.type === "surface");
     const n = gd.data.length;
-    // flat colours, unshaded, as AstroClock-3D's map of the Earth
+    // flat colours, unshaded, as Equatorial-3D's map of the Earth
     Plotly.restyle(gd, {surfacecolor: [colour], cmin: 0, cmax: 1, opacity: 1, lighting: {ambient: 1, diffuse: 0, specular: 0, roughness: 1, fresnel: 0},
                         colorscale: [[[0, OCEAN], [0.5, OCEAN], [0.5, LAND], [1, LAND]]]}, [earth]);
     Plotly.addTraces(gd, [
