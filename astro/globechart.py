@@ -46,6 +46,7 @@ HOUSE_VALUE_DEC = (-32.0, -44.0)  # the De of each house line's RA value, first 
 HOUSE_LABEL_DEC = (55.0, 40.0)    # the De of the house names, first and second place shown: on the side tilted toward the viewer, off the planets' way
 PLACE_APART = 24.0                # pixels within which the icons of CB and CN would overlap on the Earth, and are moved apart
 EARTH_DEGREES_A_DAY = 360.98565  # the Earth's turn against the still sky in one day of the clock
+MOTION_HALF = 13149               # the tables reach this far each side of the moment (36 years): time runs on or back
 MOTION_DAYS = 26298               # how far time runs (72 years) before it starts again, the trails too, and the tables' reach ...
 NODE_STEP_DAYS = 2.0              # the Moon's true node wobbles over days
 MOTION_STEP_DAYS = {"Mo": 0.5, "Me": 2.0, "Ve": 4.0, "Su": 5.0, "Ma": 5.0, "Ju": 20.0, "Sa": 20.0}    # ... and their steps
@@ -305,6 +306,18 @@ def _paths(g: GlobeInput) -> list[dict]:
     return out
 
 
+def clock_key(jd_birth: float | None, cb, resets: int) -> str:
+    """The key of the chart's clock (window.globeClock), the same for the sphere and the 3D view: a new one (another person,
+    or RS pressed) starts the Timer again at the moment."""
+    return f"{jd_birth}|{cb}|{resets}"
+
+
+def _exact(planet: str, jd: float) -> dict:
+    """A body's exact place at jd (the moment), for the page to show there rather than one read between table rows."""
+    p = core.position(planet, jd)
+    return {"ra": round(p.ra, 3), "dec": round(p.dec, 3), "dist": round(p.dist_au, 8), "dec_speed": round(p.dec_speed, 4)}
+
+
 def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False, reverse: bool = False) -> dict:
     """All the page needs to place the bodies at any moment after the start."""
     jd, facing = _start(g)
@@ -318,8 +331,10 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False,
                 places.append(dict(label=label, title=title, lat=place[0], lon=place[1], ra=core.lst(when, place[1]),
                                    colour=core.colour(label), set=len(sets)))
             sets.append(dict(clock=name, jd=when, offset=offset, shown=[p for p in core.BUTTON_ORDER if p in g.bodies],
-                             tables={p: {**_motion_table(p, when, MOTION_DAYS), "colour": core.colour(p)} for p in core.BUTTON_ORDER},
-                             node=_node_table(when) if set(NODE_CHOICES) & (set(g.bodies) | set(g.paths)) else None))
+                             tables={p: {**_motion_table(p, when, MOTION_DAYS), "colour": core.colour(p), "at0": _exact(p, when + MOTION_HALF)}
+                                     for p in core.BUTTON_ORDER},
+                             node=({**_node_table(when), "at0": [round(v, 3) for v in core.moon_north_node(when + MOTION_HALF)]}
+                                   if set(NODE_CHOICES) & (set(g.bodies) | set(g.paths)) else None)))
     aspects = [dict(angle=a, colour=ASPECT_COLOURS[a in core.MINOR], width=1.0 if a in core.MINOR else 1.5,
                     dec_orbs={f"{p}|{q}": g.orbs.pair(a, p, q, is_dec=True)
                               for i, p in enumerate(ASPECT_NAMES) for q in ASPECT_NAMES[i + 1:] if {p, q} != set(NODE_CHOICES)},
@@ -328,7 +343,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False,
                for a in g.aspects] if g.orbs is not None else []
     svg, taken = sky_svg(g)
     return dict(svg=svg, aspects=aspects, paths=_paths(g), taken=[[round(v, 1) for v in box] for box in taken], sets=sets, places=places,
-                key=f"{g.jd_birth}|{g.cb}|{g.resets}", ra_facing=core.lst(jd, facing), lon0=facing, tilt=math.radians(lat0),
+                start=MOTION_HALF, ra_facing=core.lst(jd, facing), lon0=facing, tilt=math.radians(lat0),
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
@@ -410,7 +425,7 @@ __SYMBOL_JS__
     return [D.cx + D.sky * (x * cr + y1 * sr), D.cy - D.sky * (-x * sr + y1 * cr), z1];
   };
   const sample = (b, t) => {                       // between its two nearest table rows (its exact place at the start)
-    if (t === 0 && b.at0) return b.at0;
+    if (t === D.start && b.at0) return b.at0;
     const u = (t + (b.shift || 0)) / b.step, i = Math.min(Math.floor(u), b.ra.length - 2), f = u - i;
     const turn = ((b.ra[i + 1] - b.ra[i] + 540) % 360) - 180;
     return {ra: (b.ra[i] + turn * f + 360) % 360, dec: b.dec[i] + (b.dec[i + 1] - b.dec[i]) * f,
@@ -418,7 +433,7 @@ __SYMBOL_JS__
             dec_speed: b.dec_speed[i] + (b.dec_speed[i + 1] - b.dec_speed[i]) * f};
   };
   const nodeSample = (n, t) => {                   // the north node's RA and De, the same way
-    if (t === 0 && n.at0) return n.at0;
+    if (t === D.start && n.at0) return n.at0;
     const u = (t + (n.shift || 0)) / n.step, i = Math.min(Math.floor(u), n.ra.length - 2), f = u - i;
     const change = ((n.ra[i + 1] - n.ra[i] + 540) % 360) - 180;
     return [n.ra[i] + change * f, n.dec[i] + (n.dec[i + 1] - n.dec[i]) * f];
@@ -788,10 +803,10 @@ __SYMBOL_JS__
     } else Plotly.relayout(gd, turn).then(done);
   };
   const facing = (t) => (((D.lon0 - D.spin * t - clock.view + 540) % 360) + 360) % 360 - 180;
-  if (!window.globeClock || window.globeClock.key !== D.key) window.globeClock = {key: D.key, t: D.reverse ? D.days : 0, view: 0};
+  // the days since the tables' start (D.start: the moment), kept as they are whatever is pressed (stopping time, R, a speed,
+  // the 3D view, which shares it) until RS (a new key) puts the Timer back at the moment
+  if (!window.globeClock || window.globeClock.key !== D.key) window.globeClock = {key: D.key, t: D.start, view: 0};
   const clock = window.globeClock;
-  if (clock.moving && !D.day_seconds) { clock.t = 0; clock.trailFrom = null; }   // time stopped (no speed, or Rotate in 1s off):
-  clock.moving = !!D.day_seconds;                  // back to the moment, the Timer back at the DOB or Now
   // trails only while time runs: from where it started running, kept across the page's redraws while it runs (so pressing
   // another button does not clear them); none while it stands still, and each start begins new ones
   if (!D.day_seconds) clock.trailFrom = null;
@@ -808,8 +823,8 @@ __SYMBOL_JS__
       const now = performance.now();
       clock.t += (D.reverse ? -1 : 1) * (now - last) / 1000 / D.day_seconds;   // (R: back in time)
       last = now;
-      if (!D.reverse && clock.t >= D.days) { clock.t = 0; trailFrom = clock.trailFrom = 0; }   // the end of the tables: from the start again, the trails too
-      if (D.reverse && clock.t <= 0) { clock.t = D.days; trailFrom = clock.trailFrom = D.days; }   // (R: at their start, from the end again)
+      if (clock.t >= D.days) clock.t = D.days;     // the tables' end, 36 years after the moment, or their start, 36 years
+      if (clock.t <= 0) clock.t = 0;               // before it: time holds there (only RS puts the Timer back)
       place(clock.t);
       redraw(clock.t);
     }, D.step_ms);
@@ -861,8 +876,10 @@ __SYMBOL_JS__
 def globe_js(g: GlobeInput, day_seconds: float | None, manual: bool = False, reverse: bool = False) -> str:
     """Puts the celestial sphere over the chart, under Plotly's hover boxes, and moves what is on it; day_seconds is how many
     seconds a day takes, None with no speed picked; with manual, dragging the chart turns the view, time standing still."""
-    if reverse and day_seconds:                               # R: the tables from MOTION_DAYS before each moment, run backwards from its end
-        g = replace(g, jd_birth=None if g.jd_birth is None else g.jd_birth - MOTION_DAYS,
-                    jd_now=None if g.jd_now is None else g.jd_now - MOTION_DAYS)
-    data = json.dumps(_motion_data(g, day_seconds, manual, reverse)).replace("<", chr(92) + "u003c")
+    # the tables from MOTION_HALF before each moment to MOTION_HALF after it (the clock starts in their middle, at the moment,
+    # and is kept as it is, R or not, running or not, until RS)
+    key = clock_key(g.jd_birth, g.cb, g.resets)              # (from the moment itself: the same as the 3D view's)
+    g = replace(g, jd_birth=None if g.jd_birth is None else g.jd_birth - MOTION_HALF,
+                jd_now=None if g.jd_now is None else g.jd_now - MOTION_HALF)
+    data = json.dumps({**_motion_data(g, day_seconds, manual, reverse), "key": key}).replace("<", chr(92) + "u003c")
     return _MOTION_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data)

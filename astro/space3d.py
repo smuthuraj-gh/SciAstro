@@ -25,6 +25,7 @@ SPANS = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN}     # days, points, name:
 RINGS = (0.01, 0.5, 1.0, 2.5, 5.0, 10.0)   # AU: just past the Moon (in the space taken out, so not to scale there), then the planets
 RINGS_SHOWN = 6                   # at most this many rings, the outermost ones
 RA_MARKS = (0, 90, 180, 270)
+RUN_HALF = 13149                  # the tables reach this far each side of the moment (36 years), as AstroClock-3D's
 RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroClock-3D) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
 SMALL_FONT = 12                   # the rings' AU tags, in pixels
@@ -136,13 +137,15 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
         tables[clock], sizing[clock] = {}, {}
         if centre == "Su" and "Mo" in bodies:                 # the Moon goes round the Earth: the Earth's table, shown or not
             whole = _helio_table("Ea", jd, RUN_DAYS)
-            tables[clock]["Ea"] = {k: whole[k] for k in TABLE_KEYS}
+            tables[clock]["Ea"] = {**{k: whole[k] for k in TABLE_KEYS}, "at0": _helio_table("Ea", jd + RUN_HALF, 2)["at0"]}
             outer = max(outer, reach(max(whole["dist"])))
         for p in bodies:
             around = centre == "Su" and p == "Mo"                # its table as seen from the Earth
-            whole = (_node_geo_table(p, jd, RUN_DAYS) if p in NODE_CHOICES else       # (the flat page's NN, SN)
-                     _motion_table(p, jd, RUN_DAYS) if centre == "Ea" or around else _helio_table(p, jd, RUN_DAYS))
-            tables[clock][p] = {k: whole[k] for k in TABLE_KEYS}
+            table = (_node_geo_table if p in NODE_CHOICES else       # (the flat page's NN, SN)
+                     _motion_table if centre == "Ea" or around else _helio_table)
+            whole = table(p, jd, RUN_DAYS)
+            # (its exact place at the moment, RUN_HALF on: shown there rather than one read between table rows)
+            tables[clock][p] = {**{k: whole[k] for k in TABLE_KEYS}, "at0": table(p, jd + RUN_HALF, 2)["at0"]}
             if not around:
                 outer = max(outer, reach(max(whole["dist"])))
             rule = core.size_rule(p, texts=sizes)
@@ -197,7 +200,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
                 shapes=symbol_shapes(), sym={n: core.symbol_of(n) for n in core.SYMBOL_TEXTS}, tilt=TILT, centre=centre, centre_word=at["word"],
                 centre_rule=centre_rule, centre_clock=moments[0][0], centre_size=sizes.get(centre, ""), centre_colour=core.colour(centre),
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, show_tags=show_au, show_celes=show_celes, log_from=at["log_from"], gap=at["gap"],
-                scp_ring=reach(SCP_BEYOND_AU), scp_past=SCP_PAST_PX, sides=SIDES, small_font=SMALL_FONT, pole_font=POLE_FONT, key=("flat" if flat else "") + centre + key, days=RUN_DAYS, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
+                scp_ring=reach(SCP_BEYOND_AU), scp_past=SCP_PAST_PX, sides=SIDES, small_font=SMALL_FONT, pole_font=POLE_FONT, key=("flat" if flat else "") + centre + key, days=RUN_DAYS, start=RUN_HALF, around=centre == "Su", moon_reach=MOON_AROUND_PX / (RADIUS / outer), moon_mean=MOON_MEAN_AU, manual=manual, day_seconds=day_seconds,
                 reverse=bool(reverse and day_seconds), step_ms=max(40, min(1000, int((day_seconds or 60.0) * 2.5))), clocks=[dict(clock=c, jd=jd, offset=o) for c, jd, o in moments],
                 family=SYMBOL_FONT_FAMILY, one_circle=bool(flat and one_circle), one_circle_at=ONE_CIRCLE_AT, ra_marks=[] if flat else [dict(text=f"RA {ra}", at=_xyz(ra, 0.0, outer * RA_LONGER)) for ra in RA_MARKS])
 
@@ -219,12 +222,12 @@ _JS = r"""
                                              "stroke-width": 3, "paint-order": "stroke", "text-anchor": "middle", fill});
 __SYMBOL_JS__
   const view = window.space3dView || (window.space3dView = {yaw: 90, pitch: 45});
-  if (!window.space3dClock || window.space3dClock.key !== D.key) window.space3dClock = {key: D.key, t: D.reverse ? D.days : 0};
-  const clock = window.space3dClock;              // the days run since each moment: kept when a button is pressed
-  if (clock.moving && !D.day_seconds) { clock.t = 0; clock.trailFrom = null; }   // time stopped (no speed, or Rotate in 1s off):
-  clock.moving = !!D.day_seconds;                  // back to the moment, the Timer back at the DOB or Now
+  // the days since the tables' start (D.start: the moment), kept as they are whatever is pressed (stopping time, R, a
+  // speed) until RS (a new key) puts the Timer back at the moment
+  if (!window.space3dClock || window.space3dClock.key !== D.key) window.space3dClock = {key: D.key, t: D.start};
+  const clock = window.space3dClock;
   const sample = (b, t) => {                       // between its two nearest table rows (its exact place at the start)
-    if (t === 0 && b.at0) return b.at0;
+    if (t === D.start && b.at0) return b.at0;
     const u = (t + (b.shift || 0)) / b.step, i = Math.min(Math.floor(u), b.ra.length - 2), f = u - i;
     const turn = ((b.ra[i + 1] - b.ra[i] + 540) % 360) - 180;
     return {ra: (b.ra[i] + turn * f + 360) % 360, dec: b.dec[i] + (b.dec[i + 1] - b.dec[i]) * f, dist: b.dist[i] + (b.dist[i + 1] - b.dist[i]) * f};
@@ -760,8 +763,8 @@ __SYMBOL_JS__
       const now = performance.now();
       clock.t += (D.reverse ? -1 : 1) * (now - last) / 1000 / D.day_seconds;   // (R: back in time)
       last = now;
-      if (!D.reverse && clock.t >= D.days) { clock.t = 0; trailFrom = clock.trailFrom = 0; }   // the end of the tables: from the start again, the trails too
-      if (D.reverse && clock.t <= 0) { clock.t = D.days; trailFrom = clock.trailFrom = D.days; }   // (R: at their start, from the end again)
+      if (clock.t >= D.days) clock.t = D.days;     // the tables' end, 36 years after the moment, or their start, 36 years
+      if (clock.t <= 0) clock.t = 0;               // before it: time holds there (only RS puts the Timer back)
       draw();
     }, D.step_ms);
   }
@@ -802,10 +805,10 @@ def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]]
     """show_au (AU): the rings of distance and their AU tags; show_celes (CM): the celestial coordinates, the axis with NCP
     and SCP and the RA spokes with their names."""
     uid = "space-" + uuid.uuid4().hex[:8]
-    if reverse and day_seconds:                               # R: the tables from RUN_DAYS before each moment, run backwards from its end
-        moments = [(c, jd - RUN_DAYS, o) for c, jd, o in moments]
-        ave_jds = {c: jd - RUN_DAYS for c, jd in ave_jds.items()} if ave_jds else ave_jds
-        key += "|R"
+    # the tables from RUN_HALF before each moment to RUN_HALF after it (the clock starts in their middle, at the moment, and
+    # is kept as it is, R or not, running or not, until RS)
+    moments = [(c, jd - RUN_HALF, o) for c, jd, o in moments]
+    ave_jds = {c: jd - RUN_HALF for c, jd in ave_jds.items()} if ave_jds else ave_jds
     data = json.dumps(space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places, ave_jds,
                                  aspects, orbs, one_circle, show_celes, reverse)).replace("<", chr(92) + "u003c")
     return f'<div id="{uid}"></div><script>{_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data).replace("__ID__", uid)}</script>'

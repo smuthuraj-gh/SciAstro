@@ -260,31 +260,36 @@ def globe_moment(moments) -> float | None:
 
 def space_js(centre: str, bodies, moments, day_seconds: float | None, places: dict | None = None,
              offsets: dict | None = None, show_links: bool = False, reverse: bool = False, tilt: bool = False,
-             resets: int = 0) -> str:
+             resets: int = 0, clock_key: str = "") -> str:
     """Rotate in 1s, for the 3D view: time runs from each moment, day_seconds a day of it (the speed picked), and each body's
     marker moves to where it really was then, its hover box with it; the clock of each moment at the top. The tables are
     the same as the other pages' (72 years of RA, De and distance), and the markers are found by their names. Geo: the
     Earth drawn as a globe, land and sea from Plotly's own world map (the one its map charts load, from cdn.plot.ly), with
     coastlines, lines of latitude and longitude every 30 degrees, and CB and CN at their places, turned as at the globe's
     moment and turning with time. tilt (CM): every point turned as _tilted, as the figure is. resets: Reset's count (a
-    new one draws the view again, its Timer back at the moment)."""
+    new one draws the view again, its Timer back at the moment). clock_key: the sphere's clock key
+    (globechart.clock_key): the 3D view keeps the same clock, so turning it on or off leaves the Timer where it is."""
     from . import space3d
     c = CENTRE[centre]
     tables = {}
-    if reverse and day_seconds:                               # R: the tables from RUN_DAYS before each moment, run backwards from its end
-        moments = [(k, jd - space3d.RUN_DAYS) for k, jd in moments]
+    # the tables from MOTION_HALF before each moment to MOTION_HALF after it, as the sphere's (the clock starts in their
+    # middle, at the moment, and is kept as it is, R or not, running or not, until RS)
+    moments = [(k, jd - globechart.MOTION_HALF) for k, jd in moments]
     for clock, jd in moments:
         for name in bodies:
             if name in ("NN", "SN"):
                 if centre != "Ea":
                     continue
-                tb = space3d._node_geo_table(name, jd)
+                table, of = space3d._node_geo_table, name
             elif centre == "Su":                              # (the Moon from the Sun: as the Earth, under 0.003 AU off)
-                tb = space3d._helio_table("Ea" if name == "Mo" else name, jd)
+                table, of = space3d._helio_table, "Ea" if name == "Mo" else name
             else:
-                tb = globechart._motion_table(name, jd)
+                table, of = globechart._motion_table, name
+            tb = table(of, jd)
+            at0 = table(of, jd + globechart.MOTION_HALF, 2)["at0"]   # (its exact place at the moment)
             tables[f"{core.symbol_of(name)} {clock}"] = dict(step=tb["step"], ra=tb["ra"], dec=tb["dec"], dist=tb["dist"],
-                                                           shift=tb["shift"], name=name)
+                                                           shift=tb["shift"], name=name,
+                                                           at0=dict(ra=at0["ra"], dec=at0["dec"], dist=at0["dist"]))
     globe = None
     if centre == "Ea" and moments:
         jd_globe = globe_moment(moments)
@@ -311,12 +316,16 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
                                                  km=BODY_RADIUS_KM[rule["of"]])
     # the clock beside the customer's name, as the drawing's: each moment's date and time at its place's UTC offset
     clocks = [dict(clock=clock, jd=jd, offset=(offsets or {}).get(clock)) for clock, jd in moments]
-    data = dict(resets=resets, tables=tables, day_seconds=day_seconds, days=space3d.RUN_DAYS, clocks=clocks, reverse=bool(reverse and day_seconds),
+    data = dict(resets=resets, key=clock_key, start=globechart.MOTION_HALF, tables=tables, day_seconds=day_seconds, days=space3d.RUN_DAYS, clocks=clocks, reverse=bool(reverse and day_seconds),
                 fit_r=c["fit_r"], log_from=c["log_from"], gap=list(c["gap"]), word=c["name"].lower(), globe=globe,
                 tilt=[math.cos(math.radians(globechart.TILT)), math.sin(math.radians(globechart.TILT))] if tilt else None,
                 rules=rules, sizing=sizing, mark_scale=MARK_SCALE, symbol_px=SYMBOL_PX, symbol_least=SYMBOL_LEAST, symbol_font=list(SYMBOL_FONT), au_km=core.AU_KM, arcsec=list(SIZE_RANGE_ARCSEC), radii=list(MARKER_RANGE))
     return ("const M = " + json.dumps(data, separators=(",", ":")).replace("<", "\\u003c") + ";\n" + """
   const RAD = Math.PI / 180;
+  // the days since the tables' start (M.start: the moment), the sphere's own clock (kept whatever is pressed, 3D on or off,
+  // until RS, a new key, puts the Timer back at the moment)
+  if (!window.globeClock || window.globeClock.key !== M.key) window.globeClock = {key: M.key, t: M.start, view: 0};
+  const clock = window.globeClock;
   // CM: a point turned as the figure's (space3dview._tilted): the Earth's axis leaning, the ecliptic's pole up
   const tilted = (p) => M.tilt ? [p[0], p[1] * M.tilt[0] + p[2] * M.tilt[1], -p[1] * M.tilt[1] + p[2] * M.tilt[0]] : p;
   const reach = (au) => {                          // as space3dview._reach
@@ -324,7 +333,8 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     const a = Math.log10(M.gap[0] / M.log_from), b = Math.log10(M.gap[1] / M.log_from);
     return M.fit_r + (log <= a ? log : log >= b ? log - (b - a) + M.gap[2] : a + (log - a) / (b - a) * M.gap[2]);
   };
-  const sample = (tb, t) => {                      // between its two nearest table rows
+  const sample = (tb, t) => {                      // between its two nearest table rows (its exact place at the moment)
+    if (t === M.start && tb.at0) return tb.at0;
     const u = (t + tb.shift) / tb.step, i = Math.max(0, Math.min(Math.floor(u), tb.ra.length - 2)), f = u - i;
     const turn = ((tb.ra[i + 1] - tb.ra[i] + 540) % 360) - 180;
     return {ra: (tb.ra[i] + turn * f + 360) % 360, dec: tb.dec[i] + (tb.dec[i + 1] - tb.dec[i]) * f,
@@ -406,7 +416,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
       {type: "scatter3d", mode: "lines", x: [], y: [], z: [], line: {color: "rgb(150,150,150)", width: 1}, hoverinfo: "skip", showlegend: false, name: "coastlines"},
       {type: "scatter3d", mode: "lines", x: [], y: [], z: [], line: {color: "rgba(120,120,120,0.6)", width: 1}, hoverinfo: "skip", showlegend: false, name: "latitude and longitude"}]);
     globe = {lats, lons, coast, grid, earth, coastAt: n, gridAt: n + 1};
-    turnGlobe(G.gst0);
+    turnGlobe(G.gst0 + G.spin * clock.t);
   };
   if (G) {
     const known = window.PlotlyGeoAssets && window.PlotlyGeoAssets.topojson && window.PlotlyGeoAssets.topojson.world_110m;
@@ -430,11 +440,15 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     const one = M.clocks.find((s) => s.clock === "Now") || M.clocks[0];   // one Timer: Now if shown, else DOB, in its own zone
     if (box) box.textContent = one ? clockLine(one, t) : "";
   };
-  const started = performance.now();
+  let last = performance.now();
   const tick = () => {
     if (!gd.isConnected) return;                   // (a newer drawing has replaced this one)
-    const run = ((performance.now() - started) / 1000 / M.day_seconds) % M.days;
-    const t = M.reverse ? M.days - run : run;      // days on from each moment (R: back from the tables' end, the moment)
+    const now = performance.now();
+    if (M.day_seconds) {                           // time runs on (R: back), holding at the tables' ends (only RS puts it back)
+      clock.t = Math.max(0, Math.min(M.days, clock.t + (M.reverse ? -1 : 1) * (now - last) / 1000 / M.day_seconds));
+    }
+    last = now;
+    const t = clock.t;
     const xs = [], ys = [], zs = [], tips = [];
     keys.forEach((k) => {
       const tb = M.tables[k], s = sample(tb, t), r = reach(s.dist), cd = Math.cos(s.dec * RAD);
@@ -476,7 +490,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
       if (li.length) Plotly.restyle(gd, {x: lx, y: ly, z: lz}, li);
     }
     showClocks(t);
-    setTimeout(tick, 250);
+    if (M.day_seconds) setTimeout(tick, 250);
   };
-  if (M.day_seconds) tick(); else showClocks(0);   // (standing still: the moment's own time)
+  tick();                                          // (standing still too: where the clock stands)
 """)
