@@ -1137,7 +1137,7 @@ def page_globe():
         # the Earth as a globe, and with a speed picked moves the planets and turns the Earth
         st.html(mapchart.fit_html(fig, after_js=space3dview.space_js("Ea", bodies, at, day_seconds if moving else None, spots,
                                                                      {m[0]: m[2] for m in moments}, "SpC" in shown, reverse,
-                                                                     tilt="CM" in shown, resets=resets,
+                                                                     tilt="CM" in shown,
                                                                      clock_key=globechart.clock_key(
                                                                          prep.jd_birth, None if prep.now_only else (prep.birth_lat, prep.birth_lon), resets))),
                 unsafe_allow_javascript=True)

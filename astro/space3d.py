@@ -9,7 +9,7 @@ import uuid
 from functools import lru_cache
 
 from . import core
-from .globechart import (MARKER_RANGE, MOTION_DAYS, NODE_CHOICES, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_rows, _motion_table,
+from .globechart import (MARKER_RANGE, MOTION_DAYS, MOTION_HALF, NODE_CHOICES, PATH_SPAN, SIZE_RANGE_ARCSEC, SYMBOL_JS, TILT, _motion_rows, _motion_table,
                          _node_rows, _node_table, day_start, symbol_shapes, ASPECT_COLOURS, ASPECT_NAMES, EARTH_DEGREES_A_DAY, HOUSE_COLOUR)
 from .mapchart import FONT, SYMBOL_FONT_FAMILY
 
@@ -25,7 +25,7 @@ SPANS = {"Su": (365.25, 120, "Sun Path"), **PATH_SPAN}     # days, points, name:
 RINGS = (0.01, 0.5, 1.0, 2.5, 5.0, 10.0)   # AU: just past the Moon (in the space taken out, so not to scale there), then the planets
 RINGS_SHOWN = 6                   # at most this many rings, the outermost ones
 RA_MARKS = (0, 90, 180, 270)
-RUN_HALF = 13149                  # the tables reach this far each side of the moment (36 years), as AstroClock-3D's
+RUN_HALF = MOTION_HALF            # the tables reach this far each side of the moment (36 years), as AstroClock-3D's
 RUN_DAYS = MOTION_DAYS            # how far time runs here (72 years, as on AstroClock-3D) before it starts again, with the trails
 RA_LONGER = 1.5                   # the RA lines reach this much beyond the farthest orbit
 SMALL_FONT = 12                   # the rings' AU tags, in pixels

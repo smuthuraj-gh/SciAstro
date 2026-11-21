@@ -84,7 +84,7 @@ class GlobeInput:
     paths: tuple = BODY_CHOICES       # the bodies whose paths to draw
     utc_birth: float | None = None    # the UTC offsets the clocks show their moments in, hours (None: in UT)
     utc_now: float | None = None
-    resets: int = 0                   # how many times Reset (under Coordinates) was pressed: a new count starts the Timer again
+    resets: int = 0                   # how many times RS (beside R) was pressed: a new count starts the Timer again
 
 
 def _ring(x: float, y: float, r: float) -> str:
@@ -312,12 +312,6 @@ def clock_key(jd_birth: float | None, cb, resets: int) -> str:
     return f"{jd_birth}|{cb}|{resets}"
 
 
-def _exact(planet: str, jd: float) -> dict:
-    """A body's exact place at jd (the moment), for the page to show there rather than one read between table rows."""
-    p = core.position(planet, jd)
-    return {"ra": round(p.ra, 3), "dec": round(p.dec, 3), "dist": round(p.dist_au, 8), "dec_speed": round(p.dec_speed, 4)}
-
-
 def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False, reverse: bool = False) -> dict:
     """All the page needs to place the bodies at any moment after the start."""
     jd, facing = _start(g)
@@ -331,7 +325,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False,
                 places.append(dict(label=label, title=title, lat=place[0], lon=place[1], ra=core.lst(when, place[1]),
                                    colour=core.colour(label), set=len(sets)))
             sets.append(dict(clock=name, jd=when, offset=offset, shown=[p for p in core.BUTTON_ORDER if p in g.bodies],
-                             tables={p: {**_motion_table(p, when, MOTION_DAYS), "colour": core.colour(p), "at0": _exact(p, when + MOTION_HALF)}
+                             tables={p: {**_motion_table(p, when, MOTION_DAYS), "colour": core.colour(p), "at0": _motion_table(p, when + MOTION_HALF, 2)["at0"]}
                                      for p in core.BUTTON_ORDER},
                              node=({**_node_table(when), "at0": [round(v, 3) for v in core.moon_north_node(when + MOTION_HALF)]}
                                    if set(NODE_CHOICES) & (set(g.bodies) | set(g.paths)) else None)))
