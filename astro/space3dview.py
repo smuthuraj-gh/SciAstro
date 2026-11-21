@@ -18,7 +18,6 @@ WIDTH, HEIGHT = 1100, 966          # the page's width (as the sphere it stands f
 SKY = "rgb(8,12,28)"
 LINE_COLOUR = "rgba(190,200,225,0.75)"     # the axis, the equator, NCP / SCP and the RA names
 RING_COLOUR = "rgba(150,165,205,0.45)"     # the AU rings
-PLANE_COLOUR = "rgb(120,150,220)"          # the plane of the equator, faint
 TEXT_COLOUR = "rgb(220,226,240)"
 STARS = 450                                # fixed stars in the background (the same every time)
 MARK_SCALE = 2.0                           # a mark's diameter: its Size radius times this, as on AstroClock-3D (twice the radius)
@@ -144,7 +143,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
     the equator plane, and (Geo) CB and CN on the Earth (places: {clock: (label, lat, lon)}). On Geo/Helio Model's Fit
     scale. moving: time will run (space_js), so the view reaches far enough for all, with room for the clock.
     show_au: the rings of distance on the plane of the equator (the page's AU button); show_celes: the celestial
-    coordinates, the plane of the equator, the axis with NCP and SCP, the equator and its RA names (its Ce button); with
+    coordinates as Geo/Helio Model's, the axis with NCP and SCP and the RA lines with their names (its Ce button); with
     them the whole view is turned so that the ecliptic's pole is up: the Earth's axis leans its 23.44 degrees (as on the
     sphere) and keeps that tilt while the view is turned (it turns round the upright). show_links (SpC, Geo): a line from CB (DOB) or CN (Now) on the Earth
     to each body of its moment. show_spokes (Sp): a dashed line from the centre through each body out to the edge of the
@@ -219,20 +218,17 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
         sx.append(r * math.sqrt(1 - u * u) * math.cos(v)); sy.append(r * math.sqrt(1 - u * u) * math.sin(v)); sz.append(r * u)
     fig.add_trace(go.Scatter3d(x=sx, y=sy, z=sz, mode="markers", hoverinfo="skip", showlegend=False, name="stars",
                                marker=dict(size=[stars.choice((1.2, 1.6, 2.2)) for _ in range(STARS)], color="white", opacity=0.6)))
-    if show_celes:                                            # Ce: the celestial coordinates (the plane of the equator, the
-                                                              # axis with NCP and SCP, the equator and its RA names)
-        n = 48                                                    # the plane of the equator: a faint disc, north above it
-        rs, angs = [span * i / 4 for i in range(5)], [2 * math.pi * j / n for j in range(n + 1)]
-        fig.add_trace(go.Surface(x=[[r * math.cos(a) for a in angs] for r in rs], y=[[r * math.sin(a) for a in angs] for r in rs],
-                                 z=[[0.0] * (n + 1) for _ in rs], colorscale=[[0, PLANE_COLOUR], [1, PLANE_COLOUR]], showscale=False,
-                                 opacity=0.07, hoverinfo="skip", name="the plane of the equator"))
+    if show_celes:                                            # Ce: the celestial coordinates as Geo/Helio Model draws them: the
+                                                              # axis with NCP and SCP, and the RA lines across the equator's plane
+                                                              # with their names (no plane, no outer circle)
         pole = span * 0.62                                        # the celestial axis: just past the planets, not up into empty space
         fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, 0], z=[-pole, pole], mode="lines+text", text=["SCP", "NCP"],   # the celestial axis
                                    line=dict(color=LINE_COLOUR, width=2), textfont=dict(size=12, color=TEXT_COLOUR),
                                    hoverinfo="skip", showlegend=False))
-        eq = [_xyz(360 * i / 96, 0, span) for i in range(97)]     # and the celestial equator
-        fig.add_trace(go.Scatter3d(x=[q[0] for q in eq], y=[q[1] for q in eq], z=[0] * 97, mode="lines", hoverinfo="skip",
-                                   line=dict(color=LINE_COLOUR, width=1.5), showlegend=False))
+        for ra in (0, 90):                                        # RA 0 to 180, and RA 90 to 270, through the centre
+            a_, b_ = _xyz(ra, 0, span), _xyz(ra + 180, 0, span)
+            fig.add_trace(go.Scatter3d(x=[a_[0], b_[0]], y=[a_[1], b_[1]], z=[0, 0], mode="lines", hoverinfo="skip",
+                                       line=dict(color=LINE_COLOUR, width=1), opacity=0.6, showlegend=False))
         for ra in (0, 90, 180, 270):
             x, y, _ = _xyz(ra, 0, span * 1.06)
             fig.add_trace(go.Scatter3d(x=[x], y=[y], z=[0], mode="text", text=[f"RA {ra}"], hoverinfo="skip", showlegend=False,
