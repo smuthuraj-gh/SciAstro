@@ -116,7 +116,7 @@ html, body { -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !
 </style>""")
 # Everything (text, buttons, tables, charts) resizes with the window, as one picture: the whole app is zoomed so that the
 # page's content column is WIDTH px before zooming, the width the charts are laid out at; on a narrow window no smaller
-# than 10/12 (12 px text at 10 px), below which the rows wrap and the charts scroll sideways.
+# than 10/12 (12 px text at 10 px), below which the rows wrap; the charts are always the column's width.
 ZOOM_JS = """<script>
 (() => {
   // once a tab: a tab left open from before an update still runs the old script (its timers and listeners), so a changed
@@ -128,11 +128,9 @@ ZOOM_JS = """<script>
   Object.defineProperty(CanvasRenderingContext2D.prototype, "font", {configurable: true, get() { return canvasFont.get.call(this); },
     set(v) { canvasFont.set.call(this, String(v).replace("10.5px", "10px")); }});
   const WIDTH = """ + str(mapchart.WIDTH - mapchart.INSET_L - mapchart.INSET_R) + """;   // the text column
-  // on a narrower window (a phone too) the whole page shrinks as one picture, its charts with it, until its 12 px text
-  // is 10 px on screen; below that it shrinks no further: its rows wrap and each chart scrolls sideways in its box
-  // (__appMinZoom: for the charts, mapchart.fit_html and space3d)
+  // on a narrower window (a phone too) the whole page shrinks as one picture until its 12 px text is 10 px on screen;
+  // below that it shrinks no further: its rows wrap (each chart still the column's width, its text then smaller)
   const MIN_ZOOM = 10 / 12;
-  window.__appMinZoom = MIN_ZOOM;
   function zoom() {
     if (window.__appZooming) return;                         // (the resize sent below comes back here)
     const root = document.documentElement, main = document.querySelector('[data-testid="stMain"]');

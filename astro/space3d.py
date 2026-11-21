@@ -212,20 +212,9 @@ _JS = r"""
     parent.appendChild(e);
     return e;
   };
-  // shrinking with the page, but no further than the page does (its 12 px text at 10 px on screen): on a narrower window
-  // the box scrolls sideways (a finger then swipes it; dragging the drawing moves time only where it all fits)
+  // the column's width, at any window's width: the whole drawing in view (on a phone too, its text then smaller)
   const svg = make("svg", box, {viewBox: D.view.join(" "), width: "100%",
                                 style: "display:block; cursor:grab; touch-action:none; user-select:none"});
-  box.style.overflowX = "auto";
-  const swipe = () => {                            // (on screen at least the page's smallest zoom)
-    if (!svg.isConnected) return window.removeEventListener("resize", swipe);
-    const z = parseFloat(document.documentElement.style.zoom) || 1;
-    svg.style.minWidth = ((window.__appMinZoom || 1) * D.view[2] / z) + "px";   // (12 px text at 10 px at the least)
-    svg.style.touchAction = box.scrollWidth > box.clientWidth + 1 ? "pan-x pan-y" : "none";
-  };
-  swipe();
-  if (window._svgSwipe) window.removeEventListener("resize", window._svgSwipe);
-  window._svgSwipe = swipe; window.addEventListener("resize", swipe); requestAnimationFrame(swipe);
   const words = (fill, size) => make("text", svg, {"font-weight": "bold", "font-size": size || D.font, "font-family": D.family, stroke: "white",
                                              "stroke-width": 3, "paint-order": "stroke", "text-anchor": "middle", fill});
 __SYMBOL_JS__

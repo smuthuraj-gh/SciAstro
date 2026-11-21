@@ -58,9 +58,8 @@ def _script_safe(text: str) -> str:
 
 def fit_html(fig: go.Figure, after_js: str = "") -> str:
     """The chart as HTML scaled as a whole to the page's zoom, exactly as laid out (so no label can come to overlap
-    another), within the page's margins (the text column's width), so it scales with the page; no smaller than the
-    page's smallest zoom (its text readable): on a narrower window it scrolls sideways in its box. Any chart with a fixed layout width and
-    height."""
+    another), within the page's margins (the text column's width), so it scales with the page, the whole chart always in
+    view (on a phone too, its text then smaller). Any chart with a fixed layout width and height."""
     import uuid
     from plotly.offline import get_plotlyjs_version
     w, h = int(fig.layout.width), int(fig.layout.height)
@@ -68,7 +67,7 @@ def fit_html(fig: go.Figure, after_js: str = "") -> str:
     cdn = f"https://cdn.plot.ly/plotly-{get_plotlyjs_version()}.min.js"   # the version this Plotly package draws with
     # (Plotly's hover toolbar moved in from the chart's right edge)
     return f"""<style>#{uid} .modebar-container {{ right: {INSET_R}px !important; }}</style>
-<div id="{uid}" style="overflow-x:auto; overflow-y:hidden">
+<div id="{uid}" style="overflow:hidden">
 <div id="{uid}-in" style="width:{w}px; height:{h}px; transform-origin:0 0"></div></div>
 <script>
 (function () {{
@@ -88,13 +87,9 @@ def fit_html(fig: go.Figure, after_js: str = "") -> str:
     const col = (outer.parentElement || outer).getBoundingClientRect().width;     // on screen
     const width = col;                     // (within the margins: the column's width, nothing past it)
     outer.style.width = width + "px";
-    // the column's width, shrinking with the page, but no further than the page does (its 12 px text at 10 px on screen):
-    // on a narrower window the chart scrolls sideways in its box (its scroll bar below it)
-    const s = Math.max(window.__appMinZoom || 1, width / {w});   // (12 px text at 10 px at the least)
+    const s = width / {w};                 // the column's width, at any window's width: the whole chart in view
     inner.style.transform = "scale(" + s + ")";
-    inner.style.marginRight = ({w} * (s - 1)) + "px";   // (the room it takes is its scaled width: the box scrolls only past that)
-    const bar = outer.scrollWidth > outer.clientWidth + 1 ? outer.offsetHeight - outer.clientHeight : 0;
-    outer.style.height = (Math.ceil({h} * s) + bar) + "px";
+    outer.style.height = Math.ceil({h} * s) + "px";
   }}
   // again whenever the column's width changes, and once the page has settled (its scroll bar may appear late)
   watching[0].observe(outer.parentElement || outer);
