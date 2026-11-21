@@ -724,16 +724,26 @@ __SYMBOL_JS__
       const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2, ra = (g.h.ra + D.spin * t + 30 * g.k) % 360, a = ra * RAD;
       g.e.setAttribute("d", "M" + cx + " " + cy + "L" + (cx + R * Math.cos(a)).toFixed(1) + " " + (cy - R * Math.sin(a)).toFixed(1));
       g.tip.textContent = g.name + " " + symbolOf(g.h.place) + " RA: " + ra.toFixed(2);
-      const b = (ra + 15) * RAD, r = R - (g.n ? 48 : 26), x = cx + r * Math.cos(b), mid = cy - r * Math.sin(b);
-      // along the circle, and never upside down
-      let turn = ((90 - ra - 15) % 360 + 360) % 360;
-      if (turn > 90 && turn <= 270) turn -= 180; else if (turn > 270) turn -= 360;
-      const half = g.name.length * 4 * D.flat_font / 13 + 3, box = [x - half, mid - half, x + half, mid + half], seen = clear(box, taken);   // room for it at any turn
-      g.label.style.display = seen ? "" : "none";
-      if (seen) {
-        g.label.setAttribute("x", x.toFixed(1)); g.label.setAttribute("y", (mid + D.flat_font / 3).toFixed(1));
-        g.label.setAttribute("transform", "rotate(" + turn.toFixed(1) + " " + x.toFixed(1) + " " + mid.toFixed(1) + ")");
-        taken.push(box);
+      // its name in the middle of its span, near the circle; where that is taken (a planet, an aspect's tag), the first free
+      // spot elsewhere in the span (nearer the Earth, or toward either end of it), so that all twelve are shown, as on
+      // AstroClock-3D; hidden only when the whole span is full
+      const half = g.name.length * 4 * D.flat_font / 13 + 3, r0 = R - (g.n ? 48 : 26);
+      let spot = null;
+      for (const r of [r0, r0 - 28, r0 - 56, r0 - 84, r0 - 112]) {
+        for (const off of [15, 9, 21, 5, 25]) {
+          const b = (ra + off) * RAD, x = cx + r * Math.cos(b), mid = cy - r * Math.sin(b), box = [x - half, mid - half, x + half, mid + half];
+          if (clear(box, taken)) { spot = {x, mid, box, off}; break; }   // (room for it at any turn)
+        }
+        if (spot) break;
+      }
+      g.label.style.display = spot ? "" : "none";
+      if (spot) {
+        // along the circle, and never upside down
+        let turn = ((90 - ra - spot.off) % 360 + 360) % 360;
+        if (turn > 90 && turn <= 270) turn -= 180; else if (turn > 270) turn -= 360;
+        g.label.setAttribute("x", spot.x.toFixed(1)); g.label.setAttribute("y", (spot.mid + D.flat_font / 3).toFixed(1));
+        g.label.setAttribute("transform", "rotate(" + turn.toFixed(1) + " " + spot.x.toFixed(1) + " " + spot.mid.toFixed(1) + ")");
+        taken.push(spot.box);
       }
     });
     if (!D.show_celes) poles.concat(spokes).forEach((g) => { g.label.style.display = "none"; });   // CM off: no NCP, SCP, RA names
