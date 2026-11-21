@@ -10,7 +10,7 @@ import re
 
 import plotly.graph_objects as go
 
-from . import core, space3d
+from . import core, globechart, space3d
 from .mapchart import CHART_FONT_FAMILY, SYMBOL_FONT_FAMILY
 
 WIDTH, HEIGHT = 1100, 966          # the page's width (as the sphere it stands for), its text 10 to 12 px there; the same shape as before (820 x 720)
@@ -85,6 +85,33 @@ def _xyz(ra: float, dec: float, r: float) -> tuple[float, float, float]:
     return r * math.cos(d) * math.cos(a), r * math.cos(d) * math.sin(a), r * math.sin(d)
 
 
+def _tilted(x, y, z):
+    """A point (or nested lists of them; None kept) turned TILT degrees about the line to RA 0, so that the ecliptic's
+    north pole (RA 270, De 90 - TILT) is straight up: the Earth's axis then leans TILT degrees (Ce, as in the page's
+    script)."""
+    c, s = math.cos(math.radians(globechart.TILT)), math.sin(math.radians(globechart.TILT))
+    if isinstance(y, (list, tuple)):
+        out = [_tilted(a, b, d) for a, b, d in zip(x, y, z)]
+        return [o[0] for o in out], [o[1] for o in out], [o[2] for o in out]
+    if y is None or z is None:
+        return x, y, z
+    return x, y * c + z * s, -y * s + z * c
+
+
+def _tilt_figure(fig: go.Figure) -> None:
+    """Every 3D point of fig turned as _tilted says."""
+    for tr in fig.data:
+        if getattr(tr, "z", None) is None or getattr(tr, "y", None) is None:
+            continue
+        x = tr.x if tr.x is not None else [[None] * len(r) for r in tr.z] if tr.type == "surface" else None
+        if x is None:
+            continue
+        nx, ny, nz = _tilted([list(r) if isinstance(r, (list, tuple)) else r for r in x],
+                             [list(r) if isinstance(r, (list, tuple)) else r for r in tr.y],
+                             [list(r) if isinstance(r, (list, tuple)) else r for r in tr.z])
+        tr.update(x=nx, y=ny, z=nz)
+
+
 def _ball(radius: float, colour: str, name: str) -> go.Surface:
     """The body at the centre: a sphere (its size not to scale)."""
     n = 24
@@ -117,7 +144,9 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
     the equator plane, and (Geo) CB and CN on the Earth (places: {clock: (label, lat, lon)}). On Geo/Helio Model's Fit
     scale. moving: time will run (space_js), so the view reaches far enough for all, with room for the clock.
     show_au: the rings of distance on the plane of the equator (the page's AU button); show_celes: the celestial
-    coordinates, the plane of the equator, the axis with NCP and SCP, the equator and its RA names (its Ce button). show_links (SpC, Geo): a line from CB (DOB) or CN (Now) on the Earth
+    coordinates, the plane of the equator, the axis with NCP and SCP, the equator and its RA names (its Ce button); with
+    them the whole view is turned so that the ecliptic's pole is up: the Earth's axis leans its 23.44 degrees (as on the
+    sphere) and keeps that tilt while the view is turned (it turns round the upright). show_links (SpC, Geo): a line from CB (DOB) or CN (Now) on the Earth
     to each body of its moment. show_spokes (Sp): a dashed line from the centre through each body out to the edge of the
     view, at the body's RA and De."""
     c = CENTRE[centre]
@@ -219,6 +248,8 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
             fig.add_trace(go.Scatter3d(x=[r], y=[0], z=[0], mode="text", text=[f"{au:g} AU"], hoverinfo="skip", showlegend=False,
                                        textfont=dict(size=12, color=TEXT_COLOUR)))
     axis = dict(visible=False, range=[-span, span])
+    if show_celes:                                            # Ce: the whole view tilted, the Earth's axis leaning TILT degrees
+        _tilt_figure(fig)
     fig.update_layout(width=WIDTH, height=HEIGHT, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor=SKY, autosize=False,
                       scene=dict(xaxis=axis, yaxis=axis, zaxis=axis, aspectmode="cube", bgcolor=SKY, dragmode="turntable",
                                  camera=dict(eye=dict(x=0.85, y=0.85, z=0.55))),   # close, a little from above: north above the plane
@@ -232,14 +263,14 @@ def globe_moment(moments) -> float | None:
 
 
 def space_js(centre: str, bodies, moments, day_seconds: float | None, places: dict | None = None,
-             offsets: dict | None = None, show_links: bool = False, reverse: bool = False) -> str:
+             offsets: dict | None = None, show_links: bool = False, reverse: bool = False, tilt: bool = False) -> str:
     """Rotate in 1s, for the 3D view: time runs from each moment, day_seconds a day of it (the speed picked), and each body's
     marker moves to where it really was then, its hover box with it; the clock of each moment at the top. The tables are
     the same as the other pages' (72 years of RA, De and distance), and the markers are found by their names. Geo: the
     Earth drawn as a globe, land and sea from Plotly's own world map (the one its map charts load, from cdn.plot.ly), with
     coastlines, lines of latitude and longitude every 30 degrees, and CB and CN at their places, turned as at the globe's
-    moment and turning with time."""
-    from . import globechart, space3d
+    moment and turning with time. tilt (Ce): every point turned as _tilted, as the figure is."""
+    from . import space3d
     c = CENTRE[centre]
     tables = {}
     if reverse and day_seconds:                               # R: the tables from RUN_DAYS before each moment, run backwards from its end
@@ -284,9 +315,12 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     clocks = [dict(clock=clock, jd=jd, offset=(offsets or {}).get(clock)) for clock, jd in moments]
     data = dict(tables=tables, day_seconds=day_seconds, days=space3d.RUN_DAYS, clocks=clocks, reverse=bool(reverse and day_seconds),
                 fit_r=c["fit_r"], log_from=c["log_from"], gap=list(c["gap"]), word=c["name"].lower(), globe=globe,
+                tilt=[math.cos(math.radians(globechart.TILT)), math.sin(math.radians(globechart.TILT))] if tilt else None,
                 rules=rules, sizing=sizing, mark_scale=MARK_SCALE, symbol_px=SYMBOL_PX, symbol_least=SYMBOL_LEAST, symbol_font=list(SYMBOL_FONT), au_km=core.AU_KM, arcsec=list(SIZE_RANGE_ARCSEC), radii=list(MARKER_RANGE))
     return ("const M = " + json.dumps(data, separators=(",", ":")).replace("<", "\\u003c") + ";\n" + """
   const RAD = Math.PI / 180;
+  // Ce: a point turned as the figure's (space3dview._tilted): the Earth's axis leaning, the ecliptic's pole up
+  const tilted = (p) => M.tilt ? [p[0], p[1] * M.tilt[0] + p[2] * M.tilt[1], -p[1] * M.tilt[1] + p[2] * M.tilt[0]] : p;
   const reach = (au) => {                          // as space3dview._reach
     const log = Math.max(Math.log10(Math.max(au, 1e-9) / M.log_from), 0);
     const a = Math.log10(M.gap[0] / M.log_from), b = Math.log10(M.gap[1] / M.log_from);
@@ -303,7 +337,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
   let globe = null;
   const lonLatXYZ = (lon, lat, r, gst) => {        // a place on the Earth, in the sky's frame: RA = sidereal time + longitude
     const ra = (gst + lon) * RAD, la = lat * RAD;
-    return [r * Math.cos(la) * Math.cos(ra), r * Math.cos(la) * Math.sin(ra), r * Math.sin(la)];
+    return tilted([r * Math.cos(la) * Math.cos(ra), r * Math.cos(la) * Math.sin(ra), r * Math.sin(la)]);
   };
   const lines3d = (lines, r, gst) => {             // lines of [lon, lat] as one trace's x, y, z (null between them)
     const x = [], y = [], z = [];
@@ -406,7 +440,8 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
     const xs = [], ys = [], zs = [], tips = [];
     keys.forEach((k) => {
       const tb = M.tables[k], s = sample(tb, t), r = reach(s.dist), cd = Math.cos(s.dec * RAD);
-      xs.push([r * cd * Math.cos(s.ra * RAD)]); ys.push([r * cd * Math.sin(s.ra * RAD)]); zs.push([r * Math.sin(s.dec * RAD)]);
+      const q = tilted([r * cd * Math.cos(s.ra * RAD), r * cd * Math.sin(s.ra * RAD), r * Math.sin(s.dec * RAD)]);
+      xs.push([q[0]]); ys.push([q[1]]); zs.push([q[2]]);
       // (no "<" before a letter in this script: st.html's sanitizer would drop the whole script, so written as \\u003c)
       tips.push(k + "\\u003cbr>RA: " + s.ra.toFixed(2) + "\\u003cbr>De/Lati: " + (s.dec >= 0 ? "+" : "") + s.dec.toFixed(2) +
                 "\\u003cbr>Distance from " + M.word + ": " + s.dist.toPrecision(4) + " AU\\u003cextra>\\u003c/extra>");

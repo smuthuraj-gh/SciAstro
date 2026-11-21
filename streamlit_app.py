@@ -1134,7 +1134,8 @@ def page_globe():
         # (the HTML is built only from the chart and the tables, never from what a user typed: safe to run) the script draws
         # the Earth as a globe, and with a speed picked moves the planets and turns the Earth
         st.html(mapchart.fit_html(fig, after_js=space3dview.space_js("Ea", bodies, at, day_seconds if moving else None, spots,
-                                                                     {m[0]: m[2] for m in moments}, "SpC" in shown, reverse)),
+                                                                     {m[0]: m[2] for m in moments}, "SpC" in shown, reverse,
+                                                                     tilt="Ce" in shown)),
                 unsafe_allow_javascript=True)
         return
     g = globechart.GlobeInput(
