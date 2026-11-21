@@ -226,11 +226,11 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
                                    line=dict(color=LINE_COLOUR, width=2), textfont=dict(size=12, color=TEXT_COLOUR),
                                    hoverinfo="skip", showlegend=False))
         for ra in (0, 90):                                        # RA 0 to 180, and RA 90 to 270, through the centre
-            a_, b_ = _xyz(ra, 0, span), _xyz(ra + 180, 0, span)
+            a_, b_ = _xyz(ra, 0, span * 0.9), _xyz(ra + 180, 0, span * 0.9)
             fig.add_trace(go.Scatter3d(x=[a_[0], b_[0]], y=[a_[1], b_[1]], z=[0, 0], mode="lines", hoverinfo="skip",
                                        line=dict(color=LINE_COLOUR, width=1), opacity=0.6, showlegend=False))
-        for ra in (0, 90, 180, 270):
-            x, y, _ = _xyz(ra, 0, span * 1.06)
+        for ra in (0, 90, 180, 270):                              # (inside the view's box: past its edge Plotly hides them)
+            x, y, _ = _xyz(ra, 0, span * 0.96)
             fig.add_trace(go.Scatter3d(x=[x], y=[y], z=[0], mode="text", text=[f"RA {ra}"], hoverinfo="skip", showlegend=False,
                                        textfont=dict(size=12, color=TEXT_COLOUR)))
     if show_au:                                               # AU: the rings of distance, on the plane of the equator
