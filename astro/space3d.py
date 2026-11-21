@@ -117,6 +117,14 @@ def _xyz(ra: float, dec: float, reach: float) -> list[float]:
     return [round(reach * math.cos(d) * math.cos(a), 5), round(reach * math.cos(d) * math.sin(a), 5), round(reach * math.sin(d), 5)]
 
 
+def _geo_table(planet: str, jd: float) -> dict:
+    """A body's table as seen from the Earth, from jd (RUN_HALF before the moment) on, as the page reads it, with its exact
+    place at the moment (at0, RUN_HALF on). (Each table merged into the page's must carry the moment's place: one with the
+    tables' start's, 36 years earlier, put the planets in the wrong places when time stood at the moment.)"""
+    whole = _motion_table(planet, jd, RUN_DAYS)
+    return {**{k: whole[k] for k in TABLE_KEYS}, "at0": _motion_table(planet, jd + RUN_HALF, 2)["at0"]}
+
+
 def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]], scale: str, key: str,
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
                centre: str = "Ea", flat: bool = False, places: dict | None = None, ave_jds: dict | None = None,
@@ -159,12 +167,10 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
     for clock, jd, _ in moments:
         for p in bodies:
             if p in core.PLANET_ID:
-                whole = _motion_table(p, jd, RUN_DAYS)
-                sizing[clock][p] = {k: whole[k] for k in TABLE_KEYS}
+                sizing[clock][p] = _geo_table(p, jd)
         for rule in [centre_rule] + [m["rule"] for m in marks]:
             if "of" in rule and rule["of"] not in sizing[clock]:
-                whole = _motion_table(rule["of"], jd, RUN_DAYS)
-                sizing[clock][rule["of"]] = {k: whole[k] for k in TABLE_KEYS}
+                sizing[clock][rule["of"]] = _geo_table(rule["of"], jd)
     if centre == "Ea":                                         # the same tables: not sent twice
         for clock in tables:
             tables[clock].update(sizing[clock])
@@ -177,8 +183,7 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
             for clock, jd in ave_jds.items():
                 for q in {p, rule.get("of", p)}:
                     if q not in tables.get(clock, {}):
-                        whole = _motion_table(q, jd, RUN_DAYS)
-                        ave_tables.setdefault(clock, {})[q] = {k: whole[k] for k in TABLE_KEYS}
+                        ave_tables.setdefault(clock, {})[q] = _geo_table(q, jd)
     outer = outer or 1.0
     wanted = [au for au in at["rings"] if reach(au) <= outer][-at["rings_shown"]:] if show_au else []
     if show_au:                                               # the outer circle too, beyond the planets
