@@ -1104,6 +1104,7 @@ def page_globe():
                 continue
             shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[n for n in row_of if n in coords_on],
                                   key=f"globe_coords_{row_of[0]}", label_visibility="collapsed")
+    resets = timer_reset(coords, "globe")                     # Reset: the Timer back at the DOB or Now
     paths = list(bodies) if "PP" in shown else []             # PP (Planet Path): the paths of the planets shown
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds = None
@@ -1135,7 +1136,7 @@ def page_globe():
         # the Earth as a globe, and with a speed picked moves the planets and turns the Earth
         st.html(mapchart.fit_html(fig, after_js=space3dview.space_js("Ea", bodies, at, day_seconds if moving else None, spots,
                                                                      {m[0]: m[2] for m in moments}, "SpC" in shown, reverse,
-                                                                     tilt="Ce" in shown)),
+                                                                     tilt="Ce" in shown, resets=resets)),
                 unsafe_allow_javascript=True)
         return
     g = globechart.GlobeInput(
@@ -1144,7 +1145,7 @@ def page_globe():
         show_ra="RA" in shown, show_dec="De" in shown, show_latitude="La" in shown,
         show_longitude="Lg" in shown, show_celes="Ce" in shown, show_houses="Ho" in shown, bodies=bodies, paths=paths,
         show_distance="AU" in shown, show_links="SpC" in shown, show_spokes="Sp" in shown, aspects=tuple(int(a) for a in major + minor), orbs=orbs(),
-        utc_birth=prep.utc, utc_now=utc_now)
+        utc_birth=prep.utc, utc_now=utc_now, resets=resets)
     # (the HTML is built only from the chart, never from what a user typed, so its script is safe to run)
     st.html(mapchart.fit_html(globechart.globe_figure(g),
                               after_js=globechart.globe_js(g, day_seconds, manual, reverse)),
@@ -1188,6 +1189,16 @@ def titled(head, title: str, title_key: str, options, key: str, default=None, be
     if not kept_pills(box, title, [title], title_key, title, label_visibility="collapsed"):
         return None
     return kept_pills(box, f"Which {title}", options, key, default, label_visibility="collapsed", **kw)
+
+
+def timer_reset(box, name: str) -> int:
+    """Under Coordinates: Reset, the Timer back at the DOB or Now picked (time running on from there at the speed picked;
+    the trails started again). How many times it has been pressed on this page: the charts start their clock again when
+    it changes."""
+    count = f"_timer_reset_{name}"
+    if box.button("Reset", key=f"{name}_timer_reset", help="Reset: the Timer back at the DOB or Now picked."):
+        st.session_state[count] = st.session_state.get(count, 0) + 1
+    return st.session_state.get(count, 0)
 
 
 def coords_below(coords, keys: dict, names: list, on: list, title_key: str, rows: int = 1) -> list:
@@ -1248,6 +1259,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         # (DA: the Ave planets on the Distance(%) graph; which start on, and which are there: the Defaults row Coordinates)
         on = coords_below(coords, {"Ho": f"{key}_houses", "PP": f"{key}_pp", "1C": f"{key}_one_circle", "DA": f"{key}_dav"},
                           may("Coordinates", ["Ho", "PP", "1C", "DA"]), start("Coordinates"), f"{key}_t_coords", rows=2)   # (two lines, as AstroClock-3D's)
+        resets = timer_reset(coords, key)                     # Reset: the Timer back at the DOB or Now
         show_houses, one_circle, show_ave = "Ho" in on, "1C" in on, "DA" in on
         with_paths = list(bodies) if "PP" in on else []
     else:
@@ -1255,6 +1267,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         # (Ce, first: the celestial coordinates; then AU; then PP, the Planet Path of each planet shown; the title off: none)
         on = coords_below(coords, {"Ce": f"{key}_ce", "AU": f"{key}_au", "PP": f"{key}_pp"}, may("Coordinates", ["Ce", "AU", "PP"]),
                           start("Coordinates"), f"{key}_t_scale")
+        resets = timer_reset(coords, key)                     # Reset: the Timer back at the DOB or Now
         show_celes, show_au = "Ce" in on, "AU" in on
         with_paths = list(bodies) if "PP" in on else []
     rotate = head.container(width="content", gap="xxsmall")   # Rotate in 1s and R on one line, the speeds below (as titled)
@@ -1280,7 +1293,7 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         return
     utc_now = datetime.now(ZoneInfo(prep.cn_tz)).utcoffset().total_seconds() / 3600.0 if prep.cn_tz else None
     moments = [m for m in (("Now", jd_now, utc_now), ("DOB", prep.jd_birth, prep.utc)) if m[0] in shown]
-    st.html(space3d.space_html(bodies, moments, space3d.FIT, str(prep.jd_birth), day_seconds, manual, show_au, tuple(with_paths), centre, flat,
+    st.html(space3d.space_html(bodies, moments, space3d.FIT, f"{prep.jd_birth}|{resets}", day_seconds, manual, show_au, tuple(with_paths), centre, flat,
                                {**({"DOB": ("CB", prep.birth_lon)} if prep.birth_lon is not None else {}),
                                 **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat and show_houses else None, ave_jds,
                                aspects, orbs() if aspects else None, one_circle, show_celes=show_celes, reverse=reverse),

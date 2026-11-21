@@ -259,13 +259,15 @@ def globe_moment(moments) -> float | None:
 
 
 def space_js(centre: str, bodies, moments, day_seconds: float | None, places: dict | None = None,
-             offsets: dict | None = None, show_links: bool = False, reverse: bool = False, tilt: bool = False) -> str:
+             offsets: dict | None = None, show_links: bool = False, reverse: bool = False, tilt: bool = False,
+             resets: int = 0) -> str:
     """Rotate in 1s, for the 3D view: time runs from each moment, day_seconds a day of it (the speed picked), and each body's
     marker moves to where it really was then, its hover box with it; the clock of each moment at the top. The tables are
     the same as the other pages' (72 years of RA, De and distance), and the markers are found by their names. Geo: the
     Earth drawn as a globe, land and sea from Plotly's own world map (the one its map charts load, from cdn.plot.ly), with
     coastlines, lines of latitude and longitude every 30 degrees, and CB and CN at their places, turned as at the globe's
-    moment and turning with time. tilt (Ce): every point turned as _tilted, as the figure is."""
+    moment and turning with time. tilt (Ce): every point turned as _tilted, as the figure is. resets: Reset's count (a
+    new one draws the view again, its Timer back at the moment)."""
     from . import space3d
     c = CENTRE[centre]
     tables = {}
@@ -309,7 +311,7 @@ def space_js(centre: str, bodies, moments, day_seconds: float | None, places: di
                                                  km=BODY_RADIUS_KM[rule["of"]])
     # the clock beside the customer's name, as the drawing's: each moment's date and time at its place's UTC offset
     clocks = [dict(clock=clock, jd=jd, offset=(offsets or {}).get(clock)) for clock, jd in moments]
-    data = dict(tables=tables, day_seconds=day_seconds, days=space3d.RUN_DAYS, clocks=clocks, reverse=bool(reverse and day_seconds),
+    data = dict(resets=resets, tables=tables, day_seconds=day_seconds, days=space3d.RUN_DAYS, clocks=clocks, reverse=bool(reverse and day_seconds),
                 fit_r=c["fit_r"], log_from=c["log_from"], gap=list(c["gap"]), word=c["name"].lower(), globe=globe,
                 tilt=[math.cos(math.radians(globechart.TILT)), math.sin(math.radians(globechart.TILT))] if tilt else None,
                 rules=rules, sizing=sizing, mark_scale=MARK_SCALE, symbol_px=SYMBOL_PX, symbol_least=SYMBOL_LEAST, symbol_font=list(SYMBOL_FONT), au_km=core.AU_KM, arcsec=list(SIZE_RANGE_ARCSEC), radii=list(MARKER_RANGE))

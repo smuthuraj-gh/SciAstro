@@ -83,6 +83,7 @@ class GlobeInput:
     paths: tuple = BODY_CHOICES       # the bodies whose paths to draw
     utc_birth: float | None = None    # the UTC offsets the clocks show their moments in, hours (None: in UT)
     utc_now: float | None = None
+    resets: int = 0                   # how many times Reset (under Coordinates) was pressed: a new count starts the Timer again
 
 
 def _ring(x: float, y: float, r: float) -> str:
@@ -327,7 +328,7 @@ def _motion_data(g: GlobeInput, day_seconds: float | None, manual: bool = False,
                for a in g.aspects] if g.orbs is not None else []
     svg, taken = sky_svg(g)
     return dict(svg=svg, aspects=aspects, paths=_paths(g), taken=[[round(v, 1) for v in box] for box in taken], sets=sets, places=places,
-                key=f"{g.jd_birth}|{g.cb}", ra_facing=core.lst(jd, facing), lon0=facing, tilt=math.radians(lat0),
+                key=f"{g.jd_birth}|{g.cb}|{g.resets}", ra_facing=core.lst(jd, facing), lon0=facing, tilt=math.radians(lat0),
                 roll=math.radians(-roll0), cx=CX, cy=CY, sky=SKY_RADIUS, earth=EARTH_RADIUS, width=WIDTH, height=HEIGHT,
                 day_seconds=day_seconds, days=MOTION_DAYS, spin=EARTH_DEGREES_A_DAY, show_ra=g.show_ra, show_dec=g.show_dec,
                 au_km=core.AU_KM, sizes=SIZE_RANGE_ARCSEC, radii=MARKER_RANGE, text_w=TEXT_W, text_h=TEXT_H, font=FONT,
