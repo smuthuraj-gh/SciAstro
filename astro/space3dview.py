@@ -221,7 +221,7 @@ def space_figure(centre: str, bodies, paths, moments, places: dict | None = None
     if show_celes:                                            # Ce: the celestial coordinates as Geo/Helio Model draws them: the
                                                               # axis with NCP and SCP, and the RA lines across the equator's plane
                                                               # with their names (no plane, no outer circle)
-        pole = span * 0.62                                        # the celestial axis: just past the planets, not up into empty space
+        pole = span * 0.95                                        # the celestial axis: long, well clear of the globe (inside the view's box)
         fig.add_trace(go.Scatter3d(x=[0, 0], y=[0, 0], z=[-pole, pole], mode="lines+text", text=["SCP", "NCP"],   # the celestial axis
                                    line=dict(color=LINE_COLOUR, width=2), textfont=dict(size=12, color=TEXT_COLOUR),
                                    hoverinfo="skip", showlegend=False))
