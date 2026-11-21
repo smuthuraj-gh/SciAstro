@@ -1097,17 +1097,13 @@ def page_globe():
     minor = options_under("Minor Aspects", "minor", offered("AstroClock-3D", "Minor Aspects", GLOBE_MINOR), default_choice("AstroClock-3D", "Minor Aspects"), width=94)
     coords_on = default_choice("AstroClock-3D", "Coordinates")
     coords = head.container(width="content", gap="xxsmall")   # Coordinates, with its options below it in fixed rows
-    coords_top = coords.container(horizontal=True, width="content", gap="xxsmall", vertical_alignment="center")
-    coords_title = coords_top.pills("Coordinates", ["Coordinates"], default="Coordinates", key="globe_coords_on", label_visibility="collapsed")
-    timer_reset(coords_top, "globe")                          # Re beside the title: the Timer back at the DOB or Now
-    if coords_title:
+    if coords.pills("Coordinates", ["Coordinates"], default="Coordinates", key="globe_coords_on", label_visibility="collapsed"):
         coords_ok = set(offered("AstroClock-3D", "Coordinates", ["Ho", "CM", "AU", "Sp", "SpC", "PP", "3D", "RA", "De", "La", "Lg"]))
         for row_of in ([n for n in r if n in coords_ok] for r in (["Ho", "CM", "AU", "Sp", "SpC"], ["PP", "3D", "RA", "De", "La", "Lg"])):   # (two rows)
             if not row_of:
                 continue
             shown += coords.pills(f"Coordinates {row_of[0]}", row_of, selection_mode="multi", default=[n for n in row_of if n in coords_on],
                                   key=f"globe_coords_{row_of[0]}", label_visibility="collapsed")
-    resets = timer_resets("globe")
     paths = list(bodies) if "PP" in shown else []             # PP (Planet Path): the paths of the planets shown
     spin = head.container(width="content", gap="xxsmall")     # Rotate, with how fast below it
     day_seconds = None
@@ -1115,6 +1111,8 @@ def page_globe():
     rotate_on = spin_top.pills("Rotate in 1s", ["Rotate in 1s"], default="Rotate in 1s", key="globe_rotate", label_visibility="collapsed")
     reverse = bool(kept_pills(spin_top, "Reverse", ["R"], "globe_reverse", None, label_visibility="collapsed",
                               help="R: time runs backwards (the planets and the Earth's turn reversed), with a speed picked."))
+    timer_reset(spin_top, "globe")                            # RS beside R: the Timer back at the DOB or Now
+    resets = timer_resets("globe")
     if rotate_on:
         speed = spin.pills("Rotate speed", offered("AstroClock-3D", "Rotate in 1s", SPEED_CHOICES), default=default_choice("AstroClock-3D", "Rotate in 1s"), key="globe_speed",
                            label_visibility="collapsed", width=128)   # (two rows: 1s, 1m, 1h, 1d; then 1w, 1mo, 1y: 28 px circles)
@@ -1195,27 +1193,23 @@ def titled(head, title: str, title_key: str, options, key: str, default=None, be
 
 
 def timer_reset(box, name: str) -> None:
-    """Beside the Coordinates title: Re (Reset), the Timer back at the DOB or Now picked (time running on from there at
-    the speed picked; the trails started again). timer_resets(name): how many times it has been pressed on this page (the
+    """Beside Rotate in 1s and R: RS (Reset), the Timer back at the DOB or Now picked (time running on from there at the
+    speed picked; the trails started again). timer_resets(name): how many times it has been pressed on this page (the
     charts start their clock again when it changes)."""
-    if box.button("Re", key=f"{name}_timer_reset", help="Re (Reset): the Timer back at the DOB or Now picked."):
+    if box.button("RS", key=f"{name}_timer_reset", help="RS (Reset): the Timer back at the DOB or Now picked."):
         st.session_state[f"_timer_reset_{name}"] = timer_resets(name) + 1
 
 
 def timer_resets(name: str) -> int:
-    """How many times Re (timer_reset) has been pressed on this page."""
+    """How many times RS (timer_reset) has been pressed on this page."""
     return st.session_state.get(f"_timer_reset_{name}", 0)
 
 
-def coords_below(coords, keys: dict, names: list, on: list, title_key: str, rows: int = 1, reset: str | None = None) -> list:
+def coords_below(coords, keys: dict, names: list, on: list, title_key: str, rows: int = 1) -> list:
     """The Coordinates title button and, below it, an on / off button for each of names (keys: each one's key): those on
     (none while the title is off). Each starts on when on (the Defaults row Coordinates) names it. rows: on that many lines
-    (as AstroClock-3D's two), else one. reset: the page's name for Re (timer_reset), beside the title."""
-    top = coords.container(horizontal=True, width="content", gap="xxsmall", vertical_alignment="center")
-    shown = kept_pills(top, "Coordinates", ["Coordinates"], title_key, "Coordinates", label_visibility="collapsed")
-    if reset:
-        timer_reset(top, reset)
-    if not shown:
+    (as AstroClock-3D's two), else one."""
+    if not kept_pills(coords, "Coordinates", ["Coordinates"], title_key, "Coordinates", label_visibility="collapsed"):
         return []
     per = -(-len(names) // max(1, rows))                      # (so many a line, the first lines full)
     out = []
@@ -1268,17 +1262,14 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with Ho, PP, 1C and DA below it (the title off: none)
         # (DA: the Ave planets on the Distance(%) graph; which start on, and which are there: the Defaults row Coordinates)
         on = coords_below(coords, {"Ho": f"{key}_houses", "PP": f"{key}_pp", "1C": f"{key}_one_circle", "DA": f"{key}_dav"},
-                          may("Coordinates", ["Ho", "PP", "1C", "DA"]), start("Coordinates"), f"{key}_t_coords", rows=2,   # (two lines, as AstroClock-3D's)
-                          reset=key)                          # (Re beside the title: the Timer back at the DOB or Now)
-        resets = timer_resets(key)
+                          may("Coordinates", ["Ho", "PP", "1C", "DA"]), start("Coordinates"), f"{key}_t_coords", rows=2)   # (two lines, as AstroClock-3D's)
         show_houses, one_circle, show_ave = "Ho" in on, "1C" in on, "DA" in on
         with_paths = list(bodies) if "PP" in on else []
     else:
         coords = head.container(width="content", gap="xxsmall")   # Coordinates, with CM, AU and PP below it (always the Fit scale)
         # (CM, first: the celestial coordinates; then AU; then PP, the Planet Path of each planet shown; the title off: none)
         on = coords_below(coords, {"CM": f"{key}_ce", "AU": f"{key}_au", "PP": f"{key}_pp"}, may("Coordinates", ["CM", "AU", "PP"]),
-                          start("Coordinates"), f"{key}_t_scale", reset=key)   # (Re beside the title: the Timer back at the DOB or Now)
-        resets = timer_resets(key)
+                          start("Coordinates"), f"{key}_t_scale")
         show_celes, show_au = "CM" in on, "AU" in on
         with_paths = list(bodies) if "PP" in on else []
     rotate = head.container(width="content", gap="xxsmall")   # Rotate in 1s and R on one line, the speeds below (as titled)
@@ -1286,6 +1277,8 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
     rotate_on = kept_pills(rotate_top, "Rotate in 1s", ["Rotate in 1s"], f"{key}_t_speed", "Rotate in 1s", label_visibility="collapsed")
     reverse = bool(kept_pills(rotate_top, "Reverse", ["R"], f"{key}_reverse", None, label_visibility="collapsed",
                               help="R: time runs backwards, with a speed picked."))
+    timer_reset(rotate_top, key)                              # RS beside R: the Timer back at the DOB or Now
+    resets = timer_resets(key)
     speed = (kept_pills(rotate, "Which Rotate in 1s", may("Rotate in 1s", SPEED_CHOICES), f"{key}_speed", start("Rotate in 1s"),
                         label_visibility="collapsed", **two_lines(128)) if rotate_on else None)   # (AstroClock-2D: 1s .. 1d, then 1w .. 1y)
     day_seconds = globechart.SPEEDS.get(speed)
