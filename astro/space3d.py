@@ -456,6 +456,14 @@ __SYMBOL_JS__
     if (h.place === "CB") e.setAttribute("stroke-dasharray", "2 3");
     return {h, n, k, e, tip: make("title", e), name: "H" + String((9 + k) % 12 + 1).padStart(2, "0")};
   })) : [];
+  // Systems, As: twelve equal houses from each Ascendant, H01 to H12, 30 degrees of ecliptic longitude each (H01's cusp is
+  // the As line itself, so eleven lines more), from the Earth to the circle; under the marks, as the Eq house lines
+  const AS_RED = "rgb(200,30,30)";
+  const ascHouses = (D.asc || []).flatMap((h, n) => [...Array(12).keys()].map((k) => {
+    const e = k ? make("path", svg, {fill: "none", stroke: AS_RED, "stroke-width": 1, style: "pointer-events:stroke"}) : null;
+    if (e && h.clock === "DOB") e.setAttribute("stroke-dasharray", "5 3");
+    return {h, n, k, e, tip: e ? make("title", e) : null, name: "H" + String(k + 1).padStart(2, "0")};
+  }));
   // flat: a line from the Earth through each body, out to the circle, to read its RA on the scale (under the marks)
   const rays = (D.flat ? D.marks : []).map((m) => {
     const e = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": D.ra_inside ? 2 : 1, style: "pointer-events:stroke"});   // (Systems: as As's)
@@ -464,6 +472,9 @@ __SYMBOL_JS__
     return {m, e, head, tip: make("title", e)};
   });
   houses.forEach((g) => { g.label = words(D.house_colour, D.flat_font); g.label.textContent = g.name; });   // above the lines
+  ascHouses.forEach((g) => {                       // (its name, with its tooltip, set once: set again, the tooltip would go)
+    g.label = words(AS_RED, D.flat_font); g.label.textContent = g.name; g.label.style.pointerEvents = "auto"; g.labelTip = make("title", g.label);
+  });
   if (D.flat) { svg.appendChild(earth); svg.appendChild(earthLabel); }   // the Earth stays on top of the lines
   const DEC_X = 95, DEC_LEAD = 36;                 // flat: the Declination graph's line, left of the circle, and how far its marks stand from it
   const decY = (dec) => D.height / 2 + D.outer * D.fit * (2 * (D.flat_dec[0] - dec) / (D.flat_dec[0] - D.flat_dec[1]) - 1);
@@ -1081,6 +1092,32 @@ __SYMBOL_JS__
       g.headTip.textContent = g.nameTip.textContent = g.tip.textContent;
       const [nx, ny] = pt(R - 52);
       g.name.setAttribute("x", nx.toFixed(1)); g.name.setAttribute("y", (ny + D.flat_font / 3).toFixed(1));
+    });
+    ascHouses.forEach((g) => {                     // As's equal houses: each cusp 30 degrees of ecliptic longitude on from the last
+      const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2, lon0 = (ascLon(g.h, t) + 30 * g.k) % 360, ra = lonRA(lon0), a = ra * RAD;
+      const tip = g.name + " " + symbolOf(g.h.place) + " (" + g.h.clock + "): equal house of 30 degrees from the Ascendant, ecliptic longitude " +
+                  lon0.toFixed(2) + " to " + ((lon0 + 30) % 360).toFixed(2) + systemsInfo(lon0);
+      if (g.e) {
+        g.e.setAttribute("d", "M" + cx + " " + cy + "L" + (cx + MX * R * Math.cos(a)).toFixed(1) + " " + (cy - R * Math.sin(a)).toFixed(1));
+        g.tip.textContent = tip;
+      }
+      g.labelTip.textContent = tip;
+      // its name in the middle of the house (15 degrees of longitude on from its cusp), inside the Eq houses' names; where
+      // that is taken, nearer the Earth
+      const mid = lonRA((lon0 + 15) % 360), half = g.name.length * 4 * D.flat_font / 13 + 3, r0 = R - (g.n ? 128 : 104);
+      let spot = null;
+      for (const r of [r0, r0 - 28, r0 - 56, r0 - 84]) {
+        const b = mid * RAD, x = cx + MX * r * Math.cos(b), y = cy - r * Math.sin(b), box = [x - half, y - half, x + half, y + half];
+        if (clear(box, taken)) { spot = {x, y, box}; break; }
+      }
+      g.label.style.display = spot ? "" : "none";
+      if (spot) {
+        let turn = ((MX * (90 - mid)) % 360 + 360) % 360;   // along the circle, and never upside down
+        if (turn > 90 && turn <= 270) turn -= 180; else if (turn > 270) turn -= 360;
+        g.label.setAttribute("x", spot.x.toFixed(1)); g.label.setAttribute("y", (spot.y + D.flat_font / 3).toFixed(1));
+        g.label.setAttribute("transform", "rotate(" + turn.toFixed(1) + " " + spot.x.toFixed(1) + " " + spot.y.toFixed(1) + ")");
+        taken.push(spot.box);
+      }
     });
     houses.forEach((g) => {                        // each from the Earth to the circle, named in the middle of its span where there is room
       const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2, ra = (g.h.ra + D.spin * t + 30 * g.k) % 360, a = ra * RAD;
