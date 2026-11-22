@@ -813,10 +813,10 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
            ("Equatorial-2D", "Coordinates"): (["Ho", "PP", "1C", "DA"], True, ["Ho", "DA"]),   # (the buttons below it that start on)
            ("Equatorial-2D", "Rotate in 1s"): (SPEED_CHOICES, False, None),
            ("Systems", "System"): (list(ZODIAC_SYSTEMS), True, ["Tr"]),   # (Tr and Si: each on or off)
-           ("Systems", "Ec"): (["Ec"], True, ["Ec"]),             # (Ec, beside Tr and Si: on to start)   # (Systems: one at a time, before Time)
+           ("Systems", "Ec"): (["Ec"], True, []),                 # (Ec: off to start, with no Page Defaults row)
            ("Systems", "Time"): (["Now", "DOB"], False, "Now"),      # (Systems: a copy of Equatorial-2D, its own rows)
            ("Systems", "Planets"): (globe + ["As"], True, globe + ["As"]),   # (and As, the Ascendant, after them: its Defaults row is the Planets')
-           ("Systems", "Eq"): (["Eq"], True, ["Eq"]),
+           ("Systems", "Eq"): (["Eq"], True, []),                 # (Eq: off to start, with no Page Defaults row)
            ("Equatorial-3D", "Time"): (["Now", "DOB"], False, "Now"),
            ("Equatorial-3D", "Planets"): (globe, True, globe),
            ("Equatorial-3D", "Major Aspects"): (GLOBE_MAJOR, True, []),
