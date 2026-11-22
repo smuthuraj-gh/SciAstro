@@ -636,8 +636,8 @@ def dob_asked(picked: bool, *keys_reset) -> None:
 def new_member_form():
     """A member signing in for the first time (no record has their email yet) enters their own birth details; the
     record is saved with their login email, so they see their charts at once. One record per email."""
-    st.write("Welcome! Enter your birth details to see your DOB charts. They are kept private: only you (and the admin) "
-             "can see them.")
+    st.write("Enter your birth details to see your DOB charts. You can search without saving. If you save and search, "
+             "they are kept private. Only you and the admin can see them.")
     details_form(None)
 
 
@@ -690,7 +690,7 @@ def details_form(row: pd.Series | None, person: bool = False):
                                 help="The district, or anything else about where you live now (optional; not used "
                                      "in the charts).")
         if row is None and not person:                        # signing up: DOB for 1 day
-            st.caption("Signing up gives you DOB access for 1 day: your DOB and Now charts, and people you add or search for. "
+            st.caption("Signing up gives you DOB access for 1 day: for you and the people you add. "
                        "After it, the admin can keep it for you.")
         search = False
         if person:                                            # Search Only: its DOB charts, not saved;
@@ -815,9 +815,8 @@ def default_inputs() -> dict[tuple[str, str], tuple]:
            ("Systems", "System"): (list(ZODIAC_SYSTEMS), True, ["Tr"]),   # (Tr and Si: each on or off)
            ("Systems", "Ec"): (["Ec"], True, ["Ec"]),             # (Ec, beside Tr and Si: on to start)   # (Systems: one at a time, before Time)
            ("Systems", "Time"): (["Now", "DOB"], False, "Now"),      # (Systems: a copy of Equatorial-2D, its own rows)
-           ("Systems", "Planets"): (globe, True, globe),
+           ("Systems", "Planets"): (globe + ["As"], True, globe + ["As"]),   # (and As, the Ascendant, after them: its Defaults row is the Planets')
            ("Systems", "Eq"): (["Eq"], True, ["Eq"]),
-           ("Systems", "As"): (["As"], True, ["As"]),             # (As, after the Planets: the Ascendant on every ring, on to start)             # (Eq, under System: the house lines, once Ho; Systems has no Coordinates)
            ("Equatorial-3D", "Time"): (["Now", "DOB"], False, "Now"),
            ("Equatorial-3D", "Planets"): (globe, True, globe),
            ("Equatorial-3D", "Major Aspects"): (GLOBE_MAJOR, True, []),
@@ -1293,10 +1292,11 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
         picked = None
         if kept_pills(pbox, "Planets", ["Planets"], f"{key}_t_bodies", "Planets", label_visibility="collapsed"):
             prow = pbox.container(horizontal=True, width="content", gap="xxsmall")
-            picked = kept_pills(prow, "Which Planets", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi",
-                                label_visibility="collapsed", format_func=core.symbol_of)
-            ascendant = "As" in may("As", ["As"]) and bool(kept_pills(prow, "As", ["As"], f"{key}_as", (start("As") or [None])[0], label_visibility="collapsed",
-                                                                       help="As: the Ascendant, the first house's start, on every ring"))
+            first = start("Planets") or []                     # (the Planets row: the planets, and As among them)
+            picked = kept_pills(prow, "Which Planets", core.shown_order(choices), f"{key}_bodies", [v for v in first if v != "As"],
+                                selection_mode="multi", label_visibility="collapsed", format_func=core.symbol_of)
+            ascendant = "As" in may("Planets", ["As"]) and bool(kept_pills(prow, "As", ["As"], f"{key}_as", "As" if "As" in first else None,
+                                                                            label_visibility="collapsed", help="As: the Ascendant, the first house's start, on every ring"))
         bodies = core.in_order(picked, choices)
     else:
         bodies = core.in_order(titled(head, "Planets", f"{key}_t_bodies", core.shown_order(choices), f"{key}_bodies", start("Planets"), selection_mode="multi", **two_lines(PLANETS_WIDTH),
@@ -1366,7 +1366,8 @@ def space_page(head, prep, key: str, centre: str, choices: tuple, model: str = "
                                {**({"DOB": ("CB", prep.birth_lon)} if prep.birth_lon is not None else {}),
                                 **({"Now": ("CN", prep.cn[1])} if prep.cn else {})} if flat and show_houses else None, ave_jds,
                                aspects, orbs() if aspects else None, one_circle, show_celes=show_celes, reverse=reverse, show_dist=page != "Systems",
-                               ra_inside=page == "Systems", zodiac=zodiac, ecliptic=ecliptic, vedic=vedic, thirteen=thirteen, asc=asc, kp=kp),
+                               ra_inside=page == "Systems", zodiac=zodiac, ecliptic=ecliptic, vedic=vedic, thirteen=thirteen, asc=asc, kp=kp,
+                               ra_values=page != "Systems" or equator_houses),   # (Systems: RA numbers only with Eq on)
             unsafe_allow_javascript=True)
 
 

@@ -100,22 +100,26 @@ VEDIC_RING = 28                   # Systems: how wide Na's ring of the 27 stars 
 NAKSHATRAS = ("Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha", "Magha",
               "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula",
               "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati")
+# Na: the same stars by their South Indian (Tamil) names, in the same order
+NAKSHATRAS_SOUTH = ("Ashwini", "Bharani", "Karthigai", "Rohini", "Mirugaseersham", "Thiruvathirai", "Punarpoosam", "Poosam", "Ayilyam",
+                    "Magam", "Pooram", "Uthiram", "Hastham", "Chithirai", "Swathi", "Visakam", "Anusham", "Kettai", "Moolam",
+                    "Pooradam", "Uthiradam", "Thiruvonam", "Avittam", "Sadhayam", "Poorattathi", "Uthirattathi", "Revathi")
 
 
 def nakshatras(ayanamsa: float) -> list[dict]:
     """Na: the 27 stars (nakshatras), each 13 degrees 20 minutes of the Sidereal ecliptic from Ashwini at its 0 (that many
     degrees on from the Tropical 0: the ayanamsa), as RA spans: where each starts and ends, and its middle."""
     step = 360 / 27
-    return [dict(name=n, n=i + 1, ra0=round(ecliptic_ra(step * i + ayanamsa), 3), ra1=round(ecliptic_ra(step * i + step + ayanamsa), 3),
+    return [dict(name=f"{NAKSHATRAS_SOUTH[i]} ({n})", n=i + 1, ra0=round(ecliptic_ra(step * i + ayanamsa), 3), ra1=round(ecliptic_ra(step * i + step + ayanamsa), 3),
                  mid=round(ecliptic_ra(step * i + step / 2 + ayanamsa), 3), sid0=round(step * i, 2), sid1=round(step * i + step, 2),
                  padas=[round(ecliptic_ra(step * i + step * q / 4 + ayanamsa), 3) for q in range(4)],   # its four quarters' starts
-                 short=n.replace("Purva ", "P.").replace("Uttara ", "U.")[:9],   # (one word, for one line, at most 9 letters: P.Phalgun ..)
+                 short=NAKSHATRAS_SOUTH[i][:10],   # (its South Indian name, on one line, at most 10 letters: with the gap and its lord, 12)
                  lord=VIMSHOTTARI[i % 9][0], colour=core.colour(VIMSHOTTARI[i % 9][0]),   # its star lord (Ketu, Venus .. as KP's)
                  ayanamsa=round(ayanamsa, 2)) for i, n in enumerate(NAKSHATRAS)]
 
 
-KP_RING = 38                      # Systems: how wide KP's ring is, in pixels: its subs' colours (inner), its sub lords' symbols (outer)
-KP_SUB = 16                       # (the subs' coloured band, inside the symbols' two lanes)
+KP_RING = 52                      # Systems: how wide KP's ring is, in pixels: its subs' colours (inner), its sub lords' symbols (outer, three lanes)
+KP_SUB = 16                       # (the subs' coloured band, inside the symbols' three lanes)
 VIMSHOTTARI = (("SN", 7), ("Ve", 20), ("Su", 6), ("Mo", 10), ("Ma", 7), ("NN", 18), ("Ju", 16), ("Sa", 19), ("Me", 17))   # (Ke, Ra: SN, NN)
 
 
@@ -323,6 +327,9 @@ def space_data(bodies: list[str], moments: list[tuple[str, float, float | None]]
 _JS = r"""
 (function () {
   const D = __DATA__, box = document.getElementById("__ID__"), NS = "http://www.w3.org/2000/svg", RAD = Math.PI / 180;
+  // the flat pages (Equatorial-2D, Systems) seen mirrored, as the sky from below: RA 0 left, 90 up, 180 right, so that RA and the
+  // signs run clockwise and time runs left to right across the top (MX: -1 there); SWEEP, the arcs' sweep for RA growing
+  const MX = D.flat ? -1 : 1, SWEEP = MX > 0 ? 0 : 1;
   const make = (tag, parent, attrs) => {
     const e = document.createElementNS(NS, tag);
     Object.entries(attrs || {}).forEach(([k, v]) => e.setAttribute(k, v));
@@ -378,7 +385,7 @@ __SYMBOL_JS__
   const LEAN_S = Math.sin(D.tilt * RAD), LEAN_C = Math.cos(D.tilt * RAD);
   const angles = () => { S = Math.sin(view.yaw * RAD); C = Math.cos(view.yaw * RAD); s = Math.sin(view.pitch * RAD); c = Math.cos(view.pitch * RAD); };
   const point = ([x, y, z]) => {                   // on the page: x, y, and how far toward the viewer (+ is near)
-    if (D.flat) return [D.width / 2 + x * D.fit, D.height / 2 - y * D.fit, 0];   // seen from above the north pole: RA 0 right, 90 up
+    if (D.flat) return [D.width / 2 + MX * x * D.fit, D.height / 2 - y * D.fit, 0];   // RA 0 left, 90 up (mirrored: MX)
     X = x * C - y * S;
     Y = -(x * S + y * C);
     Z = z * s + Y * c;
@@ -557,38 +564,48 @@ __SYMBOL_JS__
   const ascs = (D.asc || []).map((h) => {          // Systems, As: each place's Ascendant, a line across the circle's edge and the rings
     const e = make("path", svg, {fill: "none", stroke: "rgb(200,30,30)", "stroke-width": 2, style: "pointer-events:stroke"});
     if (h.clock === "DOB") e.setAttribute("stroke-dasharray", "5 3");
-    return {h, e, head: make("path", svg, {fill: "rgb(200,30,30)", stroke: "none"}), tip: make("title", e), name: words("rgb(200,30,30)"), labels: []};
+    // (its tooltip on the line, its arrow head and its name alike, the line being thin to point at)
+    const head = make("path", svg, {fill: "rgb(200,30,30)", stroke: "none", style: "pointer-events:auto"}), name = words("rgb(200,30,30)");
+    name.style.pointerEvents = "auto"; name.textContent = "As";   // (its text once: set again, it would take its tooltip off)
+    return {h, e, head, tip: make("title", e), headTip: make("title", head), name, nameTip: make("title", name)};
   });
   const ascLon = (h, t) => {                       // the ecliptic longitude rising in the east there then: from the sidereal time
     const th = ((h.ra + D.spin * t) % 360) * RAD, e = D.tilt * RAD, phi = h.lat * RAD;   // (RAMC), the latitude and the tilt
     return ((Math.atan2(Math.cos(th), -(Math.sin(th) * Math.cos(e) + Math.tan(phi) * Math.sin(e))) / RAD) % 360 + 360) % 360;
   };
   const lonRA = (lon) => ((Math.atan2(Math.sin(lon * RAD) * Math.cos(D.tilt * RAD), Math.cos(lon * RAD)) / RAD) % 360 + 360) % 360;
-  const within = (lon, a, b) => (b > a ? lon >= a && lon < b : lon >= a || lon < b);   // (a span that may pass 360)
-  const ascText = (g, lon) => {                    // its value on that ring: Ec its longitude; the signs, sign and degree; Na, star and quarter
-    if (g.kind === "ec") return lon.toFixed(1);
-    if (g.kind === "signs") {
-      const z = g.ring.find((s) => within(lon, s.lon0, s.lon1)) || g.ring[0];
-      return z.sym + " " + (((lon - z.lon0) % 360 + 360) % 360).toFixed(1);
+  const raDecLon = (ra, dec) => {                  // the ecliptic longitude (Tropical) of a place given by its RA and Dec
+    const a = ra * RAD, d = dec * RAD, e = D.tilt * RAD;
+    return ((Math.atan2(Math.sin(a) * Math.cos(e) + Math.tan(d) * Math.sin(e), Math.cos(a)) / RAD) % 360 + 360) % 360;
+  };
+  const kpLords = (lon) => {                       // KP: where an ecliptic longitude falls: its sub lord
+    if (!D.kp) return "";
+    const sid = ((lon - D.kp.ayanamsa) % 360 + 360) % 360, v = D.kp.stars[Math.min(26, Math.floor(sid / (360 / 27)))];
+    const u = v.subs.find((x) => sid >= x.sid0 && sid < x.sid1) || v.subs[8];
+    return "\nKP: sub lord " + symbolOf(u.lord);   // (its sub lord alone: the sign and star are on the other lines)
+  };
+  const systemsInfo = (lon) => {                   // Systems: where an ecliptic longitude falls in each system shown, a line each
+    let out = "";
+    (D.zodiac || []).forEach((ring) => {           // Tr, Si, Op: its sign (or constellation), how far into it, and its lord
+      const z = ring.find((x) => (x.lon1 > x.lon0 ? lon >= x.lon0 && lon < x.lon1 : lon >= x.lon0 || lon < x.lon1)) || ring[0];
+      out += "\n" + z.tag + ": " + z.name + " " + (((lon - z.lon0) % 360 + 360) % 360).toFixed(1) + (z.lord ? ", lord " + symbolOf(z.lord) : "");
+    });
+    if (D.vedic && D.vedic.length) {               // Na: its star, the star's lord, and the quarter
+      const sid = ((lon - D.vedic[0].ayanamsa) % 360 + 360) % 360, v = D.vedic[Math.min(26, Math.floor(sid / (360 / 27)))];
+      out += "\nNa: " + v.name + ", quarter " + (Math.floor((sid - v.sid0) / (360 / 108)) + 1) + ", star lord " + symbolOf(v.lord);   // (its lord last)
     }
-    if (g.kind === "kp") {                         // KP: its star lord / sub lord
-      const sid = ((lon - g.kp.ayanamsa) % 360 + 360) % 360, v = g.kp.stars[Math.min(26, Math.floor(sid / (360 / 27)))];
-      const u = v.subs.find((s) => sid >= s.sid0 && sid < s.sid1) || v.subs[8];
-      return v.lord + "/" + u.lord;
-    }
-    const sid = ((lon - g.ring[0].ayanamsa) % 360 + 360) % 360, v = g.ring[Math.min(26, Math.floor(sid / (360 / 27)))];
-    return v.name.split(" ").map((w) => w.slice(0, 3)).join(" ") + " " + (Math.floor((sid - v.sid0) / (360 / 108)) + 1);
+    return out + kpLords(lon);                     // KP: its sub lord
   };
   if (D.flat) {
     const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2;
     let ticks = "";
     for (let ra = 1; ra !== 361; ra++) {
       const a = ra * RAD, long = (ra % 10 === 0 ? 10 : ra % 5 === 0 ? 7 : 4) * (D.ra_inside ? -1 : 1);   // (Systems: inward)
-      ticks += "M" + (cx + R * Math.cos(a)).toFixed(1) + " " + (cy - R * Math.sin(a)).toFixed(1) +
-               "L" + (cx + (R + long) * Math.cos(a)).toFixed(1) + " " + (cy - (R + long) * Math.sin(a)).toFixed(1);
-      if (ra % 10 === 0) {
+      ticks += "M" + (cx + MX * R * Math.cos(a)).toFixed(1) + " " + (cy - R * Math.sin(a)).toFixed(1) +
+               "L" + (cx + MX * (R + long) * Math.cos(a)).toFixed(1) + " " + (cy - (R + long) * Math.sin(a)).toFixed(1);
+      if (ra % 10 === 0 && D.ra_values) {          // (Systems: only while Eq is on)
         const at = D.ra_inside ? R - 24 : R + 22;    // its number outside the circle and its ticks (Systems: inside them)
-        const x = cx + at * Math.cos(a), y = cy - at * Math.sin(a) + D.flat_font / 3;
+        const x = cx + MX * at * Math.cos(a), y = cy - at * Math.sin(a) + D.flat_font / 3;
         const n = words("rgb(90,90,90)", D.flat_font);
         n.setAttribute("x", x.toFixed(1)); n.setAttribute("y", y.toFixed(1)); n.textContent = ra;
         scaleBoxes.push(boxOf(x, y, String(ra), D.flat_font));
@@ -598,8 +615,9 @@ __SYMBOL_JS__
     make("title", scale).textContent = "RA, 1 to 360 degrees";
     const tag = words("rgb(90,90,90)");            // what the scale is, below the clock
     tag.setAttribute("x", cx); tag.setAttribute("y", (cy + R + 56).toFixed(1)); tag.textContent = "RA";
-    if (D.ra_inside) {                             // Systems: Eq (the equator's scale), just above its 360, inside the circle
-      const x = cx + R - 24, y = cy + D.flat_font / 3 - 16;
+    if (!D.ra_values) tag.style.display = "none";   // (Systems with Eq off: no RA numbers, nor their names)
+    else if (D.ra_inside) {                        // Systems: Eq (the equator's scale), just above its 360, inside the circle
+      const x = cx + MX * (R - 24), y = cy + D.flat_font / 3 - 16;
       tag.setAttribute("x", x.toFixed(1)); tag.setAttribute("y", y.toFixed(1)); tag.textContent = "Eq";
       scaleBoxes.push(boxOf(x, y, "Eq"));
       const ra = words("rgb(90,90,90)"), yb = cy + D.flat_font / 3 + 18;   // and RA just below it
@@ -607,7 +625,7 @@ __SYMBOL_JS__
       scaleBoxes.push(boxOf(x, yb, "RA"));
     }
     // Systems: the twelve signs (Tropical or Sidereal) in a ring just outside the circle, each over its RA span (fixed: it does not turn)
-    const at = (r, ra) => [cx + r * Math.cos(ra * RAD), cy - r * Math.sin(ra * RAD)];
+    const at = (r, ra) => [cx + MX * r * Math.cos(ra * RAD), cy - r * Math.sin(ra * RAD)];
     // Systems, Ec: the ecliptic longitude, 0 to 360 (Tropical), in a ring just outside the circle, each degree at the RA it
     // falls at (so not evenly spaced): a tick every degree, longer every 5 and 10, numbered every 10
     const EIN = R + 2, EOUT = R + D.ec_ring;         // (wide enough for the numbers, 180 lying across it at the sides)
@@ -641,14 +659,14 @@ __SYMBOL_JS__
      sysRings.push({kind: "signs", r0: ZIN, r1: ZOUT, ring});
      ring.forEach((z, i) => {
       const a1 = z.ra1 > z.ra0 + 1 ? z.ra1 : z.ra1 + 360, f = (p) => p[0].toFixed(1) + " " + p[1].toFixed(1);
-      const d = "M" + f(at(ZOUT, z.ra0)) + "A" + ZOUT + " " + ZOUT + " 0 0 0 " + f(at(ZOUT, a1)) +
-                "L" + f(at(ZIN, a1)) + "A" + ZIN + " " + ZIN + " 0 0 1 " + f(at(ZIN, z.ra0)) + "Z";
+      const d = "M" + f(at(ZOUT, z.ra0)) + "A" + ZOUT + " " + ZOUT + " 0 0 " + SWEEP + " " + f(at(ZOUT, a1)) +
+                "L" + f(at(ZIN, a1)) + "A" + ZIN + " " + ZIN + " 0 0 " + (1 - SWEEP) + " " + f(at(ZIN, z.ra0)) + "Z";
       const sector = make("path", svg, {d, fill: i % 2 ? "rgb(244,244,244)" : "white", stroke: "rgb(120,120,120)", "stroke-width": 1, style: "pointer-events:auto"});
       make("title", sector).textContent = z.name + (z.lord ? ", lord " + symbolOf(z.lord) : "") + " (" + z.kind + "; " + z.lon0 + " to " + z.lon1 + " degrees of Tropical ecliptic longitude): RA " + z.ra0.toFixed(2) + " to " + z.ra1.toFixed(2);
       // its symbol and its lord's (dark ink), side by side along the ring, inside it, two letters apart; the sign first as
       // seen: left of its lord, or above it where the ring runs up and down (the sides). Ophiuchus has no lord
       const zm = (ZIN + ZOUT) / 2, SW = 13, CH = 5.2, LR = 6, total = z.lord ? SW + 2 * CH + 2 * LR : SW;
-      const tx = -Math.sin(z.mid * RAD), ty = -Math.cos(z.mid * RAD);   // (the way the ring runs as RA grows, on the page)
+      const tx = -MX * Math.sin(z.mid * RAD), ty = -Math.cos(z.mid * RAD);   // (the way the ring runs as RA grows, on the page)
       const zside = Math.abs(tx) > 0.3 ? Math.sign(tx) : Math.sign(ty) || 1;   // (so that the lord falls right of, or below, the sign)
       const zalong = (px) => z.mid + zside * px / zm / RAD;
       const [x, y] = at(zm, zalong(-total / 2 + SW / 2)), sign = words("rgb(60,60,60)", 15);
@@ -675,23 +693,27 @@ __SYMBOL_JS__
     if (D.vedic.length) sysRings.push({kind: "na", r0: VIN, r1: VOUT, ring: D.vedic});
     D.vedic.forEach((v, i) => {
       const a1 = v.ra1 > v.ra0 + 1 ? v.ra1 : v.ra1 + 360, f = (p) => p[0].toFixed(1) + " " + p[1].toFixed(1);
-      const d = "M" + f(at(VOUT, v.ra0)) + "A" + VOUT + " " + VOUT + " 0 0 0 " + f(at(VOUT, a1)) +
-                "L" + f(at(VIN, a1)) + "A" + VIN + " " + VIN + " 0 0 1 " + f(at(VIN, v.ra0)) + "Z";
+      const d = "M" + f(at(VOUT, v.ra0)) + "A" + VOUT + " " + VOUT + " 0 0 " + SWEEP + " " + f(at(VOUT, a1)) +
+                "L" + f(at(VIN, a1)) + "A" + VIN + " " + VIN + " 0 0 " + (1 - SWEEP) + " " + f(at(VIN, v.ra0)) + "Z";
       const sector = make("path", svg, {d, fill: i % 2 ? "rgb(240,236,226)" : "rgb(250,248,242)", stroke: "rgb(120,120,120)", "stroke-width": 1, style: "pointer-events:auto"});
-      make("title", sector).textContent = v.name + ", star lord " + symbolOf(v.lord) + " (Vedic star " + v.n + " of 27; Sidereal, Lahiri ayanamsa " + v.ayanamsa + ": " +
-                                            v.sid0 + " to " + v.sid1 + " degrees, in four quarters of 3.33): RA " + v.ra0.toFixed(2) + " to " + v.ra1.toFixed(2);
-      let turn = ((90 - v.mid) % 360 + 360) % 360;
+      make("title", sector).textContent = v.name + " (Vedic star " + v.n + " of 27; Sidereal, Lahiri ayanamsa " + v.ayanamsa + ": " +
+                                            v.sid0 + " to " + v.sid1 + " degrees, in four quarters of 3.33): RA " + v.ra0.toFixed(2) + " to " + v.ra1.toFixed(2) +
+                                            ", star lord " + symbolOf(v.lord);   // (its lord last)
+      let turn = ((MX * (90 - v.mid)) % 360 + 360) % 360;
       const flip = turn > 90 && turn <= 270;
       if (flip) turn -= 180; else if (turn > 270) turn -= 360;
       // its name on one line (P.Phalguni ..), and after it, as read, its star lord's symbol, in dark ink (no colour)
-      const CH = 5.2, mid = (VIN + VOUT) / 2, mr = 7, w = v.short.length * CH, total = w + CH + 2 * mr, side = flip ? 1 : -1;   // (CH: a letter's width, the gap)
+      // (CH: a letter's width, the gap; all of it made smaller, k, only when the star's span on the ring is too short for it)
+      const mid = (VIN + VOUT) / 2, room = ((v.ra1 - v.ra0 + 360) % 360) * RAD * mid - 4;
+      const k = Math.min(1, room / (v.short.length * 5.2 + 5.2 + 14)), CH = 5.2 * k, mr = 7 * k;
+      const w = v.short.length * CH, total = w + CH + 2 * mr, side = (flip ? 1 : -1) * MX;
       const along = (px) => v.mid + side * px / mid / RAD;   // (so many pixels along the ring, the way the name reads)
-      const [x, y] = at(mid, along(-total / 2 + w / 2)), t = words("rgb(60,60,60)", 9);
+      const [x, y] = at(mid, along(-total / 2 + w / 2)), t = words("rgb(60,60,60)", 9 * k);
       t.setAttribute("x", x.toFixed(1)); t.setAttribute("y", (y + 3).toFixed(1)); t.textContent = v.short;
       t.setAttribute("transform", "rotate(" + turn.toFixed(1) + " " + x.toFixed(1) + " " + y.toFixed(1) + ")");
       t.setAttribute("stroke-width", 2); t.style.pointerEvents = "none";
       const [lx, ly] = at(mid, along(total / 2 - mr));
-      fitSymbol(symbolTag(svg, v.lord, "rgb(40,40,40)", true), lx, ly, mr);   // (drawn as on a hollow mark: in the ink given)
+      fitSymbol(symbolTag(svg, v.lord, "rgb(40,40,40)", true), lx, ly, Math.max(5, mr));   // (in the ink given; at least 5, to show)
       const [bx, by] = at(mid, v.mid);
       scaleBoxes.push([bx - 14, by - 14, bx + 14, by + 14]);
       // its four quarters (padas, 3 degrees 20 minutes each): a short tick at each one's start, on both edges of the ring
@@ -707,19 +729,19 @@ __SYMBOL_JS__
     if (D.kp) {
       const edge = D.vedic.length ? VOUT : D.zodiac.length ? ZOUT : D.ecliptic.length ? EOUT : R;
       const KIN = edge + (edge === R ? 4 : 2), KSYM = KIN + D.kp_sub, KOUT = KIN + D.kp_ring;   // (colours, then symbols outside them)
-      const LANES = [KSYM + (KOUT - KSYM) / 4, KSYM + 3 * (KOUT - KSYM) / 4], SR = 5;   // the sub lords' symbols, in two lanes, one sub in each by turns
+      const LANES = [1, 3, 5].map((k) => KSYM + k * (KOUT - KSYM) / 6), SR = 5;   // the sub lords' symbols, in three lanes, one sub in each by turns
       let nth = 0;                                 // (so that a narrow sub's symbol has its neighbours' room too)
       const band = (r0, r1, ra0, ra1) => {         // an arc of a band, ra0 to ra1 (which may pass 360)
         const a1 = ra1 > ra0 ? ra1 : ra1 + 360, f = (p) => p[0].toFixed(1) + " " + p[1].toFixed(1), big = a1 - ra0 > 180 ? 1 : 0;
-        return "M" + f(at(r1, ra0)) + "A" + r1 + " " + r1 + " 0 " + big + " 0 " + f(at(r1, a1)) +
-               "L" + f(at(r0, a1)) + "A" + r0 + " " + r0 + " 0 " + big + " 1 " + f(at(r0, ra0)) + "Z";
+        return "M" + f(at(r1, ra0)) + "A" + r1 + " " + r1 + " 0 " + big + " " + SWEEP + " " + f(at(r1, a1)) +
+               "L" + f(at(r0, a1)) + "A" + r0 + " " + r0 + " 0 " + big + " " + (1 - SWEEP) + " " + f(at(r0, ra0)) + "Z";
       };
       D.kp.stars.forEach((v, i) => {
         v.subs.forEach((u) => {
           const sub = make("path", svg, {d: band(KIN, KSYM, u.ra0, u.ra1), fill: u.colour, "fill-opacity": 0.6, stroke: "white", "stroke-width": 0.5, style: "pointer-events:auto"});
           make("title", sub).textContent = "Sub lord " + symbolOf(u.lord) + " in " + v.name + " (star lord " + symbolOf(v.lord) + "; KP ayanamsa " +
                                            D.kp.ayanamsa.toFixed(2) + "): " + u.sid0.toFixed(2) + " to " + u.sid1.toFixed(2) + " degrees Sidereal";
-          const [sx, sy] = at(LANES[nth++ % 2], u.ra0 + ((u.ra1 - u.ra0 + 360) % 360) / 2);   // its sub lord's symbol, dark ink
+          const [sx, sy] = at(LANES[nth++ % 3], u.ra0 + ((u.ra1 - u.ra0 + 360) % 360) / 2);   // its sub lord's symbol, dark ink (three subs on, the same lane: room for each)
           fitSymbol(symbolTag(svg, u.lord, "rgb(40,40,40)", true), sx, sy, SR);
         });
         const [x0, y0] = at(KIN, v.ra0), [x1, y1] = at(KOUT, v.ra0);   // (each star's start: a line across the band)
@@ -730,6 +752,7 @@ __SYMBOL_JS__
     }
     if (D.ra_inside) {                             // Systems: the planets' lines over the rings (drawn since), the planets and the Earth over them
       rays.forEach((g) => svg.appendChild(g.e));
+      ascs.forEach((g) => { svg.appendChild(g.e); svg.appendChild(g.head); svg.appendChild(g.name); });   // (once: moved in every frame, no tooltip would show)
       marks.forEach((g) => { svg.appendChild(g.e); svg.appendChild(g.label); });
       svg.appendChild(earth); svg.appendChild(earthLabel);
     }
@@ -926,10 +949,12 @@ __SYMBOL_JS__
       const arcsec = seen && seen.km ? arcsecOf(seen.km, sample(seen, t).dist) : null;   // how big it looks from the Earth (not for the Earth itself)
       const size = arcsec === null ? "" : "\nAngular Size: " + (arcsec >= 60 ? (arcsec / 60).toFixed(1) + " arcmin" : arcsec.toFixed(1) + " arcsec");
       g.e.setAttribute("r", r.toFixed(1));
-      g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDec/Lati: " + signed(s.dec) + "\nRA: " + s.ra.toFixed(2) + size +
+      g.tip.textContent = symbolOf(g.m.name) + " " + g.m.clock + "\nDec/Lati: " + signed(s.dec) + "\nRA: " + s.ra.toFixed(2) +
+        (D.ra_inside ? "\nEcliptic longitude: " + raDecLon(s.ra, s.dec).toFixed(2) : "") + size +   // (Systems: below RA, Tropical)
         "\nDistance from " + fromWord(g.m.name) + ": " + s.dist.toPrecision(4) + " AU" +
         (D.around && g.m.name === "Mo" ? "\n(drawn round the Earth, farther out than to scale)" : "") +
-        (g.m.name === "NN" || g.m.name === "SN" ? "\n(on the Moon's path: at the Moon's distance)" : "") + apart(i);
+        (g.m.name === "NN" || g.m.name === "SN" ? "\n(on the Moon's path: at the Moon's distance)" : "") + apart(i) +
+        systemsInfo(raDecLon(s.ra, s.dec));         // (Systems: where it falls in each system shown, with its lords)
       g.e.setAttribute("cx", x.toFixed(1)); g.e.setAttribute("cy", y.toFixed(1));
       g.e.setAttribute("opacity", z >= 0 ? 1 : 0.6);
       g.label.setAttribute("opacity", z >= 0 ? 1 : 0.6);
@@ -988,7 +1013,7 @@ __SYMBOL_JS__
     rays.forEach((g) => {
       // (Systems: on through the rings round the circle, to the outermost's edge)
       const q = placed.find((p) => p.g.m === g.m), R = sysRings.length ? sysRings[sysRings.length - 1].r1 : D.outer * D.fit, a = q.ra * RAD;
-      const at = (r, side) => (D.width / 2 + r * Math.cos(a) - side * Math.sin(a)).toFixed(1) + " " + (D.height / 2 - r * Math.sin(a) - side * Math.cos(a)).toFixed(1);
+      const at = (r, side) => (D.width / 2 + MX * (r * Math.cos(a) - side * Math.sin(a))).toFixed(1) + " " + (D.height / 2 - r * Math.sin(a) - side * Math.cos(a)).toFixed(1);
       if (D.ra_inside) {                           // Systems: the line out to the outermost ring, its arrow head on top of it (outside)
         g.e.setAttribute("d", "M" + at(0, 0) + "L" + at(R + 1, 0));
         g.head.setAttribute("d", "M" + at(R + 11, 0) + "L" + at(R + 1, 4) + "L" + at(R + 1, -4) + "Z");
@@ -1046,25 +1071,20 @@ __SYMBOL_JS__
     ascs.forEach((g) => {                          // As: each place's Ascendant, from inside the circle out across the rings
       const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2, lon = ascLon(g.h, t), ra = lonRA(lon), a = ra * RAD;
       const out = sysRings.length ? sysRings[sysRings.length - 1].r1 : R;
-      const pt = (r, da) => [cx + r * Math.cos(a + (da || 0) * RAD), cy - r * Math.sin(a + (da || 0) * RAD)];
+      const pt = (r, da) => [cx + MX * r * Math.cos(a + (da || 0) * RAD), cy - r * Math.sin(a + (da || 0) * RAD)];
       const [x0, y0] = pt(0), [x1, y1] = pt(out + 1);   // (from the Earth, Ea, in the middle, to the outermost ring)
       g.e.setAttribute("d", "M" + x0.toFixed(1) + " " + y0.toFixed(1) + "L" + x1.toFixed(1) + " " + y1.toFixed(1));
-      const side = (r, w) => [cx + r * Math.cos(a) - w * Math.sin(a), cy - r * Math.sin(a) - w * Math.cos(a)].map((v) => v.toFixed(1)).join(" ");
+      const side = (r, w) => [cx + MX * (r * Math.cos(a) - w * Math.sin(a)), cy - r * Math.sin(a) - w * Math.cos(a)].map((v) => v.toFixed(1)).join(" ");
       g.head.setAttribute("d", "M" + side(out + 11, 0) + "L" + side(out + 1, 4) + "L" + side(out + 1, -4) + "Z");   // its arrow head, outside (as the planets' have)
-      g.tip.textContent = "As " + symbolOf(g.h.place) + " (" + g.h.clock + "): Ascendant, ecliptic longitude " + lon.toFixed(2) + ", RA " + ra.toFixed(2);
+      g.tip.textContent = "As " + symbolOf(g.h.place) + " (" + g.h.clock + "): Ascendant\nRA: " + ra.toFixed(2) +   // (each on its line, as the planets')
+                          "\nEcliptic longitude: " + lon.toFixed(2) + systemsInfo(lon);
+      g.headTip.textContent = g.nameTip.textContent = g.tip.textContent;
       const [nx, ny] = pt(R - 52);
-      g.name.setAttribute("x", nx.toFixed(1)); g.name.setAttribute("y", (ny + D.flat_font / 3).toFixed(1)); g.name.textContent = "As";
-      sysRings.forEach((ring, k) => {                // its value on each ring, just after the line (as the numbers go)
-        const l = g.labels[k] || (g.labels[k] = words("rgb(200,30,30)", 10));
-        const [lx, ly] = pt((ring.r0 + ring.r1) / 2, 7 * 300 / ((ring.r0 + ring.r1) / 2));
-        l.setAttribute("x", lx.toFixed(1)); l.setAttribute("y", (ly + 3).toFixed(1)); l.textContent = ascText(ring, lon);
-        svg.appendChild(l);
-      });
-      svg.appendChild(g.e); svg.appendChild(g.head); svg.appendChild(g.name);
+      g.name.setAttribute("x", nx.toFixed(1)); g.name.setAttribute("y", (ny + D.flat_font / 3).toFixed(1));
     });
     houses.forEach((g) => {                        // each from the Earth to the circle, named in the middle of its span where there is room
       const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2, ra = (g.h.ra + D.spin * t + 30 * g.k) % 360, a = ra * RAD;
-      g.e.setAttribute("d", "M" + cx + " " + cy + "L" + (cx + R * Math.cos(a)).toFixed(1) + " " + (cy - R * Math.sin(a)).toFixed(1));
+      g.e.setAttribute("d", "M" + cx + " " + cy + "L" + (cx + MX * R * Math.cos(a)).toFixed(1) + " " + (cy - R * Math.sin(a)).toFixed(1));
       g.tip.textContent = g.name + " " + symbolOf(g.h.place) + " RA: " + ra.toFixed(2);
       // its name in the middle of its span, near the circle; where that is taken (a planet, an aspect's tag), the first free
       // spot elsewhere in the span (nearer the Earth, or toward either end of it), so that all twelve are shown, as on
@@ -1074,7 +1094,7 @@ __SYMBOL_JS__
       let spot = null;
       for (const r of [r0, r0 - 28, r0 - 56, r0 - 84, r0 - 112]) {
         for (const off of [15, 9, 21, 5, 25]) {
-          const b = (ra + off) * RAD, x = cx + r * Math.cos(b), mid = cy - r * Math.sin(b), box = [x - half, mid - half, x + half, mid + half];
+          const b = (ra + off) * RAD, x = cx + MX * r * Math.cos(b), mid = cy - r * Math.sin(b), box = [x - half, mid - half, x + half, mid + half];
           if (clear(box, taken)) { spot = {x, mid, box, off}; break; }   // (room for it at any turn)
         }
         if (spot) break;
@@ -1082,7 +1102,7 @@ __SYMBOL_JS__
       g.label.style.display = spot ? "" : "none";
       if (spot) {
         // along the circle, and never upside down
-        let turn = ((90 - ra - spot.off) % 360 + 360) % 360;
+        let turn = ((MX * (90 - ra - spot.off)) % 360 + 360) % 360;
         if (turn > 90 && turn <= 270) turn -= 180; else if (turn > 270) turn -= 360;
         g.label.setAttribute("x", spot.x.toFixed(1)); g.label.setAttribute("y", (spot.mid + D.flat_font / 3).toFixed(1));
         g.label.setAttribute("transform", "rotate(" + turn.toFixed(1) + " " + spot.x.toFixed(1) + " " + spot.mid.toFixed(1) + ")");
@@ -1154,7 +1174,7 @@ def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]]
                day_seconds: float | None = None, manual: bool = False, show_au: bool = False, with_paths: tuple | None = None,
                centre: str = "Ea", flat: bool = False, places: dict | None = None, ave_jds: dict | None = None,
                aspects: tuple = (), orbs: core.Orbs | None = None, one_circle: bool = False, show_celes: bool = True,
-               reverse: bool = False, show_dist: bool = True, ra_inside: bool = False, zodiac: tuple = (), ecliptic: bool = False, vedic: float | None = None, thirteen: float | None = None, asc: dict | None = None, kp: float | None = None) -> str:
+               reverse: bool = False, show_dist: bool = True, ra_inside: bool = False, zodiac: tuple = (), ecliptic: bool = False, vedic: float | None = None, thirteen: float | None = None, asc: dict | None = None, kp: float | None = None, ra_values: bool = True) -> str:
     """show_au (AU): the rings of distance and their AU tags; show_celes (CM): the celestial coordinates, the axis with NCP
     and SCP and the RA spokes with their names; show_dist (the flat page): the Distance(%) graph, with its AU scale (not on Systems); ra_inside (the flat page, Systems):
     the RA scale's ticks and numbers inside the circle, not outside it, and an Ecliptic latitude graph right of it; zodiac (the flat page, Systems): rings of the twelve
@@ -1163,6 +1183,7 @@ def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]]
     (Systems, Ec): a ring of ecliptic longitude, 0 to 360 (Tropical), at the RA each degree falls at, between the circle
     and the signs; thirteen (Systems, Op): the Julian day, for a ring of the 13 constellations on the ecliptic, after the
     signs (None: none); vedic (Systems, Na): the ayanamsa, for a ring of the 27 stars (nakshatras) outside the others (None: none).
+    ra_values (Systems: Eq on): the RA scale's numbers, with Eq and RA by its 360 (off: its ticks alone).
     kp (Systems, KP): the KP ayanamsa, for a ring of the 27 stars and their subs outside all the others (None: none).
     asc (Systems, As): {"DOB" or "Now": (place, longitude, latitude)}: each place's Ascendant, a line across the rings
     with its value on each. ra_inside (Systems) also draws the circle as big as leaves room for those rings (systems_radius)."""
@@ -1173,7 +1194,7 @@ def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]]
     ave_jds = {c: jd - RUN_HALF for c, jd in ave_jds.items()} if ave_jds else ave_jds
     d = space_data(bodies, moments, scale, key, day_seconds, manual, show_au, with_paths, centre, flat, places, ave_jds,
                    aspects, orbs, one_circle, show_celes, reverse, asc)
-    d |= {"dist": show_dist, "ra_inside": ra_inside, "lat_bar": ra_inside, "zodiac": [zodiac_signs(a) for a in zodiac] + ([constellations(thirteen)] if thirteen is not None else []), "sign_ring": SIGN_RING, "ec_ring": EC_RING, "vedic_ring": VEDIC_RING,
+    d |= {"dist": show_dist, "ra_inside": ra_inside, "lat_bar": ra_inside, "ra_values": ra_values, "zodiac": [zodiac_signs(a) for a in zodiac] + ([constellations(thirteen)] if thirteen is not None else []), "sign_ring": SIGN_RING, "ec_ring": EC_RING, "vedic_ring": VEDIC_RING,
           "vedic": nakshatras(vedic) if vedic is not None else [],
           "kp": kp_stars(kp) if kp is not None else None, "kp_ring": KP_RING, "kp_sub": KP_SUB,
           "ecliptic": [round(ecliptic_ra(lon), 3) for lon in range(360)] if ecliptic else []}

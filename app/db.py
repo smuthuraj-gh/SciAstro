@@ -367,44 +367,8 @@ HELP_ROWS = [                                                 # the abbreviation
 ]
 DEFAULTS_INDEX = "ux_defaults_page_options"                   # one row per Page and Options
 sa.Index(DEFAULTS_INDEX, defaults.c.page, defaults.c.options, unique=True)
-DEFAULT_ROWS = [                                              # the app's own defaults: the rows the table starts with
-    ("Equatorial-2D", "Time", "Now"),
-    ("Equatorial-2D", "Planets", "Su, Mo, Me, Ve, Ma, Ju, Sa, NN, SN"),
-    ("Equatorial-2D", "Major Aspects", ""),
-    ("Equatorial-2D", "Minor Aspects", ""),
-    ("Equatorial-2D", "Coordinates", "Ho, DA"),              # the buttons below Coordinates that start on (Ho, 1C, DA)
-    ("Equatorial-2D", "Rotate in 1s", ""),
-    ("Systems", "System", "Tr"),                              # Systems: a copy of Equatorial-2D, its own rows (and System)
-    ("Systems", "Ec", "Ec"),                                  # (Ec, beside Tr and Si: on; once Ei)
-    ("Systems", "As", "As"),                                  # (As, after Ec: the Ascendant on every ring, on)
-    ("Systems", "Eq", "Eq"),                                  # (Eq, under System: the house lines, on; once Ho, under Coordinates)
-    ("Systems", "Time", "Now"),
-    ("Systems", "Planets", "Su, Mo, Me, Ve, Ma, Ju, Sa, NN, SN"),
-    ("Equatorial-3D", "Time", "Now"),
-    ("Equatorial-3D", "Planets", "Mo, Su, Me, Ve, Ma, Ju, Sa, NN, SN"),
-    ("Equatorial-3D", "Major Aspects", ""),
-    ("Equatorial-3D", "Minor Aspects", ""),
-    ("Equatorial-3D", "Coordinates", "CM"),
-    ("Equatorial-3D", "Rotate in 1s", ""),                    # (no speed: time stands still, the drawing dragged round)
-    ("Geo/Helio", "Centric Model", "Geo"),
-    ("Geo/Helio", "Time", "Now"),                       # (one row each for both models: Geo takes Su, Helio Ea)
-    ("Geo/Helio", "Planets", "Mo, Su, Ea, Me, Ve, Ma, Ju, Sa"),
-    ("Geo/Helio", "Coordinates", "CM, AU"),            # and here (CM, AU)
-    ("Geo/Helio", "Rotate in 1s", ""),
-    ("Cycles", "Start Date (UT)", "DOB"),
-    ("Cycles", "End Date (UT)", "Start Date (UT) + 30 years"),
-    ("Cycles", "Planets", "Ju, Sa"),
-    ("Cycles", "Major Aspects", "0, 180"),
-    ("Cycles", "Minor Aspects", ""),
-    ("Distance(%)", "Start Date (UT)", "DOB"),
-    ("Distance(%)", "End Date (UT)", "Start Date (UT) + 2 years"),
-    ("Distance(%)", "Planets", "Ju, Sa"),
-    ("DOB Details", "Days", "7"),                             # Get more days of access: the days picked to start
-    ("DOB Details", "Pay / Coupon", ""),                     # and the coupon filled in to start (blank: none; Free: free)
-    ("Predictions", "Start Date (UT)", "Now"),
-    ("Predictions", "End Date (UT)", "Start Date (UT) + 1 year"),
-]
-DEFAULTS_VERSION = "13"                                       # 13: Systems' As; 12: Systems' Eq; 11: Systems' Ec (once Ei); 10: Systems' System; 9: Systems; 8: Predictions; 7: Equatorial-2D's and Geo/Helio's Coordinates (one row for the buttons below it; Geo/Helio's rows one per input since); 6: DOB Details' Days and Pay / Coupon; 5: Equatorial-2D's aspects; 4: Aspects' angles; 3: Equatorial-2D's rows; 2: rows for every input; 1: the End Dates only
+
+
 planets = sa.Table(                                           # seen by admins only (the Symbols page)
     "naming_conventions", meta,
     sa.Column("sn", sa.String(8), primary_key=True),
@@ -494,26 +458,15 @@ def engine() -> sa.Engine:
     _seed_aspect_details(eng)
     _add_orb_dec(eng)
     _one_orb_row(eng)
-    _rename_defaults_page(eng)
     _add_defaults_index(eng)
     _add_defaults_allowed(eng)
-    _merge_geo_helio(eng)
-    _merge_coordinates(eng)
-    _seed_defaults(eng)
-    _drop_gone_inputs(eng)
-    _systems_no_da(eng)
-    _set_time_now(eng)
-    _rename_dec_button(eng)
-    _merge_coordinates(eng)                                   # (again: a button row an earlier name has just given back)
-    _rename_ce_button(eng)                                    # (Ce, the celestial coordinates' button, is CM)
-    _drop_manual(eng)
-    _drop_planet_path(eng)
+    # (the Page Defaults and App Conditions tables: only their columns and index are brought up to date here; their rows
+    # are the admins' alone, never added to or changed at startup)
     _rename_help_abbre(eng)
     _add_help_index(eng)
     _rename_help_rows(eng)
     _widen_help_abbreviation(eng)
     _add_conditions_table_name(eng)
-    _seed_search_limit(eng)                                   # (App Conditions: 1 unsaved search a day without DOB access)
     _seed_help(eng)
     _add_prediction_chart(eng)
     _add_prediction_forecast(eng)
@@ -598,98 +551,7 @@ def _add_defaults_index(eng: sa.Engine):
         c.execute(sa.text(f"CREATE UNIQUE INDEX IF NOT EXISTS {DEFAULTS_INDEX} ON defaults (page, options)"))
 
 
-def _rename_defaults_page(eng: sa.Engine):
-    """The Defaults rows of pages since renamed get the new names (their Choices kept)."""
-    with eng.begin() as c:
-        for old, new in (("astroglobe", "Equatorial-3D"), ("astroclock-3d", "Equatorial-3D"), ("astroclock-2d", "Equatorial-2D"), ("planets distance(%)", "Distance(%)"), ("planets cycles", "Cycles"),
-                         ("geo/helio", "Geo/Helio"), ("geo/helio model", "Geo/Helio"), ("aspects", "Aspects"), ("aspects table", "Aspects")):
-            if old != new.lower():                            # a row the new name already has wins (Page and Options are unique)
-                taken = sa.select(sa.func.lower(defaults.c.options)).where(sa.func.lower(defaults.c.page) == new.lower())
-                c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == old, sa.func.lower(defaults.c.options).in_(taken)))
-            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == old).values(page=new))
-        c.execute(defaults.update().where(defaults.c.page == "Cycles", defaults.c.options == "Major Aspects")   # its buttons have no degree sign now
-                  .values(choices=sa.func.replace(defaults.c.choices, "\u00b0", "")))
-        for old, new in (("maj aspects", "Major Aspects"), ("min aspects", "Minor Aspects")):   # and the inputs since renamed
-            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-3d", sa.func.lower(defaults.c.options) == old).values(options=new))
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options) == "rotate in 1s",
-                                          sa.func.lower(defaults.c.choices) == "manual").values(choices=None))   # Equatorial-2D has no Manual now
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options) == "houses")
-                  .values(options="House"))                   # its button is House now
-        # Systems' Ei button is Ec: its row (and its choice) gets the new name
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "systems", sa.func.lower(defaults.c.options) == "ei",
-                                          sa.func.lower(sa.func.trim(defaults.c.choices)) == "ei").values(choices="Ec"))
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "systems", sa.func.lower(defaults.c.options) == "ei").values(options="Ec"))
-        for old, new in (("geo scale", "Geo Coordinates"), ("helio scale", "Helio Coordinates")):
-            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio", sa.func.lower(defaults.c.options) == old).values(options=new))
-
-
-NEW_IN_4 = (("Aspects", "Major Aspects"), ("Aspects", "Minor Aspects"), ("Cycles", "Minor Aspects"))
-NEW_IN_5 = (("Equatorial-2D", "Major Aspects"), ("Equatorial-2D", "Minor Aspects"))
-NEW_IN_6 = (("DOB Details", "Days"), ("DOB Details", "Pay / Coupon"))
-NEW_IN_7 = (("Equatorial-2D", "Coordinates"), ("Geo/Helio", "Coordinates"))
-NEW_IN_8 = (("Predictions", "Start Date (UT)"), ("Predictions", "End Date (UT)"))
-NEW_IN_9 = tuple(("Systems", t) for t in ("Time", "Planets", "Major Aspects", "Minor Aspects", "Coordinates", "Rotate in 1s"))
-NEW_IN_10 = (("Systems", "System"),)
-NEW_IN_11 = (("Systems", "Ec"),)
-NEW_IN_12 = (("Systems", "Eq"),)
-NEW_IN_13 = (("Systems", "As"),)
-GONE_INPUTS = (("predictions", "planets"),                   # inputs since taken off their page (or the page gone): their Defaults rows go
-               ("aspects", "start date (ut)"), ("aspects", "end date (ut)"), ("aspects", "planets"), ("aspects", "aspects"),
-               ("aspects", "major aspects"), ("aspects", "minor aspects"),   # (the Aspects page is gone; Predictions has its Aspects)
-               ("systems", "major aspects"), ("systems", "minor aspects"), ("systems", "rotate in 1s"))   # (Systems has none of these)
-
-
-def _systems_no_da(eng: sa.Engine):
-    """Systems has no Distance(%) graph, so no DA button: its Coordinates row (seeded at first as Equatorial-2D's, Ho, DA)
-    no longer names DA (then, its Ho, its only button, is Eq, under System: its row is Eq's); and its System row names Tr or
-    Si (once Tropical or Sidereal)."""
-    with eng.begin() as c:
-        for rid, choices in c.execute(sa.select(defaults.c.id, defaults.c.choices).where(
-                sa.func.lower(defaults.c.page) == "systems", sa.func.lower(defaults.c.options) == "coordinates")).all():
-            kept = [p.strip() for p in (choices or "").split(",") if p.strip() and p.strip().lower() != "da"]
-            if ", ".join(kept) != (choices or ""):
-                c.execute(defaults.update().where(defaults.c.id == rid).values(choices=", ".join(kept) or None))
-        # its Ho button (under Coordinates, its only one) is Eq, under System: the Eq row takes the Coordinates row's choice
-        # (when the seeding has not given it one already), and the Coordinates row goes
-        coords = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(
-            sa.func.lower(defaults.c.page) == "systems", sa.func.lower(defaults.c.options) == "coordinates")).first()
-        if coords:
-            if not c.execute(sa.select(defaults.c.id).where(sa.func.lower(defaults.c.page) == "systems", sa.func.lower(defaults.c.options) == "eq")).first():
-                ho = "ho" in [p.strip().lower() for p in (coords.choices or "").split(",")]
-                c.execute(defaults.update().where(defaults.c.id == coords.id).values(options="Eq", choices="Eq" if ho else None))
-            else:
-                c.execute(defaults.delete().where(defaults.c.id == coords.id))
-        # its System's Vd is Na, and 13 is Op
-        for rid, choices in c.execute(sa.select(defaults.c.id, defaults.c.choices).where(
-                sa.func.lower(defaults.c.page) == "systems", sa.func.lower(defaults.c.options) == "system")).all():
-            parts = [{"vd": "Na", "13": "Op"}.get(p.strip().lower(), p.strip()) for p in (choices or "").split(",") if p.strip()]
-            if ", ".join(parts) != (choices or ""):
-                c.execute(defaults.update().where(defaults.c.id == rid).values(choices=", ".join(parts) or None))
-        # its System's choices, once Tropical and Sidereal, are Tr and Si
-        for old, new in (("tropical", "Tr"), ("sidereal", "Si")):
-            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "systems", sa.func.lower(defaults.c.options) == "system",
-                                              sa.func.lower(sa.func.trim(defaults.c.choices)) == old).values(choices=new))
-
-
-def _drop_gone_inputs(eng: sa.Engine):
-    """The Defaults rows of inputs since taken off their page (GONE_INPUTS: Predictions' Planets, every planet being looked
-    at now) go, so that the Page Defaults page has no row it cannot use."""
-    with eng.begin() as c:
-        for page, title in GONE_INPUTS:
-            c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == page, sa.func.lower(defaults.c.options) == title))
-
-
-TIME_ROWS = (("equatorial-2d", "time"), ("equatorial-3d", "time"), ("geo/helio", "geo time"), ("geo/helio", "helio time"),
-             ("geo/helio", "time"))
-COORD_ROWS = {"Equatorial-2D": (("Ho", True), ("1C", False), ("DA", True)), "Geo/Helio": (("Ce", True), ("AU", True))}   # the buttons
 # below Coordinates, once a row each, and whether each starts on with no row
-
-
-def _drop_planet_path(eng: sa.Engine):
-    """Equatorial-3D's and Geo/Helio's Planet Path is the PP button under Coordinates now: each page's Defaults row for
-    it goes, PP joining the page's Coordinates row's Choice Values when it started with any paths."""
-    for page in ("equatorial-3d", "geo/helio"):
-        _path_to_pp(eng, page)
 
 
 def _path_to_pp(eng: sa.Engine, page: str):
@@ -704,187 +566,6 @@ def _path_to_pp(eng: sa.Engine, page: str):
         if (row.choices or "").strip() and coords is not None and "pp" not in [p.lower() for p in on]:
             c.execute(defaults.update().where(defaults.c.id == coords.id).values(choices=", ".join(on + ["PP"])))
         c.execute(defaults.delete().where(defaults.c.id == row.id))
-
-
-def _drop_manual(eng: sa.Engine):
-    """Rotate in 1s has no Manual button now (with no speed picked, time stands still and the drawing is dragged round): a
-    Defaults row that starts it as Manual starts with no speed, and Manual leaves its Allowed Values (blank then: all)."""
-    with eng.begin() as c:
-        for rid, choices, allowed in c.execute(sa.select(defaults.c.id, defaults.c.choices, defaults.c.allowed_values).where(
-                sa.func.lower(defaults.c.options) == "rotate in 1s")).all():
-            keep = [p.strip() for p in (allowed or "").split(",") if p.strip() and p.strip().lower() != "manual"]
-            new = dict(choices=None if (choices or "").strip().lower() == "manual" else choices, allowed_values=", ".join(keep) or None)
-            if new != dict(choices=choices, allowed_values=allowed):
-                c.execute(defaults.update().where(defaults.c.id == rid).values(**new))
-
-
-def _merge_coordinates(eng: sa.Engine):
-    """Equatorial-2D's Ho, 1C and DA rows and Geo/Helio's Ce and AU rows, once one per button (On or Off), become one
-    row Coordinates: its Choice Values the buttons that start on (a button with no row: as the app starts it), its Box Title
-    the first row's. A Coordinates row already there stays, and the button rows go."""
-    with eng.begin() as c:
-        for page, buttons in COORD_ROWS.items():
-            names = [b.lower() for b, _ in buttons]
-            rows = {r.options.lower(): r for r in c.execute(sa.select(defaults.c.id, defaults.c.options, defaults.c.choices).where(
-                sa.func.lower(defaults.c.page) == page.lower(), sa.func.lower(defaults.c.options).in_(names))).all()}
-            if not rows:
-                continue
-            there = c.execute(sa.select(defaults.c.id).where(sa.func.lower(defaults.c.page) == page.lower(),
-                                                             sa.func.lower(defaults.c.options) == "coordinates")).first()
-            keep = None if there else next(rows[n] for n in names if n in rows)
-            for r in rows.values():
-                if keep is None or r.id != keep.id:
-                    c.execute(defaults.delete().where(defaults.c.id == r.id))
-            if keep is None:
-                continue
-            on = [b for b, own in buttons if (((rows[b.lower()].choices or "").strip().lower() in ("on", b.lower()))
-                                              if b.lower() in rows else own)]
-            c.execute(defaults.update().where(defaults.c.id == keep.id).values(options="Coordinates", choices=", ".join(on) or None,
-                                                                                allowed_values=None))
-
-
-GEO_HELIO_INPUTS = ("Time", "Planets", "Planet Path", "AU", "Ce", "Rotate in 1s")   # Geo/Helio's, one row each for both models
-
-
-def _merge_geo_helio(eng: sa.Engine):
-    """Geo/Helio's rows, once one per model (Geo Time, Helio Time ..), become one per input (Time ..) for both: its
-    Choice Values both models' (the planets of both; else Geo's), its Allowed Values both models' (blank, all, when either is),
-    its Box Title Geo's. A row for the input already there stays, and the per-model rows go."""
-    with eng.begin() as c:
-        for title in GEO_HELIO_INPUTS:
-            names = [f"geo {title.lower()}", f"helio {title.lower()}"]
-            rows = {r.options.lower(): r for r in c.execute(sa.select(defaults.c.id, defaults.c.options, defaults.c.choices,
-                                                                        defaults.c.allowed_values).where(
-                sa.func.lower(defaults.c.page) == "geo/helio", sa.func.lower(defaults.c.options).in_(names))).all()}
-            if not rows:
-                continue
-            geo, helio = rows.get(names[0]), rows.get(names[1])
-            there = c.execute(sa.select(defaults.c.id).where(sa.func.lower(defaults.c.page) == "geo/helio",
-                                                             sa.func.lower(defaults.c.options) == title.lower())).first()
-            keep = None if there else (geo or helio)
-            for r in rows.values():
-                if keep is None or r.id != keep.id:
-                    c.execute(defaults.delete().where(defaults.c.id == r.id))
-            if keep is None:
-                continue
-
-            def both(field: str, merge: bool) -> str | None:
-                texts = [(getattr(r, field) or "").strip() for r in (geo, helio) if r is not None]
-                if not merge:
-                    return texts[0] or None
-                if field == "allowed_values" and not all(texts):
-                    return None                               # (either blank: all)
-                parts = [p.strip() for text in texts for p in text.split(",") if p.strip()]
-                return ", ".join(dict.fromkeys(parts)) or None
-
-            lists = title in ("Planets", "Planet Path")
-            c.execute(defaults.update().where(defaults.c.id == keep.id).values(
-                options=title, choices=both("choices", lists), allowed_values=both("allowed_values", lists)))
-
-
-
-def _rename_ce_button(eng: sa.Engine):
-    """The celestial coordinates' button, Ce (once Celes), is called CM: a Coordinates row of Equatorial-3D or Geo/Helio
-    Model that names it, in Choice Values or Allowed Values, gets the new name."""
-    with eng.begin() as c:
-        rows = c.execute(sa.select(defaults.c.id, defaults.c.choices, defaults.c.allowed_values).where(
-            sa.func.lower(defaults.c.page).in_(["equatorial-3d", "geo/helio"]), sa.func.lower(defaults.c.options) == "coordinates")).all()
-        for rid, choices, allowed in rows:
-            def renamed(text):
-                parts = [p.strip() for p in (text or "").split(",") if p.strip()]
-                return ", ".join("CM" if p.lower() in ("ce", "celes") else p for p in parts) if parts else text
-            if renamed(choices) != choices or renamed(allowed) != allowed:
-                c.execute(defaults.update().where(defaults.c.id == rid).values(choices=renamed(choices), allowed_values=renamed(allowed)))
-
-
-COORD_BUTTONS_RENAMED = {"dec": "De", "lati": "La", "long": "Lg", "lat": "La", "lon": "Lg", "house": "Ho", "celes": "Ce", "true": "Tru", "co": "SpC"}   # Equatorial-3D's Coordinates buttons' earlier names
-
-
-def _rename_dec_button(eng: sa.Engine):
-    """Equatorial-3D's Coordinates buttons De, Lati, Long (then Lat, Lon), House, Celes, True and Co are called De, La, Lg, Ho, Ce, Tru and SpC: a
-    Defaults row that names them gets the new names."""
-    with eng.begin() as c:
-        rows = c.execute(sa.select(defaults.c.id, defaults.c.choices).where(
-            sa.func.lower(defaults.c.page) == "equatorial-3d", sa.func.lower(defaults.c.options).in_(["coordinates", "scale"]))).all()
-        for rid, choices in rows:
-            parts = [p.strip() for p in (choices or "").split(",")]
-            if any(p.lower() in COORD_BUTTONS_RENAMED for p in parts):
-                new = ", ".join(COORD_BUTTONS_RENAMED.get(p.lower(), p) for p in parts if p)
-                c.execute(defaults.update().where(defaults.c.id == rid).values(choices=new))
-        # Equatorial-2D's House button (once Houses) is called Ho: a Defaults row for it (and a choice of it) gets the new name
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options).in_(["house", "houses"]))
-                  .values(options="Ho"))
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options) == "ho",
-                                          sa.func.lower(sa.func.trim(defaults.c.choices)).in_(["house", "houses"])).values(choices="Ho"))
-        # Equatorial-2D's Ave button, then DAv, is called DA: a Defaults row for it (and a choice of it) gets the new name
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options).in_(["ave", "dav"]))
-                  .values(options="DA"))
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options) == "da",
-                                          sa.func.lower(sa.func.trim(defaults.c.choices)).in_(["ave", "dav"])).values(choices="DA"))
-        # Equatorial-2D's Aspect button, then 1circle, is called 1C: a Defaults row for it (and a choice of it) gets the new name
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options).in_(["aspect", "1circle"]))
-                  .values(options="1C"))
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "equatorial-2d", sa.func.lower(defaults.c.options) == "1c",
-                                          sa.func.lower(sa.func.trim(defaults.c.choices)).in_(["aspect", "1circle"])).values(choices="1C"))
-        # Geo/Helio's Co button is called SpC: its rows (Geo Co, Helio Co) and a choice of it get the new name
-        for model in ("geo", "helio"):
-            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio",
-                                              sa.func.lower(defaults.c.options) == model + " co").values(options=model.title() + " SpC"))
-        c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == "geo/helio",
-                                          sa.func.lower(defaults.c.options).in_(["geo spc", "helio spc"]),
-                                          sa.func.lower(sa.func.trim(defaults.c.choices)) == "co").values(choices="SpC"))
-        # Time is Now or DOB, one at a time: a Time row naming both keeps the first
-        for page, title in TIME_ROWS:
-            for rid, choices in c.execute(sa.select(defaults.c.id, defaults.c.choices).where(
-                    sa.func.lower(defaults.c.page) == page, sa.func.lower(defaults.c.options) == title)).all():
-                parts = [p.strip() for p in (choices or "").split(",") if p.strip()]
-                if len(parts) > 1:
-                    c.execute(defaults.update().where(defaults.c.id == rid).values(choices=parts[0]))
-        # Geo/Helio's 3D, Sp and SpC buttons have moved to Equatorial-3D (its Coordinates): their rows go
-        c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == "geo/helio", sa.func.lower(defaults.c.options).in_(
-            [f"{m} {b}" for m in ("geo", "helio") for b in ("3d", "sp", "spc")])))
-        # Geo/Helio's Fit and True buttons are gone (always Fit): its Coordinates rows go
-        c.execute(defaults.delete().where(sa.func.lower(defaults.c.page) == "geo/helio",
-                                          sa.func.lower(defaults.c.options).in_(["geo coordinates", "helio coordinates"])))
-
-
-def _set_time_now(eng: sa.Engine):
-    """Once (a note among the settings says it is done, so a Time changed since stays as it is): every page's Time row of
-    the Defaults table starts as Now."""
-    with eng.begin() as c:
-        if c.execute(sa.select(settings.c.value).where(settings.c.key == "time_now_set")).scalar():
-            return
-        for page, title in TIME_ROWS:
-            c.execute(defaults.update().where(sa.func.lower(defaults.c.page) == page, sa.func.lower(defaults.c.options) == title)
-                      .values(choices="Now"))
-        c.execute(settings.insert().values(key="time_now_set", value="1"))
-
-
-def _seed_defaults(eng: sa.Engine):
-    """The Defaults table gets the rows of DEFAULT_ROWS it lacks, once per DEFAULTS_VERSION (a note among the settings says
-    which, so a row deleted since stays deleted); rows already there are left as they are."""
-    with eng.begin() as c:
-        done = c.execute(sa.select(settings.c.value).where(settings.c.key == "defaults_seeded")).scalar()
-        if done == DEFAULTS_VERSION:
-            return
-        have = {(p.lower(), t.lower()) for p, t in c.execute(sa.select(defaults.c.page, defaults.c.options)).all()}
-        added_since = {"2": lambda r: r[0] == "Equatorial-2D" or r[:2] in NEW_IN_4 + NEW_IN_6 + NEW_IN_7 + NEW_IN_8 + NEW_IN_9 + NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13,
-                       "3": lambda r: r[:2] in NEW_IN_4 + NEW_IN_5 + NEW_IN_6 + NEW_IN_7 + NEW_IN_8 + NEW_IN_9 + NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13,
-                       "4": lambda r: r[:2] in NEW_IN_5 + NEW_IN_6 + NEW_IN_7 + NEW_IN_8 + NEW_IN_9 + NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13, "5": lambda r: r[:2] in NEW_IN_6 + NEW_IN_7 + NEW_IN_8 + NEW_IN_9 + NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13,
-                       "6": lambda r: r[:2] in NEW_IN_7 + NEW_IN_8 + NEW_IN_9 + NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13, "7": lambda r: r[:2] in NEW_IN_8 + NEW_IN_9 + NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13,
-                       "8": lambda r: r[:2] in NEW_IN_9 + NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13,
-                       "9": lambda r: r[:2] in NEW_IN_10 + NEW_IN_11 + NEW_IN_12 + NEW_IN_13,
-                       "10": lambda r: r[:2] in NEW_IN_11 + NEW_IN_12 + NEW_IN_13,
-                       "11": lambda r: r[:2] in NEW_IN_12 + NEW_IN_13,
-                       "12": lambda r: r[:2] in NEW_IN_13}
-        wanted = [r for r in DEFAULT_ROWS if added_since[done](r)] if done in added_since else DEFAULT_ROWS   # (a row deleted before stays deleted)
-        new = [dict(page=p, options=t, choices=o or None) for p, t, o in wanted if (p.lower(), t.lower()) not in have]
-        if new:
-            c.execute(defaults.insert(), new)
-        if done is None:
-            c.execute(settings.insert().values(key="defaults_seeded", value=DEFAULTS_VERSION))
-        else:
-            c.execute(settings.update().where(settings.c.key == "defaults_seeded").values(value=DEFAULTS_VERSION))
 
 
 def _rename_help_abbre(eng: sa.Engine):
@@ -1074,7 +755,6 @@ def _no_admin_logins(c) -> bool:
 
 
 SEARCHES_A_DAY = re.compile(r"(?i)\bsearch(es)?\b.*\bday\b")   # its Condition: Searches a day for those without DOB access ..
-SEARCH_LIMIT_ROW = dict(name="Searches a day for those without DOB access", value_list="1", table_name="Search")
 
 
 def searches_a_day() -> int | None:
@@ -1112,19 +792,6 @@ def count_search(email: str) -> None:
     with engine().begin() as c:
         if c.execute(sa.update(settings).where(settings.c.key == _search_key(email)).values(value=value)).rowcount == 0:
             c.execute(settings.insert().values(key=_search_key(email), value=value))
-
-
-def _seed_search_limit(eng: sa.Engine):
-    """Once (a note among the settings says it is done; deleted since, it stays deleted): the App Conditions table gets the
-    row Object Search, Values 1, Condition Searches a day for those without DOB access (see searches_a_day)."""
-    if "conditions" not in sa.inspect(eng).get_table_names():
-        return
-    with eng.begin() as c:
-        if c.execute(sa.select(settings.c.value).where(settings.c.key == "search_limit_seeded")).scalar():
-            return
-        if not c.execute(sa.select(conditions.c.id).where(sa.func.lower(conditions.c.name) == SEARCH_LIMIT_ROW["name"].lower())).first():
-            c.execute(conditions.insert().values(**SEARCH_LIMIT_ROW))
-        c.execute(settings.insert().values(key="search_limit_seeded", value="1"))
 
 
 NO_TRACK = re.compile(r"(?i)\b(do\s*n[o']?t|no)\s+track\b")   # Do not track login details ..
