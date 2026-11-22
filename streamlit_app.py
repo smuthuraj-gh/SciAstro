@@ -804,42 +804,44 @@ TEXT_MOST = 30                                                # (at most this lo
 
 def default_inputs() -> dict[tuple[str, str], tuple]:
     """Every page input the Defaults table can set, by (Page, Options): (its choices, or START / END; more than one may be
-    picked; the app's own default, used when the table has no row for it)."""
+    picked; the app's own default, used when the table has no row for it). Every button starts off (nothing picked) but
+    for those the Defaults table names; the dates, Pay / Coupon and DOB Details' Days (a list, never empty) keep theirs."""
     globe = list(globechart.BODY_CHOICES) + list(globechart.NODE_CHOICES)
-    out = {("Equatorial-2D", "Time"): (["Now", "DOB"], False, "Now"),   # (Time: Now or DOB, one at a time)
-           ("Equatorial-2D", "Planets"): (globe, True, globe),
+    out = {("Equatorial-2D", "Time"): (["Now", "DOB"], False, None),   # (Time: Now or DOB, one at a time)
+           ("Equatorial-2D", "Planets"): (globe, True, []),
            ("Equatorial-2D", "Major Aspects"): (GLOBE_MAJOR, True, []),
            ("Equatorial-2D", "Minor Aspects"): (GLOBE_MINOR, True, []),
-           ("Equatorial-2D", "Coordinates"): (["Ho", "PP", "1C", "DA"], True, ["Ho", "DA"]),   # (the buttons below it that start on)
+           ("Equatorial-2D", "Coordinates"): (["Ho", "PP", "1C", "DA"], True, []),
            ("Equatorial-2D", "Rotate in 1s"): (SPEED_CHOICES, False, None),
-           ("Systems", "System"): (list(ZODIAC_SYSTEMS), True, ["Tr"]),   # (Tr and Si: each on or off)
-           ("Systems", "Ec"): (["Ec"], True, []),                 # (Ec: off to start, with no Page Defaults row)
-           ("Systems", "Time"): (["Now", "DOB"], False, "Now"),      # (Systems: a copy of Equatorial-2D, its own rows)
-           ("Systems", "Planets"): (globe + ["As"], True, globe + ["As"]),   # (and As, the Ascendant, after them: its Defaults row is the Planets')
-           ("Systems", "Eq"): (["Eq"], True, []),                 # (Eq: off to start, with no Page Defaults row)
-           ("Equatorial-3D", "Time"): (["Now", "DOB"], False, "Now"),
-           ("Equatorial-3D", "Planets"): (globe, True, globe),
+           ("Systems", "System"): (list(ZODIAC_SYSTEMS), True, []),   # (Tr, Si, Op, Na, KP: each on or off)
+           ("Systems", "Ec"): (["Ec"], True, []),
+           ("Systems", "Time"): (["Now", "DOB"], False, None),      # (Systems: a copy of Equatorial-2D, its own rows)
+           ("Systems", "Planets"): (globe + ["As"], True, []),   # (and As, the Ascendant, after them: its Defaults row is the Planets')
+           ("Systems", "Eq"): (["Eq"], True, []),
+           ("Equatorial-3D", "Time"): (["Now", "DOB"], False, None),
+           ("Equatorial-3D", "Planets"): (globe, True, []),
            ("Equatorial-3D", "Major Aspects"): (GLOBE_MAJOR, True, []),
            ("Equatorial-3D", "Minor Aspects"): (GLOBE_MINOR, True, []),
-           ("Equatorial-3D", "Coordinates"): (["Ho", "CM", "AU", "Sp", "SpC", "PP", "3D", "RA", "De", "La", "Lg"], True, ["CM"]),
+           ("Equatorial-3D", "Coordinates"): (["Ho", "CM", "AU", "Sp", "SpC", "PP", "3D", "RA", "De", "La", "Lg"], True, []),
            ("Equatorial-3D", "Rotate in 1s"): (SPEED_CHOICES, False, None),
-           ("Geo/Helio", "Centric Model"): (["Geo", "Helio"], False, "Geo")}
+           ("Geo/Helio", "Centric Model"): (["Geo", "Helio"], False, None)}   # (none picked: Geo drawn)
     # Geo/Helio: one row per input for both models; its planets are both models' (each takes those it has: Su for
     # Geo, Ea for Helio)
     bodies = list(globechart.BODY_CHOICES) + [b for b in space3d.HELIO_BODIES if b not in globechart.BODY_CHOICES]
-    out |= {("Geo/Helio", "Time"): (["Now", "DOB"], False, "Now"),
-            ("Geo/Helio", "Planets"): (bodies, True, bodies),
-            ("Geo/Helio", "Coordinates"): (["CM", "AU", "PP"], True, ["CM", "AU"]),
+    out |= {("Geo/Helio", "Time"): (["Now", "DOB"], False, None),
+            ("Geo/Helio", "Planets"): (bodies, True, []),
+            ("Geo/Helio", "Coordinates"): (["CM", "AU", "PP"], True, []),
             ("Geo/Helio", "Rotate in 1s"): (SPEED_CHOICES, False, None)}
     for page, end, planets in (("Cycles", (360, 0), core.BUTTON_ORDER),
                                ("Distance(%)", (24, 0), core.BUTTON_ORDER)):
         out |= {(page, "Start Date (UT)"): (START, False, "DOB"), (page, "End Date (UT)"): (END, False, end),
-                (page, "Planets"): (list(planets), True, ["Sa", "Ju"])}
+                (page, "Planets"): (list(planets), True, [])}
     out[("DOB Details", "Days")] = ([str(d) for d in access.DAY_PACKS], False, "7")   # Get more days of access
     out[("DOB Details", "Pay / Coupon")] = (TEXT, False, None)
-    out[("Cycles", "Major Aspects")] = ([str(a) for a in rangechart.EA_NAME], True, ["0", "180"])
+    out[("Cycles", "Major Aspects")] = ([str(a) for a in rangechart.EA_NAME], True, [])
     out[("Cycles", "Minor Aspects")] = (GLOBE_MINOR, True, [])
-    out |= {("Predictions", "Start Date (UT)"): (START, False, "Now"), ("Predictions", "End Date (UT)"): (END, False, (12, 0))}
+    out |= {("Predictions", "Start Date (UT)"): (START, False, "Now"), ("Predictions", "End Date (UT)"): (END, False, (12, 0)),
+            ("Predictions", "Time"): (["Now", "DOB"], False, None)}   # (off: the birth and the now tables both)
     return out
 
 
@@ -1974,7 +1976,8 @@ def page_predictions():
     # member picking DOB is taken to DOB Details, as on the chart pages)
     if no_birth and not user.is_admin and "me" in PAGE_BY_PATH:
         dob_asked(st.session_state.get("pred_when") == "DOB", ("pred_when", "Now"), ("_kept_pred_when", "Now"))
-    when = titled(head, "Time", "pred_t_time", list(TIMES), "pred_when", "Now" if no_birth else "DOB", beside=True)   # (Now, DOB on Time's line)
+    when = titled(head, "Time", "pred_t_time", offered("Predictions", "Time", list(TIMES)), "pred_when", default_choice("Predictions", "Time"),
+                  beside=True)                               # (Now, DOB on Time's line; as the Defaults table says, else off)
     time_on_top_line(when)
     show_birth, show_now = when in (None, "DOB") and not no_birth, when in (None, "Now") or no_birth
     if no_birth:                                              # only the tables of now: no birth chart is needed for them
