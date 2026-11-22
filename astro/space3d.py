@@ -454,15 +454,18 @@ __SYMBOL_JS__
   const houses = D.flat ? D.houses.flatMap((h, n) => [...Array(12).keys()].map((k) => {
     const e = make("path", svg, {fill: "none", stroke: D.house_colour, "stroke-width": 1, style: "pointer-events:stroke"});
     if (h.place === "CB") e.setAttribute("stroke-dasharray", "2 3");
-    return {h, n, k, e, tip: make("title", e), name: "H" + String((9 + k) % 12 + 1).padStart(2, "0")};
+    const head = D.ra_inside ? make("path", svg, {fill: D.house_colour, stroke: "none"}) : null;   // (Systems: out past the rings, as As)
+    return {h, n, k, e, head, tip: make("title", e), name: "H" + String((9 + k) % 12 + 1).padStart(2, "0")};
   })) : [];
-  // Systems, Ho with Ec: twelve equal houses from each Ascendant, H01 to H12, 30 degrees of ecliptic longitude each (H01's
+  // Systems, Ho with any of Ec, Tr, Si, Op, Na, KP: twelve equal houses from each Ascendant, H01 to H12, 30 degrees of ecliptic longitude each (H01's
   // cusp is the As line itself, so eleven lines more), from the Earth to the circle; under the marks, as the Eq house lines
   const AS_RED = "rgb(200,30,30)", HOUSE_INK = "rgb(30,60,160)";   // (Tr, Si, Op's whole-sign houses and KP's Placidus cusps: blue)
-  const ascHouses = ((D.ecliptic || []).length ? D.asc || [] : []).flatMap((h, n) => [...Array(12).keys()].map((k) => {
+  const ecliptical = (D.ecliptic || []).length || (D.zodiac || []).length || (D.vedic || []).length || D.kp;   // (Ec, Tr, Si, Op, Na or KP on)
+  const ascHouses = (ecliptical ? D.asc || [] : []).flatMap((h, n) => [...Array(12).keys()].map((k) => {
     const e = k ? make("path", svg, {fill: "none", stroke: AS_RED, "stroke-width": 1, style: "pointer-events:stroke"}) : null;
     if (e && h.clock === "DOB") e.setAttribute("stroke-dasharray", "5 3");
-    return {h, n, k, e, tip: e ? make("title", e) : null, name: "H" + String(k + 1).padStart(2, "0")};
+    const head = e ? make("path", svg, {fill: AS_RED, stroke: "none"}) : null;   // (out past the rings, as As)
+    return {h, n, k, e, head, tip: e ? make("title", e) : null, name: "H" + String(k + 1).padStart(2, "0")};
   }));
   // flat: a line from the Earth through each body, out to the circle, to read its RA on the scale (under the marks)
   const rays = (D.flat ? D.marks : []).map((m) => {
@@ -607,6 +610,12 @@ __SYMBOL_JS__
     if (c.some((v, k) => v === null && (k < 3 || k > 8))) return null;
     for (let k = 3; k < 9; k++) c[k] = (c[(k + 6) % 12] + 180) % 360;
     return c;
+  };
+  const outLine = (g, ra) => {                     // Systems: a line from Ea out past the rings, its arrow head outside (as As's)
+    const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2, a = ra * RAD, out = sysRings.length ? sysRings[sysRings.length - 1].r1 : R;
+    const side = (r, w) => [cx + MX * (r * Math.cos(a) - w * Math.sin(a)), cy - r * Math.sin(a) - w * Math.cos(a)].map((v) => v.toFixed(1)).join(" ");
+    g.e.setAttribute("d", "M" + cx + " " + cy + "L" + side(out + 1, 0));
+    g.head.setAttribute("d", "M" + side(out + 11, 0) + "L" + side(out + 1, 4) + "L" + side(out + 1, -4) + "Z");
   };
   const lonRA = (lon) => ((Math.atan2(Math.sin(lon * RAD) * Math.cos(D.tilt * RAD), Math.cos(lon * RAD)) / RAD) % 360 + 360) % 360;
   const raDecLon = (ra, dec) => {                  // the ecliptic longitude (Tropical) of a place given by its RA and Dec
@@ -810,6 +819,7 @@ __SYMBOL_JS__
     }
     if (D.ra_inside) {                             // Systems: the planets' lines over the rings (drawn since), the planets and the Earth over them
       rays.forEach((g) => svg.appendChild(g.e));
+      houses.concat(ascHouses).forEach((g) => { if (g.e) { svg.appendChild(g.e); svg.appendChild(g.head); } });   // (Ho: the house lines too)
       ascs.forEach((g) => { svg.appendChild(g.e); svg.appendChild(g.head); svg.appendChild(g.name); });   // (once: moved in every frame, no tooltip would show)
       marks.forEach((g) => { svg.appendChild(g.e); svg.appendChild(g.label); });
       svg.appendChild(earth); svg.appendChild(earthLabel);
@@ -1173,7 +1183,7 @@ __SYMBOL_JS__
       const tip = g.name + " " + symbolOf(g.h.place) + " (" + g.h.clock + "): equal house of 30 degrees from the Ascendant, ecliptic longitude " +
                   lon0.toFixed(2) + " to " + ((lon0 + 30) % 360).toFixed(2) + systemsInfo(lon0);
       if (g.e) {
-        g.e.setAttribute("d", "M" + cx + " " + cy + "L" + (cx + MX * R * Math.cos(a)).toFixed(1) + " " + (cy - R * Math.sin(a)).toFixed(1));
+        outLine(g, ra);
         g.tip.textContent = tip;
       }
       g.labelTip.textContent = tip;
@@ -1196,7 +1206,8 @@ __SYMBOL_JS__
     });
     houses.forEach((g) => {                        // each from the Earth to the circle, named in the middle of its span where there is room
       const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2, ra = (g.h.ra + D.spin * t + 30 * g.k) % 360, a = ra * RAD;
-      g.e.setAttribute("d", "M" + cx + " " + cy + "L" + (cx + MX * R * Math.cos(a)).toFixed(1) + " " + (cy - R * Math.sin(a)).toFixed(1));
+      if (g.head) outLine(g, ra);                  // (Systems: out past the rings, as As)
+      else g.e.setAttribute("d", "M" + cx + " " + cy + "L" + (cx + MX * R * Math.cos(a)).toFixed(1) + " " + (cy - R * Math.sin(a)).toFixed(1));
       g.tip.textContent = g.name + " " + symbolOf(g.h.place) + " RA: " + ra.toFixed(2);
       // its name in the middle of its span, near the circle; where that is taken (a planet, an aspect's tag), the first free
       // spot elsewhere in the span (nearer the Earth, or toward either end of it), so that all twelve are shown, as on
