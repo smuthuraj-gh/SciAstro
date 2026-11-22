@@ -143,7 +143,7 @@ def kp_stars(ayanamsa: float) -> dict:
     return dict(ayanamsa=round(ayanamsa, 3), stars=out)
 
 
-def systems_radius(ecliptic: bool, signs: int, vedic: bool, kp: bool = False) -> float:
+def systems_radius(ecliptic: bool, signs: int, vedic: bool, kp: bool = False, kp_houses: bool = False) -> float:
     """Systems: the circle's radius, as big as leaves room (to SYSTEMS_OUTER) for the rings shown round it, as the page
     draws them: Ec next to it, then the rings of signs, then Na's (each 2 pixels from the last; the first, without Ec, 4)."""
     edge = EC_RING if ecliptic else 0
@@ -152,7 +152,7 @@ def systems_radius(ecliptic: bool, signs: int, vedic: bool, kp: bool = False) ->
     if vedic:
         edge += (2 if edge else 4) + VEDIC_RING
     if kp:
-        edge += (2 if edge else 4) + KP_RING
+        edge += (2 if edge else 4) + KP_RING + (16 if kp_houses else 0)   # (Ho: the Placidus houses' names outside it)
     return min(FLAT_RADIUS, SYSTEMS_OUTER - edge)
 FLAT_DEC = (30.0, -30.0)          # the Declination graph left of the circle, as tall as it: its top and bottom, in degrees
 
@@ -456,10 +456,10 @@ __SYMBOL_JS__
     if (h.place === "CB") e.setAttribute("stroke-dasharray", "2 3");
     return {h, n, k, e, tip: make("title", e), name: "H" + String((9 + k) % 12 + 1).padStart(2, "0")};
   })) : [];
-  // Systems, As: twelve equal houses from each Ascendant, H01 to H12, 30 degrees of ecliptic longitude each (H01's cusp is
-  // the As line itself, so eleven lines more), from the Earth to the circle; under the marks, as the Eq house lines
-  const AS_RED = "rgb(200,30,30)";
-  const ascHouses = (D.asc || []).flatMap((h, n) => [...Array(12).keys()].map((k) => {
+  // Systems, Ho with Ec: twelve equal houses from each Ascendant, H01 to H12, 30 degrees of ecliptic longitude each (H01's
+  // cusp is the As line itself, so eleven lines more), from the Earth to the circle; under the marks, as the Eq house lines
+  const AS_RED = "rgb(200,30,30)", HOUSE_INK = "rgb(30,60,160)";   // (Tr, Si, Op's whole-sign houses and KP's Placidus cusps: blue)
+  const ascHouses = ((D.ecliptic || []).length ? D.asc || [] : []).flatMap((h, n) => [...Array(12).keys()].map((k) => {
     const e = k ? make("path", svg, {fill: "none", stroke: AS_RED, "stroke-width": 1, style: "pointer-events:stroke"}) : null;
     if (e && h.clock === "DOB") e.setAttribute("stroke-dasharray", "5 3");
     return {h, n, k, e, tip: e ? make("title", e) : null, name: "H" + String(k + 1).padStart(2, "0")};
@@ -572,6 +572,8 @@ __SYMBOL_JS__
   };
   const scaleBoxes = [];                           // flat: the RA scale round the circle, 1 to 360 (drawn once: it does not turn)
   const sysRings = [];                             // Systems: the rings round the circle, inner first ({kind, r0, r1, ring}), for As
+  const signHouses = [];                           // Systems, Ho: each sign's whole-sign house name ({ring, i, label, tip, base, last})
+  let kpHouses = null;                             // Systems, Ho with KP: the Placidus cusps on the KP ring ({r0, r1, cusps})
   const ascs = (D.asc || []).map((h) => {          // Systems, As: each place's Ascendant, a line across the circle's edge and the rings
     const e = make("path", svg, {fill: "none", stroke: "rgb(200,30,30)", "stroke-width": 2, style: "pointer-events:stroke"});
     if (h.clock === "DOB") e.setAttribute("stroke-dasharray", "5 3");
@@ -583,6 +585,28 @@ __SYMBOL_JS__
   const ascLon = (h, t) => {                       // the ecliptic longitude rising in the east there then: from the sidereal time
     const th = ((h.ra + D.spin * t) % 360) * RAD, e = D.tilt * RAD, phi = h.lat * RAD;   // (RAMC), the latitude and the tilt
     return ((Math.atan2(Math.cos(th), -(Math.sin(th) * Math.cos(e) + Math.tan(phi) * Math.sin(e))) / RAD) % 360 + 360) % 360;
+  };
+  // KP's houses, Placidus: the cusps H01 to H12 in ecliptic longitude: H10 the MC, H01 the Ascendant; H11 and H12 a third
+  // and two thirds of the diurnal semi-arc east of the meridian, H02 and H03 two thirds and a third of the nocturnal one before
+  // the IC (each found by turns, its semi-arc hanging on its own declination); H04 to H09 opposite those (null past the
+  // polar circles, where some points never rise)
+  const placidus = (h, t) => {
+    const ramc = ((h.ra + D.spin * t) % 360 + 360) % 360, e = D.tilt * RAD, tp = Math.tan(h.lat * RAD);
+    const lonOf = (ra) => ((Math.atan2(Math.sin(ra * RAD), Math.cos(ra * RAD) * Math.cos(e)) / RAD) % 360 + 360) % 360;
+    const cusp = (f, upper) => {
+      let ra = upper ? ramc + 90 * f : ramc + 180 - 90 * f;
+      for (let i = 0; i < 30; i++) {
+        const x = tp * Math.tan(Math.asin(Math.sin(e) * Math.sin(lonOf(ra) * RAD)));
+        if (Math.abs(x) >= 1) return null;
+        const ad = Math.asin(x) / RAD;
+        ra = upper ? ramc + f * (90 + ad) : ramc + 180 - f * (90 - ad);
+      }
+      return lonOf(ra);
+    };
+    const c = [ascLon(h, t), cusp(2 / 3, false), cusp(1 / 3, false), null, null, null, null, null, null, lonOf(ramc), cusp(1 / 3, true), cusp(2 / 3, true)];
+    if (c.some((v, k) => v === null && (k < 3 || k > 8))) return null;
+    for (let k = 3; k < 9; k++) c[k] = (c[(k + 6) % 12] + 180) % 360;
+    return c;
   };
   const lonRA = (lon) => ((Math.atan2(Math.sin(lon * RAD) * Math.cos(D.tilt * RAD), Math.cos(lon * RAD)) / RAD) % 360 + 360) % 360;
   const raDecLon = (ra, dec) => {                  // the ecliptic longitude (Tropical) of a place given by its RA and Dec
@@ -673,7 +697,8 @@ __SYMBOL_JS__
       const d = "M" + f(at(ZOUT, z.ra0)) + "A" + ZOUT + " " + ZOUT + " 0 0 " + SWEEP + " " + f(at(ZOUT, a1)) +
                 "L" + f(at(ZIN, a1)) + "A" + ZIN + " " + ZIN + " 0 0 " + (1 - SWEEP) + " " + f(at(ZIN, z.ra0)) + "Z";
       const sector = make("path", svg, {d, fill: i % 2 ? "rgb(244,244,244)" : "white", stroke: "rgb(120,120,120)", "stroke-width": 1, style: "pointer-events:auto"});
-      make("title", sector).textContent = z.name + (z.lord ? ", lord " + symbolOf(z.lord) : "") + " (" + z.kind + "; " + z.lon0 + " to " + z.lon1 + " degrees of Tropical ecliptic longitude): RA " + z.ra0.toFixed(2) + " to " + z.ra1.toFixed(2);
+      const sectorTip = make("title", sector);
+      sectorTip.textContent = z.name + (z.lord ? ", lord " + symbolOf(z.lord) : "") + " (" + z.kind + "; " + z.lon0 + " to " + z.lon1 + " degrees of Tropical ecliptic longitude): RA " + z.ra0.toFixed(2) + " to " + z.ra1.toFixed(2);
       // its symbol and its lord's (dark ink), side by side along the ring, inside it, two letters apart; the sign first as
       // seen: left of its lord, or above it where the ring runs up and down (the sides). Ophiuchus has no lord
       const zm = (ZIN + ZOUT) / 2, SW = 13, CH = 5.2, LR = 6, total = z.lord ? SW + 2 * CH + 2 * LR : SW;
@@ -688,6 +713,21 @@ __SYMBOL_JS__
         const [lx, ly] = at(zm, zalong(total / 2 - LR));
         fitSymbol(symbolTag(svg, z.lord, "rgb(40,40,40)", true), lx, ly, LR);
         scaleBoxes.push([lx - LR, ly - LR, lx + LR, ly + LR]);
+      }
+      if ((D.asc || []).length) {                  // Ho: its whole-sign house, H01 the sign As is in, after its lord along the ring
+        const HW = 9, need = total / 2 + 2 * CH + 2 * HW, half = ((z.ra1 - z.ra0 + 360) % 360) / 2 * RAD * zm - 2;
+        let label = null;                          // (none where the sign is too narrow for it: point at the sign)
+        if (need <= half) {
+          const pos = zalong(total / 2 + 2 * CH + HW), [hx, hy] = at(zm, pos);
+          let turn = ((MX * (90 - pos)) % 360 + 360) % 360;   // along the ring, never upside down
+          if (turn > 90 && turn <= 270) turn -= 180; else if (turn > 270) turn -= 360;
+          label = words(HOUSE_INK, 9);
+          label.setAttribute("x", hx.toFixed(1)); label.setAttribute("y", (hy + 3).toFixed(1)); label.setAttribute("stroke-width", 2);
+          label.setAttribute("transform", "rotate(" + turn.toFixed(1) + " " + hx.toFixed(1) + " " + hy.toFixed(1) + ")");
+          label.style.pointerEvents = "none";
+          scaleBoxes.push([hx - HW, hy - HW, hx + HW, hy + HW]);
+        }
+        signHouses.push({ring, i, label, tip: sectorTip, base: sectorTip.textContent, last: ""});
       }
       if (i === 0) {                               // Tr, Si or Op: its tag at the start of Aries, just inside the sign
         const name = z.tag;
@@ -760,6 +800,13 @@ __SYMBOL_JS__
       });
       [KIN, KSYM, KOUT].forEach((r) => make("circle", svg, {cx, cy, r, fill: "none", stroke: "rgb(120,120,120)", "stroke-width": 0.5}));
       sysRings.push({kind: "kp", r0: KIN, r1: KOUT, kp: D.kp});
+      if ((D.asc || []).length)                    // Ho: the twelve Placidus cusps (KP's houses), each a line across the ring, its name outside it
+        kpHouses = {r0: KIN, r1: KOUT, cusps: [...Array(12).keys()].map((k) => {
+          const e = make("path", svg, {fill: "none", stroke: HOUSE_INK, "stroke-width": 2.5, style: "pointer-events:stroke"});
+          const label = words(HOUSE_INK, 9);
+          label.setAttribute("stroke-width", 2); label.style.pointerEvents = "none"; label.textContent = "H" + String(k + 1).padStart(2, "0");
+          return {k, e, tip: make("title", e), label};
+        })};
     }
     if (D.ra_inside) {                             // Systems: the planets' lines over the rings (drawn since), the planets and the Earth over them
       rays.forEach((g) => svg.appendChild(g.e));
@@ -1093,6 +1140,34 @@ __SYMBOL_JS__
       const [nx, ny] = pt(R - 52);
       g.name.setAttribute("x", nx.toFixed(1)); g.name.setAttribute("y", (ny + D.flat_font / 3).toFixed(1));
     });
+    if (signHouses.length) {                       // Ho: whole-sign houses, Tr, Si and Op each its own: H01 the sign As is in
+      const lon = ascLon(D.asc[0], t), within = (x) => (x.lon1 > x.lon0 ? lon >= x.lon0 && lon < x.lon1 : lon >= x.lon0 || lon < x.lon1);
+      signHouses.forEach((g) => {
+        const n = g.ring.length, first = Math.max(0, g.ring.findIndex(within)), name = "H" + String((g.i - first + n) % n + 1).padStart(2, "0");
+        if (name === g.last) return;               // (set only when it changes: so its tooltip stays)
+        g.last = name;
+        if (g.label) g.label.textContent = name;
+        g.tip.textContent = g.base + "\nWhole-sign house " + name + " (H01: the sign the Ascendant is in)";
+      });
+    }
+    if (kpHouses) {                                // Ho with KP: the Placidus cusps (KP's houses), from the first place's sidereal time
+      const cusps = placidus(D.asc[0], t), R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2;
+      kpHouses.cusps.forEach((g) => {
+        const lon = cusps && cusps[g.k];
+        g.e.style.display = g.label.style.display = lon === null || lon === undefined ? "none" : "";   // (none past the polar circles)
+        if (g.e.style.display) return;
+        const a = lonRA(lon) * RAD, p = (r, b) => [cx + MX * r * Math.cos(b), cy - r * Math.sin(b)].map((v) => v.toFixed(1)).join(" ");
+        g.e.setAttribute("d", "M" + p(kpHouses.r0, a) + "L" + p(kpHouses.r1 + 4, a));
+        const next = cusps[(g.k + 1) % 12], mid = lonRA((lon + ((next - lon + 360) % 360) / 2) % 360), r = kpHouses.r1 + 11;
+        const [x, y] = [cx + MX * r * Math.cos(mid * RAD), cy - r * Math.sin(mid * RAD)];   // its name outside the ring, mid-house
+        let turn = ((MX * (90 - mid)) % 360 + 360) % 360;
+        if (turn > 90 && turn <= 270) turn -= 180; else if (turn > 270) turn -= 360;
+        g.label.setAttribute("x", x.toFixed(1)); g.label.setAttribute("y", (y + 3).toFixed(1));
+        g.label.setAttribute("transform", "rotate(" + turn.toFixed(1) + " " + x.toFixed(1) + " " + y.toFixed(1) + ")");
+        g.tip.textContent = "H" + String(g.k + 1).padStart(2, "0") + " " + symbolOf(D.asc[0].place) + " (" + D.asc[0].clock +
+                            "): Placidus cusp (KP's houses), ecliptic longitude " + lon.toFixed(2) + systemsInfo(lon);
+      });
+    }
     ascHouses.forEach((g) => {                     // As's equal houses: each cusp 30 degrees of ecliptic longitude on from the last
       const R = D.outer * D.fit, cx = D.width / 2, cy = D.height / 2, lon0 = (ascLon(g.h, t) + 30 * g.k) % 360, ra = lonRA(lon0), a = ra * RAD;
       const tip = g.name + " " + symbolOf(g.h.place) + " (" + g.h.clock + "): equal house of 30 degrees from the Ascendant, ecliptic longitude " +
@@ -1236,6 +1311,6 @@ def space_html(bodies: list[str], moments: list[tuple[str, float, float | None]]
           "kp": kp_stars(kp) if kp is not None else None, "kp_ring": KP_RING, "kp_sub": KP_SUB,
           "ecliptic": [round(ecliptic_ra(lon), 3) for lon in range(360)] if ecliptic else []}
     if ra_inside:                                     # Systems: the circle as big as leaves room for its rings round it
-        d["fit"] = systems_radius(ecliptic, len(zodiac) + (thirteen is not None), vedic is not None, kp is not None) / d["outer"]
+        d["fit"] = systems_radius(ecliptic, len(zodiac) + (thirteen is not None), vedic is not None, kp is not None, bool(asc)) / d["outer"]
     data = json.dumps(d).replace("<", chr(92) + "u003c")
     return f'<div id="{uid}"></div><script>{_JS.replace("__SYMBOL_JS__", SYMBOL_JS).replace("__DATA__", data).replace("__ID__", uid)}</script>'
