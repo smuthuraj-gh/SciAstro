@@ -489,13 +489,14 @@ __SYMBOL_JS__
   });
   // Systems: the Ecliptic latitude graph, right of the circle (in the Distance(%) graph's place), as the Declination graph
   // left of it: its line near the right edge, its numbers left of the line, each body to the right of it, joined to its place
-  const LAT_X = D.width - 95, LAT_LEAD = 36, LAT_MAX = 10;   // (from -10 to +10 degrees: Venus, the farthest, about 8.8)
+  const LAT_X = D.width - 95, LAT_LEAD = 36, LAT_MAX = 7;   // (from -7 to +7 degrees: beyond, Venus at times, to about 8.8, stands at the end)
   const latY = (b) => D.height / 2 + D.outer * D.fit * (2 * (LAT_MAX - b) / (2 * LAT_MAX) - 1);
   const eclipticLat = (s) => {                     // from its RA and Dec, on the ecliptic tilted D.tilt to the equator
     const a = s.ra * RAD, d = s.dec * RAD, e = D.tilt * RAD;
     return Math.asin(Math.sin(d) * Math.cos(e) - Math.cos(d) * Math.sin(e) * Math.sin(a)) / RAD;
   };
-  const latMarks = (D.flat && D.lat_bar ? D.marks : []).map((m) => {
+  const latMarks = (D.flat && D.lat_bar ? D.marks.filter((m) => m.name !== "NN" && m.name !== "SN") : [])   // (not NN or SN: on the ecliptic, always 0)
+   .map((m) => {
     const lead = make("path", svg, {fill: "none", stroke: m.colour, "stroke-width": 1});
     if (m.hollow) lead.setAttribute("stroke-dasharray", "3 2");
     const e = make("circle", svg, {fill: m.hollow ? "white" : m.colour, stroke: m.colour, "stroke-width": 1.5, style: "pointer-events:auto"});
@@ -577,7 +578,7 @@ __SYMBOL_JS__
   const sysRings = [];                             // Systems: the rings round the circle, inner first ({kind, r0, r1, ring}), for As
   const signHouses = [];                           // Systems, Ho: each sign's whole-sign house name ({ring, i, label, tip, base, last})
   let kpHouses = null;                             // Systems, Ho with KP: the Placidus cusps on the KP ring ({r0, r1, cusps})
-  const ascs = (D.asc || []).map((h) => {          // Systems, As: each place's Ascendant, a line across the circle's edge and the rings
+  const ascs = (ecliptical ? D.asc || [] : []).map((h) => {   // Systems, As: each place's Ascendant, a line across the rings (Ho with Ec, Tr, Si, Op, Na or KP on: none for Eq alone)
     const e = make("path", svg, {fill: "none", stroke: "rgb(200,30,30)", "stroke-width": 2, style: "pointer-events:stroke"});
     if (h.clock === "DOB") e.setAttribute("stroke-dasharray", "5 3");
     // (its tooltip on the line, its arrow head and its name alike, the line being thin to point at)
@@ -843,7 +844,7 @@ __SYMBOL_JS__
       for (let v = -LAT_MAX; v !== LAT_MAX + 1; v++) {
         const long = v === 0 ? 10 : v % 5 === 0 ? 8 : 4, y = latY(v).toFixed(1);
         latTicks += "M" + LAT_X + " " + y + "L" + (LAT_X - long) + " " + y;
-        if (v % 2 === 0) {
+        if (true) {                                // (each degree numbered)
           const n = words("rgb(90,90,90)", D.flat_font);
           n.setAttribute("text-anchor", "end"); n.setAttribute("x", LAT_X - 12); n.setAttribute("y", (latY(v) + D.flat_font / 3).toFixed(1)); n.textContent = (v > 0 ? "+" : "") + v;
         }
